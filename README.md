@@ -1,2 +1,2 @@
 # service-provider-integration-operator
-A Kubernetes controller/operator that is manages service provider integration tasks
+A Kubernetes controller/operator that manages service provider integration tasks
