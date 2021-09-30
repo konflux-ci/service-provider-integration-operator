@@ -121,7 +121,7 @@ check_fmt:
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi \
 
-### vet: Runs go vet against code
+vet: ## Run go vet against code.
 	go vet ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
