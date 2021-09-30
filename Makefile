@@ -1,3 +1,12 @@
+SHELL := bash
+.SHELLFLAGS = -ec
+.ONESHELL:
+.DEFAULT_GOAL := help
+
+ifndef VERBOSE
+  MAKEFLAGS += --silent
+endif
+
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -49,11 +58,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# This is a requirement for 'setup-envtest.sh' in the test target.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
+
 
 all: build
 
@@ -108,15 +113,15 @@ check_fmt:
   ifeq ($(shell command -v addlicense 2> /dev/null),)
 	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
   endif
-	@{
+
 	  if [[ $$(find . -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
 	  fi ;\
 	  if ! addlicense -check -f license_header.txt $$(find . -name '*.go'); then \
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi \
-	}
-vet: ## Run go vet against code.
+
+### vet: Runs go vet against code
 	go vet ./...
 
 test: manifests generate fmt vet envtest ## Run tests.
