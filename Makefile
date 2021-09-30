@@ -81,9 +81,41 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-fmt: ## Run go fmt against code.
-	go fmt ./...
+### fmt: Runs go fmt against code
+fmt:
+  ifneq ($(shell command -v goimports 2> /dev/null),)
+	  find . -name '*.go' -exec goimports -w {} \;
+  else
+	  @echo "WARN: goimports is not installed -- formatting using go fmt instead."
+	  @echo "      Please install goimports to ensure file imports are consistent."
+	  go fmt -x ./...
+  endif
 
+### fmt_license: Ensures the license header is set on all files
+fmt_license:
+  ifneq ($(shell command -v addlicense 2> /dev/null),)
+	  @echo 'addlicense -v -f license_header.txt **/*.go'
+	  addlicense -v -f license_header.txt $$(find . -name '*.go')
+  else
+	  $(error addlicense must be installed for this rule: go get -u github.com/google/addlicense)
+  endif
+
+### check_fmt: Checks the formatting on files in repo
+check_fmt:
+  ifeq ($(shell command -v goimports 2> /dev/null),)
+	  $(error "goimports must be installed for this rule" && exit 1)
+  endif
+  ifeq ($(shell command -v addlicense 2> /dev/null),)
+	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
+  endif
+	@{
+	  if [[ $$(find . -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
+	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
+	  fi ;\
+	  if ! addlicense -check -f license_header.txt $$(find . -name '*.go'); then \
+	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
+	  fi \
+	}
 vet: ## Run go vet against code.
 	go vet ./...
 
