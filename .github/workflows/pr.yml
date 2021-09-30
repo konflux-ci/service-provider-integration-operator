@@ -77,8 +77,8 @@ jobs:
           fi
       - name: Check format
         run: |
-          go install github.com/google/addlicense
-          go install golang.org/x/tools/cmd/goimports
+          go get -u github.com/google/addlicense
+          go get -u golang.org/x/tools/cmd/goimports
           git reset HEAD --hard
           make check_fmt
           if [[ $? != 0 ]]
@@ -96,16 +96,6 @@ jobs:
           if [[ ! -z $(git status -s) ]]
           then
             echo "generated sources are not up to date:"
-            git --no-pager diff
-            exit 1
-          fi
-      - name: Check deployment files
-        run: |
-          make generate_default_deployment generate_olm_bundle_yaml
-          if [[ ! -z $(git status -s) ]]; then
-            echo "Generated deployment files are out of date; run 'make generate_default_deployment generate_olm_bundle_yaml'."
-            git status
-            echo "Diff: "
             git --no-pager diff
             exit 1
           fi
