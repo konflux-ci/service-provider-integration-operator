@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: AccessTokenSecret
+metadata:
+  name: ats
+spec:
+  serviceAccount:
+    name: default
+  accessTokenId: kachny
+  target:
+    configMap:
+        name: kachnyAccess
+        labels:
+          yiee: haa
