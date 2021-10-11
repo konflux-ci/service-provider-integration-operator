@@ -4,7 +4,7 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: "1"
+projectName: service-provider-integration-operator
 repo: github.com/redhat-appstudio/service-provider-integration-operator
 resources:
 - api:

@@ -42,6 +42,7 @@ type AccessTokenSecretStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:shortName=ats
 //+kubebuilder:subresource:status
 
 // AccessTokenSecret is the Schema for the accesstokensecrets API

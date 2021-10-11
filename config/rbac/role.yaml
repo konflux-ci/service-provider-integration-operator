@@ -9,7 +9,7 @@ rules:
 - resources:
   - serviceaccounts
   verbs:
-  - get
+  - impersonate
 - apiGroups:
   - appstudio.redhat.com
   resources:
