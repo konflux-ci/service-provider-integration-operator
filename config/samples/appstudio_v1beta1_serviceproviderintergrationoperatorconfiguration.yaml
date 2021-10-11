@@ -1,0 +1,7 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: ServiceProviderIntergrationOperatorConfiguration
+metadata:
+  name: serviceproviderintergrationoperatorconfiguration-sample
+spec:
+  # Add fields here
+  foo: bar
