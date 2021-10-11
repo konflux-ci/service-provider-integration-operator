@@ -89,7 +89,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 ### fmt: Runs go fmt against code
 fmt:
   ifneq ($(shell command -v goimports 2> /dev/null),)
-	  find . -name '*.go' -exec goimports -w {} \;
+	  find . -not -path '*/\.*' -name '*.go' -exec goimports -w {} \;
   else
 	  @echo "WARN: goimports is not installed -- formatting using go fmt instead."
 	  @echo "      Please install goimports to ensure file imports are consistent."
@@ -100,7 +100,7 @@ fmt:
 fmt_license:
   ifneq ($(shell command -v addlicense 2> /dev/null),)
 	  @echo 'addlicense -v -f license_header.txt **/*.go'
-	  addlicense -v -f license_header.txt $$(find . -name '*.go')
+	  addlicense -v -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go')
   else
 	  $(error addlicense must be installed for this rule: go get -u github.com/google/addlicense)
   endif
@@ -114,10 +114,10 @@ check_fmt:
 	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
   endif
 
-	  if [[ $$(find . -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
+	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
 	  fi ;\
-	  if ! addlicense -check -f license_header.txt $$(find . -name '*.go'); then \
+	  if ! addlicense -check -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go'); then \
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi \
 
