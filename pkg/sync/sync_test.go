@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -34,7 +35,7 @@ var (
 
 func init() {
 	infrastructure.InitializeForTesting(infrastructure.Kubernetes)
-	corev1.AddToScheme(scheme)
+	utilruntime.Must(corev1.AddToScheme(scheme))
 }
 
 func TestSyncCreates(t *testing.T) {
@@ -65,12 +66,13 @@ func TestSyncCreates(t *testing.T) {
 
 	syncer := Syncer{client: cl, scheme: scheme}
 
-	syncer.Sync(context.TODO(), preexisting, new, cmp.Options{})
+	_, _, err := syncer.Sync(context.TODO(), preexisting, new, cmp.Options{})
+	assert.NoError(t, err)
 
 	synced := &corev1.Pod{}
 	key := client.ObjectKey{Name: "new", Namespace: "default"}
 
-	cl.Get(context.TODO(), key, synced)
+	assert.NoError(t, cl.Get(context.TODO(), key, synced))
 
 	assert.Equal(t, "new", synced.Name, "The synced object should have the expected name")
 	assert.Len(t, synced.OwnerReferences, 1, "There should have been an owner reference set")
@@ -124,12 +126,13 @@ func TestSyncUpdates(t *testing.T) {
 
 	syncer := Syncer{client: cl, scheme: scheme}
 
-	syncer.Sync(context.TODO(), newOwner, update, cmp.Options{})
+	_, _, err := syncer.Sync(context.TODO(), newOwner, update, cmp.Options{})
+	assert.NoError(t, err)
 
 	synced := &corev1.Pod{}
 	key := client.ObjectKey{Name: "preexisting", Namespace: "default"}
 
-	cl.Get(context.TODO(), key, synced)
+	assert.NoError(t, cl.Get(context.TODO(), key, synced))
 
 	assert.Equal(t, "preexisting", synced.Name, "The synced object should have the expected name")
 	assert.Len(t, synced.OwnerReferences, 1, "There should have been an owner reference set")
@@ -192,12 +195,13 @@ func TestSyncKeepsAdditionalAnnosAndLabels(t *testing.T) {
 
 	syncer := Syncer{client: cl, scheme: scheme}
 
-	syncer.Sync(context.TODO(), owner, update, cmp.Options{})
+	_, _, err := syncer.Sync(context.TODO(), owner, update, cmp.Options{})
+	assert.NoError(t, err)
 
 	synced := &corev1.Pod{}
 	key := client.ObjectKey{Name: "preexisting", Namespace: "default"}
 
-	cl.Get(context.TODO(), key, synced)
+	assert.NoError(t, cl.Get(context.TODO(), key, synced))
 
 	assert.Equal(t, "preexisting", synced.Name, "The synced object should have the expected name")
 

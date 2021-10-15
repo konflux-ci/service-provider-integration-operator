@@ -110,7 +110,6 @@ func (r *AccessTokenSecretReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	err = nil
 	if ats.Spec.Target.ConfigMap != nil {
 		err = r.saveTokenAsConfigMap(ctx, &ats, &token, ats.Spec.Target.ConfigMap)
 	} else if ats.Spec.Target.Secret != nil {
