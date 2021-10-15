@@ -1,0 +1,15 @@
+# The kustomization for the `make prepare` target that deploys the RBAC rules and CRDs into the cluster
+
+namespace: default
+
+namePrefix: spi-
+
+commonLabels:
+  app.kubernetes.io/name: service-provider-integration-operator
+  app.kubernetes.io/part-of: service-provider-integration-operator
+  
+generatorOptions:
+  disableNameSuffixHash: true
+
+resources:
+- ../rbac

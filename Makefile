@@ -37,8 +37,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# appstudio.redhat.org/1-bundle:$VERSION and appstudio.redhat.org/1-catalog:$VERSION.
-IMAGE_TAG_BASE ?= appstudio.redhat.org/1
+# appstudio.redhat.org/service-provider-integration-operator-bundle:$VERSION and appstudio.redhat.org/service-provider-integration-operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= appstudio.redhat.org/service-provider-integration-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -89,7 +89,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 ### fmt: Runs go fmt against code
 fmt:
   ifneq ($(shell command -v goimports 2> /dev/null),)
-	  find . -name '*.go' -exec goimports -w {} \;
+	  find . -not -path '*/\.*' -name '*.go' -exec goimports -w {} \;
   else
 	  @echo "WARN: goimports is not installed -- formatting using go fmt instead."
 	  @echo "      Please install goimports to ensure file imports are consistent."
@@ -100,7 +100,7 @@ fmt:
 fmt_license:
   ifneq ($(shell command -v addlicense 2> /dev/null),)
 	  @echo 'addlicense -v -f license_header.txt **/*.go'
-	  addlicense -v -f license_header.txt $$(find . -name '*.go')
+	  addlicense -v -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go')
   else
 	  $(error addlicense must be installed for this rule: go get -u github.com/google/addlicense)
   endif
@@ -114,10 +114,10 @@ check_fmt:
 	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
   endif
 
-	  if [[ $$(find . -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
+	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
 	  fi ;\
-	  if ! addlicense -check -f license_header.txt $$(find . -name '*.go'); then \
+	  if ! addlicense -check -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go'); then \
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi \
 
@@ -145,6 +145,9 @@ docker-push: ## Push docker image with the manager.
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+prepare: install ## In addition to CRDs also install the RBAC rules
+	$(KUSTOMIZE) build config/prepare | kubectl apply -f -
 
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
