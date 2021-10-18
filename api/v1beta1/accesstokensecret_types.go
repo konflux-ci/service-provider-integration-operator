@@ -30,7 +30,7 @@ type AccessTokenSecretSpec struct {
 	// AccessTokenName is the ID of the access token in the storage
 	AccessTokenName string `json:"accessTokenName"`
 
-	// Target specifies the object to which the access token should be persisted to
+	// Target specifies the object to which the access token should be persisted
 	Target AccessTokenTarget `json:"target"`
 }
 
