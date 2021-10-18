@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/google/go-cmp/cmp"
@@ -78,7 +76,7 @@ type accessToken struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=impersonate
+//+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=create;delete;get;list;patch;update;watch
 
 func (r *AccessTokenSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx, "AccessTokenSecret", req.NamespacedName)
@@ -135,14 +133,15 @@ func (r *AccessTokenSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 			OwnerType: &api.AccessTokenSecret{},
 		}).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			// TODO look for some label for example
-			return []reconcile.Request{}
-		})).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			// TODO look for some label for example
-			return []reconcile.Request{}
-		})).
+		// TODO wait with these until we need to have them...
+		// Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+		// 	// Implement this
+		// 	return []reconcile.Request{}
+		// })).
+		// Watches(&source.Kind{Type: &corev1.Pod{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+		// 	// Implement this
+		// 	return []reconcile.Request{}
+		// })).
 		Complete(r)
 }
 

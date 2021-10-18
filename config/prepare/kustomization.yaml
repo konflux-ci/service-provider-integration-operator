@@ -1,6 +1,6 @@
 # The kustomization for the `make prepare` target that deploys the RBAC rules and CRDs into the cluster
 
-namespace: default
+namespace: spi-system
 
 namePrefix: spi-
 
@@ -13,3 +13,9 @@ generatorOptions:
 
 resources:
 - ../rbac
+
+images:
+- name: controller
+  newName: quay.io/redhat-app-studio/service-provider-integration-operator
+  newTag: latest
+  

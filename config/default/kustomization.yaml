@@ -1,16 +1,22 @@
 # Adds namespace to all resources.
-namespace: 1-system
+namespace: spi-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: 1-
+namePrefix: spi-
+
+images:
+- name: controller
+  newName: quay.io/redhat-app-studio/service-provider-integration-operator
+  newTag: latest
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  someName: someValue
+commonLabels:
+  app.kubernetes.io/name: service-provider-integration-operator
+  app.kubernetes.io/part-of: service-provider-integration-operator
 
 bases:
 - ../crd
@@ -44,7 +50,7 @@ patchesStrategicMerge:
 #- webhookcainjection_patch.yaml
 
 # the following config is for teaching kustomize how to do var substitution
-vars:
+vars: []
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
 #- name: CERTIFICATE_NAMESPACE # namespace of the certificate CR
 #  objref:

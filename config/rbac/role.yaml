@@ -6,10 +6,19 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-- resources:
-  - serviceaccounts
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
   verbs:
-  - impersonate
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
