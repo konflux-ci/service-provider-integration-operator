@@ -137,8 +137,8 @@ run_as_current_user: manifests generate fmt vet install ## Run a controller from
 	go run ./main.go
 
 run: manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
-	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager default))
-	KUBECONFIG=$(KUBECONFIG) go run ./main.go
+	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
+	KUBECONFIG=$(KUBECONFIG) go run ./main.go || true
 	rm $(KUBECONFIG)
 
 docker-build: test ## Build docker image with the manager.
