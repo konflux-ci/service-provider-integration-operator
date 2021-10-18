@@ -1,0 +1,21 @@
+# The kustomization for the `make prepare` target that deploys the RBAC rules and CRDs into the cluster
+
+namespace: spi-system
+
+namePrefix: spi-
+
+commonLabels:
+  app.kubernetes.io/name: service-provider-integration-operator
+  app.kubernetes.io/part-of: service-provider-integration-operator
+  
+generatorOptions:
+  disableNameSuffixHash: true
+
+resources:
+- ../rbac
+
+images:
+- name: controller
+  newName: quay.io/redhat-app-studio/service-provider-integration-operator
+  newTag: latest
+  

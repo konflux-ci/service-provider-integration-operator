@@ -1,0 +1,12 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: AccessTokenSecret
+metadata:
+  name: ats
+spec:
+  accessTokenName: t1
+  target:
+    configMap:
+        name: spi-data
+        accessTokenKey: GITHUB_TOKEN
+        labels:
+          yiee: haa

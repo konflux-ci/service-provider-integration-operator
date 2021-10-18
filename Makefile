@@ -33,19 +33,19 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-# IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
+# SPIO_IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# appstudio.redhat.org/1-bundle:$VERSION and appstudio.redhat.org/1-catalog:$VERSION.
-IMAGE_TAG_BASE ?= appstudio.redhat.org/1
+# appstudio.redhat.org/service-provider-integration-operator-bundle:$VERSION and appstudio.redhat.org/service-provider-integration-operator-catalog:$VERSION.
+SPIO_IMAGE_TAG_BASE ?= appstudio.redhat.org/service-provider-integration-operator
 
-# BUNDLE_IMG defines the image:tag used for the bundle.
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+# SPIO_BUNDLE_IMG defines the image:tag used for the bundle.
+# You can use it as an arg. (E.g make bundle-build SPIO_BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+SPIO_BUNDLE_IMG ?= $(SPIO_IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+SPIO_IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -58,7 +58,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
+# create the temporary directory under the same parent dir as the Makefile
+TEMP_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/.tmp
 
 all: build
 
@@ -89,7 +90,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 ### fmt: Runs go fmt against code
 fmt:
   ifneq ($(shell command -v goimports 2> /dev/null),)
-	  find . -name '*.go' -exec goimports -w {} \;
+	  find . -not -path '*/\.*' -name '*.go' -exec goimports -w {} \;
   else
 	  @echo "WARN: goimports is not installed -- formatting using go fmt instead."
 	  @echo "      Please install goimports to ensure file imports are consistent."
@@ -100,7 +101,7 @@ fmt:
 fmt_license:
   ifneq ($(shell command -v addlicense 2> /dev/null),)
 	  @echo 'addlicense -v -f license_header.txt **/*.go'
-	  addlicense -v -f license_header.txt $$(find . -name '*.go')
+	  addlicense -v -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go')
   else
 	  $(error addlicense must be installed for this rule: go get -u github.com/google/addlicense)
   endif
@@ -114,10 +115,10 @@ check_fmt:
 	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
   endif
 
-	  if [[ $$(find . -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
+	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
 	  fi ;\
-	  if ! addlicense -check -f license_header.txt $$(find . -name '*.go'); then \
+	  if ! addlicense -check -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go'); then \
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi \
 
@@ -132,25 +133,33 @@ test: manifests generate fmt vet envtest ## Run tests.
 build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
-run: manifests generate fmt vet ## Run a controller from your host.
+run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
 	go run ./main.go
 
+run: manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
+	KUBECONFIG=$(KUBECONFIG) go run ./main.go || true
+	rm $(KUBECONFIG)
+
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t ${SPIO_IMG} .
 
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push ${SPIO_IMG}
 
 ##@ Deployment
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
+prepare: install ## In addition to CRDs also install the RBAC rules
+	$(KUSTOMIZE) build config/prepare | kubectl apply -f -
+
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${SPIO_IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
@@ -186,17 +195,17 @@ endef
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
 	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(SPIO_IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(SPIO_BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+	$(MAKE) docker-push SPIO_IMG=$(SPIO_BUNDLE_IMG)
 
 .PHONY: opm
 OPM = ./bin/opm
@@ -215,14 +224,14 @@ OPM = $(shell which opm)
 endif
 endif
 
-# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
+# A comma-separated list of bundle images (e.g. make catalog-build SPIO_BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
-BUNDLE_IMGS ?= $(BUNDLE_IMG)
+SPIO_BUNDLE_IMGS ?= $(SPIO_BUNDLE_IMG)
 
 # The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
+CATALOG_IMG ?= $(SPIO_IMAGE_TAG_BASE)-catalog:v$(VERSION)
 
-# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
+# Set CATALOG_BASE_IMG to an existing catalog image tag to add $SPIO_BUNDLE_IMGS to that image.
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
 FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
 endif
@@ -232,9 +241,9 @@ endif
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(SPIO_BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
-	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+	$(MAKE) docker-push SPIO_IMG=$(CATALOG_IMG)

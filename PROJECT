@@ -1,9 +1,19 @@
-domain: appstudio.redhat.org
+domain: redhat.com
 layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: "1"
+projectName: service-provider-integration-operator
 repo: github.com/redhat-appstudio/service-provider-integration-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: redhat.com
+  group: appstudio
+  kind: AccessTokenSecret
+  path: github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1
+  version: v1beta1
 version: "3"

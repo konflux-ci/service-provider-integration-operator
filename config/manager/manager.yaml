@@ -29,6 +29,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        env:
+        - name: SPI_URL
+          value: http://spi-rest:8080
         image: controller:latest
         name: manager
         securityContext:
