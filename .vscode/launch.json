@@ -15,7 +15,7 @@
                 "SPI_URL": "http://localhost:8080",
                 "SPI_BEARER_TOKEN_FILE": "${workspaceFolder}/.token"
             },
-            "preLaunchTask": "getAccessToken",
+            "preLaunchTask": "prepare",
         }
     ]
 }

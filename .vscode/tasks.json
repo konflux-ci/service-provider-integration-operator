@@ -7,7 +7,17 @@
             // This assumes the data and names from the samples directory
             // We want to have a token of the operator when authenticating to SPI REST API
             // This assumes `make prepare` was run
-            "command": "kubectl get secret $(kubectl get -n spi-system serviceaccount spi-controller-manager -o 'jsonpath={.secrets[0].name}') -o jsonpath={.data.token} | base64 -d > .token"
+            "command": "kubectl get -n spi-system secret $(kubectl get -n spi-system serviceaccount spi-controller-manager -o 'jsonpath={.secrets[0].name}') -o jsonpath={.data.token} | base64 -d > .token"
+        },
+        {
+            "label": "make-prepare",
+            "type": "shell",
+            "command": "make prepare",
+        },
+        {
+            "label": "prepare",
+            "dependsOrder": "sequence",
+            "dependsOn": ["make-prepare", "getAccessToken"]
         }
     ]
 }
