@@ -2,7 +2,7 @@
 
 
 ### Screenshot/screencast of this PR
-<!-- Please include a screenshot or a screencast explaining what is doing this PR -->
+<!-- Please include a screenshot or a screencast explaining what this PR is doing -->
 
 
 ### What issues does this PR fix or reference?
