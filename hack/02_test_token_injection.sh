@@ -35,7 +35,7 @@ spec:
         labels:
           yiee: haa
 EOF
-sleep 3
+sleep 10
 INJECTED_VALUE=$(kubectl get secret spi-data -n usr-1 -o jsonpath='{.data.GITHUB_TOKEN}' | base64 -d)
 if [ $INJECTED_VALUE = "githubtokenhere" ]; then
    echo "injected value "$INJECTED_VALUE
