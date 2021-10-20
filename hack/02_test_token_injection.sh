@@ -36,7 +36,7 @@ spec:
           yiee: haa
 EOF
 sleep 3
-INJECTED_VALUE=$(kubectl get secret spi-data -n usr-1 -o jsonpath='{.data.GITHUB_TOKEN}' | base64 -D)
+INJECTED_VALUE=$(kubectl get secret spi-data -n usr-1 -o jsonpath='{.data.GITHUB_TOKEN}' | base64 -d)
 if [ $INJECTED_VALUE = "githubtokenhere" ]; then
    echo "injected value "$INJECTED_VALUE
    exit 0
