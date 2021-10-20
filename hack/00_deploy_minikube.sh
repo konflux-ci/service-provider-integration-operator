@@ -18,7 +18,6 @@ cwd=$(pwd)
 tmp_dir=$(mktemp -d -t service-provider-integration-api-XXXXXXXXXX)
 echo $tmp_dir
 git clone https://github.com/redhat-appstudio/service-provider-integration-api $tmp_dir
-#minikube stop && minikube delete
 $tmp_dir/scripts/fast_01_06.sh
 rm -rf $tmp_dir
 cd $cwd
