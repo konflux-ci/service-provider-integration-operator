@@ -48,5 +48,4 @@ jobs:
           registry: quay.io
           repository: skabashn/service-provider-integration-operator
           dockerfile: ./Dockerfile
-          tags: next
           tag_with_sha: true
