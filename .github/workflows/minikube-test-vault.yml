@@ -34,6 +34,20 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Login to docker.io
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          registry: docker.io
       - name: Provision Minikube cluster
         run: |
           curl -LO https://storage.googleapis.com/minikube/releases/v1.23.2/minikube-linux-amd64
