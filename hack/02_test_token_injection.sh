@@ -20,7 +20,7 @@ echo $SPI_URL
 curl -d '{"token":"githubtokenhere", "name":"some-service-token"}' -H "Content-Type: application/json" -X POST $SPI_URL/api/v1/token
 kubectl create namespace usr-1 --dry-run=client -o yaml | kubectl apply -f -
 
-# Создать несколько YAML-объектов из stdin
+
 cat <<EOF | kubectl apply -n usr-1 -f -
 apiVersion: appstudio.redhat.com/v1beta1
 kind: AccessTokenSecret

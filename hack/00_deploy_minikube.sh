@@ -22,8 +22,9 @@ $tmp_dir/scripts/fast_01_06.sh
 rm -rf $tmp_dir
 cd $cwd
 TAG=$(date '+%Y_%m_%d_%H_%M_%S')
-make docker-build SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
-minikube image load quay.io/skabashn/service-provider-integration-operator:$TAG
-make install SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
-make deploy  SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
+export SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
+make docker-build
+minikube image load $SPIO_IMG
+make install $SPIO_IMG
+make deploy $SPIO_IMG
 
