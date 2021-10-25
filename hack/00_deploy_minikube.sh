@@ -25,6 +25,6 @@ TAG=$(date '+%Y_%m_%d_%H_%M_%S')
 export SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
 make docker-build
 minikube image load $SPIO_IMG
-make install
-make deploy
+make install $SPIO_IMG
+make deploy $SPIO_IMG
 
