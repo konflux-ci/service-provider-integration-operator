@@ -42,6 +42,15 @@ if [[ $INJECTED_VALUE = "githubtokenhere" ]]; then
    exit 0
 else
   echo "fail to inject value."
+  echo "INJECTED_VALUE="$INJECTED_VALUE
+  echo "vault events"
+  kubectl get events --sort-by=.metadata.creationTimestamp -n vault
+  echo "spi-system events"
+  kubectl get events --sort-by=.metadata.creationTimestamp -n spi-system
+  echo "operator logs"
+  kubectl logs -n spi-system deployment/spi-controller-manager -c manager
+  echo "SPI API logs"
+  kubectl logs -n vault deployment/service-provider-integration-api -c service-provider-integration-api
   exit 1
 fi
 
