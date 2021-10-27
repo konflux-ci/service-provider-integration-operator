@@ -48,10 +48,10 @@ jobs:
           sudo install minikube-linux-amd64 /usr/local/bin/minikube
       - name: Setup minikube cluster
         run: |
-          ./hack/00_deploy_minikube.sh
+          sh -x ./hack/00_deploy_minikube.sh
       - name: Connecting REST API
         run: |
-          ./hack/01_connect_rest_spi.sh
+          sh -x ./hack/01_connect_rest_spi.sh
       - name: Testing token injection
         run: |
-          ./hack/02_test_token_injection.sh
+          sh -x ./hack/02_test_token_injection.sh

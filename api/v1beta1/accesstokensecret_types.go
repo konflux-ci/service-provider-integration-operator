@@ -37,8 +37,20 @@ type AccessTokenSecretSpec struct {
 // AccessTokenSecretStatus defines the observed state of AccessTokenSecret
 type AccessTokenSecretStatus struct {
 	Phase   AccessTokenSecretPhase         `json:"phase"`
-	Reason  AccessTokenSecretFailureReason `json:"reason"`
-	Message string                         `json:"message"`
+	Reason  AccessTokenSecretFailureReason `json:"reason,omitempty"`
+	Message string                         `json:"message,omitempty"`
+	// ObjectRef stores the information about the object into which the token information has been injected
+	// This field is filled in only if the `Phase` is "Injected".
+	ObjectRef AccessTokenSecretStatusObjectRef `json:"objectRef,omitempty"`
+}
+
+type AccessTokenSecretStatusObjectRef struct {
+	// Name is the name of the object with the injected data. This always lives in the same namespace as the AccessTokenSecret object.
+	Name string `json:"name"`
+	// Kind is the kind of the object with the injected data.
+	Kind string `json:"kind"`
+	// ApiVersion is the api version of the object with the injected data.
+	ApiVersion string `json:"apiVersion"`
 }
 
 //+kubebuilder:object:root=true
@@ -63,13 +75,6 @@ type AccessTokenSecretList struct {
 	Items           []AccessTokenSecret `json:"items"`
 }
 
-// NamespacedName is a copy of the "canonical" NamespacedName from k8s.io/apimachinery/pkg/types but with additional
-// serialization info so that it can be used in the CR spec.
-type NamespacedName struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace,omitempty"`
-}
-
 type AccessTokenSecretPhase string
 
 const (
@@ -82,8 +87,9 @@ const (
 type AccessTokenSecretFailureReason string
 
 const (
-	AccessTokenSecretFailureRetrieval AccessTokenSecretFailureReason = "Retrieval"
-	AccessTokenSecretFailureInjection AccessTokenSecretFailureReason = "Injection"
+	AccessTokenSecretFailureSPIClientSetup AccessTokenSecretFailureReason = "SPIClientSetup"
+	AccessTokenSecretFailureTokenRetrieval AccessTokenSecretFailureReason = "TokenRetrieval"
+	AccessTokenSecretFailureInjection      AccessTokenSecretFailureReason = "Injection"
 )
 
 type AccessTokenTarget struct {

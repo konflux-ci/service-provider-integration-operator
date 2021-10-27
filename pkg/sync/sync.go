@@ -94,6 +94,7 @@ func (s *Syncer) newWithSameKind(blueprint client.Object) (client.Object, error)
 		return nil, err
 	}
 
+	o.(client.Object).GetObjectKind().SetGroupVersionKind(blueprint.GetObjectKind().GroupVersionKind())
 	return o.(client.Object), nil
 }
 
@@ -123,6 +124,9 @@ func (s *Syncer) create(ctx context.Context, owner client.Object, blueprint clie
 			return nil, err
 		}
 	}
+
+	// set the type meta again, because it disappears after client creates the object
+	actual.GetObjectKind().SetGroupVersionKind(blueprint.GetObjectKind().GroupVersionKind())
 
 	return actual, nil
 }
