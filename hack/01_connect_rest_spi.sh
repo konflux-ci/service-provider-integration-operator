@@ -22,11 +22,12 @@ while [ "$(kubectl get pods -l app.kubernetes.io/name=service-provider-integrati
    echo "Waiting for service-provider-integration-operator  to be ready."
 done
 
+MAX_RETRIES=10
 NEXT_WAIT_TIME=1
-until [ $NEXT_WAIT_TIME -eq 5 ] || [ "$(kubectl logs -n spi-system deployment/spi-controller-manager -c manager | grep 'Starting workers')" ]; do
+until [ $NEXT_WAIT_TIME -eq $MAX_RETRIES ] || [ "$(kubectl logs -n spi-system deployment/spi-controller-manager -c manager | grep 'Starting workers')" ]; do
     sleep $NEXT_WAIT_TIME
     NEXT_WAIT_TIME=$(( NEXT_WAIT_TIME + 1 ))
 done
-[ $NEXT_WAIT_TIME -lt 5 ]
+[ $NEXT_WAIT_TIME -lt $MAX_RETRIES ]
 
 echo "operator connected to SPI"
