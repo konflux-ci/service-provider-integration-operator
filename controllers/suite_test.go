@@ -34,7 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -118,13 +117,13 @@ var _ = Describe("Status hadling", func() {
 				"expiredAfter":            "35",
 			})
 			if err != nil {
-				log.Log.Error(err, "failed to marshal response to JSON. This should not happen.")
+				logf.Log.Error(err, "failed to marshal response to JSON. This should not happen.")
 				return
 			}
 			rw.Header().Add("Content-Type", "application/json")
 			_, err = rw.Write(bytes)
 			if err != nil {
-				log.Log.Error(err, "failed to write response. This should not happen.")
+				logf.Log.Error(err, "failed to write response. This should not happen.")
 			}
 		}
 
