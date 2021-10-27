@@ -39,12 +39,12 @@ type AccessTokenSecretStatus struct {
 	Phase   AccessTokenSecretPhase         `json:"phase"`
 	Reason  AccessTokenSecretFailureReason `json:"reason"`
 	Message string                         `json:"message"`
-	// Injected stores the information about the object to which the token information has been injected
+	// ObjectRef stores the information about the object into which the token information has been injected
 	// This field is filled in only if the `Phase` is "Injected".
-	Injected AccessTokenSecretStatusInjected `json:"injected"`
+	ObjectRef AccessTokenSecretStatusObjectRef `json:"objectRef,omitempty"`
 }
 
-type AccessTokenSecretStatusInjected struct {
+type AccessTokenSecretStatusObjectRef struct {
 	// Name is the name of the object with the injected data. This always lives in the same namespace as the AccessTokenSecret object.
 	Name string `json:"name"`
 	// Kind is the kind of the object with the injected data.

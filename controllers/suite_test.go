@@ -137,9 +137,9 @@ var _ = Describe("Status hadling", func() {
 		Expect(ats.Status.Phase).To(Equal(as.AccessTokenSecretPhaseInjected))
 		Expect(ats.Status.Reason).To(BeEmpty())
 		Expect(ats.Status.Message).To(BeEmpty())
-		Expect(ats.Status.Injected.Name).To(Equal("ats-secret"))
-		Expect(ats.Status.Injected.Kind).To(Equal("Secret"))
-		Expect(ats.Status.Injected.ApiVersion).To(Equal("v1"))
+		Expect(ats.Status.ObjectRef.Name).To(Equal("ats-secret"))
+		Expect(ats.Status.ObjectRef.Kind).To(Equal("Secret"))
+		Expect(ats.Status.ObjectRef.ApiVersion).To(Equal("v1"))
 	})
 })
 

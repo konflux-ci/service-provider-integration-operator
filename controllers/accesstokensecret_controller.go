@@ -116,13 +116,13 @@ func (r *AccessTokenSecretReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	var injected api.AccessTokenSecretStatusInjected
+	var objectRef api.AccessTokenSecretStatusObjectRef
 	if ats.Spec.Target.ConfigMap != nil {
-		injected, err = r.saveTokenAsConfigMap(ctx, &ats, &token, ats.Spec.Target.ConfigMap)
+		objectRef, err = r.saveTokenAsConfigMap(ctx, &ats, &token, ats.Spec.Target.ConfigMap)
 	} else if ats.Spec.Target.Secret != nil {
-		injected, err = r.saveTokenAsSecret(ctx, &ats, &token, ats.Spec.Target.Secret)
+		objectRef, err = r.saveTokenAsSecret(ctx, &ats, &token, ats.Spec.Target.Secret)
 	} else if ats.Spec.Target.Containers != nil {
-		injected, err = r.injectTokenIntoPods(ctx, &ats, &token, ats.Spec.Target.Containers)
+		objectRef, err = r.injectTokenIntoPods(ctx, &ats, &token, ats.Spec.Target.Containers)
 	} else {
 		err = stderrors.New("AccessTokenSecret needs to specify a valid target")
 	}
@@ -135,8 +135,8 @@ func (r *AccessTokenSecretReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		})
 	} else {
 		r.updateStatus(ctx, &ats, api.AccessTokenSecretStatus{
-			Phase:    api.AccessTokenSecretPhaseInjected,
-			Injected: injected,
+			Phase:     api.AccessTokenSecretPhaseInjected,
+			ObjectRef: objectRef,
 		})
 	}
 
@@ -214,7 +214,7 @@ func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenS
 	return token, nil
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusInjected, error) {
+func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
 	data := map[string]string{}
 	data[spec.AccessTokenKey] = token.Token
 
@@ -236,7 +236,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, 
 	return injectedFromObject(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusInjected, error) {
+func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
 	data := map[string][]byte{}
 	data[spec.AccessTokenKey] = []byte(token.Token)
 
@@ -258,14 +258,14 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 	return injectedFromObject(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusInjected, error) {
+func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
 	// TODO implement
-	return api.AccessTokenSecretStatusInjected{}, stderrors.New("injection into pods not implemented")
+	return api.AccessTokenSecretStatusObjectRef{}, stderrors.New("injection into pods not implemented")
 }
 
-func injectedFromObject(obj client.Object) api.AccessTokenSecretStatusInjected {
+func injectedFromObject(obj client.Object) api.AccessTokenSecretStatusObjectRef {
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
-	return api.AccessTokenSecretStatusInjected{
+	return api.AccessTokenSecretStatusObjectRef{
 		Name:       obj.GetName(),
 		Kind:       kind,
 		ApiVersion: apiVersion,
