@@ -37,8 +37,8 @@ type AccessTokenSecretSpec struct {
 // AccessTokenSecretStatus defines the observed state of AccessTokenSecret
 type AccessTokenSecretStatus struct {
 	Phase   AccessTokenSecretPhase         `json:"phase"`
-	Reason  AccessTokenSecretFailureReason `json:"reason"`
-	Message string                         `json:"message"`
+	Reason  AccessTokenSecretFailureReason `json:"reason,omitempty"`
+	Message string                         `json:"message,omitempty"`
 	// ObjectRef stores the information about the object into which the token information has been injected
 	// This field is filled in only if the `Phase` is "Injected".
 	ObjectRef AccessTokenSecretStatusObjectRef `json:"objectRef,omitempty"`
