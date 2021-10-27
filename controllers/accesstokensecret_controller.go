@@ -65,12 +65,6 @@ func NewAccessTokenSecretReconciler(config *rest.Config, cl client.Client, schem
 	}
 }
 
-// This must reflect the data returned from the SPI REST API
-type accessToken struct {
-	Name  string `json:"name"`
-	Token string `json:"token"`
-}
-
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/finalizers,verbs=update
@@ -216,7 +210,7 @@ func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenS
 
 func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
 	data := map[string]string{}
-	data[spec.AccessTokenKey] = token.Token
+	token.fillByMapping(&spec.Fields, data)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -237,8 +231,13 @@ func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, 
 }
 
 func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
-	data := map[string][]byte{}
-	data[spec.AccessTokenKey] = []byte(token.Token)
+	stringData := token.toSecretType(spec.Type)
+	token.fillByMapping(&spec.Fields, stringData)
+
+	data := make(map[string][]byte, len(stringData))
+	for k, v := range stringData {
+		data[k] = []byte(v)
+	}
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -252,6 +251,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 			Annotations: spec.Annotations,
 		},
 		Data: data,
+		Type: spec.Type,
 	}
 
 	_, obj, err := r.syncer.Sync(ctx, owner, secret, secretDiffOpts)

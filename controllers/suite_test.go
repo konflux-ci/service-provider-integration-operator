@@ -74,10 +74,10 @@ var _ = Describe("Status hadling", func() {
 				AccessTokenName: "my-token",
 				Target: as.AccessTokenTarget{
 					Secret: &as.AccessTokenTargetSecret{
-						Name:           "ats-secret",
-						AccessTokenKey: "token",
-						Labels:         map[string]string{"k": "v"},
-						Annotations:    map[string]string{"a": "v"},
+						Name:        "ats-secret",
+						Type:        corev1.SecretTypeBasicAuth,
+						Labels:      map[string]string{"k": "v"},
+						Annotations: map[string]string{"a": "v"},
 					}},
 			},
 		})).To(Succeed())
