@@ -13,7 +13,7 @@
 #
 
 set -e
-echo "Connection operator to SPI"
+echo "Connecting operator to SPI"
 
 kubectl set env deployment/spi-controller-manager -n spi-system SPI_URL=http://service-provider-integration-api.vault
 kubectl rollout status deployment/spi-controller-manager -n spi-system
@@ -22,10 +22,10 @@ while [ "$(kubectl get pods -l app.kubernetes.io/name=service-provider-integrati
    echo "Waiting for service-provider-integration-operator  to be ready."
 done
 
-NEXT_WAIT_TIME=0
+NEXT_WAIT_TIME=1
 until [ $NEXT_WAIT_TIME -eq 5 ] || [ "$(kubectl logs -n spi-system deployment/spi-controller-manager -c manager | grep 'Starting workers')" ]; do
-    echo $NEXT_WAIT_TIME
-    sleep $(( NEXT_WAIT_TIME++ ))
+    sleep $NEXT_WAIT_TIME
+    NEXT_WAIT_TIME=$(( NEXT_WAIT_TIME + 1 ))
 done
 [ $NEXT_WAIT_TIME -lt 5 ]
 
