@@ -23,11 +23,25 @@ const (
 	spiUrlEnv              = "SPI_URL"
 	bearerTokenFileEnv     = "SPI_BEARER_TOKEN_FILE"
 	defaultBearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	tokenEndpointPath      = "/api/v1/token/"
 )
 
+var (
+	spiUrl        = os.Getenv(spiUrlEnv)
+	tokenEndpoint = spiUrl + tokenEndpointPath
+)
+
+func SpiTokenEndpoint() string {
+	return tokenEndpoint
+}
+
 func SpiUrl() string {
-	ret, _ := os.LookupEnv(spiUrlEnv)
-	return ret
+	return spiUrl
+}
+
+func SetSpiUrlForTest(url string) {
+	spiUrl = url
+	tokenEndpoint = spiUrl + tokenEndpointPath
 }
 
 func BearerTokenFile() string {
