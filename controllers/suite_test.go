@@ -114,7 +114,7 @@ var _ = Describe("Status hadling", func() {
 				"serviceProviderUserName": "alois",
 				"serviceProviderUserId":   "42",
 				"userId":                  "our-user-id",
-				"expiredAfter":            "35",
+				"expiredAfter":            35,
 			})
 			if err != nil {
 				logf.Log.Error(err, "failed to marshal response to JSON. This should not happen.")
