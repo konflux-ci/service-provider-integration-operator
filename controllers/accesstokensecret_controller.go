@@ -187,8 +187,8 @@ func (r *AccessTokenSecretReconciler) getAuthenticatedClient() (*http.Client, er
 	return &cl, nil
 }
 
-func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenSecret) (accessToken, error) {
-	token := accessToken{}
+func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenSecret) (AccessToken, error) {
+	token := AccessToken{}
 
 	resp, err := cl.Get(config.SpiTokenEndpoint() + ats.Spec.AccessTokenName)
 	if err != nil {
@@ -208,7 +208,7 @@ func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenS
 	return token, nil
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
+func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
 	data := map[string]string{}
 	token.fillByMapping(&spec.Fields, data)
 
@@ -230,7 +230,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, 
 	return toObjectRef(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
+func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
 	stringData := token.toSecretType(spec.Type)
 	token.fillByMapping(&spec.Fields, stringData)
 
@@ -258,7 +258,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 	return toObjectRef(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
+func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
 	// TODO implement
 	return api.AccessTokenSecretStatusObjectRef{}, stderrors.New("injection into pods not implemented")
 }

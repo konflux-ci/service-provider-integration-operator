@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"strconv"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -24,40 +25,52 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var at accessToken
+var at AccessToken
+
+func int64Ptr(val int64) *int64 {
+	return &val
+}
+
+func str(val *int64) string {
+	if val == nil {
+		return ""
+	}
+
+	return strconv.FormatInt(*val, 10)
+}
 
 func init() {
-	at = accessToken{}
-	at[expiredAfterField] = "expired"
-	at[nameField] = "name"
-	at[scopesField] = "scopes"
-	at[serviceProvideUserNameField] = "spusername"
-	at[serviceProviderUrlField] = "spurl"
-	at[serviceProviderUserIdField] = "spuserid"
-	at[tokenField] = "token"
-	at[userIdField] = "userid"
+	at = AccessToken{}
+	at.ExpiredAfter = int64Ptr(42)
+	at.Name = "name"
+	at.Scopes = "scopes"
+	at.ServiceProviderUserName = "spusername"
+	at.ServiceProviderUrl = "spurl"
+	at.ServiceProviderUserId = "spuserid"
+	at.Token = "token"
+	at.UserId = "userid"
 }
 
 func TestSecretTypeDefaultFields(t *testing.T) {
 	t.Run("basicAuth", func(t *testing.T) {
 		converted := at.toSecretType(corev1.SecretTypeBasicAuth)
-		assert.Equal(t, at[serviceProvideUserNameField], converted[corev1.BasicAuthUsernameKey])
-		assert.Equal(t, at[tokenField], converted[corev1.BasicAuthPasswordKey])
+		assert.Equal(t, at.ServiceProviderUserName, converted[corev1.BasicAuthUsernameKey])
+		assert.Equal(t, at.Token, converted[corev1.BasicAuthPasswordKey])
 	})
 
 	t.Run("serviceAccountToken", func(t *testing.T) {
 		converted := at.toSecretType(corev1.SecretTypeServiceAccountToken)
-		assert.Equal(t, at[tokenField], converted["extra"])
+		assert.Equal(t, at.Token, converted["extra"])
 	})
 
 	t.Run("dockercfg", func(t *testing.T) {
 		converted := at.toSecretType(corev1.SecretTypeDockercfg)
-		assert.Equal(t, at[tokenField], converted[corev1.DockerConfigKey])
+		assert.Equal(t, at.Token, converted[corev1.DockerConfigKey])
 	})
 
 	t.Run("dockerconfigjson", func(t *testing.T) {
 		converted := at.toSecretType(corev1.SecretTypeDockerConfigJson)
-		assert.Equal(t, at[tokenField], converted[corev1.DockerConfigJsonKey])
+		assert.Equal(t, at.Token, converted[corev1.DockerConfigJsonKey])
 	})
 }
 
@@ -77,12 +90,12 @@ func TestMapping(t *testing.T) {
 
 	at.fillByMapping(fields, converted)
 
-	assert.Equal(t, at[tokenField], converted["TOKEN"])
-	assert.Equal(t, at[nameField], converted["NAME"])
-	assert.Equal(t, at[serviceProviderUrlField], converted["SPURL"])
-	assert.Equal(t, at[serviceProvideUserNameField], converted["SPUSERNAME"])
-	assert.Equal(t, at[serviceProviderUserIdField], converted["SPUSERID"])
-	assert.Equal(t, at[userIdField], converted["USERID"])
-	assert.Equal(t, at[expiredAfterField], converted["EXPIREDAFTER"])
-	assert.Equal(t, at[scopesField], converted["SCOPES"])
+	assert.Equal(t, at.Token, converted["TOKEN"])
+	assert.Equal(t, at.Name, converted["NAME"])
+	assert.Equal(t, at.ServiceProviderUrl, converted["SPURL"])
+	assert.Equal(t, at.ServiceProviderUserName, converted["SPUSERNAME"])
+	assert.Equal(t, at.ServiceProviderUserId, converted["SPUSERID"])
+	assert.Equal(t, at.UserId, converted["USERID"])
+	assert.Equal(t, str(at.ExpiredAfter), converted["EXPIREDAFTER"])
+	assert.Equal(t, at.Scopes, converted["SCOPES"])
 }

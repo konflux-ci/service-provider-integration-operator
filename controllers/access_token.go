@@ -17,91 +17,70 @@ limitations under the License.
 package controllers
 
 import (
+	"strconv"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
-type tokenRecordField string
-
-const (
-	tokenField                  tokenRecordField = "token"
-	nameField                   tokenRecordField = "name"
-	serviceProviderUrlField     tokenRecordField = "serviceProviderUrl"
-	serviceProvideUserNameField tokenRecordField = "serviceProviderUserName"
-	serviceProviderUserIdField  tokenRecordField = "serviceProviderUserId"
-	userIdField                 tokenRecordField = "userId"
-	expiredAfterField           tokenRecordField = "expiredAfter"
-	scopesField                 tokenRecordField = "scopes"
-)
-
-var (
-	fieldToKeyBySecretType map[corev1.SecretType]map[tokenRecordField]string
-)
-
-func init() {
-	fieldToKeyBySecretType = map[corev1.SecretType]map[tokenRecordField]string{
-		corev1.SecretTypeBasicAuth: {
-			serviceProvideUserNameField: corev1.BasicAuthUsernameKey,
-			tokenField:                  corev1.BasicAuthPasswordKey,
-		},
-		corev1.SecretTypeServiceAccountToken: {
-			tokenField: "extra",
-		},
-		corev1.SecretTypeDockercfg: {
-			tokenField: corev1.DockerConfigKey,
-		},
-		corev1.SecretTypeDockerConfigJson: {
-			tokenField: corev1.DockerConfigJsonKey,
-		},
-	}
+type AccessToken struct {
+	Name                    string `json:"name"`
+	Token                   string `json:"token"`
+	ServiceProviderUrl      string `json:"serviceProviderUrl"`
+	ServiceProviderUserName string `json:"serviceProviderUserName"`
+	ServiceProviderUserId   string `json:"serviceProviderUserId"`
+	UserId                  string `json:"userId"`
+	ExpiredAfter            *int64 `json:"expiredAfter"`
+	Scopes                  string `json:"scopes"`
 }
 
-type accessToken map[tokenRecordField]string
-
-func (at accessToken) toSecretType(secretType corev1.SecretType) map[string]string {
+func (at AccessToken) toSecretType(secretType corev1.SecretType) map[string]string {
 	ret := map[string]string{}
-	mapping, ok := fieldToKeyBySecretType[secretType]
-	if !ok {
-		return ret
-	}
-
-	for f, k := range mapping {
-		ret[k] = at[f]
+	switch secretType {
+	case corev1.SecretTypeBasicAuth:
+		ret[corev1.BasicAuthUsernameKey] = at.ServiceProviderUserName
+		ret[corev1.BasicAuthPasswordKey] = at.Token
+	case corev1.SecretTypeServiceAccountToken:
+		ret["extra"] = at.Token
+	case corev1.SecretTypeDockercfg:
+		ret[corev1.DockerConfigKey] = at.Token
+	case corev1.SecretTypeDockerConfigJson:
+		ret[corev1.DockerConfigJsonKey] = at.Token
 	}
 
 	return ret
 }
 
-func (at accessToken) fillByMapping(mapping *api.AccessTokenSecretFieldMapping, existingMap map[string]string) {
-	if mapping.ExpiredAfter != "" {
-		existingMap[mapping.ExpiredAfter] = at[expiredAfterField]
+func (at AccessToken) fillByMapping(mapping *api.AccessTokenSecretFieldMapping, existingMap map[string]string) {
+	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
+		existingMap[mapping.ExpiredAfter] = strconv.FormatInt(*at.ExpiredAfter, 10)
 	}
 
 	if mapping.Name != "" {
-		existingMap[mapping.Name] = at[nameField]
+		existingMap[mapping.Name] = at.Name
 	}
 
 	if mapping.Scopes != "" {
-		existingMap[mapping.Scopes] = at[scopesField]
+		existingMap[mapping.Scopes] = at.Scopes
 	}
 
 	if mapping.ServiceProviderUrl != "" {
-		existingMap[mapping.ServiceProviderUrl] = at[serviceProviderUrlField]
+		existingMap[mapping.ServiceProviderUrl] = at.ServiceProviderUrl
 	}
 
 	if mapping.ServiceProviderUserId != "" {
-		existingMap[mapping.ServiceProviderUserId] = at[serviceProviderUserIdField]
+		existingMap[mapping.ServiceProviderUserId] = at.ServiceProviderUserId
 	}
 
 	if mapping.ServiceProviderUserName != "" {
-		existingMap[mapping.ServiceProviderUserName] = at[serviceProvideUserNameField]
+		existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
 	}
 
 	if mapping.Token != "" {
-		existingMap[mapping.Token] = at[tokenField]
+		existingMap[mapping.Token] = at.Token
 	}
 
 	if mapping.UserId != "" {
-		existingMap[mapping.UserId] = at[userIdField]
+		existingMap[mapping.UserId] = at.UserId
 	}
 }
