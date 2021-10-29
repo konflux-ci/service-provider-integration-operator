@@ -18,20 +18,21 @@ package controllers
 
 import (
 	"strconv"
+	"strings"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type AccessToken struct {
-	Name                    string `json:"name"`
-	Token                   string `json:"token"`
-	ServiceProviderUrl      string `json:"serviceProviderUrl"`
-	ServiceProviderUserName string `json:"serviceProviderUserName"`
-	ServiceProviderUserId   string `json:"serviceProviderUserId"`
-	UserId                  string `json:"userId"`
-	ExpiredAfter            *int64 `json:"expiredAfter"`
-	Scopes                  string `json:"scopes"`
+	Name                    string   `json:"name"`
+	Token                   string   `json:"token"`
+	ServiceProviderUrl      string   `json:"serviceProviderUrl"`
+	ServiceProviderUserName string   `json:"serviceProviderUserName"`
+	ServiceProviderUserId   string   `json:"serviceProviderUserId"`
+	UserId                  string   `json:"userId"`
+	ExpiredAfter            *int64   `json:"expiredAfter"`
+	Scopes                  []string `json:"scopes"`
 }
 
 func (at AccessToken) toSecretType(secretType corev1.SecretType) map[string]string {
@@ -61,7 +62,7 @@ func (at AccessToken) fillByMapping(mapping *api.AccessTokenSecretFieldMapping, 
 	}
 
 	if mapping.Scopes != "" {
-		existingMap[mapping.Scopes] = at.Scopes
+		existingMap[mapping.Scopes] = strings.Join(at.Scopes, ",")
 	}
 
 	if mapping.ServiceProviderUrl != "" {

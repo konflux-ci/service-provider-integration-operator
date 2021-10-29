@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -43,7 +44,7 @@ func init() {
 	at = AccessToken{}
 	at.ExpiredAfter = int64Ptr(42)
 	at.Name = "name"
-	at.Scopes = "scopes"
+	at.Scopes = []string{"scope1", "scope2"}
 	at.ServiceProviderUserName = "spusername"
 	at.ServiceProviderUrl = "spurl"
 	at.ServiceProviderUserId = "spuserid"
@@ -97,5 +98,5 @@ func TestMapping(t *testing.T) {
 	assert.Equal(t, at.ServiceProviderUserId, converted["SPUSERID"])
 	assert.Equal(t, at.UserId, converted["USERID"])
 	assert.Equal(t, str(at.ExpiredAfter), converted["EXPIREDAFTER"])
-	assert.Equal(t, at.Scopes, converted["SCOPES"])
+	assert.Equal(t, strings.Join(at.Scopes, ","), converted["SCOPES"])
 }
