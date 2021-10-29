@@ -31,7 +31,8 @@ spec:
   target:
     secret:
         name: spi-data
-        accessTokenKey: GITHUB_TOKEN
+        fields:
+          token: GITHUB_TOKEN
         labels:
           yiee: haa
 EOF

@@ -227,7 +227,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, 
 	}
 
 	_, obj, err := r.syncer.Sync(ctx, owner, cm, secretDiffOpts)
-	return injectedFromObject(obj), err
+	return toObjectRef(obj), err
 }
 
 func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
@@ -255,7 +255,7 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 	}
 
 	_, obj, err := r.syncer.Sync(ctx, owner, secret, secretDiffOpts)
-	return injectedFromObject(obj), err
+	return toObjectRef(obj), err
 }
 
 func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
@@ -263,7 +263,7 @@ func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, o
 	return api.AccessTokenSecretStatusObjectRef{}, stderrors.New("injection into pods not implemented")
 }
 
-func injectedFromObject(obj client.Object) api.AccessTokenSecretStatusObjectRef {
+func toObjectRef(obj client.Object) api.AccessTokenSecretStatusObjectRef {
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
 	return api.AccessTokenSecretStatusObjectRef{
 		Name:       obj.GetName(),
