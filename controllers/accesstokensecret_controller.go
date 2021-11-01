@@ -234,6 +234,9 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 	stringData := token.toSecretType(spec.Type)
 	token.fillByMapping(&spec.Fields, stringData)
 
+	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
+	// used the Secret.StringData, but Sync gives us other goodies.
+	// So let's bite the bullet and convert manually here.
 	data := make(map[string][]byte, len(stringData))
 	for k, v := range stringData {
 		data[k] = []byte(v)
