@@ -73,6 +73,11 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 		converted := at.toSecretType(corev1.SecretTypeDockerConfigJson)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigJsonKey])
 	})
+
+	t.Run("ssh-privatekey", func(t *testing.T) {
+		converted := at.toSecretType(corev1.SecretTypeSSHAuth)
+		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
+	})
 }
 
 func TestMapping(t *testing.T) {

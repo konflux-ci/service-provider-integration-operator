@@ -47,6 +47,8 @@ func (at AccessToken) toSecretType(secretType corev1.SecretType) map[string]stri
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
 		ret[corev1.DockerConfigJsonKey] = at.Token
+	case corev1.SecretTypeSSHAuth:
+		ret[corev1.SSHAuthPrivateKey] = at.Token
 	}
 
 	return ret
