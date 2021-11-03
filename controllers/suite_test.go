@@ -74,10 +74,10 @@ var _ = Describe("Status hadling", func() {
 				AccessTokenName: "my-token",
 				Target: as.AccessTokenTarget{
 					Secret: &as.AccessTokenTargetSecret{
-						Name:           "ats-secret",
-						AccessTokenKey: "token",
-						Labels:         map[string]string{"k": "v"},
-						Annotations:    map[string]string{"a": "v"},
+						Name:        "ats-secret",
+						Type:        corev1.SecretTypeBasicAuth,
+						Labels:      map[string]string{"k": "v"},
+						Annotations: map[string]string{"a": "v"},
 					}},
 			},
 		})).To(Succeed())
@@ -114,7 +114,7 @@ var _ = Describe("Status hadling", func() {
 				"serviceProviderUserName": "alois",
 				"serviceProviderUserId":   "42",
 				"userId":                  "our-user-id",
-				"expiredAfter":            "35",
+				"expiredAfter":            35,
 			})
 			if err != nil {
 				logf.Log.Error(err, "failed to marshal response to JSON. This should not happen.")

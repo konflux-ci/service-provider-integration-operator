@@ -65,12 +65,6 @@ func NewAccessTokenSecretReconciler(config *rest.Config, cl client.Client, schem
 	}
 }
 
-// This must reflect the data returned from the SPI REST API
-type accessToken struct {
-	Name  string `json:"name"`
-	Token string `json:"token"`
-}
-
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=accesstokensecrets/finalizers,verbs=update
@@ -193,8 +187,8 @@ func (r *AccessTokenSecretReconciler) getAuthenticatedClient() (*http.Client, er
 	return &cl, nil
 }
 
-func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenSecret) (accessToken, error) {
-	token := accessToken{}
+func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenSecret) (AccessToken, error) {
+	token := AccessToken{}
 
 	resp, err := cl.Get(config.SpiTokenEndpoint() + ats.Spec.AccessTokenName)
 	if err != nil {
@@ -214,9 +208,9 @@ func readAccessToken(ctx context.Context, cl *http.Client, ats *api.AccessTokenS
 	return token, nil
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
+func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetConfigMap) (api.AccessTokenSecretStatusObjectRef, error) {
 	data := map[string]string{}
-	data[spec.AccessTokenKey] = token.Token
+	token.fillByMapping(&spec.Fields, data)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -233,12 +227,20 @@ func (r *AccessTokenSecretReconciler) saveTokenAsConfigMap(ctx context.Context, 
 	}
 
 	_, obj, err := r.syncer.Sync(ctx, owner, cm, secretDiffOpts)
-	return injectedFromObject(obj), err
+	return toObjectRef(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
-	data := map[string][]byte{}
-	data[spec.AccessTokenKey] = []byte(token.Token)
+func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetSecret) (api.AccessTokenSecretStatusObjectRef, error) {
+	stringData := token.toSecretType(spec.Type)
+	token.fillByMapping(&spec.Fields, stringData)
+
+	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
+	// used the Secret.StringData, but Sync gives us other goodies.
+	// So let's bite the bullet and convert manually here.
+	data := make(map[string][]byte, len(stringData))
+	for k, v := range stringData {
+		data[k] = []byte(v)
+	}
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -252,18 +254,19 @@ func (r *AccessTokenSecretReconciler) saveTokenAsSecret(ctx context.Context, own
 			Annotations: spec.Annotations,
 		},
 		Data: data,
+		Type: spec.Type,
 	}
 
 	_, obj, err := r.syncer.Sync(ctx, owner, secret, secretDiffOpts)
-	return injectedFromObject(obj), err
+	return toObjectRef(obj), err
 }
 
-func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *accessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
+func (r *AccessTokenSecretReconciler) injectTokenIntoPods(ctx context.Context, owner *api.AccessTokenSecret, token *AccessToken, spec *api.AccessTokenTargetContainers) (api.AccessTokenSecretStatusObjectRef, error) {
 	// TODO implement
 	return api.AccessTokenSecretStatusObjectRef{}, stderrors.New("injection into pods not implemented")
 }
 
-func injectedFromObject(obj client.Object) api.AccessTokenSecretStatusObjectRef {
+func toObjectRef(obj client.Object) api.AccessTokenSecretStatusObjectRef {
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
 	return api.AccessTokenSecretStatusObjectRef{
 		Name:       obj.GetName(),
