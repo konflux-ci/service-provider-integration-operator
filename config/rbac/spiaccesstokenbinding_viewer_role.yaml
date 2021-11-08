@@ -1,0 +1,20 @@
+# permissions for end users to view spiaccesstokenbindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spiaccesstokenbinding-viewer-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings/status
+  verbs:
+  - get

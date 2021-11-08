@@ -1,0 +1,24 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: crud-on-access-token-bindings-but-not-tokens
+rules:
+  - verbs:
+      - "*"
+    apiGroups:
+      - "appstudio.redhat.com"
+    resources:
+      - "spiaccesstokenbindings"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crud-on-access-token-bindings-for-default-sa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: crud-on-access-token-bindings-but-not-tokens
+subjects:
+  - kind: ServiceAccount
+    name: default

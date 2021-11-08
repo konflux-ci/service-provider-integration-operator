@@ -1,0 +1,65 @@
+// package webhooks
+
+// import (
+// 	"context"
+
+// 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+// 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
+// 	"k8s.io/apimachinery/pkg/runtime"
+// 	ctrl "sigs.k8s.io/controller-runtime"
+// 	"sigs.k8s.io/controller-runtime/pkg/client"
+// 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+// 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+// )
+
+// var spiaccesstokenlog = logf.Log.WithName("spiaccesstoken-webhook")
+
+// //+kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-spiaccesstoken,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=delete,versions=v1beta1,name=vspiaccesstoken.kb.io,admissionReviewVersions={v1,v1beta1}
+// //+kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-spiaccesstoken,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=create;update,versions=v1beta1,name=vspiaccesstoken.kb.io,admissionReviewVersions={v1,v1beta1}
+
+// type SPIAccessTokenWebhook struct {
+// 	Client client.Client
+// 	Vault  *vault.Vault
+// }
+
+// var _ admission.CustomDefaulter = &SPIAccessTokenWebhook{}
+// var _ admission.CustomValidator = &SPIAccessTokenWebhook{}
+
+// func (d *SPIAccessTokenWebhook) SetupWithManager(mgr ctrl.Manager) error {
+// 	return ctrl.NewWebhookManagedBy(mgr).
+// 		For(&api.SPIAccessToken{}).
+// 		WithDefaulter(d).
+// 		WithValidator(d).
+// 		Complete()
+// }
+
+// func (d *SPIAccessTokenWebhook) Default(ctx context.Context, obj runtime.Object) error {
+// 	t := obj.(*api.SPIAccessToken)
+
+// 	spiaccesstokenlog.Info("Defaulting", "name", t.Name)
+
+// 	if t.Spec.RawTokenData != nil {
+// 		if err := d.Vault.Store(t, t.Spec.RawTokenData); err != nil {
+// 			return err
+// 		}
+// 		t.Spec.RawTokenData = nil
+// 		// We cannot update the status with the location here. That needs to wait for the controller
+// 	}
+// 	return nil
+// }
+
+// func (d *SPIAccessTokenWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+// 	// validation switched off for create atm
+// 	return nil
+// }
+
+// func (d *SPIAccessTokenWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+// 	// TODO implement
+// 	// we should remove the data from vault
+// 	return nil
+// }
+
+// func (d *SPIAccessTokenWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+// 	// validation switched off for create atm
+// 	return nil
+// }

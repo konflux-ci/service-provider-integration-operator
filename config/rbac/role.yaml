@@ -45,3 +45,55 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens/status
+  verbs:
+  - get
+  - patch
+  - update

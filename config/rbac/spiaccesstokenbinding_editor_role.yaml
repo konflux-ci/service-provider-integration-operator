@@ -1,0 +1,24 @@
+# permissions for end users to edit spiaccesstokenbindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spiaccesstokenbinding-editor-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokenbindings/status
+  verbs:
+  - get

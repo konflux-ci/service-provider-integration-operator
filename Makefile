@@ -58,6 +58,16 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+ifeq (,$(shell which kubectl))
+ifeq (,$(shell which oc))
+$(error oc or kubectl is required to proceed)
+else
+K8S_CLI := oc
+endif
+else
+K8S_CLI := kubectl
+endif
+
 # create the temporary directory under the same parent dir as the Makefile
 TEMP_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/.tmp
 
@@ -166,6 +176,8 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
+install_cert_manager:
+	$(K8S_CLI) apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.yaml
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.

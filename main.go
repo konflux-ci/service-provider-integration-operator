@@ -34,6 +34,8 @@ import (
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
+	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -71,6 +73,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	vlt := vault.Vault{}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -86,6 +90,34 @@ func main() {
 
 	if err = (controllers.NewAccessTokenSecretReconciler(mgr.GetConfig(), mgr.GetClient(), mgr.GetScheme())).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessTokenSecret")
+		os.Exit(1)
+	}
+	if err = (&controllers.SPIAccessTokenReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Vault:  &vlt,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
+		os.Exit(1)
+	}
+	if err = (&webhooks.SPIAccessTokenWebhook{
+		Client: mgr.GetClient(),
+		Vault:  &vlt,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
+		os.Exit(1)
+	}
+	if err = (&controllers.SPIAccessTokenBindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
+		os.Exit(1)
+	}
+	if err = (&webhooks.SPIAccessTokenBindingWebhook{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingWebhook")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
