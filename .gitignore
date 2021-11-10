@@ -33,3 +33,6 @@ testbin/*
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
+
+# Jira CLI
+.jira.d/
