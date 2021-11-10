@@ -52,10 +52,17 @@ const (
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
 type SPIAccessTokenStatus struct {
-	Phase        string `json:"phase"`
-	DataLocation string `json:"dataLocation"`
-	OAuthUrl     string `json:"oAuthUrl"`
+	Phase        SPIAccessTokenPhase `json:"phase"`
+	DataLocation string              `json:"dataLocation"`
+	OAuthUrl     string              `json:"oAuthUrl"`
 }
+
+type SPIAccessTokenPhase string
+
+const (
+	SPIAccessTokenPhaseAwaitingTokenData SPIAccessTokenPhase = "AwaitingTokenData"
+	SPIAccessTokenPhaseReady             SPIAccessTokenPhase = "Ready"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status

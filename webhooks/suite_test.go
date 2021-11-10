@@ -33,6 +33,7 @@ import (
 
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 	authzv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -164,26 +165,65 @@ var _ = Describe("RBAC Enforcement", func() {
 		Expect(cl.Delete(ctx, r)).To(Succeed())
 	})
 
-	// TODO test not working yet...
-	// It("fails to create SPIAccessTokenBinding if user doesn't have perms to SPIAccessToken", func() {
-	// 	err := noPrivsClient.Create(ctx, &api.SPIAccessTokenBinding{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name:      "should-not-exist",
-	// 			Namespace: "default",
-	// 		},
-	// 		Spec: api.SPIAccessTokenSpec{
-	// 			ServiceProviderType: "Github",
-	// 			ServiceProviderUrl:  "https://github.com",
-	// 			Permissions:         []api.Permission{api.PermissionRead},
-	// 			RawTokenData: &api.Token{
-	// 				AccessToken: "asdf",
-	// 			},
-	// 		},
-	// 	})
+	It("fails to create SPIAccessTokenBinding if user doesn't have perms to SPIAccessToken", func() {
+		err := noPrivsClient.Create(ctx, &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "should-not-exist",
+				Namespace: "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				RepoUrl:     "https://github.com/acme/bikes",
+				Permissions: []api.Permission{api.PermissionRead},
+			},
+		})
 
-	// 	Expect(err).NotTo(BeNil())
-	// 	Expect(errors.IsForbidden(err)).To(BeTrue())
-	// })
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("not authorized to operate on SPIAccessTokenBindings"))
+	})
+})
+
+var _ = Describe("Update protections", func() {
+	BeforeEach(func() {
+		Expect(cl.Create(ctx, &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-binding",
+				Namespace: "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				RepoUrl:     "https://github.com/acme/repo",
+				Permissions: []api.Permission{api.PermissionRead},
+			},
+		})).To(Succeed())
+	})
+
+	AfterEach(func() {
+		allBindings := api.SPIAccessTokenBindingList{}
+		allTokens := api.SPIAccessTokenList{}
+
+		Expect(cl.List(ctx, &allBindings)).To(Succeed())
+		Expect(cl.List(ctx, &allTokens)).To(Succeed())
+
+		for _, b := range allBindings.Items {
+			Expect(cl.Delete(ctx, &b)).To(Succeed())
+		}
+
+		for _, t := range allTokens.Items {
+			Expect(cl.Delete(ctx, &t)).To(Succeed())
+		}
+	})
+
+	It("should protect the linking label", func() {
+		binding := &api.SPIAccessTokenBinding{}
+
+		Expect(cl.Get(ctx, client.ObjectKey{Name: "test-binding", Namespace: "default"}, binding)).To(Succeed())
+
+		Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).NotTo(BeEmpty())
+
+		binding.Labels = map[string]string{}
+		Expect(cl.Update(ctx, binding)).To(Succeed())
+
+		Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).NotTo(BeEmpty())
+	})
 })
 
 var _ = BeforeSuite(func() {
@@ -251,6 +291,16 @@ var _ = BeforeSuite(func() {
 	err = (&SPIAccessTokenWebhook{
 		Client: mgr.GetClient(),
 		Vault:  vlt,
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&SPIAccessTokenBindingValidatingWebhook{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&SPIAccessTokenBindingMutatingWebhook{
+		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

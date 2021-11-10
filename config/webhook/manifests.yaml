@@ -15,7 +15,7 @@ webhooks:
       namespace: system
       path: /check-token
   failurePolicy: Fail
-  name: spiaccesstoken-wh.appstudio.redhat.com
+  name: spiaccesstoken-mwh.appstudio.redhat.com
   rules:
   - apiGroups:
     - appstudio.redhat.com
@@ -26,6 +26,27 @@ webhooks:
     - UPDATE
     resources:
     - spiaccesstokens
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-binding
+  failurePolicy: Fail
+  name: spiaccesstokenbinding-mwh.appstudio.redhat.com
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - spiaccesstokenbindings
   sideEffects: None
 
 ---
@@ -44,7 +65,7 @@ webhooks:
       namespace: system
       path: /check-token
   failurePolicy: Fail
-  name: spiaccesstoken-wh.appstudio.redhat.com
+  name: spiaccesstoken-vwh.appstudio.redhat.com
   rules:
   - apiGroups:
     - appstudio.redhat.com
@@ -62,9 +83,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /check-binding
+      path: /validate-binding
   failurePolicy: Fail
-  name: spiaccesstokenbinding-wh.appstudio.redhat.com
+  name: spiaccesstokenbinding-vwh.appstudio.redhat.com
   rules:
   - apiGroups:
     - appstudio.redhat.com

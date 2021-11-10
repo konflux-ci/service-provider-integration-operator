@@ -114,10 +114,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 		os.Exit(1)
 	}
-	if err = (&webhooks.SPIAccessTokenBindingWebhook{
+	if err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingWebhook")
+		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingValidatingWebhook")
+		os.Exit(1)
+	}
+	if err = (&webhooks.SPIAccessTokenBindingMutatingWebhook{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingMutatingWebhook")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

@@ -2,53 +2,86 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	adm "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-//+kubebuilder:webhook:path=/check-binding,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=create;update,versions=v1beta1,name=spiaccesstokenbinding-wh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-binding,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=create;update,versions=v1beta1,name=spiaccesstokenbinding-vwh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-binding,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=create;update,versions=v1beta1,name=spiaccesstokenbinding-mwh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
 
-type SPIAccessTokenBindingWebhook struct {
+type SPIAccessTokenBindingValidatingWebhook struct {
 	Client  client.Client
 	decoder *wh.Decoder
 }
 
-var _ wh.DecoderInjector = (*SPIAccessTokenBindingWebhook)(nil)
-var _ wh.Handler = (*SPIAccessTokenBindingWebhook)(nil)
+type SPIAccessTokenBindingMutatingWebhook struct {
+	Client  client.Client
+	decoder *wh.Decoder
+}
 
-func (w *SPIAccessTokenBindingWebhook) InjectDecoder(dec *wh.Decoder) error {
+var _ wh.DecoderInjector = (*SPIAccessTokenBindingValidatingWebhook)(nil)
+var _ wh.Handler = (*SPIAccessTokenBindingValidatingWebhook)(nil)
+var _ wh.DecoderInjector = (*SPIAccessTokenBindingMutatingWebhook)(nil)
+var _ wh.Handler = (*SPIAccessTokenBindingMutatingWebhook)(nil)
+
+func (w *SPIAccessTokenBindingValidatingWebhook) InjectDecoder(dec *wh.Decoder) error {
 	w.decoder = dec
 	return nil
 }
 
-func (w *SPIAccessTokenBindingWebhook) SetupWithManager(mgr ctrl.Manager) error {
-	mgr.GetWebhookServer().
-		Register("/check-binding", w.asWebhook())
+func (w *SPIAccessTokenBindingMutatingWebhook) InjectDecoder(dec *wh.Decoder) error {
+	w.decoder = dec
 	return nil
 }
 
-func (w *SPIAccessTokenBindingWebhook) asWebhook() *wh.Webhook {
-	return &wh.Webhook{
-		Handler: w,
-	}
+func (w *SPIAccessTokenBindingValidatingWebhook) SetupWithManager(mgr ctrl.Manager) error {
+	mgr.GetWebhookServer().
+		Register("/validate-binding", &wh.Webhook{
+			Handler: w,
+		})
+	return nil
 }
 
-func (w *SPIAccessTokenBindingWebhook) Handle(ctx context.Context, req wh.Request) wh.Response {
+func (w *SPIAccessTokenBindingMutatingWebhook) SetupWithManager(mgr ctrl.Manager) error {
+	mgr.GetWebhookServer().
+		Register("/mutate-binding", &wh.Webhook{
+			Handler: w,
+		})
+	return nil
+}
+
+func (w *SPIAccessTokenBindingValidatingWebhook) Handle(ctx context.Context, req wh.Request) wh.Response {
 	if err := w.checkCanReadAccessTokens(ctx, req.Namespace, req.UserInfo); err != nil {
-		return wh.Errored(http.StatusForbidden, err)
+		return wh.Denied(err.Error())
 	}
 
 	return wh.Allowed("")
 }
 
-func (w *SPIAccessTokenBindingWebhook) checkCanReadAccessTokens(ctx context.Context, ns string, user authv1.UserInfo) error {
+func (w *SPIAccessTokenBindingMutatingWebhook) Handle(ctx context.Context, req wh.Request) wh.Response {
+	switch req.Operation {
+	case adm.Create:
+		return w.handleCreate(ctx, req)
+	case adm.Update:
+		return w.handleUpdate(ctx, req)
+	}
+
+	return wh.Allowed("")
+}
+
+func (w *SPIAccessTokenBindingValidatingWebhook) checkCanReadAccessTokens(ctx context.Context, ns string, user authv1.UserInfo) error {
 	sar := &authzv1.SubjectAccessReview{
 		Spec: authzv1.SubjectAccessReviewSpec{
 			ResourceAttributes: &authzv1.ResourceAttributes{
@@ -77,4 +110,102 @@ func (w *SPIAccessTokenBindingWebhook) checkCanReadAccessTokens(ctx context.Cont
 	}
 
 	return nil
+}
+
+func (w *SPIAccessTokenBindingMutatingWebhook) handleCreate(ctx context.Context, req wh.Request) wh.Response {
+	binding := &api.SPIAccessTokenBinding{}
+	if err := w.decoder.DecodeRaw(req.Object, binding); err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	serviceProviderType, err := serviceprovider.ServiceProviderTypeFromURL(binding.Spec.RepoUrl)
+	if err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	serviceProvider, err := serviceprovider.ByType(serviceProviderType, w.Client)
+	if err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	token, err := serviceProvider.LookupToken(ctx, binding)
+	if err != nil {
+		return wh.Errored(http.StatusInternalServerError, err)
+	}
+
+	if token == nil {
+		serviceProviderUrl, err := serviceProvider.GetServiceProviderUrlForRepo(binding.Spec.RepoUrl)
+		if err != nil {
+			return wh.Errored(http.StatusInternalServerError, err)
+		}
+
+		// create the token and put it in awaiting token state
+		token = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "generated-spi-access-token-",
+				Namespace:    binding.Namespace,
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderType: serviceProviderType,
+				Permissions:         binding.Spec.Permissions,
+				ServiceProviderUrl:  serviceProviderUrl,
+			},
+		}
+
+		if err := w.Client.Create(ctx, token); err != nil {
+			return wh.Errored(http.StatusInternalServerError, err)
+		}
+
+		token.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
+		if err := w.Client.Status().Update(ctx, token); err != nil {
+			return wh.Errored(http.StatusInternalServerError, err)
+		}
+	}
+
+	if binding.Labels == nil {
+		binding.Labels = make(map[string]string)
+	}
+
+	binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
+
+	json, err := json.Marshal(binding)
+	if err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	return wh.PatchResponseFromRaw(req.Object.Raw, json)
+}
+
+func (w *SPIAccessTokenBindingMutatingWebhook) handleUpdate(ctx context.Context, req wh.Request) wh.Response {
+	old := api.SPIAccessTokenBinding{}
+	new := api.SPIAccessTokenBinding{}
+
+	if err := w.decoder.DecodeRaw(req.OldObject, &old); err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	if err := w.decoder.DecodeRaw(req.Object, &new); err != nil {
+		return wh.Errored(http.StatusBadRequest, err)
+	}
+
+	changed := false
+	oldLabel := old.Labels[config.SPIAccessTokenLinkLabel]
+	if oldLabel != "" && oldLabel != new.Labels[config.SPIAccessTokenLinkLabel] {
+		if new.Labels == nil {
+			new.Labels = map[string]string{}
+		}
+		new.Labels[config.SPIAccessTokenLinkLabel] = oldLabel
+		changed = true
+	}
+
+	if changed {
+		json, err := json.Marshal(new)
+		if err != nil {
+			return wh.Errored(http.StatusBadRequest, err)
+		}
+
+		return wh.PatchResponseFromRaw(req.Object.Raw, json)
+	} else {
+		return wh.Allowed("")
+	}
 }

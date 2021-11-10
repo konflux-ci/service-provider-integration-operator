@@ -75,12 +75,22 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
-	loc, err := r.Vault.GetDataLocation(at)
-	if err != nil {
-		return err
+	changed := false
+
+	if at.Status.DataLocation == "" {
+		loc, err := r.Vault.GetDataLocation(at)
+		if err != nil {
+			return err
+		}
+
+		at.Status.DataLocation = loc
+
+		changed = true
 	}
 
-	at.Status.DataLocation = loc
-
-	return r.Client.Status().Update(ctx, at)
+	if changed {
+		return r.Client.Status().Update(ctx, at)
+	} else {
+		return nil
+	}
 }

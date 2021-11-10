@@ -19,13 +19,22 @@ package controllers
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
+
+var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
 type SPIAccessTokenBindingReconciler struct {
@@ -37,6 +46,34 @@ type SPIAccessTokenBindingReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/finalizers,verbs=update
 
+// SetupWithManager sets up the controller with the Manager.
+func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&api.SPIAccessTokenBinding{}).
+		Owns(&corev1.Secret{}).
+		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			bindings := &api.SPIAccessTokenList{}
+			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace()), client.MatchingLabels{
+				config.SPIAccessTokenLinkLabel: o.GetName(),
+			}); err != nil {
+				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
+					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
+				return []reconcile.Request{}
+			}
+			ret := make([]reconcile.Request, len(bindings.Items))
+			for _, b := range bindings.Items {
+				ret = append(ret, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      b.Name,
+						Namespace: b.Namespace,
+					},
+				})
+			}
+			return ret
+		})).
+		Complete(r)
+}
+
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
@@ -47,16 +84,22 @@ type SPIAccessTokenBindingReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	lg := log.FromContext(ctx, "SPIAccessTokenBinding", req.NamespacedName)
+	ctx = log.IntoContext(ctx, lg)
 
-	// your logic here
+	atb := api.SPIAccessTokenBinding{}
+
+	if err := r.Get(ctx, req.NamespacedName, &atb); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+
+		return ctrl.Result{}, err
+	}
+
+	if atb.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&appstudiov1beta1.SPIAccessTokenBinding{}).
-		Complete(r)
 }

@@ -10,11 +10,14 @@ import (
 	adm "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-//+kubebuilder:webhook:path=/check-token,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=delete,versions=v1beta1,name=spiaccesstoken-wh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
-//+kubebuilder:webhook:path=/check-token,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=create;update,versions=v1beta1,name=spiaccesstoken-wh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
+var spiAccessTokenLog = logf.Log.WithName("spiaccesstoken-webhook")
+
+//+kubebuilder:webhook:path=/check-token,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=delete,versions=v1beta1,name=spiaccesstoken-vwh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/check-token,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=create;update,versions=v1beta1,name=spiaccesstoken-mwh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
 
 type SPIAccessTokenWebhook struct {
 	Client  client.Client
@@ -70,21 +73,28 @@ func (w *SPIAccessTokenWebhook) asWebhook() *wh.Webhook {
 }
 
 func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request, t *api.SPIAccessToken) wh.Response {
+	changed := false
+
 	if t.Spec.RawTokenData != nil {
 		if err := w.Vault.Store(t, t.Spec.RawTokenData); err != nil {
-			webhooklog.Error(err, "failed to store token into Vault", "object", client.ObjectKeyFromObject(t))
+			spiAccessTokenLog.Error(err, "failed to store token into Vault", "object", client.ObjectKeyFromObject(t))
 			return wh.Denied(err.Error())
 		}
 		t.Spec.RawTokenData = nil
+		changed = true
 		// We cannot update the status with the location here. That needs to wait for the controller
 	}
 
-	json, err := json.Marshal(t)
-	if err != nil {
-		return wh.Errored(http.StatusInternalServerError, err)
-	}
+	if changed {
+		json, err := json.Marshal(t)
+		if err != nil {
+			return wh.Errored(http.StatusInternalServerError, err)
+		}
 
-	return wh.PatchResponseFromRaw(req.Object.Raw, json)
+		return wh.PatchResponseFromRaw(req.Object.Raw, json)
+	} else {
+		return wh.Allowed("")
+	}
 }
 
 func (w *SPIAccessTokenWebhook) handleUpdate(ctx context.Context, req wh.Request, oldToken *api.SPIAccessToken, newToken *api.SPIAccessToken) wh.Response {
