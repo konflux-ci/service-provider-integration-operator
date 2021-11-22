@@ -45,12 +45,10 @@ jobs:
         with:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-          registry: quay.io
-          repository: skabashn/service-provider-integration-operator
           dockerfile: ./Dockerfile
           tag_with_sha: true
           push: true
-          tags: next
+          tags: quay.io/skabashn/service-provider-integration-operator:next
 
   build-bundle-images:
     runs-on: ubuntu-20.04
