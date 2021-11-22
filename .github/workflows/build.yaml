@@ -41,14 +41,15 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD }}
           registry: quay.io
       - name: Docker Build & Push
-        uses: docker/build-push-action@v2.7.0
+        uses: docker/build-push-action@v1.1.0
         with:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-          dockerfile: ./Dockerfile
+          registry: quay.io
+          repository: skabashn/service-provider-integration-operator
+          dockerfile: Dockerfile
+          tags: next
           tag_with_sha: true
-          push: true
-          tags: quay.io/skabashn/service-provider-integration-operator:next
 
   build-bundle-images:
     runs-on: ubuntu-20.04
