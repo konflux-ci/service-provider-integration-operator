@@ -25,15 +25,24 @@ type SPIAccessTokenSpec struct {
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
 	Permissions         []Permission        `json:"permissions"`
 	ServiceProviderUrl  string              `json:"serviceProviderUrl"`
+	DataLocation        string              `json:"dataLocation"`
+	TokenMetadata       *TokenMetadata      `json:"tokenMetadata,omitempty"`
 	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
 }
 
-// copied from golang.org/x/oauth2 and made easily json-serializable
+// Token is copied from golang.org/x/oauth2 and made easily json-serializable. It represents the data obtained from the
+// OAuth flow.
 type Token struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 	Expiry       uint64 `json:"expiry,omitempty"`
+}
+
+type TokenMetadata struct {
+	UserName string   `json:"userName"`
+	UserId   string   `json:"userId"`
+	Scopes   []string `json:"scopes"`
 }
 
 type ServiceProviderType string
@@ -52,9 +61,8 @@ const (
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
 type SPIAccessTokenStatus struct {
-	Phase        SPIAccessTokenPhase `json:"phase"`
-	DataLocation string              `json:"dataLocation"`
-	OAuthUrl     string              `json:"oAuthUrl"`
+	Phase    SPIAccessTokenPhase `json:"phase"`
+	OAuthUrl string              `json:"oAuthUrl"`
 }
 
 type SPIAccessTokenPhase string

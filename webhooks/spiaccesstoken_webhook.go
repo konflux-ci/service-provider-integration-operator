@@ -90,13 +90,14 @@ func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request
 	changed := false
 
 	if t.Spec.RawTokenData != nil {
-		if err := w.Vault.Store(t, t.Spec.RawTokenData); err != nil {
+		dataLocation, err := w.Vault.Store(t, t.Spec.RawTokenData)
+		if err != nil {
 			spiAccessTokenLog.Error(err, "failed to store token into Vault", "object", client.ObjectKeyFromObject(t))
 			return wh.Denied(err.Error())
 		}
 		t.Spec.RawTokenData = nil
+		t.Spec.DataLocation = dataLocation
 		changed = true
-		// We cannot update the status with the location here. That needs to wait for the controller
 	}
 
 	if changed {

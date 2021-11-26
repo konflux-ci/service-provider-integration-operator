@@ -24,18 +24,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type AccessToken struct {
+type AccessTokenMapper struct {
 	Name                    string   `json:"name"`
 	Token                   string   `json:"token"`
 	ServiceProviderUrl      string   `json:"serviceProviderUrl"`
 	ServiceProviderUserName string   `json:"serviceProviderUserName"`
 	ServiceProviderUserId   string   `json:"serviceProviderUserId"`
 	UserId                  string   `json:"userId"`
-	ExpiredAfter            *int64   `json:"expiredAfter"`
+	ExpiredAfter            *uint64  `json:"expiredAfter"`
 	Scopes                  []string `json:"scopes"`
 }
 
-func (at AccessToken) toSecretType(secretType corev1.SecretType) map[string]string {
+func (at AccessTokenMapper) toSecretType(secretType corev1.SecretType) map[string]string {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -54,9 +54,9 @@ func (at AccessToken) toSecretType(secretType corev1.SecretType) map[string]stri
 	return ret
 }
 
-func (at AccessToken) fillByMapping(mapping *api.AccessTokenSecretFieldMapping, existingMap map[string]string) {
+func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
 	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
-		existingMap[mapping.ExpiredAfter] = strconv.FormatInt(*at.ExpiredAfter, 10)
+		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
 	}
 
 	if mapping.Name != "" {

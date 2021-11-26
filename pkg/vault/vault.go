@@ -24,9 +24,9 @@ type Vault struct {
 	_s map[client.ObjectKey]api.Token
 }
 
-func (v *Vault) Store(owner client.Object, token *api.Token) error {
+func (v *Vault) Store(owner client.Object, token *api.Token) (string, error) {
 	v.storage()[client.ObjectKeyFromObject(owner)] = *token
-	return nil
+	return v.GetDataLocation(owner)
 }
 
 func (v *Vault) Get(owner client.Object) (*api.Token, error) {
@@ -39,7 +39,7 @@ func (v *Vault) Get(owner client.Object) (*api.Token, error) {
 }
 
 func (v *Vault) GetDataLocation(owner client.Object) (string, error) {
-	return ("/spi/" + owner.GetNamespace() + "/" + owner.GetName()), nil
+	return "/spi/" + owner.GetNamespace() + "/" + owner.GetName(), nil
 }
 
 func (v *Vault) Delete(owner client.Object) error {

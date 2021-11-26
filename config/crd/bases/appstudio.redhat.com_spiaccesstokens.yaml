@@ -36,12 +36,16 @@ spec:
           spec:
             description: SPIAccessTokenSpec defines the desired state of SPIAccessToken
             properties:
+              dataLocation:
+                type: string
               permissions:
                 items:
                   type: string
                 type: array
               rawTokenData:
-                description: copied from golang.org/x/oauth2 and made easily json-serializable
+                description: Token is copied from golang.org/x/oauth2 and made easily
+                  json-serializable. It represents the data obtained from the OAuth
+                  flow.
                 properties:
                   access_token:
                     type: string
@@ -59,7 +63,23 @@ spec:
                 type: string
               serviceProviderUrl:
                 type: string
+              tokenMetadata:
+                properties:
+                  scopes:
+                    items:
+                      type: string
+                    type: array
+                  userId:
+                    type: string
+                  userName:
+                    type: string
+                required:
+                - scopes
+                - userId
+                - userName
+                type: object
             required:
+            - dataLocation
             - permissions
             - serviceProviderType
             - serviceProviderUrl
@@ -67,14 +87,11 @@ spec:
           status:
             description: SPIAccessTokenStatus defines the observed state of SPIAccessToken
             properties:
-              dataLocation:
-                type: string
               oAuthUrl:
                 type: string
               phase:
                 type: string
             required:
-            - dataLocation
             - oAuthUrl
             - phase
             type: object

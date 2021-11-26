@@ -19,8 +19,15 @@ package controllers
 import (
 	"context"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,14 +39,23 @@ import (
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
+
+var (
+	secretDiffOpts = cmp.Options{
+		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
+	}
+)
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
 type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Vault  *vault.Vault
+	syncer sync.Syncer
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
@@ -48,6 +64,7 @@ type SPIAccessTokenBindingReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.syncer = sync.New(mgr.GetClient(), mgr.GetScheme())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
@@ -74,22 +91,13 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Complete(r)
 }
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the SPIAccessTokenBinding object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx, "SPIAccessTokenBinding", req.NamespacedName)
 	ctx = log.IntoContext(ctx, lg)
 
-	atb := api.SPIAccessTokenBinding{}
+	binding := api.SPIAccessTokenBinding{}
 
-	if err := r.Get(ctx, req.NamespacedName, &atb); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -97,9 +105,167 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if atb.DeletionTimestamp != nil {
+	if binding.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
+	token, err := r.linkToken(ctx, &binding)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
+		ref, err := r.syncSecret(ctx, &binding, token)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		binding.Status.SyncedObjectRef = ref
+		if err := r.updateStatusSuccess(ctx, &binding); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	serviceProviderType, err := serviceprovider.ServiceProviderTypeFromURL(binding.Spec.RepoUrl)
+	if err != nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+		return nil, err
+	}
+
+	serviceProvider, err := serviceprovider.ByType(serviceProviderType, r.Client)
+	if err != nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+		return nil, err
+	}
+
+	token, err := serviceProvider.LookupToken(ctx, binding)
+	if err != nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
+		return nil, err
+	}
+
+	if token == nil {
+		serviceProviderUrl, err := serviceProvider.GetServiceProviderUrlForRepo(binding.Spec.RepoUrl)
+		if err != nil {
+			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+			return nil, err
+		}
+
+		// create the token (and let its webhook and controller finish the setup)
+		token = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "generated-spi-access-token-",
+				Namespace:    binding.Namespace,
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderType: serviceProviderType,
+				Permissions:         binding.Spec.Permissions,
+				ServiceProviderUrl:  serviceProviderUrl,
+			},
+		}
+
+		if err := r.Client.Create(ctx, token); err != nil {
+			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			return nil, err
+		}
+	}
+
+	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
+	// up the watch to use the label to limit the scope...
+	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
+		if binding.Labels == nil {
+			binding.Labels = map[string]string{}
+		}
+		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
+
+		if err := r.Client.Update(ctx, binding); err != nil {
+			return token, err
+		}
+	}
+
+	if binding.Status.LinkedAccessTokenName != token.Name {
+		binding.Status.LinkedAccessTokenName = token.Name
+		if err := r.updateStatusSuccess(ctx, binding); err != nil {
+			return token, err
+		}
+	}
+
+	return token, nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) updateStatusError(ctx context.Context, binding *api.SPIAccessTokenBinding, reason api.SPIAccessTokenBindingErrorReason, err error) {
+	binding.Status.ErrorMessage = err.Error()
+	binding.Status.ErrorReason = reason
+	if err := r.Client.Status().Update(ctx, binding); err != nil {
+		log.FromContext(ctx).Error(err, "failed to update the status with error", "reason", reason, "error", err)
+	}
+}
+
+func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Context, binding *api.SPIAccessTokenBinding) error {
+	binding.Status.ErrorMessage = ""
+	binding.Status.ErrorReason = ""
+	if err := r.Client.Status().Update(ctx, binding); err != nil {
+		log.FromContext(ctx).Error(err, "failed to update status")
+		return err
+	}
+	return nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
+	token, err := r.Vault.Get(tokenObject)
+	if err != nil {
+		return api.TargetObjectRef{}, err
+	}
+
+	at := AccessTokenMapper{
+		Name:                    tokenObject.Name,
+		Token:                   token.AccessToken,
+		ServiceProviderUrl:      tokenObject.Spec.ServiceProviderUrl,
+		ServiceProviderUserName: tokenObject.Spec.TokenMetadata.UserName,
+		ServiceProviderUserId:   tokenObject.Spec.TokenMetadata.UserId,
+		UserId:                  "",
+		ExpiredAfter:            &token.Expiry,
+		Scopes:                  tokenObject.Spec.TokenMetadata.Scopes,
+	}
+
+	stringData := at.toSecretType(binding.Spec.Secret.Type)
+	at.fillByMapping(&binding.Spec.Secret.Fields, stringData)
+
+	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
+	// used the Secret.StringData, but Sync gives us other goodies.
+	// So let's bite the bullet and convert manually here.
+	data := make(map[string][]byte, len(stringData))
+	for k, v := range stringData {
+		data[k] = []byte(v)
+	}
+
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        binding.Spec.Secret.Name,
+			Namespace:   binding.GetNamespace(),
+			Labels:      binding.Spec.Secret.Labels,
+			Annotations: binding.Spec.Secret.Annotations,
+		},
+		Data: data,
+		Type: binding.Spec.Secret.Type,
+	}
+
+	_, obj, err := r.syncer.Sync(ctx, binding, secret, secretDiffOpts)
+	return toObjectRef(obj), err
+}
+
+func toObjectRef(obj client.Object) api.TargetObjectRef {
+	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	return api.TargetObjectRef{
+		Name:       obj.GetName(),
+		Kind:       kind,
+		ApiVersion: apiVersion,
+	}
 }

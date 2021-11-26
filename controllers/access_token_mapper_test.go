@@ -26,23 +26,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-var at AccessToken
+var at AccessTokenMapper
 
-func int64Ptr(val int64) *int64 {
+func uint64Ptr(val uint64) *uint64 {
 	return &val
 }
 
-func str(val *int64) string {
+func str(val *uint64) string {
 	if val == nil {
 		return ""
 	}
 
-	return strconv.FormatInt(*val, 10)
+	return strconv.FormatUint(*val, 10)
 }
 
 func init() {
-	at = AccessToken{}
-	at.ExpiredAfter = int64Ptr(42)
+	at = AccessTokenMapper{}
+	at.ExpiredAfter = uint64Ptr(42)
 	at.Name = "name"
 	at.Scopes = []string{"scope1", "scope2"}
 	at.ServiceProviderUserName = "spusername"
@@ -81,7 +81,7 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 }
 
 func TestMapping(t *testing.T) {
-	fields := &api.AccessTokenSecretFieldMapping{
+	fields := &api.TokenFieldMapping{
 		Token:                   "TOKEN",
 		Name:                    "NAME",
 		ServiceProviderUrl:      "SPURL",

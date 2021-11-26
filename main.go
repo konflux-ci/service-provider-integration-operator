@@ -88,10 +88,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (controllers.NewAccessTokenSecretReconciler(mgr.GetConfig(), mgr.GetClient(), mgr.GetScheme())).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AccessTokenSecret")
-		os.Exit(1)
-	}
 	if err = (&controllers.SPIAccessTokenReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -110,6 +106,7 @@ func main() {
 	if err = (&controllers.SPIAccessTokenBindingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Vault:  &vlt,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 		os.Exit(1)
@@ -118,12 +115,6 @@ func main() {
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingValidatingWebhook")
-		os.Exit(1)
-	}
-	if err = (&webhooks.SPIAccessTokenBindingMutatingWebhook{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingMutatingWebhook")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

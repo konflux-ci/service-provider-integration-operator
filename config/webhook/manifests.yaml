@@ -27,27 +27,6 @@ webhooks:
     resources:
     - spiaccesstokens
   sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-binding
-  failurePolicy: Fail
-  name: spiaccesstokenbinding-mwh.appstudio.redhat.com
-  rules:
-  - apiGroups:
-    - appstudio.redhat.com
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - spiaccesstokenbindings
-  sideEffects: None
 
 ---
 apiVersion: admissionregistration.k8s.io/v1
