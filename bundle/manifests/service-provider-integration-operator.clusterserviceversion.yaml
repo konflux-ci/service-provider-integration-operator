@@ -152,7 +152,7 @@ spec:
                 - /manager
                 env:
                 - name: SPI_URL
-                  value: http://spi-rest:8080
+                  value: http://service-provider-integration-api
                 image: quay.io/skabashn/service-provider-integration-operator:next
                 livenessProbe:
                   httpGet:
