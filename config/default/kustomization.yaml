@@ -1,12 +1,12 @@
 # Adds namespace to all resources.
-namespace: spi-system
+namespace: spi-system # WARN: keep this in sync with the namespace defined in the prepare base
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: spi-
+namePrefix: spi- # WARN: keep this in sync with the namespace defined in the prepare base
 
 images:
 - name: controller
@@ -19,14 +19,14 @@ commonLabels:
   app.kubernetes.io/part-of: service-provider-integration-operator
 
 bases:
+# Common stuff with the prepare goal
+- ../namespace
 - ../crd
 - ../rbac
-- ../manager
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
 - ../webhook
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
 - ../certmanager
+# Additional stuff deployed by the default overlay
+- ../manager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 
