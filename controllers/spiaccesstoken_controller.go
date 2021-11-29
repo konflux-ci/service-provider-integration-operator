@@ -70,19 +70,19 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if at.Spec.DataLocation == "" {
 		loc, err := r.Vault.GetDataLocation(&at)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, NewReconcileError(err, "failed to read the object")
 		}
 
 		if loc != "" {
 			at.Spec.DataLocation = loc
 			if err := r.Update(ctx, &at); err != nil {
-				return ctrl.Result{}, err
+				return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
 			}
 		}
 	}
 
 	if err := r.fillInStatus(ctx, &at); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
 
 	return ctrl.Result{}, nil
