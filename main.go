@@ -20,6 +20,10 @@ import (
 	"flag"
 	"os"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
+	corev1 "k8s.io/api/core/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -32,10 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
-	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -46,7 +48,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -88,34 +90,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.SPIAccessTokenReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  &vlt,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
-		os.Exit(1)
+	if config.RunControllers() {
+		if err = (&controllers.SPIAccessTokenReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			Vault:  &vlt,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
+			os.Exit(1)
+		}
+		if err = (&controllers.SPIAccessTokenBindingReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			Vault:  &vlt,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("CRD controllers inactive")
 	}
-	if err = (&webhooks.SPIAccessTokenWebhook{
-		Client: mgr.GetClient(),
-		Vault:  &vlt,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
-		os.Exit(1)
-	}
-	if err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  &vlt,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
-		os.Exit(1)
-	}
-	if err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingValidatingWebhook")
-		os.Exit(1)
+
+	if config.RunWebhooks() {
+		if err = (&webhooks.SPIAccessTokenWebhook{
+			Client: mgr.GetClient(),
+			Vault:  &vlt,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
+			os.Exit(1)
+		}
+		if err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
+			Client: mgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingValidatingWebhook")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("Webhooks inactive")
 	}
 	//+kubebuilder:scaffold:builder
 
