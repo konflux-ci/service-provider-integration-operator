@@ -65,7 +65,7 @@ func (w *SPIAccessTokenBindingValidatingWebhook) checkCanReadAccessTokens(ctx co
 				Verb:      "get",
 				Group:     api.GroupVersion.Group,
 				Version:   api.GroupVersion.Version,
-				Resource:  "SPIAccessToken",
+				Resource:  "spiaccesstokens",
 			},
 			UID:    user.UID,
 			User:   user.Username,
@@ -79,9 +79,9 @@ func (w *SPIAccessTokenBindingValidatingWebhook) checkCanReadAccessTokens(ctx co
 
 	if !sar.Status.Allowed {
 		if sar.Status.Reason != "" {
-			return fmt.Errorf("not authorized to operate on SPIAccessTokenBindings because user cannot read SPIAccessTokens in namespace %s: %s", ns, sar.Status.Reason)
+			return fmt.Errorf("not authorized to operate on SPIAccessTokenBindings because user %s cannot read SPIAccessTokens in namespace %s: %s", user.Username, ns, sar.Status.Reason)
 		} else {
-			return fmt.Errorf("not authorized to operate on SPIAccessTokenBindings because user cannot read SPIAccessTokens in namespace %s", ns)
+			return fmt.Errorf("not authorized to operate on SPIAccessTokenBindings because user %s cannot read SPIAccessTokens in namespace %s", user.Username, ns)
 		}
 	}
 
