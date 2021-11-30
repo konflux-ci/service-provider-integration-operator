@@ -10,10 +10,16 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: AccessTokenSecret is the Schema for the accesstokensecrets API
-      displayName: Access Token Secret
-      kind: AccessTokenSecret
-      name: accesstokensecrets.appstudio.redhat.com
+    - description: SPIAccessTokenBinding is the Schema for the spiaccesstokenbindings
+        API
+      displayName: SPIAccess Token Binding
+      kind: SPIAccessTokenBinding
+      name: spiaccesstokenbindings.appstudio.redhat.com
+      version: v1beta1
+    - description: SPIAccessToken is the Schema for the spiaccesstokens API
+      displayName: SPIAccess Token
+      kind: SPIAccessToken
+      name: spiaccesstokens.appstudio.redhat.com
       version: v1beta1
   description: Service Provider operator
   displayName: Service Provider Service

@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessToken
+metadata:
+  name: test-access-token
+  namespace: default
+spec:
+  serviceProviderType: Github
+  permissions:
+  - r
+  - w
+  serviceProviderUrl: https://github.com
+  rawTokenData:
+    access_token: "ahoj"

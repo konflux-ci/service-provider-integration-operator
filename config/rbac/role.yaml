@@ -9,20 +9,16 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
   - secrets
   verbs:
   - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - accesstokensecrets
+  - spiaccesstokenbindings
   verbs:
   - create
   - delete
@@ -34,13 +30,39 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - accesstokensecrets/finalizers
+  - spiaccesstokenbindings/finalizers
   verbs:
   - update
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - accesstokensecrets/status
+  - spiaccesstokenbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokens/status
   verbs:
   - get
   - patch

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: service-provider-integration-operator
+    app.kubernetes.io/part-of: service-provider-integration-operator
+  name: spi-webhook-service
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: service-provider-integration-operator
+    app.kubernetes.io/part-of: service-provider-integration-operator
+    control-plane: controller-manager
+status:
+  loadBalancer: {}

@@ -1,0 +1,172 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  creationTimestamp: null
+  name: spiaccesstokenbindings.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessTokenBinding
+    listKind: SPIAccessTokenBindingList
+    plural: spiaccesstokenbindings
+    singular: spiaccesstokenbinding
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: SPIAccessTokenBinding is the Schema for the spiaccesstokenbindings
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
+            properties:
+              permissions:
+                items:
+                  type: string
+                type: array
+              repoUrl:
+                type: string
+              secret:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is the keys and values that the create
+                      secret should be annotated with.
+                    type: object
+                  fields:
+                    description: Fields specifies the mapping from the token record
+                      fields to the keys in the secret data.
+                    properties:
+                      expiredAfter:
+                        description: ExpiredAfter specifies the data key in which
+                          the expiry date of the token should be stored.
+                        type: string
+                      name:
+                        description: Name specifies the data key in which the name
+                          of the token record should be stored.
+                        type: string
+                      scopes:
+                        description: Scopes specifies the data key in which the comma-separated
+                          list of token scopes should be stored.
+                        type: string
+                      serviceProviderUrl:
+                        description: ServiceProviderUrl specifies the data key in
+                          which the url of the service provider should be stored.
+                        type: string
+                      serviceProviderUserId:
+                        description: ServiceProviderUserId specifies the data key
+                          in which the url of the user id used in the service provider
+                          should be stored.
+                        type: string
+                      serviceProviderUserName:
+                        description: ServiceProviderUserName specifies the data key
+                          in which the url of the user name used in the service provider
+                          should be stored.
+                        type: string
+                      token:
+                        description: Token specifies the data key in which the token
+                          should be stored.
+                        type: string
+                      userId:
+                        description: UserId specifies the data key in which the user
+                          id as known to the SPI should be stored (note that this
+                          is usually different from ServiceProviderUserId, because
+                          the former is usually a kubernetes user, while the latter
+                          is some arbitrary ID used by the service provider which
+                          might or might not correspond to the Kubernetes user id).
+                        type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels contains the labels that the created secret
+                      should be labeled with.
+                    type: object
+                  name:
+                    description: Name is the name of the secret to be created.
+                    type: string
+                  type:
+                    description: Type is the type of the secret to be created. If
+                      left empty, the default type used in the cluster is assumed
+                      (typically Opaque). The type of the secret defines the automatic
+                      mapping of the token record fields to keys in the secret data
+                      according to the documentation https://kubernetes.io/docs/concepts/configuration/secret/#secret-types.
+                      Only kubernetes.io/service-account-token, kubernetes.io/dockercfg,
+                      kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth
+                      are supported. All other secret types need to have their mapping
+                      specified manually using the Fields.
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - permissions
+            - repoUrl
+            - secret
+            type: object
+          status:
+            description: SPIAccessTokenBindingStatus defines the observed state of
+              SPIAccessTokenBinding
+            properties:
+              errorMessage:
+                type: string
+              errorReason:
+                type: string
+              linkedAccessTokenName:
+                type: string
+              phase:
+                type: string
+              syncedObjectRef:
+                properties:
+                  apiVersion:
+                    description: ApiVersion is the api version of the object with
+                      the injected data.
+                    type: string
+                  kind:
+                    description: Kind is the kind of the object with the injected
+                      data.
+                    type: string
+                  name:
+                    description: Name is the name of the object with the injected
+                      data. This always lives in the same namespace as the AccessTokenSecret
+                      object.
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+            required:
+            - linkedAccessTokenName
+            - phase
+            - syncedObjectRef
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

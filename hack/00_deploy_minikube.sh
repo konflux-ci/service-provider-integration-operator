@@ -29,6 +29,8 @@ echo "Building docker image "$SPIO_IMG
 make docker-build
 echo "Uploading "$SPIO_IMG" to minikube"
 minikube image load $SPIO_IMG
+echo "Installing cert-manager"
+make install_cert_manager
 echo "Installing operator configuration"
 make install
 echo "Deploying operator"

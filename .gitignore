@@ -21,7 +21,8 @@ testbin/*
 !vendor/**/zz_generated.*
 
 # editor and IDE paraphernalia
-.idea
+.idea/*
+!.idea/runConfigurations
 *.swp
 *.swo
 *~
@@ -33,3 +34,6 @@ testbin/*
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
+
+# Jira CLI
+.jira.d/

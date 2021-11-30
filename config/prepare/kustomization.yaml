@@ -12,7 +12,11 @@ generatorOptions:
   disableNameSuffixHash: true
 
 resources:
+- ../namespace
+- ../crd
 - ../rbac
+- ../webhook
+- ../certmanager
 
 images:
 - name: controller

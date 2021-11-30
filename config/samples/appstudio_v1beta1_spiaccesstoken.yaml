@@ -1,0 +1,7 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessToken
+metadata:
+  name: spiaccesstoken-sample
+spec:
+  # Add fields here
+  foo: bar

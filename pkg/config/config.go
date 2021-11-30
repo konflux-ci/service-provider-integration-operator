@@ -15,15 +15,21 @@
 package config
 
 import (
-	"fmt"
 	"os"
 )
 
 const (
 	spiUrlEnv              = "SPI_URL"
 	bearerTokenFileEnv     = "SPI_BEARER_TOKEN_FILE"
+	runControllersEnv      = "RUN_CONTROLLERS"
+	runWebhooksEnv         = "RUN_WEBHOOKS"
 	defaultBearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	tokenEndpointPath      = "/api/v1/token/"
+
+	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
+
+	runControllersDefault = true
+	runWebhooksDefault    = true
 )
 
 var (
@@ -53,10 +59,24 @@ func BearerTokenFile() string {
 	return ret
 }
 
-func ValidateEnv() error {
-	if _, ok := os.LookupEnv(spiUrlEnv); !ok {
-		return fmt.Errorf("the following environment variables are mandatory: %s", spiUrlEnv)
+func RunControllers() bool {
+	ret, ok := os.LookupEnv(runControllersEnv)
+	if !ok {
+		return runControllersDefault
 	}
 
+	return "true" == ret
+}
+
+func RunWebhooks() bool {
+	ret, ok := os.LookupEnv(runWebhooksEnv)
+	if !ok {
+		return runWebhooksDefault
+	}
+
+	return "true" == ret
+}
+
+func ValidateEnv() error {
 	return nil
 }

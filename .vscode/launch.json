@@ -17,6 +17,6 @@
                 "SPI_BEARER_TOKEN_FILE": "${workspaceFolder}/.token"
             },
             "preLaunchTask": "prepare",
-        }
+        },
     ]
 }

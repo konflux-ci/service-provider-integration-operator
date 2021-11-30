@@ -1,0 +1,108 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  creationTimestamp: null
+  name: spiaccesstokens.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessToken
+    listKind: SPIAccessTokenList
+    plural: spiaccesstokens
+    singular: spiaccesstoken
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: SPIAccessToken is the Schema for the spiaccesstokens API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SPIAccessTokenSpec defines the desired state of SPIAccessToken
+            properties:
+              dataLocation:
+                type: string
+              permissions:
+                items:
+                  type: string
+                type: array
+              rawTokenData:
+                description: Token is copied from golang.org/x/oauth2 and made easily
+                  json-serializable. It represents the data obtained from the OAuth
+                  flow.
+                properties:
+                  access_token:
+                    type: string
+                  expiry:
+                    format: int64
+                    type: integer
+                  refresh_token:
+                    type: string
+                  token_type:
+                    type: string
+                required:
+                - access_token
+                type: object
+              serviceProviderType:
+                type: string
+              serviceProviderUrl:
+                type: string
+              tokenMetadata:
+                properties:
+                  scopes:
+                    items:
+                      type: string
+                    type: array
+                  userId:
+                    type: string
+                  userName:
+                    type: string
+                required:
+                - scopes
+                - userId
+                - userName
+                type: object
+            required:
+            - dataLocation
+            - permissions
+            - serviceProviderType
+            - serviceProviderUrl
+            type: object
+          status:
+            description: SPIAccessTokenStatus defines the observed state of SPIAccessToken
+            properties:
+              oAuthUrl:
+                type: string
+              phase:
+                type: string
+            required:
+            - oAuthUrl
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

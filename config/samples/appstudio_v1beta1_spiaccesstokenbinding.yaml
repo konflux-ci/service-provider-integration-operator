@@ -1,0 +1,7 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: spiaccesstokenbinding-sample
+spec:
+  # Add fields here
+  foo: bar
