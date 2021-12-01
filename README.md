@@ -1,5 +1,8 @@
 # service-provider-integration-operator
-A Kubernetes controller/operator that manages service provider integration tasks
+[![Code Coverage Report](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml)
+[![codecov](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator/branch/main/graph/badge.svg?token=EH16HO2RHP)](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator)
+
+A Kubernetes controller/operator that manages service provider integration tasks 
 
 ## Building & Testing
 This project provides a `Makefile` to run all the usual development tasks. If you simply run `make` without any arguments, you'll get a list of available "targets".
