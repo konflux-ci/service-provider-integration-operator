@@ -17,7 +17,9 @@ name: Container build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - v0.*
 
 jobs:
 
