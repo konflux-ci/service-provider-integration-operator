@@ -16,8 +16,9 @@ package serviceprovider
 
 import (
 	"context"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"net/url"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,9 +66,7 @@ func CommonLookup(sp ServiceProvider, ctx context.Context, binding *api.SPIAcces
 		&serviceProviderUrlCheck{sp: sp},
 		&scopeCheck{},
 	}
-	for _, f := range filters {
-		allFilters = append(allFilters, f)
-	}
+	allFilters = append(allFilters, filters...)
 
 Tokens:
 	for _, t := range ats.Items {

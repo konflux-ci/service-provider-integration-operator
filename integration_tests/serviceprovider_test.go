@@ -136,7 +136,7 @@ var _ = Describe("Token lookup", func() {
 						RepoUrl:     "https://github.com/acme/acme",
 						Permissions: []api.Permission{},
 						Secret:      api.SecretSpec{},
-						Scopes: []string{"read"},
+						Scopes:      []string{"read"},
 					},
 				})).To(Succeed())
 
@@ -149,7 +149,7 @@ var _ = Describe("Token lookup", func() {
 						RepoUrl:     "https://gitlab.com/somewhere-else",
 						Permissions: []api.Permission{},
 						Secret:      api.SecretSpec{},
-						Scopes: []string{"write"},
+						Scopes:      []string{"write"},
 					},
 				})).To(Succeed())
 			})
