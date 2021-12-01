@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
@@ -71,9 +70,9 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			bindings := &api.SPIAccessTokenList{}
+			bindings := &api.SPIAccessTokenBindingList{}
 			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace()), client.MatchingLabels{
-				config.SPIAccessTokenLinkLabel: o.GetName(),
+				api.LinkedAccessTokenLabel: o.GetName(),
 			}); err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
@@ -131,7 +130,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	serviceProviderType, err := serviceprovider.ServiceProviderTypeFromURL(binding.Spec.RepoUrl)
+	serviceProviderType, err := serviceprovider.TypeFromURL(binding.Spec.RepoUrl)
 	if err != nil {
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 		return nil, NewReconcileError(err, "failed to determine service provider type")
@@ -179,11 +178,11 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
 	// up the watch to use the label to limit the scope...
-	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
+	if binding.Labels[api.LinkedAccessTokenLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
 		}
-		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
+		binding.Labels[api.LinkedAccessTokenLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
 			return token, NewReconcileError(err, "failed to update the binding with the token link")

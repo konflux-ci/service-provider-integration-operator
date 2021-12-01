@@ -100,6 +100,9 @@ func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request
 		changed = true
 	}
 
+	// add labels if missing
+	changed = t.SyncLabels() || changed
+
 	if changed {
 		json, err := json.Marshal(t)
 		if err != nil {

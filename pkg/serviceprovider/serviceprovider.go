@@ -24,23 +24,53 @@ import (
 )
 
 type ServiceProvider interface {
+	client.Client
 	LookupToken(ctx context.Context, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
 	GetServiceProviderUrlForRepo(repoUrl string) (string, error)
 }
 
+type urlMatcher func(string) bool
+
+type serviceProviderSetup struct {
+	matcher urlMatcher
+	factory func(client.Client) (ServiceProvider, error)
+}
+
+var (
+	githubUrlMatcher urlMatcher = func(url string) bool {
+		return strings.HasPrefix(url, "https://github.com")
+	}
+
+	quayUrlMatcher urlMatcher = func(url string) bool {
+		return strings.HasPrefix(url, "https://quay.io")
+	}
+
+	allKnownProviders = map[api.ServiceProviderType]serviceProviderSetup{
+		api.ServiceProviderTypeGitHub: {
+			matcher: githubUrlMatcher,
+			factory: func(c client.Client) (ServiceProvider, error) {
+				return &Github{Client: c}, nil
+			},
+		},
+		api.ServiceProviderTypeQuay: {
+			matcher: quayUrlMatcher,
+			factory: func(c client.Client) (ServiceProvider, error) {
+				return &Quay{Client: c}, nil
+			},
+		},
+	}
+)
+
 func ByType(serviceProviderType api.ServiceProviderType, cl client.Client) (ServiceProvider, error) {
-	switch serviceProviderType {
-	case api.ServiceProviderTypeGithub:
-		return &Github{Client: cl}, nil
-	case api.ServiceProviderTypeQuay:
-		return &Quay{Client: cl}, nil
+	if setup, ok := allKnownProviders[serviceProviderType]; ok {
+		return setup.factory(cl)
 	}
 
 	return nil, fmt.Errorf("unknown service provider type: %s", serviceProviderType)
 }
 
 func FromURL(repoUrl string, cl client.Client) (ServiceProvider, error) {
-	spType, err := ServiceProviderTypeFromURL(repoUrl)
+	spType, err := TypeFromURL(repoUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -48,11 +78,11 @@ func FromURL(repoUrl string, cl client.Client) (ServiceProvider, error) {
 	return ByType(spType, cl)
 }
 
-func ServiceProviderTypeFromURL(url string) (api.ServiceProviderType, error) {
-	if strings.HasPrefix(url, "https://github.com") {
-		return api.ServiceProviderTypeGithub, nil
-	} else if strings.HasPrefix(url, "https://quay.io") {
-		return api.ServiceProviderTypeQuay, nil
+func TypeFromURL(url string) (api.ServiceProviderType, error) {
+	for spType, spSetup := range allKnownProviders {
+		if spSetup.matcher(url) {
+			return spType, nil
+		}
 	}
 
 	return "", fmt.Errorf("no service provider found for url: %s", url)

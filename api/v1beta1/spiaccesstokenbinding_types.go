@@ -21,11 +21,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const LinkedAccessTokenLabel = "spi.appstudio.redhat.com/linked-access-token"
+
 // SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
 type SPIAccessTokenBindingSpec struct {
 	RepoUrl     string       `json:"repoUrl"`
 	Permissions []Permission `json:"permissions"`
-	Secret      SecretSpec   `json:"secret"`
+	// Scopes is a list of additional OAuth scopes required on the token. The names of the scopes are specific to each
+	// service provider type (e.g. GitHub has different scopes than Gitlab).
+	Scopes []string   `json:"scopes,omitempty"`
+	Secret SecretSpec `json:"secret"`
 }
 
 // SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding

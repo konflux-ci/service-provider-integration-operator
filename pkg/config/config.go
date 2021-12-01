@@ -26,8 +26,6 @@ const (
 	defaultBearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	tokenEndpointPath      = "/api/v1/token/"
 
-	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
-
 	runControllersDefault = true
 	runWebhooksDefault    = true
 )

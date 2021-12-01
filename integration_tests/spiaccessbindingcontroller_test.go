@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,7 +30,7 @@ func testTokenNameInStatus(linkMatcher OmegaMatcher) {
 		g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-binding", Namespace: "default"}, binding)).To(Succeed())
 
 		cond := g.Expect(binding.Status.LinkedAccessTokenName).Should(linkMatcher) &&
-			g.Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).Should(linkMatcher)
+			g.Expect(binding.Labels[api.LinkedAccessTokenLabel]).Should(linkMatcher)
 
 		return cond
 	}, 10).Should(BeTrue())
@@ -124,7 +123,7 @@ var _ = Describe("Update binding", func() {
 		Eventually(func(g Gomega) error {
 			binding := &api.SPIAccessTokenBinding{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-binding", Namespace: "default"}, binding)).To(Succeed())
-			binding.Labels[config.SPIAccessTokenLinkLabel] = "my_random_link_name"
+			binding.Labels[api.LinkedAccessTokenLabel] = "my_random_link_name"
 			return ITest.Client.Update(ITest.Context, binding)
 		}).Should(Succeed())
 

@@ -67,6 +67,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	changed := false
+
 	if at.Spec.DataLocation == "" {
 		loc, err := r.Vault.GetDataLocation(&at)
 		if err != nil {
@@ -75,9 +77,15 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		if loc != "" {
 			at.Spec.DataLocation = loc
-			if err := r.Update(ctx, &at); err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
-			}
+			changed = true
+		}
+	}
+
+	changed = at.SyncLabels() || changed
+
+	if changed {
+		if err := r.Update(ctx, &at); err != nil {
+			return ctrl.Result{}, NewReconcileError(err, "failed to update the spec and labels")
 		}
 	}
 

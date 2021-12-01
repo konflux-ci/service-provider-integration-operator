@@ -30,7 +30,7 @@ var _ = Describe("Auto-creation of token", func() {
 				Namespace: "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: api.ServiceProviderTypeGithub,
+				ServiceProviderType: api.ServiceProviderTypeGitHub,
 				Permissions:         []api.Permission{api.PermissionRead},
 				RawTokenData: &api.Token{
 					AccessToken: "nazdar",
@@ -100,7 +100,7 @@ var _ = Describe("Create without token data", func() {
 				Namespace: "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: api.ServiceProviderTypeGithub,
+				ServiceProviderType: api.ServiceProviderTypeGitHub,
 				Permissions:         []api.Permission{api.PermissionRead},
 			},
 		})).To(Succeed())

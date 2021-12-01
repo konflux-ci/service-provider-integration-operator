@@ -43,6 +43,13 @@ spec:
                 type: array
               repoUrl:
                 type: string
+              scopes:
+                description: Scopes is a list of additional OAuth scopes required
+                  on the token. The names of the scopes are specific to each service
+                  provider type (e.g. GitHub has different scopes than Gitlab).
+                items:
+                  type: string
+                type: array
               secret:
                 properties:
                   annotations:

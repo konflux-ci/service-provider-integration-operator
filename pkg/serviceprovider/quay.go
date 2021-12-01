@@ -24,24 +24,11 @@ import (
 var _ ServiceProvider = (*Quay)(nil)
 
 type Quay struct {
-	Client client.Client
+	client.Client
 }
 
 func (g *Quay) LookupToken(ctx context.Context, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	// TODO implement
-
-	// for now just return the first SPIAccessToken that we find so that we prevent infinitely many SPIAccessTokens
-	// being created during the tests :)
-	ats := &api.SPIAccessTokenList{}
-	if err := g.Client.List(ctx, ats, client.Limit(1)); err != nil {
-		return nil, err
-	}
-
-	if len(ats.Items) == 0 {
-		return nil, nil
-	}
-
-	return &ats.Items[0], nil
+	return CommonLookup(g, ctx, binding, FirstToken)
 }
 
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {

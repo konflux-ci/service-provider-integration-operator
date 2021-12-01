@@ -18,6 +18,12 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
+)
+
+const (
+	ServiceProviderTypeLabel = "spi.appstudio.redhat.com/service-provider-type"
+	ServiceProviderHostLabel = "spi.appstudio.redhat.com/service-provider-host"
 )
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
@@ -48,7 +54,7 @@ type TokenMetadata struct {
 type ServiceProviderType string
 
 const (
-	ServiceProviderTypeGithub ServiceProviderType = "Github"
+	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
 )
 
@@ -91,6 +97,32 @@ type SPIAccessTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SPIAccessToken `json:"items"`
+}
+
+// SyncLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
+// token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
+func (t *SPIAccessToken) SyncLabels() (changed bool) {
+	if t.Labels == nil {
+		t.Labels = map[string]string{}
+	}
+
+	if t.Labels[ServiceProviderTypeLabel] != string(t.Spec.ServiceProviderType) {
+		t.Labels[ServiceProviderTypeLabel] = string(t.Spec.ServiceProviderType)
+		changed = true
+	}
+
+	if len(t.Spec.ServiceProviderUrl) > 0 {
+		// we can't use the full service provider URL as a label value, because K8s doesn't allow :// in label values.
+		spUrl, err := url.Parse(t.Spec.ServiceProviderUrl)
+		if err == nil {
+			if t.Labels[ServiceProviderHostLabel] != spUrl.Host {
+				t.Labels[ServiceProviderHostLabel] = spUrl.Host
+				changed = true
+			}
+		}
+	}
+
+	return
 }
 
 func init() {
