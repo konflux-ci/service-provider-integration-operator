@@ -15,6 +15,8 @@
 package integrationtests
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -44,7 +46,7 @@ var _ = Describe("Auto-creation of token", func() {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-token", Namespace: "default"}, token)).To(Succeed())
 			g.Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 
 	It("updates object with token location", func() {
@@ -80,7 +82,7 @@ var _ = Describe("Auto-creation of token", func() {
 			}
 
 			return ITest.Client.Update(ITest.Context, &t)
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(&t), &t)).To(Succeed())
 
@@ -111,7 +113,7 @@ var _ = Describe("Create without token data", func() {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-token", Namespace: "default"}, token)).To(Succeed())
 			g.Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 
 	It("doesn't auto-create the token", func() {

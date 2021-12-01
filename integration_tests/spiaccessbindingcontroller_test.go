@@ -15,6 +15,8 @@
 package integrationtests
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -33,7 +35,7 @@ func testTokenNameInStatus(linkMatcher OmegaMatcher) {
 			g.Expect(binding.Labels[api.LinkedAccessTokenLabel]).Should(linkMatcher)
 
 		return cond
-	}, 10).Should(BeTrue())
+	}).WithTimeout(10 * time.Second).Should(BeTrue())
 }
 
 var _ = Describe("Create binding", func() {
@@ -80,7 +82,7 @@ var _ = Describe("Create binding", func() {
 
 			binding.Status.LinkedAccessTokenName = "my random link name"
 			return ITest.Client.Status().Update(ITest.Context, binding)
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 
 		testTokenNameInStatus(Not(Or(BeEmpty(), Equal("my random link name"))))
 	})
@@ -125,7 +127,7 @@ var _ = Describe("Update binding", func() {
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-binding", Namespace: "default"}, binding)).To(Succeed())
 			binding.Labels[api.LinkedAccessTokenLabel] = "my_random_link_name"
 			return ITest.Client.Update(ITest.Context, binding)
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 
 		testTokenNameInStatus(Not(Or(BeEmpty(), Equal("my_random_link_name"))))
 	})
@@ -139,7 +141,7 @@ var _ = Describe("Update binding", func() {
 
 			binding.Status.LinkedAccessTokenName = "my random link name"
 			return ITest.Client.Status().Update(ITest.Context, binding)
-		}).Should(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 
 		testTokenNameInStatus(Not(Or(BeEmpty(), Equal("my random link name"))))
 	})

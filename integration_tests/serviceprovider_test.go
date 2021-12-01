@@ -15,6 +15,8 @@
 package integrationtests
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -86,7 +88,7 @@ var _ = Describe("Token lookup", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "matching", Namespace: "default"}, binding)).To(Succeed())
 					linkedToken := binding.Status.LinkedAccessTokenName
 					g.Expect(linkedToken).To(Equal("token"))
-				}).Should(Succeed())
+				}).WithTimeout(10 * time.Second).Should(Succeed())
 			})
 
 			It("is not linked when it doesn't match", func() {
@@ -95,7 +97,7 @@ var _ = Describe("Token lookup", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "not-matching", Namespace: "default"}, binding)).To(Succeed())
 					linkedToken := binding.Status.LinkedAccessTokenName
 					g.Expect(linkedToken).NotTo(Equal("token"))
-				}).Should(Succeed())
+				}).WithTimeout(10 * time.Second).Should(Succeed())
 			})
 		})
 
@@ -160,7 +162,7 @@ var _ = Describe("Token lookup", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "matching", Namespace: "default"}, binding)).To(Succeed())
 					linkedToken := binding.Status.LinkedAccessTokenName
 					g.Expect(linkedToken).To(Equal("token"))
-				}).Should(Succeed())
+				}).WithTimeout(10 * time.Second).Should(Succeed())
 			})
 
 			It("is not linked when it doesn't match", func() {
@@ -169,7 +171,7 @@ var _ = Describe("Token lookup", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "not-matching", Namespace: "default"}, binding)).To(Succeed())
 					linkedToken := binding.Status.LinkedAccessTokenName
 					g.Expect(linkedToken).NotTo(Equal("token"))
-				}).Should(Succeed())
+				}).WithTimeout(10 * time.Second).Should(Succeed())
 			})
 		})
 	})
