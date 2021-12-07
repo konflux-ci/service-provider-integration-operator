@@ -80,7 +80,7 @@ var _ = Describe("RBAC Enforcement", func() {
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
 				RepoUrl:     "https://github.com/acme/bikes",
-				Permissions: []api.Permission{api.PermissionRead},
+				Permissions: api.Permissions{},
 			},
 		})
 

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -78,5 +79,9 @@ func RunWebhooks() bool {
 }
 
 func ValidateEnv() error {
+	if _, ok := os.LookupEnv(spiUrlEnv); !ok {
+		return fmt.Errorf("SPI_URL environment variable required")
+	}
+
 	return nil
 }

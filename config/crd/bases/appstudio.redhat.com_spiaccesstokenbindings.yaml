@@ -38,9 +38,24 @@ spec:
             description: SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
             properties:
               permissions:
-                items:
-                  type: string
-                type: array
+                properties:
+                  additionalScopes:
+                    items:
+                      type: string
+                    type: array
+                  required:
+                    items:
+                      properties:
+                        area:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - area
+                      - type
+                      type: object
+                    type: array
+                type: object
               repoUrl:
                 type: string
               secret:

@@ -39,9 +39,24 @@ spec:
               dataLocation:
                 type: string
               permissions:
-                items:
-                  type: string
-                type: array
+                properties:
+                  additionalScopes:
+                    items:
+                      type: string
+                    type: array
+                  required:
+                    items:
+                      properties:
+                        area:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                      - area
+                      - type
+                      type: object
+                    type: array
+                type: object
               rawTokenData:
                 description: Token is copied from golang.org/x/oauth2 and made easily
                   json-serializable. It represents the data obtained from the OAuth
@@ -65,16 +80,11 @@ spec:
                 type: string
               tokenMetadata:
                 properties:
-                  scopes:
-                    items:
-                      type: string
-                    type: array
                   userId:
                     type: string
                   userName:
                     type: string
                 required:
-                - scopes
                 - userId
                 - userName
                 type: object
@@ -82,7 +92,6 @@ spec:
             - dataLocation
             - permissions
             - serviceProviderType
-            - serviceProviderUrl
             type: object
           status:
             description: SPIAccessTokenStatus defines the observed state of SPIAccessToken

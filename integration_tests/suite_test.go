@@ -19,9 +19,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-oauth/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -34,6 +38,7 @@ import (
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	controller_config "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
@@ -64,6 +69,8 @@ func TestSuite(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	controller_config.SetSpiUrlForTest("https://spi-oauth")
 
 	ITest = IntegrationTest{}
 
@@ -122,6 +129,24 @@ var _ = BeforeSuite(func() {
 	Expect(noPrivsClient).NotTo(BeNil())
 	ITest.NoPrivsClient = noPrivsClient
 
+	operatorCfg := config.Configuration{
+		ServiceProviders: []config.ServiceProviderConfiguration{
+			{
+				ClientId:            "githubClient",
+				ClientSecret:        "githubSecret",
+				RedirectUrl:         "http://localhost/github/back",
+				ServiceProviderType: "GitHub",
+			},
+			{
+				ClientId:            "quayClient",
+				ClientSecret:        "quaySecret",
+				RedirectUrl:         "http://localhost/quay/back",
+				ServiceProviderType: "Quay",
+			},
+		},
+		SharedSecret: []byte("secret"),
+	}
+
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -148,9 +173,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  vlt,
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		Vault:         vlt,
+		Configuration: operatorCfg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration: operatorCfg,
+			Client:        http.DefaultClient,
+		},
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -158,6 +188,10 @@ var _ = BeforeSuite(func() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Vault:  vlt,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration: operatorCfg,
+			Client:        http.DefaultClient,
+		},
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

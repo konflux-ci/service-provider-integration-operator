@@ -23,8 +23,8 @@ import (
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
-	Permissions         []Permission        `json:"permissions"`
-	ServiceProviderUrl  string              `json:"serviceProviderUrl"`
+	Permissions         Permissions         `json:"permissions"`
+	ServiceProviderUrl  string              `json:"serviceProviderUrl,omitempty"`
 	DataLocation        string              `json:"dataLocation"`
 	TokenMetadata       *TokenMetadata      `json:"tokenMetadata,omitempty"`
 	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
@@ -40,23 +40,41 @@ type Token struct {
 }
 
 type TokenMetadata struct {
-	UserName string   `json:"userName"`
-	UserId   string   `json:"userId"`
-	Scopes   []string `json:"scopes"`
+	UserName string `json:"userName"`
+	UserId   string `json:"userId"`
+}
+
+type Permissions struct {
+	Required         []Permission `json:"required,omitempty"`
+	AdditionalScopes []string     `json:"additionalScopes,omitempty"`
 }
 
 type ServiceProviderType string
 
 const (
-	ServiceProviderTypeGithub ServiceProviderType = "Github"
+	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
 )
 
-type Permission string
+type Permission struct {
+	Type PermissionType `json:"type"`
+	Area PermissionArea `json:"area"`
+}
+
+type PermissionType string
 
 const (
-	PermissionRead  Permission = "r"
-	PermissionWrite Permission = "w"
+	PermissionTypeRead      PermissionType = "r"
+	PermissionTypeWrite     PermissionType = "w"
+	PermissionTypeReadWrite PermissionType = "rw"
+)
+
+type PermissionArea string
+
+const (
+	PermissionAreaRepository PermissionArea = "repository"
+	PermissionAreaWebhooks   PermissionArea = "webhooks"
+	PermissionAreaUser       PermissionArea = "user"
 )
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken

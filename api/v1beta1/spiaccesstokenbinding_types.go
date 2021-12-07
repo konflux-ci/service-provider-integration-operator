@@ -23,9 +23,9 @@ import (
 
 // SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
 type SPIAccessTokenBindingSpec struct {
-	RepoUrl     string       `json:"repoUrl"`
-	Permissions []Permission `json:"permissions"`
-	Secret      SecretSpec   `json:"secret"`
+	RepoUrl     string      `json:"repoUrl"`
+	Permissions Permissions `json:"permissions"`
+	Secret      SecretSpec  `json:"secret"`
 }
 
 // SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding

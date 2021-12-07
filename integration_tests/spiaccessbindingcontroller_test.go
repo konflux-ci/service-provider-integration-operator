@@ -46,7 +46,7 @@ var _ = Describe("Create binding", func() {
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
 				RepoUrl:     "https://github.com/acme/acme",
-				Permissions: []api.Permission{api.PermissionWrite},
+				Permissions: api.Permissions{},
 				Secret:      api.SecretSpec{},
 			},
 		})).To(Succeed())
@@ -96,7 +96,7 @@ var _ = Describe("Update binding", func() {
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
 				RepoUrl:     "https://github.com/acme/acme",
-				Permissions: []api.Permission{api.PermissionWrite},
+				Permissions: api.Permissions{},
 				Secret:      api.SecretSpec{},
 			},
 		})).To(Succeed())
