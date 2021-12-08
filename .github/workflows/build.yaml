@@ -48,7 +48,7 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
           registry: quay.io
-          repository: skabashn/service-provider-integration-operator
+          repository: redhat-appstudio/service-provider-integration-operator
           dockerfile: Dockerfile
           tags: next
           tag_with_sha: true

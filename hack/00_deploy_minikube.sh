@@ -23,7 +23,7 @@ rm -rf $tmp_dir
 cd $cwd
 echo "SPI started on minikube"
 TAG=$(date '+%Y_%m_%d_%H_%M_%S')
-export SPIO_IMG=quay.io/skabashn/service-provider-integration-operator:$TAG
+export SPIO_IMG=quay.io/redhat-appstudio/service-provider-integration-operator:$TAG
 echo $SPIO_IMG
 echo "Building docker image "$SPIO_IMG
 make docker-build
