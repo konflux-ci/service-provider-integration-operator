@@ -17,8 +17,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -53,7 +53,8 @@ type Configuration struct {
 	// KubernetesClient is the kubernetes client to be used. This is either the in-cluster client or the client with
 	// configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the persisted
 	// configuration, the in-cluster client is assumed.
-	KubernetesClient *kubernetes.Clientset
+	KubernetesClient *client.Client
+
 
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
@@ -113,16 +114,16 @@ func readKubeConfig(loc string) (*rest.Config, error) {
 	}
 }
 
-func kubernetesClient(loc string) (*kubernetes.Clientset, error) {
+func kubernetesClient(loc string) (*client.Client, error) {
 	kcfg, err := readKubeConfig(loc)
 	if err != nil {
 		return nil, err
 	}
 
-	ret, err := kubernetes.NewForConfig(kcfg)
+	ret, err := client.New(kcfg, client.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return ret, nil
+	return &ret, nil
 }
