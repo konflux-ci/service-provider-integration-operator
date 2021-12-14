@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-oauth/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	corev1 "k8s.io/api/core/v1"
 

@@ -19,10 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-oauth/config"
-	"github.com/redhat-appstudio/service-provider-integration-oauth/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"k8s.io/apimachinery/pkg/api/errors"

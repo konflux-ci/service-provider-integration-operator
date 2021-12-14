@@ -44,7 +44,7 @@ import (
 
 	//+kubebuilder:scaffold:imports
 
-	sharedConfig "github.com/redhat-appstudio/service-provider-integration-oauth/config"
+	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 var (
