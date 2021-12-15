@@ -12,24 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storage
+package tokenstorage
 
 import (
+	"context"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Storage struct {
+type TokenStorage interface {
+	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error)
+	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
+	GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error)
+	Delete(ctx context.Context, owner *api.SPIAccessToken) error
+}
+
+func New(cfg *config.Configuration) (TokenStorage, error) {
+	return &tokenStorage{}, nil
+}
+
+type tokenStorage struct {
 	// let's fake it for now
 	_s map[client.ObjectKey]api.Token
 }
 
-func (v *Storage) Store(owner client.Object, token *api.Token) (string, error) {
+var _ TokenStorage = (*tokenStorage)(nil)
+
+func (v *tokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
 	v.storage()[client.ObjectKeyFromObject(owner)] = *token
-	return v.GetDataLocation(owner)
+	return v.GetDataLocation(ctx, owner)
 }
 
-func (v *Storage) Get(owner client.Object) (*api.Token, error) {
+func (v *tokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 	key := client.ObjectKeyFromObject(owner)
 	val, ok := v.storage()[key]
 	if !ok {
@@ -38,16 +54,16 @@ func (v *Storage) Get(owner client.Object) (*api.Token, error) {
 	return val.DeepCopy(), nil
 }
 
-func (v *Storage) GetDataLocation(owner client.Object) (string, error) {
+func (v *tokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
 	return "/spi/" + owner.GetNamespace() + "/" + owner.GetName(), nil
 }
 
-func (v *Storage) Delete(owner client.Object) error {
+func (v *tokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	delete(v.storage(), client.ObjectKeyFromObject(owner))
 	return nil
 }
 
-func (v *Storage) storage() map[client.ObjectKey]api.Token {
+func (v *tokenStorage) storage() map[client.ObjectKey]api.Token {
 	if v._s == nil {
 		v._s = map[client.ObjectKey]api.Token{}
 	}

@@ -58,7 +58,7 @@ var _ = Describe("Auto-creation of token", func() {
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "test-token", Namespace: "default"}, &t)).To(Succeed())
 
 		Expect(t.Spec.RawTokenData).To(BeNil())
-		data, err := ITest.Storage.Get(&t)
+		data, err := ITest.TokenStorage.Get(ITest.Context, &t)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data).NotTo(BeNil())
 		Expect(data.AccessToken).To(Equal("nazdar"))
@@ -85,7 +85,7 @@ var _ = Describe("Auto-creation of token", func() {
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(&t), &t)).To(Succeed())
 
 		Expect(t.Spec.RawTokenData).To(BeNil())
-		data, err := ITest.Storage.Get(&t)
+		data, err := ITest.TokenStorage.Get(ITest.Context, &t)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data).NotTo(BeNil())
 		Expect(data.AccessToken).To(Equal("updated"))

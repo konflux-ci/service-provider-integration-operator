@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -85,8 +85,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg := storage.Storage{}
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -106,11 +104,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	strg, err := tokenstorage.New(&cfg)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the token storage")
+		os.Exit(1)
+	}
+
 	if config.RunControllers() {
 		if err = (&controllers.SPIAccessTokenReconciler{
 			Client:                 mgr.GetClient(),
 			Scheme:                 mgr.GetScheme(),
-			Storage:                &strg,
+			TokenStorage:           strg,
 			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
 			Configuration:          cfg,
 		}).SetupWithManager(mgr); err != nil {
@@ -120,7 +124,7 @@ func main() {
 		if err = (&controllers.SPIAccessTokenBindingReconciler{
 			Client:                 mgr.GetClient(),
 			Scheme:                 mgr.GetScheme(),
-			Storage:                &strg,
+			TokenStorage:           strg,
 			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
@@ -132,8 +136,8 @@ func main() {
 
 	if config.RunWebhooks() {
 		if err = (&webhooks.SPIAccessTokenWebhook{
-			Client:  mgr.GetClient(),
-			Storage: &strg,
+			Client:       mgr.GetClient(),
+			TokenStorage: strg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
 			os.Exit(1)

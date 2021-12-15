@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -56,7 +56,7 @@ type IntegrationTest struct {
 	NoPrivsClient   client.Client
 	TestEnvironment *envtest.Environment
 	Context         context.Context
-	Storage         *storage.Storage
+	TokenStorage    tokenstorage.TokenStorage
 	Cancel          context.CancelFunc
 }
 
@@ -160,13 +160,15 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg := &storage.Storage{}
+	strg, err := tokenstorage.New(&operatorCfg)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&webhooks.SPIAccessTokenWebhook{
-		Client:  mgr.GetClient(),
-		Storage: strg,
+		Client:       mgr.GetClient(),
+		TokenStorage: strg,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
-	ITest.Storage = strg
+	ITest.TokenStorage = strg
 
 	err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
 		Client: mgr.GetClient(),
@@ -176,7 +178,7 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.SPIAccessTokenReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
-		Storage:       strg,
+		TokenStorage:  strg,
 		Configuration: operatorCfg,
 		ServiceProviderFactory: serviceprovider.Factory{
 			Configuration: operatorCfg,
@@ -186,9 +188,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Storage: strg,
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
 		ServiceProviderFactory: serviceprovider.Factory{
 			Configuration: operatorCfg,
 			Client:        http.DefaultClient,

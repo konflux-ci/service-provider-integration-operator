@@ -23,7 +23,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -40,7 +40,7 @@ import (
 type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
-	Storage                *storage.Storage
+	TokenStorage           tokenstorage.TokenStorage
 	Configuration          config.Configuration
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -77,15 +77,15 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.Spec.DataLocation == "" {
-		loc, err := r.Storage.GetDataLocation(&at)
+		loc, err := r.TokenStorage.GetDataLocation(ctx, &at)
 		if err != nil {
 			return ctrl.Result{}, NewReconcileError(err, "failed to determine data path")
 		}
 
 		if loc != "" {
-			data, err := r.Storage.Get(&at)
+			data, err := r.TokenStorage.Get(ctx, &at)
 			if err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from storage")
+				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from tokenstorage")
 			}
 			if data != nil {
 				at.Spec.DataLocation = loc

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -55,7 +55,7 @@ var (
 type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
-	Storage                *storage.Storage
+	TokenStorage           tokenstorage.TokenStorage
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -223,7 +223,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 }
 
 func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
-	token, err := r.Storage.Get(tokenObject)
+	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		return api.TargetObjectRef{}, err
 	}
