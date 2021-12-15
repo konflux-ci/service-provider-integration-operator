@@ -160,7 +160,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg, err := tokenstorage.New(&operatorCfg)
+	strg, err := tokenstorage.New(ITest.Client)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&webhooks.SPIAccessTokenWebhook{

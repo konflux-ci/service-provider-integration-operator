@@ -104,7 +104,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.New(&cfg)
+	strg, err := tokenstorage.New(mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

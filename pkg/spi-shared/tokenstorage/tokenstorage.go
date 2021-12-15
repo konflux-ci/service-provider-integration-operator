@@ -17,6 +17,9 @@ package tokenstorage
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +32,21 @@ type TokenStorage interface {
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
 }
 
-func New(cfg *config.Configuration) (TokenStorage, error) {
+func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
+	cl, err := cfg.KubernetesClient(client.Options{Scheme: scheme})
+	if err != nil {
+		return nil, err
+	}
+
+	return New(cl)
+}
+
+func New(cl client.Client) (TokenStorage, error) {
 	return &tokenStorage{}, nil
 }
 
