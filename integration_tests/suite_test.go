@@ -18,12 +18,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net"
 	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"

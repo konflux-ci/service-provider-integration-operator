@@ -19,10 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
-	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 

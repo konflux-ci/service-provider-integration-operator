@@ -18,9 +18,10 @@ package main
 
 import (
 	"flag"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net/http"
 	"os"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -41,6 +42,7 @@ import (
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	//+kubebuilder:scaffold:imports
 
 	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"

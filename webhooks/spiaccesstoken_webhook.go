@@ -17,8 +17,9 @@ package webhooks
 import (
 	"context"
 	"encoding/json"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net/http"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	adm "k8s.io/api/admission/v1"

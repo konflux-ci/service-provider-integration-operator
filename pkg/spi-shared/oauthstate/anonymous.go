@@ -15,8 +15,9 @@ package oauthstate
 
 import (
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 )

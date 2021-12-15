@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 
 	"github.com/google/go-cmp/cmp"
