@@ -30,7 +30,7 @@ apiVersion: v1
 clusters:
 - cluster:
     insecure-skip-tls-verify: true
-    server: 127.0.0.1
+    server: cluster.host
   name: cluster
 contexts:
 - context:
@@ -81,4 +81,6 @@ serviceProviders:
 	assert.NoError(t, err)
 
 	assert.Equal(t, []byte("secret"), cfg.SharedSecret)
+
+	assert.Equal(t, "cluster.host", cfg.KubernetesClientConfiguration.Host)
 }

@@ -17,6 +17,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+
+	"k8s.io/client-go/kubernetes"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/client-go/rest"
@@ -50,15 +53,22 @@ type Configuration struct {
 	// `sharedSecretFile` in the persisted configuration with the path to the file containing the secret.
 	SharedSecret []byte
 
-	// KubernetesClient is the kubernetes client to be used. This is either the in-cluster client or the client with
-	// configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the persisted
-	// configuration, the in-cluster client is assumed.
-	KubernetesClient *client.Client
-
-
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
 	KubernetesAuthAudiences []string
+
+	KubernetesClientConfiguration rest.Config
+}
+
+// KubernetesClient is the kubernetes client to be used. This is either the in-cluster client or the client with
+// configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the persisted
+// configuration, the in-cluster client is assumed.
+func (c Configuration) KubernetesClient(opts client.Options) (client.Client, error) {
+	return client.New(&c.KubernetesClientConfiguration, opts)
+}
+
+func (c Configuration) KubernetesClientset() (*kubernetes.Clientset, error) {
+	return kubernetes.NewForConfig(&c.KubernetesClientConfiguration)
 }
 
 type persistedConfiguration struct {
@@ -92,13 +102,13 @@ func ReadFrom(rdr io.Reader) (Configuration, error) {
 		return ret, err
 	}
 
-	cl, err := kubernetesClient(cfg.KubeConfigPath)
+	kcfg, err := readKubeConfig(cfg.KubeConfigPath)
 	if err != nil {
 		return ret, err
 	}
 
+	ret.KubernetesClientConfiguration = *kcfg
 	ret.ServiceProviders = cfg.ServiceProviders
-	ret.KubernetesClient = cl
 	ret.KubernetesAuthAudiences = cfg.KubernetesAuthAudiences
 
 	ret.SharedSecret, err = ioutil.ReadFile(cfg.SharedSecretFile)
@@ -110,20 +120,10 @@ func readKubeConfig(loc string) (*rest.Config, error) {
 	if loc == "" {
 		return rest.InClusterConfig()
 	} else {
-		return clientcmd.BuildConfigFromFlags("", loc)
+		content, err := ioutil.ReadFile(loc)
+		if err != nil {
+			return nil, err
+		}
+		return clientcmd.RESTConfigFromKubeConfig(content)
 	}
-}
-
-func kubernetesClient(loc string) (*client.Client, error) {
-	kcfg, err := readKubeConfig(loc)
-	if err != nil {
-		return nil, err
-	}
-
-	ret, err := client.New(kcfg, client.Options{})
-	if err != nil {
-		return nil, err
-	}
-
-	return &ret, nil
 }
