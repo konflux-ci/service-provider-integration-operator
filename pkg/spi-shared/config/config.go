@@ -35,14 +35,6 @@ const (
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
 )
 
-type ServiceProviderConfiguration struct {
-	ClientId               string              `yaml:"clientId"`
-	ClientSecret           string              `yaml:"clientSecret"`
-	RedirectUrl            string              `yaml:"redirectUrl"`
-	ServiceProviderType    ServiceProviderType `yaml:"type"`
-	ServiceProviderBaseUrl string              `yaml:"baseUrl,omitempty"`
-}
-
 // Configuration contains the specification of the known service providers as well as other configuration data shared
 // between the SPI OAuth service and the SPI operator
 type Configuration struct {
@@ -60,13 +52,40 @@ type Configuration struct {
 	KubernetesClientConfiguration rest.Config
 }
 
-// KubernetesClient is the kubernetes client to be used. This is either the in-cluster client or the client with
-// configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the persisted
-// configuration, the in-cluster client is assumed.
+// ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
+// mainly contains config of the OAuth application within the service provider.
+type ServiceProviderConfiguration struct {
+	// ClientId is the client ID of the OAuth application that the SPI uses to access the service provider.
+	ClientId               string              `yaml:"clientId"`
+
+	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
+	ClientSecret           string              `yaml:"clientSecret"`
+
+	// RedirectUrl is the redirect URL of the OAuth application that the SPI uses to access the service provider.
+	RedirectUrl            string              `yaml:"redirectUrl"`
+
+	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
+	ServiceProviderType    ServiceProviderType `yaml:"type"`
+
+	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
+	// types, like GitHub that only can have 1 well-known base URL.
+	ServiceProviderBaseUrl string              `yaml:"baseUrl,omitempty"`
+
+	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
+	// for Quay, we require to know the organization for which the OAuth application is defined for.
+	Extra                  map[string]string   `yaml:"extra,omitempty"`
+}
+
+// KubernetesClient creates a new kubernetes client based on the config. This is either the in-cluster client or
+// the client with configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the
+// persisted configuration, the in-cluster client is assumed.
 func (c Configuration) KubernetesClient(opts client.Options) (client.Client, error) {
 	return client.New(&c.KubernetesClientConfiguration, opts)
 }
 
+// KubernetesClientset creates a new kubernetes client. As with `KubernetesClient()` method, this is either created using
+// the supplied configuration or the in-cluster config is used if no explicit configuration file path is provided in the
+// persisted configuration.
 func (c Configuration) KubernetesClientset() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(&c.KubernetesClientConfiguration)
 }
@@ -78,6 +97,7 @@ type persistedConfiguration struct {
 	KubernetesAuthAudiences []string                       `yaml:"kubernetesAuthAudiences,omitempty"`
 }
 
+// LoadFrom loads the configuration from the provided file-system path.
 func LoadFrom(path string) (Configuration, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -88,6 +108,7 @@ func LoadFrom(path string) (Configuration, error) {
 	return ReadFrom(file)
 }
 
+// ReadFrom reads the configuration from the provided reader.
 func ReadFrom(rdr io.Reader) (Configuration, error) {
 	cfg := persistedConfiguration{}
 

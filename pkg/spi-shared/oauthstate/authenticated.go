@@ -18,16 +18,23 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+// AuthenticatedOAuthState is the state passed by the OAuth service to the service provider. In addition to the data
+// defined by the AnonymousOAuthState, it also includes the kubernetes identity of the caller as well as the actual
+// authorization header provided by the caller. This then can be used after completing the OAuth flow to perform
+// requests to the Kubernetes API in the name of the original caller.
 type AuthenticatedOAuthState struct {
 	AnonymousOAuthState
 	KubernetesIdentity  user.DefaultInfo `json:"kubernetesIdentity"`
 	AuthorizationHeader string           `json:"authorizationHeader"`
 }
 
+// EncodeAuthenticated encodes the `AuthenticatedOAuthState` as a string to be used as a state query parameter in the
+// OAuth URL.
 func (s *Codec) EncodeAuthenticated(state *AuthenticatedOAuthState) (string, error) {
 	return jwt.Signed(s.signer).Claims(state).CompactSerialize()
 }
 
+// ParseAuthenticated parses the string from the query parameter to an `AuthenticatedOAuthState` struct.
 func (s *Codec) ParseAuthenticated(state string) (AuthenticatedOAuthState, error) {
 	token, err := jwt.ParseSigned(state)
 	if err != nil {

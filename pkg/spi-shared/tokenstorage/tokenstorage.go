@@ -25,6 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
+// so that we can provide either secret-based or Vault-based implementation.
 type TokenStorage interface {
 	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error)
 	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
@@ -32,6 +34,7 @@ type TokenStorage interface {
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
 }
 
+// NewFromConfig creates a new `TokenStorage` instance based on the provided configuration.
 func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -46,6 +49,7 @@ func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
 	return New(cl)
 }
 
+// New creates a new `TokenStorage` instance using the provided Kubernetes client.
 func New(cl client.Client) (TokenStorage, error) {
 	return &tokenStorage{}, nil
 }

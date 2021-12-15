@@ -17,11 +17,16 @@ import (
 	"github.com/go-jose/go-jose/v3"
 )
 
+// Codec is in charge of encoding and decoding the state passed through the OAuth flow as the state query parameter.
 type Codec struct {
 	signer        jose.Signer
 	signingSecret []byte
 }
 
+// NewCodec creates a new codec using the secret used for signing the JWT tokens that represent the state in the
+// query parameters. The signing is used to make it harder to forge malicious OAuth flow requests. We don't need to
+// encrypt the state strings, because they don't contain any information that would not be obtainable from the requests
+// initiating the OAuth flow.
 func NewCodec(signingSecret []byte) (Codec, error) {
 	signer, err := jose.NewSigner(jose.SigningKey{
 		Algorithm: jose.HS256,
