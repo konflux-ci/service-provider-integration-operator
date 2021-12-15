@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -32,14 +33,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
-	Vault                  *vault.Vault
+	Storage                *storage.Storage
 	Configuration          config.Configuration
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -76,13 +76,13 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.Spec.DataLocation == "" {
-		loc, err := r.Vault.GetDataLocation(&at)
+		loc, err := r.Storage.GetDataLocation(&at)
 		if err != nil {
 			return ctrl.Result{}, NewReconcileError(err, "failed to determine data path")
 		}
 
 		if loc != "" {
-			data, err := r.Vault.Get(&at)
+			data, err := r.Storage.Get(&at)
 			if err != nil {
 				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from storage")
 			}

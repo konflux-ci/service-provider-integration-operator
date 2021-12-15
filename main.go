@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net/http"
 	"os"
 
@@ -40,8 +41,6 @@ import (
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
-
 	//+kubebuilder:scaffold:imports
 
 	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -84,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vlt := vault.Vault{}
+	strg := storage.Storage{}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -109,7 +108,7 @@ func main() {
 		if err = (&controllers.SPIAccessTokenReconciler{
 			Client:                 mgr.GetClient(),
 			Scheme:                 mgr.GetScheme(),
-			Vault:                  &vlt,
+			Storage:                &strg,
 			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
 			Configuration:          cfg,
 		}).SetupWithManager(mgr); err != nil {
@@ -119,7 +118,7 @@ func main() {
 		if err = (&controllers.SPIAccessTokenBindingReconciler{
 			Client:                 mgr.GetClient(),
 			Scheme:                 mgr.GetScheme(),
-			Vault:                  &vlt,
+			Storage:                &strg,
 			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
@@ -131,8 +130,8 @@ func main() {
 
 	if config.RunWebhooks() {
 		if err = (&webhooks.SPIAccessTokenWebhook{
-			Client: mgr.GetClient(),
-			Vault:  &vlt,
+			Client:  mgr.GetClient(),
+			Storage: &strg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
 			os.Exit(1)

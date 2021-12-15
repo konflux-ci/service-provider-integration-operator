@@ -19,13 +19,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +54,7 @@ var (
 type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
-	Vault                  *vault.Vault
+	Storage                *storage.Storage
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -223,7 +222,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 }
 
 func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
-	token, err := r.Vault.Get(tokenObject)
+	token, err := r.Storage.Get(tokenObject)
 	if err != nil {
 		return api.TargetObjectRef{}, err
 	}

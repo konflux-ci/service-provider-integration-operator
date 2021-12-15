@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -39,7 +40,6 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	controller_config "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,7 +55,7 @@ type IntegrationTest struct {
 	NoPrivsClient   client.Client
 	TestEnvironment *envtest.Environment
 	Context         context.Context
-	Vault           *vault.Vault
+	Storage         *storage.Storage
 	Cancel          context.CancelFunc
 }
 
@@ -159,13 +159,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	vlt := &vault.Vault{}
+	strg := &storage.Storage{}
 	err = (&webhooks.SPIAccessTokenWebhook{
-		Client: mgr.GetClient(),
-		Vault:  vlt,
+		Client:  mgr.GetClient(),
+		Storage: strg,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
-	ITest.Vault = vlt
+	ITest.Storage = strg
 
 	err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
 		Client: mgr.GetClient(),
@@ -175,7 +175,7 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.SPIAccessTokenReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
-		Vault:         vlt,
+		Storage:       strg,
 		Configuration: operatorCfg,
 		ServiceProviderFactory: serviceprovider.Factory{
 			Configuration: operatorCfg,
@@ -185,9 +185,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  vlt,
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Storage: strg,
 		ServiceProviderFactory: serviceprovider.Factory{
 			Configuration: operatorCfg,
 			Client:        http.DefaultClient,

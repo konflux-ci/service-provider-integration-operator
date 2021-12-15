@@ -17,10 +17,10 @@ package webhooks
 import (
 	"context"
 	"encoding/json"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/storage"
 	"net/http"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 	adm "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +35,7 @@ var spiAccessTokenLog = logf.Log.WithName("spiaccesstoken-webhook")
 
 type SPIAccessTokenWebhook struct {
 	Client  client.Client
-	Vault   *vault.Vault
+	Storage *storage.Storage
 	decoder *wh.Decoder
 }
 
@@ -90,9 +90,9 @@ func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request
 	changed := false
 
 	if t.Spec.RawTokenData != nil {
-		dataLocation, err := w.Vault.Store(t, t.Spec.RawTokenData)
+		dataLocation, err := w.Storage.Store(t, t.Spec.RawTokenData)
 		if err != nil {
-			spiAccessTokenLog.Error(err, "failed to store token into Vault", "object", client.ObjectKeyFromObject(t))
+			spiAccessTokenLog.Error(err, "failed to store token into Storage", "object", client.ObjectKeyFromObject(t))
 			return wh.Denied(err.Error())
 		}
 		t.Spec.RawTokenData = nil
@@ -117,7 +117,7 @@ func (w *SPIAccessTokenWebhook) handleUpdate(ctx context.Context, req wh.Request
 }
 
 func (w *SPIAccessTokenWebhook) handleDelete(ctx context.Context, token *api.SPIAccessToken) wh.Response {
-	if err := w.Vault.Delete(token); err != nil {
+	if err := w.Storage.Delete(token); err != nil {
 		return wh.Denied(err.Error())
 	}
 	return wh.Allowed("")
