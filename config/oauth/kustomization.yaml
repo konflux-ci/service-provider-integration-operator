@@ -1,0 +1,19 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+commonLabels:
+  app.kubernetes.io/name: service-provider-integration-operator
+  app.kubernetes.io/part-of: service-provider-integration-operator
+
+images:
+- name: oauth
+  newName: quay.io/lkrejci/service-provider-integration-oauth
+  newTag: flow
+
+resources:
+- deployment.yaml
+- role.yaml
+- role-binding.yaml
+- service-account.yaml
+- service.yaml
+- ingress.yaml

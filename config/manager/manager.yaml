@@ -49,5 +49,19 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        volumeMounts:
+        - mountPath: $(CONFIG_MOUNT_PATH)/config.yaml
+          name: config
+          subPath: config.yaml
+        - mountPath: $(CONFIG_MOUNT_PATH)/shared-secret
+          name: shared-secret
+          subPath: shared-secret
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: oauth-config
+      - name: shared-secret
+        secret:
+          secretName: shared-secret

@@ -1,0 +1,10 @@
+sharedSecretFile: $(CONFIG_MOUNT_PATH)/shared-secret
+serviceProviders:
+- type: GitHub
+  clientId: "123"
+  clientSecret: "42"
+  redirectUrl: $(OAUTH_HOST)/github/callback
+- type: Quay
+  clientId: "456"
+  clientSecret: "54"
+  redirectUrl: $(OAUTH_HOST)/quay/callback
