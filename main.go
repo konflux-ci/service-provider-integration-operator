@@ -98,9 +98,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := sharedConfig.LoadFrom(configFile)
+	pcfg, err := sharedConfig.LoadFrom(configFile)
 	if err != nil {
 		setupLog.Error(err, "failed to load the configuration file")
+		os.Exit(1)
+	}
+
+	cfg, err := pcfg.Inflate()
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the configuration file")
 		os.Exit(1)
 	}
 

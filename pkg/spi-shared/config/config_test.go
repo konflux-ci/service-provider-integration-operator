@@ -66,19 +66,23 @@ users:
 	configFileContent := `
 sharedSecretFile: ` + secretFilePath + `
 kubeConfigPath: ` + kcfgFilePath + `
+baseUrl: https://localhost:8080
 serviceProviders:
 - type: GitHub
   clientId: "123"
   clientSecret: "42"
-  redirectUrl: https://localhost:8080/github/callback
 - type: Quay
   clientId: "456"
   clientSecret: "54"
-  redirectUrl: https://localhost:8080/quay/callback
 `
 
-	cfg, err := ReadFrom(strings.NewReader(configFileContent))
+	pcfg, err := ReadFrom(strings.NewReader(configFileContent))
 	assert.NoError(t, err)
+
+	cfg, err := pcfg.Inflate()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "https://localhost:8080", cfg.BaseUrl)
 
 	assert.Equal(t, []byte("secret"), cfg.SharedSecret)
 

@@ -135,13 +135,11 @@ var _ = BeforeSuite(func() {
 			{
 				ClientId:            "githubClient",
 				ClientSecret:        "githubSecret",
-				RedirectUrl:         "http://localhost/github/back",
 				ServiceProviderType: "GitHub",
 			},
 			{
 				ClientId:            "quayClient",
 				ClientSecret:        "quaySecret",
-				RedirectUrl:         "http://localhost/quay/back",
 				ServiceProviderType: "Quay",
 			},
 		},
