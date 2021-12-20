@@ -50,11 +50,10 @@ func (g *Github) TranslateToScopes(permission api.Permission) []string {
 	case api.PermissionAreaWebhooks:
 		return []string{"admin:repo_hook"}
 	case api.PermissionAreaUser:
-		switch permission.Type {
-		case api.PermissionTypeRead:
-			return []string{"read:user"}
-		default:
+		if permission.Type.IsWrite() {
 			return []string{"user"}
+		} else {
+			return []string{"read:user"}
 		}
 	}
 

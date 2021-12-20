@@ -69,6 +69,14 @@ const (
 	PermissionTypeReadWrite PermissionType = "rw"
 )
 
+func (pt PermissionType) IsRead() bool {
+	return pt == PermissionTypeRead || pt == PermissionTypeReadWrite
+}
+
+func (pt PermissionType) IsWrite() bool {
+	return pt == PermissionTypeWrite || pt == PermissionTypeReadWrite
+}
+
 type PermissionArea string
 
 const (
