@@ -10,11 +10,13 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - v1
+  - ""
   resources:
   - secrets
   verbs:
   - create
+  - update
+  - get
 - apiGroups:
   - appstudio.redhat.com
   resources:
