@@ -51,43 +51,5 @@ func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
 
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
 func New(cl client.Client) (TokenStorage, error) {
-	return &tokenStorage{}, nil
-}
-
-type tokenStorage struct {
-	// let's fake it for now
-	_s map[client.ObjectKey]api.Token
-}
-
-var _ TokenStorage = (*tokenStorage)(nil)
-
-func (v *tokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
-	v.storage()[client.ObjectKeyFromObject(owner)] = *token
-	return v.GetDataLocation(ctx, owner)
-}
-
-func (v *tokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	key := client.ObjectKeyFromObject(owner)
-	val, ok := v.storage()[key]
-	if !ok {
-		return nil, nil
-	}
-	return val.DeepCopy(), nil
-}
-
-func (v *tokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
-	return "/spi/" + owner.GetNamespace() + "/" + owner.GetName(), nil
-}
-
-func (v *tokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	delete(v.storage(), client.ObjectKeyFromObject(owner))
-	return nil
-}
-
-func (v *tokenStorage) storage() map[client.ObjectKey]api.Token {
-	if v._s == nil {
-		v._s = map[client.ObjectKey]api.Token{}
-	}
-
-	return v._s
+	return &fakeTokenStorage{}, nil
 }
