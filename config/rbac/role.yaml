@@ -15,6 +15,7 @@ rules:
   - get
   - list
   - watch
+  - delete
 - apiGroups:
   - appstudio.redhat.com
   resources:
