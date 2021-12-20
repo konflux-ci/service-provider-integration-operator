@@ -72,7 +72,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			bindings := &api.SPIAccessTokenList{}
+			bindings := &api.SPIAccessTokenBindingList{}
 			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace()), client.MatchingLabels{
 				config.SPIAccessTokenLinkLabel: o.GetName(),
 			}); err != nil {

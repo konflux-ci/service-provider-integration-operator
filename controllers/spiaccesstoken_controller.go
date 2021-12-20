@@ -106,19 +106,20 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	changed := false
 
-	if at.Status.Phase == "" {
-		if at.Spec.DataLocation == "" {
-			at.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
-			oauthUrl, err := r.oAuthUrlFor(at)
-			if err != nil {
-				return err
-			}
-			at.Status.OAuthUrl = oauthUrl
-		} else {
-			at.Status.Phase = api.SPIAccessTokenPhaseReady
-			at.Status.OAuthUrl = ""
+	if at.Spec.DataLocation == "" {
+		oauthUrl, err := r.oAuthUrlFor(at)
+		if err != nil {
+			return err
 		}
-		changed = true
+
+		changed = at.Status.OAuthUrl != oauthUrl || at.Status.Phase != api.SPIAccessTokenPhaseAwaitingTokenData
+
+		at.Status.OAuthUrl = oauthUrl
+		at.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
+	} else {
+		changed = at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
+		at.Status.Phase = api.SPIAccessTokenPhaseReady
+		at.Status.OAuthUrl = ""
 	}
 
 	if changed {

@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,10 +28,11 @@ import (
 var _ ServiceProvider = (*Quay)(nil)
 
 type Quay struct {
+	Configuration config.Configuration
 }
 
 func (g *Quay) GetOAuthEndpoint() string {
-	return config.SpiUrl() + "/quay/authenticate"
+	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/quay/authenticate"
 }
 
 func (g *Quay) GetBaseUrl() string {

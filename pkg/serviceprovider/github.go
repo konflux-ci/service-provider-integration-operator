@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,10 +28,11 @@ import (
 var _ ServiceProvider = (*Github)(nil)
 
 type Github struct {
+	Configuration config.Configuration
 }
 
 func (g *Github) GetOAuthEndpoint() string {
-	return config.SpiUrl() + "/github/authenticate"
+	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/github/authenticate"
 }
 
 func (g *Github) GetBaseUrl() string {

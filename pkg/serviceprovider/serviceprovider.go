@@ -56,9 +56,9 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		if baseUrl != "" {
 			switch spc.ServiceProviderType {
 			case config.ServiceProviderTypeGitHub:
-				return &Github{}, nil
+				return &Github{Configuration: f.Configuration}, nil
 			case config.ServiceProviderTypeQuay:
-				return &Quay{}, nil
+				return &Quay{Configuration: f.Configuration}, nil
 			}
 		}
 	}

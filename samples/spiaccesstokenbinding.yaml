@@ -5,8 +5,11 @@ metadata:
   namespace: default
 spec:
   permissions:
-  - r
-  - w
+    required:
+      - type: r
+        area: repository
+      - type: w
+        area: repository
   repoUrl: https://github.com/revapi/revapi
   secret:
     name: token-secret
