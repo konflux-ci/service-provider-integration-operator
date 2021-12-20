@@ -79,14 +79,10 @@ func TypeFromURL(url string) (api.ServiceProviderType, error) {
 func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
 	allScopes := make([]string, len(perms.AdditionalScopes)+len(perms.Required))
 
-	for _, s := range perms.AdditionalScopes {
-		allScopes = append(allScopes, s)
-	}
+	allScopes = append(allScopes, perms.AdditionalScopes...)
 
 	for _, p := range perms.Required {
-		for _, s := range sp.TranslateToScopes(p) {
-			allScopes = append(allScopes, s)
-		}
+		allScopes = append(allScopes, sp.TranslateToScopes(p)...)
 	}
 
 	return allScopes
