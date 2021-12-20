@@ -17,6 +17,8 @@ package tokenstorage
 import (
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -51,5 +53,5 @@ func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
 
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
 func New(cl client.Client) (TokenStorage, error) {
-	return &fakeTokenStorage{}, nil
+	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
 }

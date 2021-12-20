@@ -64,7 +64,7 @@ func TestSyncCreates(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
 
-	syncer := Syncer{client: cl, scheme: scheme}
+	syncer := Syncer{client: cl}
 
 	_, _, err := syncer.Sync(context.TODO(), preexisting, new, cmp.Options{})
 	assert.NoError(t, err)
@@ -124,7 +124,7 @@ func TestSyncUpdates(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
 
-	syncer := Syncer{client: cl, scheme: scheme}
+	syncer := Syncer{client: cl}
 
 	_, _, err := syncer.Sync(context.TODO(), newOwner, update, cmp.Options{})
 	assert.NoError(t, err)
@@ -193,7 +193,7 @@ func TestSyncKeepsAdditionalAnnosAndLabels(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
 
-	syncer := Syncer{client: cl, scheme: scheme}
+	syncer := Syncer{client: cl}
 
 	_, _, err := syncer.Sync(context.TODO(), owner, update, cmp.Options{})
 	assert.NoError(t, err)

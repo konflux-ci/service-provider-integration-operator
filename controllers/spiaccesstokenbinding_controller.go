@@ -67,7 +67,7 @@ type SPIAccessTokenBindingReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.syncer = sync.New(mgr.GetClient(), mgr.GetScheme())
+	r.syncer = sync.New(mgr.GetClient())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).

@@ -17,7 +17,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -26,11 +25,10 @@ import (
 // Syncer synchronized K8s objects with the cluster
 type Syncer struct {
 	client client.Client
-	scheme *runtime.Scheme
 }
 
-func New(client client.Client, scheme *runtime.Scheme) Syncer {
-	return Syncer{client: client, scheme: scheme}
+func New(client client.Client) Syncer {
+	return Syncer{client: client}
 }
 
 // Sync syncs the blueprint to the cluster in a generic (as much as Go allows) manner.
@@ -68,7 +66,7 @@ func (s *Syncer) Delete(ctx context.Context, object client.Object) error {
 	lg := log.FromContext(ctx)
 	var err error
 
-	o, err := s.scheme.New(object.GetObjectKind().GroupVersionKind())
+	o, err := s.client.Scheme().New(object.GetObjectKind().GroupVersionKind())
 	if err != nil {
 		lg.Error(err, "failed to create an empty object with GVK", "GVK", object.GetObjectKind().GroupVersionKind())
 		return err
@@ -89,7 +87,7 @@ func (s *Syncer) Delete(ctx context.Context, object client.Object) error {
 }
 
 func (s *Syncer) newWithSameKind(blueprint client.Object) (client.Object, error) {
-	o, err := s.scheme.New(blueprint.GetObjectKind().GroupVersionKind())
+	o, err := s.client.Scheme().New(blueprint.GetObjectKind().GroupVersionKind())
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +101,7 @@ func (s *Syncer) create(ctx context.Context, owner client.Object, blueprint clie
 
 	actual := blueprint.DeepCopyObject().(client.Object)
 
-	err := controllerutil.SetControllerReference(owner, actual, s.scheme)
+	err := controllerutil.SetControllerReference(owner, actual, s.client.Scheme())
 	if err != nil {
 		lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
 		return nil, err
@@ -171,7 +169,7 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 			}
 			return false, obj, err
 		} else {
-			err := controllerutil.SetControllerReference(owner, blueprint, s.scheme)
+			err := controllerutil.SetControllerReference(owner, blueprint, s.client.Scheme())
 			if err != nil {
 				lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
 				return false, actual, err
