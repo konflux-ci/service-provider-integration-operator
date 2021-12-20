@@ -1,9 +1,11 @@
 kind: Kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 
+generatorOptions:
+  disableNameSuffixHash: true
+
 commonLabels:
-  app.kubernetes.io/name: service-provider-integration-operator
-  app.kubernetes.io/part-of: service-provider-integration-operator
+  app.kubernetes.io/name: service-provider-integration-oauth
 
 images:
 - name: oauth
@@ -12,8 +14,8 @@ images:
 
 resources:
 - deployment.yaml
-- role.yaml
-- role-binding.yaml
 - service-account.yaml
 - service.yaml
 - ingress.yaml
+- cluster-role.yaml
+- cluster-role-binding.yaml

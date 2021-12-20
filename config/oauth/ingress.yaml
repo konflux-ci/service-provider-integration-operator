@@ -9,8 +9,8 @@ spec:
       paths:
       - backend:
           service:
-            name: service
+            name: oauth-service
             port:
-              name: oauth-port
+              number: 8000
         path: "/"
-        pathType: Prefix
+        pathType: ImplementationSpecific

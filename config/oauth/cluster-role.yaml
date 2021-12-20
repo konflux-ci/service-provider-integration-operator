@@ -1,8 +1,14 @@
-kind: Role
+kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: oauth-role
+  name: oauth-clusterrole
 rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
 - apiGroups:
   - v1
   resources:
@@ -12,7 +18,7 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - spiaccesstokenbindings
+  - spiaccesstokens
   verbs:
   - get
   - update

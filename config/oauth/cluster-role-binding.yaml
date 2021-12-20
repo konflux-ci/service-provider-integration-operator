@@ -1,12 +1,11 @@
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: oauth-rolebinding
+  name: oauth-clusterrolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: oauth-role
+  kind: ClusterRole
+  name: oauth-clusterrole
 subjects:
   - kind: ServiceAccount
     name: oauth-sa
-    namespace: spi-system

@@ -3,23 +3,17 @@ kind: Deployment
 metadata:
   name: oauth-service
   namespace: system
-  labels:
-    control-plane: controller-manager
-    app.kubernetes.io/name: service-provider-integration-operator
-    app.kubernetes.io/component: service-provider-integration-oauth
 spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      app.kubernetes.io/name: service-provider-integration-operator
-      app.kubernetes.io/component: service-provider-integration-oauth
+      app.kubernetes.io/name: service-provider-integration-oauth
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: controller-manager
-        app.kubernetes.io/name: service-provider-integration-operator
-        app.kubernetes.io/component: service-provider-integration-oauth
+        app.kubernetes.io/name: service-provider-integration-oauth
     spec:
       securityContext:
         runAsNonRoot: true

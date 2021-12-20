@@ -12,7 +12,8 @@ configurations:
 - varconfig.yaml
 
 configMapGenerator:
-- name: oauth-config.yaml
+- name: oauth-config
+  behavior: create
   files:
   - config.yaml
 
