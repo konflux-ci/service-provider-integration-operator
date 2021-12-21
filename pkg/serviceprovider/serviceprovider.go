@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -26,14 +25,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
+	// LookupToken tries to match an SPIAccessToken object with the requirements expressed in the provided binding.
+	// This usually searches kubernetes (using the provided client) and the service provider itself (using some specific
+	// mechanism (usually an http client)).
 	LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+
+	// GetBaseUrl returns the base URL of the service provider this instance talks to. This info is saved with the
+	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
+
+	// TranslateToScopes translates the provided permission object into (a set of) service-provider-specific scopes.
 	TranslateToScopes(permission api.Permission) []string
+
+	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
+
+	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
+	//the service provider itself.
 	GetOAuthEndpoint() string
 }
 
+// allProbes contains serviceProviderProbe instances for all known service provider types. This is used to determine
+// what service provider should handle certain URL.
 var allProbes = map[config.ServiceProviderType]serviceProviderProbe{
 	config.ServiceProviderTypeGitHub: githubProbe{},
 	config.ServiceProviderTypeQuay:   quayProbe{},
@@ -44,6 +59,7 @@ type Factory struct {
 	Client        *http.Client
 }
 
+// FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
@@ -66,16 +82,8 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
 }
 
-func TypeFromURL(url string) (api.ServiceProviderType, error) {
-	if strings.HasPrefix(url, "https://github.com") {
-		return api.ServiceProviderTypeGitHub, nil
-	} else if strings.HasPrefix(url, "https://quay.io") {
-		return api.ServiceProviderTypeQuay, nil
-	}
-
-	return "", fmt.Errorf("no service provider found for url: %s", url)
-}
-
+// GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
+// scopes.
 func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
 	allScopes := make([]string, len(perms.AdditionalScopes)+len(perms.Required))
 

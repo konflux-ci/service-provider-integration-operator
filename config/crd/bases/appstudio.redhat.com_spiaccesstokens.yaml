@@ -39,6 +39,13 @@ spec:
               dataLocation:
                 type: string
               permissions:
+                description: Permissions is a collection of operator-defined permissions
+                  (which are translated to service-provider-specific scopes) and potentially
+                  additional service-provider-specific scopes that are not covered
+                  by the operator defined abstraction. The permissions are used in
+                  SPIAccessTokenBinding objects to express the requirements on the
+                  tokens as well as in the SPIAccessToken objects to express the "capabilities"
+                  of the token.
                 properties:
                   additionalScopes:
                     items:
@@ -46,10 +53,16 @@ spec:
                     type: array
                   required:
                     items:
+                      description: Permission is an element of Permissions and express
+                        a requirement on the service provider scopes in an agnostic
+                        manner.
                       properties:
                         area:
+                          description: Area express the "area" in the service provider
+                            scopes to which the permission is required.
                           type: string
                         type:
+                          description: Type is the type of the permission required
                           type: string
                       required:
                       - area
@@ -75,10 +88,15 @@ spec:
                 - access_token
                 type: object
               serviceProviderType:
+                description: ServiceProviderType defines the set of supported service
+                  providers
                 type: string
               serviceProviderUrl:
                 type: string
               tokenMetadata:
+                description: TokenMetadata is data about the token retrieved from
+                  the service provider. This data can be used for matching the tokens
+                  with the token bindings.
                 properties:
                   userId:
                     type: string
@@ -99,6 +117,8 @@ spec:
               oAuthUrl:
                 type: string
               phase:
+                description: SPIAccessTokenPhase is the reconciliation phase of the
+                  SPIAccessToken object
                 type: string
             required:
             - oAuthUrl

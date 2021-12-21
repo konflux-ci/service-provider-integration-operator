@@ -63,7 +63,7 @@ type SPIAccessTokenBindingReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;list
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;list;delete
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -136,6 +136,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
+// getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
+// The status of the binding is immediately persisted with an error if the service provider cannot be determined.
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, *ReconcileError) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(binding.Spec.RepoUrl)
 	if err != nil {
@@ -146,6 +148,8 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 	return serviceProvider, nil
 }
 
+// linkToken updates the binding with a link to an SPIAccessToken object that should hold the token data. If no
+// suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
 func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	token, err := sp.LookupToken(ctx, r.Client, binding)
 	if err != nil {
@@ -204,6 +208,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	return token, nil
 }
 
+// updateStatusError updates the status of the binding with the provided error
 func (r *SPIAccessTokenBindingReconciler) updateStatusError(ctx context.Context, binding *api.SPIAccessTokenBinding, reason api.SPIAccessTokenBindingErrorReason, err error) {
 	binding.Status.ErrorMessage = err.Error()
 	binding.Status.ErrorReason = reason
@@ -212,6 +217,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusError(ctx context.Context,
 	}
 }
 
+// updateStatusSuccess updates the status of the binding as successful, clearing any previous error state.
 func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Context, binding *api.SPIAccessTokenBinding) error {
 	binding.Status.ErrorMessage = ""
 	binding.Status.ErrorReason = ""
@@ -222,6 +228,8 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 	return nil
 }
 
+// syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
+// to the secret.
 func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
@@ -273,6 +281,8 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	return toObjectRef(obj), err
 }
 
+// toObjectRef creates a reference to a kubernetes object within the same namespace (i.e, a struct containing the name,
+// kind and API version of the target object).
 func toObjectRef(obj client.Object) api.TargetObjectRef {
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
 	return api.TargetObjectRef{

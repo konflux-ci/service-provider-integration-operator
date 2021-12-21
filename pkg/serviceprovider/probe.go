@@ -16,6 +16,10 @@ package serviceprovider
 
 import "net/http"
 
+// serviceProviderProbe is a simple function that can determine whether a URL can be handled by a certain service
+// provider.
 type serviceProviderProbe interface {
+	// Probe returns the base url of the service provider, if the provided URL can be handled by that provider or
+	// an empty string if it cannot. The provided http client can be used to perform requests against the URL if needed.
 	Probe(cl *http.Client, url string) (string, error)
 }
