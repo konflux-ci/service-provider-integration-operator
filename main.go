@@ -18,7 +18,12 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
@@ -37,8 +42,10 @@ import (
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
+
 	//+kubebuilder:scaffold:imports
+
+	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 var (
@@ -57,11 +64,14 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var configFile string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -74,8 +84,6 @@ func main() {
 		setupLog.Error(err, "invalid configuration")
 		os.Exit(1)
 	}
-
-	vlt := vault.Vault{}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -90,19 +98,40 @@ func main() {
 		os.Exit(1)
 	}
 
+	pcfg, err := sharedConfig.LoadFrom(configFile)
+	if err != nil {
+		setupLog.Error(err, "failed to load the configuration file")
+		os.Exit(1)
+	}
+
+	cfg, err := pcfg.Inflate()
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the configuration file")
+		os.Exit(1)
+	}
+
+	strg, err := tokenstorage.New(mgr.GetClient())
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the token storage")
+		os.Exit(1)
+	}
+
 	if config.RunControllers() {
 		if err = (&controllers.SPIAccessTokenReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-			Vault:  &vlt,
+			Client:                 mgr.GetClient(),
+			Scheme:                 mgr.GetScheme(),
+			TokenStorage:           strg,
+			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
+			Configuration:          cfg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
 			os.Exit(1)
 		}
 		if err = (&controllers.SPIAccessTokenBindingReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-			Vault:  &vlt,
+			Client:                 mgr.GetClient(),
+			Scheme:                 mgr.GetScheme(),
+			TokenStorage:           strg,
+			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 			os.Exit(1)
@@ -113,8 +142,8 @@ func main() {
 
 	if config.RunWebhooks() {
 		if err = (&webhooks.SPIAccessTokenWebhook{
-			Client: mgr.GetClient(),
-			Vault:  &vlt,
+			Client:       mgr.GetClient(),
+			TokenStorage: strg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
 			os.Exit(1)

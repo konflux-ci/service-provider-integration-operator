@@ -18,6 +18,14 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,14 +34,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Vault  *vault.Vault
+	Scheme                 *runtime.Scheme
+	TokenStorage           tokenstorage.TokenStorage
+	Configuration          config.Configuration
+	ServiceProviderFactory serviceprovider.Factory
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=get;list;watch;create;update;patch;delete
@@ -68,15 +77,21 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.Spec.DataLocation == "" {
-		loc, err := r.Vault.GetDataLocation(&at)
+		loc, err := r.TokenStorage.GetDataLocation(ctx, &at)
 		if err != nil {
-			return ctrl.Result{}, NewReconcileError(err, "failed to read the object")
+			return ctrl.Result{}, NewReconcileError(err, "failed to determine data path")
 		}
 
 		if loc != "" {
-			at.Spec.DataLocation = loc
-			if err := r.Update(ctx, &at); err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
+			data, err := r.TokenStorage.Get(ctx, &at)
+			if err != nil {
+				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from tokenstorage")
+			}
+			if data != nil {
+				at.Spec.DataLocation = loc
+				if err := r.Update(ctx, &at); err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
+				}
 			}
 		}
 	}
@@ -88,16 +103,24 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
+// fillInStatus examines the provided token object and updates its status to match the state of the object.
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	changed := false
 
-	if at.Status.Phase == "" {
-		if at.Spec.DataLocation == "" {
-			at.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
-		} else {
-			at.Status.Phase = api.SPIAccessTokenPhaseReady
+	if at.Spec.DataLocation == "" {
+		oauthUrl, err := r.oAuthUrlFor(at)
+		if err != nil {
+			return err
 		}
-		changed = true
+
+		changed = at.Status.OAuthUrl != oauthUrl || at.Status.Phase != api.SPIAccessTokenPhaseAwaitingTokenData
+
+		at.Status.OAuthUrl = oauthUrl
+		at.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
+	} else {
+		changed = at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
+		at.Status.Phase = api.SPIAccessTokenPhaseReady
+		at.Status.OAuthUrl = ""
 	}
 
 	if changed {
@@ -105,4 +128,35 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 	} else {
 		return nil
 	}
+}
+
+// oAuthUrlFor determines the OAuth flow initiation URL for given token.
+func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, error) {
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+	if err != nil {
+		return "", err
+	}
+
+	if sp.GetType() != at.Spec.ServiceProviderType {
+		return "", fmt.Errorf("service provider URL not consistent with provider type")
+	}
+
+	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
+	if err != nil {
+		return "", NewReconcileError(err, "failed to instantiate OAuth state codec")
+	}
+
+	state, err := codec.EncodeAnonymous(&oauthstate.AnonymousOAuthState{
+		TokenName:           at.Name,
+		TokenNamespace:      at.Namespace,
+		IssuedAt:            time.Now().Unix(),
+		Scopes:              serviceprovider.GetAllScopes(sp, &at.Spec.Permissions),
+		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
+		ServiceProviderUrl:  sp.GetBaseUrl(),
+	})
+	if err != nil {
+		return "", NewReconcileError(err, "failed to encode the OAuth state")
+	}
+
+	return sp.GetOAuthEndpoint() + "?state=" + state, nil
 }

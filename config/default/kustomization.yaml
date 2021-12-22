@@ -12,19 +12,23 @@ images:
 - name: controller
   newName: quay.io/redhat-app-studio/service-provider-integration-operator
   newTag: latest
+- name: oauth
+  newName: quay.io/redhat-appstudio/service-provider-integration-oauth
+  newTag: latest
 
 # Labels to add to all resources and selectors.
 commonLabels:
-  app.kubernetes.io/name: service-provider-integration-operator
   app.kubernetes.io/part-of: service-provider-integration-operator
 
 bases:
 # Common stuff with the prepare goal
+- ../shared-config
 - ../namespace
 - ../crd
 - ../rbac
 - ../webhook
 - ../certmanager
+- ../oauth
 # Additional stuff deployed by the default overlay
 - ../manager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.

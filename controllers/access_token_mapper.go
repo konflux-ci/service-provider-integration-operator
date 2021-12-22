@@ -24,6 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
+// secrets according to the secret type.
 type AccessTokenMapper struct {
 	Name                    string   `json:"name"`
 	Token                   string   `json:"token"`
@@ -35,6 +37,7 @@ type AccessTokenMapper struct {
 	Scopes                  []string `json:"scopes"`
 }
 
+// toSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
 func (at AccessTokenMapper) toSecretType(secretType corev1.SecretType) map[string]string {
 	ret := map[string]string{}
 	switch secretType {
@@ -54,6 +57,8 @@ func (at AccessTokenMapper) toSecretType(secretType corev1.SecretType) map[strin
 	return ret
 }
 
+// fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
+// mapping.
 func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
 	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
 		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)

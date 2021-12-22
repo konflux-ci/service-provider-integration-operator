@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: oauth-service
+spec:
+  ports:
+  - port: 8000
+    name: oauth-port
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    control-plane: controller-manager
+    app.kubernetes.io/name: service-provider-integration-oauth

@@ -6,8 +6,9 @@ metadata:
 spec:
   serviceProviderType: Github
   permissions:
-  - r
-  - w
+    required:
+      - type: r
+        area: repository
+      - type: w
+        area: repository
   serviceProviderUrl: https://github.com
-  rawTokenData:
-    access_token: "ahoj"

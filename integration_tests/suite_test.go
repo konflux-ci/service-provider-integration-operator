@@ -19,9 +19,15 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -34,7 +40,7 @@ import (
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
+	controller_config "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +56,7 @@ type IntegrationTest struct {
 	NoPrivsClient   client.Client
 	TestEnvironment *envtest.Environment
 	Context         context.Context
-	Vault           *vault.Vault
+	TokenStorage    tokenstorage.TokenStorage
 	Cancel          context.CancelFunc
 }
 
@@ -64,6 +70,8 @@ func TestSuite(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	controller_config.SetSpiUrlForTest("https://spi-oauth")
 
 	ITest = IntegrationTest{}
 
@@ -122,6 +130,22 @@ var _ = BeforeSuite(func() {
 	Expect(noPrivsClient).NotTo(BeNil())
 	ITest.NoPrivsClient = noPrivsClient
 
+	operatorCfg := config.Configuration{
+		ServiceProviders: []config.ServiceProviderConfiguration{
+			{
+				ClientId:            "githubClient",
+				ClientSecret:        "githubSecret",
+				ServiceProviderType: "GitHub",
+			},
+			{
+				ClientId:            "quayClient",
+				ClientSecret:        "quaySecret",
+				ServiceProviderType: "Quay",
+			},
+		},
+		SharedSecret: []byte("secret"),
+	}
+
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -134,13 +158,15 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	vlt := &vault.Vault{}
+	strg, err := tokenstorage.New(ITest.Client)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&webhooks.SPIAccessTokenWebhook{
-		Client: mgr.GetClient(),
-		Vault:  vlt,
+		Client:       mgr.GetClient(),
+		TokenStorage: strg,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
-	ITest.Vault = vlt
+	ITest.TokenStorage = strg
 
 	err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
 		Client: mgr.GetClient(),
@@ -148,16 +174,25 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  vlt,
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		TokenStorage:  strg,
+		Configuration: operatorCfg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration: operatorCfg,
+			Client:        http.DefaultClient,
+		},
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Vault:  vlt,
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration: operatorCfg,
+			Client:        http.DefaultClient,
+		},
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

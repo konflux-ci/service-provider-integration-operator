@@ -19,8 +19,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
 	adm "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,9 +35,9 @@ var spiAccessTokenLog = logf.Log.WithName("spiaccesstoken-webhook")
 //+kubebuilder:webhook:path=/check-token,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=create;update,versions=v1beta1,name=spiaccesstoken-mwh.appstudio.redhat.com,admissionReviewVersions={v1,v1beta1}
 
 type SPIAccessTokenWebhook struct {
-	Client  client.Client
-	Vault   *vault.Vault
-	decoder *wh.Decoder
+	Client       client.Client
+	TokenStorage tokenstorage.TokenStorage
+	decoder      *wh.Decoder
 }
 
 var _ wh.DecoderInjector = (*SPIAccessTokenWebhook)(nil)
@@ -90,9 +91,9 @@ func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request
 	changed := false
 
 	if t.Spec.RawTokenData != nil {
-		dataLocation, err := w.Vault.Store(t, t.Spec.RawTokenData)
+		dataLocation, err := w.TokenStorage.Store(ctx, t, t.Spec.RawTokenData)
 		if err != nil {
-			spiAccessTokenLog.Error(err, "failed to store token into Vault", "object", client.ObjectKeyFromObject(t))
+			spiAccessTokenLog.Error(err, "failed to store token into TokenStorage", "object", client.ObjectKeyFromObject(t))
 			return wh.Denied(err.Error())
 		}
 		t.Spec.RawTokenData = nil
@@ -117,7 +118,7 @@ func (w *SPIAccessTokenWebhook) handleUpdate(ctx context.Context, req wh.Request
 }
 
 func (w *SPIAccessTokenWebhook) handleDelete(ctx context.Context, token *api.SPIAccessToken) wh.Response {
-	if err := w.Vault.Delete(token); err != nil {
+	if err := w.TokenStorage.Delete(ctx, token); err != nil {
 		return wh.Denied(err.Error())
 	}
 	return wh.Allowed("")

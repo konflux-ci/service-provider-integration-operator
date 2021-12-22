@@ -20,6 +20,8 @@ var (
 	_ error = (*ReconcileError)(nil)
 )
 
+// ReconcileError is just a common error type for reconciliation errors that contains a cause and can be unwrapped so
+// that a full stacktrace is produced in the logs.
 type ReconcileError struct {
 	message string
 	cause   error

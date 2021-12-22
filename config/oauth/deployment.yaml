@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth-service
+  namespace: system
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      app.kubernetes.io/name: service-provider-integration-oauth
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+        app.kubernetes.io/name: service-provider-integration-oauth
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - command:
+          - /spi-oauth
+          image: oauth:latest
+          name: oauth
+          securityContext:
+            allowPrivilegeEscalation: false
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 200m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+          volumeMounts:
+          - mountPath: $(CONFIG_MOUNT_PATH)/config.yaml
+            name: config
+            subPath: config.yaml
+          - mountPath: $(CONFIG_MOUNT_PATH)/shared-secret
+            name: shared-secret
+            subPath: shared-secret
+      serviceAccountName: oauth-sa
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: oauth-config
+      - name: shared-secret
+        secret:
+          secretName: shared-secret

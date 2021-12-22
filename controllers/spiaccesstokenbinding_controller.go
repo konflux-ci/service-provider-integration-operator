@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/vault"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,24 +54,25 @@ var (
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
 type SPIAccessTokenBindingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Vault  *vault.Vault
-	syncer sync.Syncer
+	Scheme                 *runtime.Scheme
+	TokenStorage           tokenstorage.TokenStorage
+	syncer                 sync.Syncer
+	ServiceProviderFactory serviceprovider.Factory
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;list
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;list;delete
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.syncer = sync.New(mgr.GetClient(), mgr.GetScheme())
+	r.syncer = sync.New(mgr.GetClient())
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			bindings := &api.SPIAccessTokenList{}
+			bindings := &api.SPIAccessTokenBindingList{}
 			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace()), client.MatchingLabels{
 				config.SPIAccessTokenLinkLabel: o.GetName(),
 			}); err != nil {
@@ -111,13 +112,18 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	token, err := r.linkToken(ctx, &binding)
+	sp, rerr := r.getServiceProvider(ctx, &binding)
+	if rerr != nil {
+		return ctrl.Result{}, rerr
+	}
+
+	token, err := r.linkToken(ctx, sp, &binding)
 	if err != nil {
 		return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
 	}
 
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
-		ref, err := r.syncSecret(ctx, &binding, token)
+		ref, err := r.syncSecret(ctx, sp, &binding, token)
 		if err != nil {
 			return ctrl.Result{}, NewReconcileError(err, "failed to sync the secret")
 		}
@@ -130,20 +136,22 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	serviceProviderType, err := serviceprovider.ServiceProviderTypeFromURL(binding.Spec.RepoUrl)
-	if err != nil {
-		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
-		return nil, NewReconcileError(err, "failed to determine service provider type")
-	}
-
-	serviceProvider, err := serviceprovider.ByType(serviceProviderType, r.Client)
+// getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
+// The status of the binding is immediately persisted with an error if the service provider cannot be determined.
+func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, *ReconcileError) {
+	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(binding.Spec.RepoUrl)
 	if err != nil {
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 		return nil, NewReconcileError(err, "failed to find the service provider")
 	}
 
-	token, err := serviceProvider.LookupToken(ctx, binding)
+	return serviceProvider, nil
+}
+
+// linkToken updates the binding with a link to an SPIAccessToken object that should hold the token data. If no
+// suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
+func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	token, err := sp.LookupToken(ctx, r.Client, binding)
 	if err != nil {
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
 		return nil, NewReconcileError(err, "failed to lookup the token in the service provider")
@@ -152,7 +160,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding
 	if token == nil {
 		log.FromContext(ctx).Info("creating a new token because none found for binding")
 
-		serviceProviderUrl, err := serviceProvider.GetServiceProviderUrlForRepo(binding.Spec.RepoUrl)
+		serviceProviderUrl := sp.GetBaseUrl()
 		if err != nil {
 			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 			return nil, NewReconcileError(err, "failed to determine the service provider URL from the repo")
@@ -165,7 +173,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding
 				Namespace:    binding.Namespace,
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: serviceProviderType,
+				ServiceProviderType: sp.GetType(),
 				Permissions:         binding.Spec.Permissions,
 				ServiceProviderUrl:  serviceProviderUrl,
 			},
@@ -200,6 +208,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, binding
 	return token, nil
 }
 
+// updateStatusError updates the status of the binding with the provided error
 func (r *SPIAccessTokenBindingReconciler) updateStatusError(ctx context.Context, binding *api.SPIAccessTokenBinding, reason api.SPIAccessTokenBindingErrorReason, err error) {
 	binding.Status.ErrorMessage = err.Error()
 	binding.Status.ErrorReason = reason
@@ -208,6 +217,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusError(ctx context.Context,
 	}
 }
 
+// updateStatusSuccess updates the status of the binding as successful, clearing any previous error state.
 func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Context, binding *api.SPIAccessTokenBinding) error {
 	binding.Status.ErrorMessage = ""
 	binding.Status.ErrorReason = ""
@@ -218,8 +228,10 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 	return nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
-	token, err := r.Vault.Get(tokenObject)
+// syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
+// to the secret.
+func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
+	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		return api.TargetObjectRef{}, err
 	}
@@ -236,7 +248,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, bindin
 		ServiceProviderUserId:   tokenObject.Spec.TokenMetadata.UserId,
 		UserId:                  "",
 		ExpiredAfter:            &token.Expiry,
-		Scopes:                  tokenObject.Spec.TokenMetadata.Scopes,
+		Scopes:                  serviceprovider.GetAllScopes(sp, &binding.Spec.Permissions),
 	}
 
 	stringData := at.toSecretType(binding.Spec.Secret.Type)
@@ -269,6 +281,8 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, bindin
 	return toObjectRef(obj), err
 }
 
+// toObjectRef creates a reference to a kubernetes object within the same namespace (i.e, a struct containing the name,
+// kind and API version of the target object).
 func toObjectRef(obj client.Object) api.TargetObjectRef {
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
 	return api.TargetObjectRef{

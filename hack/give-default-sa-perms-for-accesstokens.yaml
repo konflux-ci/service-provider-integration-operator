@@ -1,0 +1,29 @@
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: accesstokens-for-default-sa
+rules:
+  - verbs:
+      - create
+      - get
+      - update
+      - delete
+      - list
+    apiGroups:
+      - appstudio.redhat.com
+    resources:
+      - spiaccesstokenbindings
+      - spiaccesstokens
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: accesstokens-for-default-sa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: accesstokens-for-default-sa
+subjects:
+  - kind: ServiceAccount
+    name: default
