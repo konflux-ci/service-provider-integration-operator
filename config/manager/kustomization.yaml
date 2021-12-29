@@ -18,4 +18,4 @@ configMapGenerator:
 images:
 - name: controller
   newName: quay.io/redhat-appstudio/service-provider-integration-operator
-  newTag: latest
+  newTag: next

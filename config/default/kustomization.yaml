@@ -9,18 +9,18 @@ namespace: spi-system # WARN: keep this in sync with the namespace defined in th
 namePrefix: spi- # WARN: keep this in sync with the namespace defined in the prepare base
 
 images:
-- name: controller
-  newName: quay.io/redhat-app-studio/service-provider-integration-operator
-  newTag: latest
-- name: oauth
+- name: quay.io/redhat-appstudio/service-provider-integration-operator
+  newName: quay.io/redhat-appstudio/service-provider-integration-operator
+  newTag: next
+- name: quay.io/redhat-appstudio/service-provider-integration-oauth
   newName: quay.io/redhat-appstudio/service-provider-integration-oauth
-  newTag: latest
+  newTag: next
 
 # Labels to add to all resources and selectors.
 commonLabels:
   app.kubernetes.io/part-of: service-provider-integration-operator
 
-bases:
+resources:
 # Common stuff with the prepare goal
 - ../shared-config
 - ../namespace
