@@ -9,8 +9,8 @@ commonLabels:
 
 images:
 - name: oauth
-  newName: quay.io/lkrejci/service-provider-integration-oauth
-  newTag: flow
+  newName: quay.io/redhat-appstudio/service-provider-integration-oauth
+  newTag: next
 
 resources:
 - deployment.yaml

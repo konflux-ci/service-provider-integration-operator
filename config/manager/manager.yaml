@@ -26,7 +26,7 @@ spec:
         env:
         - name: SPI_URL
           value: http://service-provider-integration-api
-        image: controller:latest
+        image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
