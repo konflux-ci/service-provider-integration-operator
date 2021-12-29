@@ -12,7 +12,7 @@ endif
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.2.0
+VERSION ?= 0.3.0
 TAG_NAME ?= next
 
 # CHANNELS define the bundle channels used in the bundle.
@@ -254,11 +254,11 @@ OPM = $(shell which opm)
 endif
 endif
 
-# A comma-separated list of bundle images (e.g. make catalog-build SPIO_BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
+# A comma-separated list of bundle images (e.g. make catalog-build SPIO_BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.3.0).
 # These images MUST exist in a registry and be pull-able.
 SPIO_BUNDLE_IMGS ?= $(SPIO_BUNDLE_IMG)
 
-# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
+# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.3.0).
 CATALOG_IMG ?= $(SPIO_IMAGE_TAG_BASE)-catalog:v$(VERSION)
 
 # Set CATALOG_BASE_IMG to an existing catalog image tag to add $SPIO_BUNDLE_IMGS to that image.
