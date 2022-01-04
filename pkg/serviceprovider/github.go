@@ -105,4 +105,3 @@ func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
 		return "", nil
 	}
 }
-
