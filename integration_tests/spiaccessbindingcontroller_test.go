@@ -45,7 +45,7 @@ var _ = Describe("Create binding", func() {
 				Namespace: "default",
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
-				RepoUrl:     "https://github.com/acme/acme",
+				RepoUrl:     "test-provider://acme/acme",
 				Permissions: api.Permissions{},
 				Secret:      api.SecretSpec{},
 			},
@@ -95,7 +95,7 @@ var _ = Describe("Update binding", func() {
 				Namespace: "default",
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
-				RepoUrl:     "https://github.com/acme/acme",
+				RepoUrl:     "test-provider://acme/acme",
 				Permissions: api.Permissions{},
 				Secret:      api.SecretSpec{},
 			},

@@ -47,16 +47,20 @@ type ServiceProvider interface {
 	GetOAuthEndpoint() string
 }
 
-// allProbes contains serviceProviderProbe instances for all known service provider types. This is used to determine
-// what service provider should handle certain URL.
-var allProbes = map[config.ServiceProviderType]serviceProviderProbe{
-	config.ServiceProviderTypeGitHub: githubProbe{},
-	config.ServiceProviderTypeQuay:   quayProbe{},
-}
-
+// Factory is able to construct service providers from repository URLs.
 type Factory struct {
 	Configuration config.Configuration
 	Client        *http.Client
+	Initializers  map[config.ServiceProviderType]Initializer
+}
+
+// KnownInitializers returns a map of service provider initializers known at compile time. The Factory.Initializers
+// should be set to this value under normal circumstances.
+func KnownInitializers() map[config.ServiceProviderType]Initializer {
+	return map[config.ServiceProviderType]Initializer{
+		config.ServiceProviderTypeGitHub: GithubInitializer,
+		config.ServiceProviderTypeQuay:   QuayInitializer,
+	}
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
@@ -64,18 +68,29 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 	for _, spc := range f.Configuration.ServiceProviders {
-		probe := allProbes[spc.ServiceProviderType]
-		baseUrl, err := probe.Probe(f.Client, repoUrl)
+		initializer, ok := f.Initializers[spc.ServiceProviderType]
+		if !ok {
+			continue
+		}
+
+		probe := initializer.Probe
+		ctor := initializer.Constructor
+		if probe == nil || ctor == nil {
+			continue
+		}
+
+		baseUrl, err := probe.Examine(f.Client, repoUrl)
 		if err != nil {
 			continue
 		}
+
 		if baseUrl != "" {
-			switch spc.ServiceProviderType {
-			case config.ServiceProviderTypeGitHub:
-				return &Github{Configuration: f.Configuration}, nil
-			case config.ServiceProviderTypeQuay:
-				return &Quay{Configuration: f.Configuration}, nil
+			sp, err := ctor.Construct(f, baseUrl)
+			if err != nil {
+				continue
 			}
+
+			return sp, nil
 		}
 	}
 

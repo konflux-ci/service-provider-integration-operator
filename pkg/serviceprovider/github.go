@@ -31,6 +31,19 @@ type Github struct {
 	Configuration config.Configuration
 }
 
+var GithubInitializer = Initializer{
+	Probe:       githubProbe{},
+	Constructor: ConstructorFunc(newGithub),
+}
+
+func newGithub(factory *Factory, _ string) (ServiceProvider, error) {
+	return &Github{
+		Configuration: factory.Configuration,
+	}, nil
+}
+
+var _ ConstructorFunc = newGithub
+
 func (g *Github) GetOAuthEndpoint() string {
 	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/github/authenticate"
 }
@@ -83,12 +96,13 @@ func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 
 type githubProbe struct{}
 
-var _ serviceProviderProbe = (*githubProbe)(nil)
+var _ Probe = (*githubProbe)(nil)
 
-func (g githubProbe) Probe(_ *http.Client, url string) (string, error) {
+func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, "https://github.com") {
 		return "https://github.com", nil
 	} else {
 		return "", nil
 	}
 }
+

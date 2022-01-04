@@ -31,6 +31,19 @@ type Quay struct {
 	Configuration config.Configuration
 }
 
+var QuayInitializer = Initializer{
+	Probe:       quayProbe{},
+	Constructor: ConstructorFunc(newQuay),
+}
+
+func newQuay(factory *Factory, _ string) (ServiceProvider, error) {
+	return &Quay{
+		Configuration: factory.Configuration,
+	}, nil
+}
+
+var _ ConstructorFunc = newQuay
+
 func (g *Quay) GetOAuthEndpoint() string {
 	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/quay/authenticate"
 }
@@ -82,9 +95,9 @@ func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 
 type quayProbe struct{}
 
-var _ serviceProviderProbe = (*quayProbe)(nil)
+var _ Probe = (*quayProbe)(nil)
 
-func (q quayProbe) Probe(_ *http.Client, url string) (string, error) {
+func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, "https://quay.io") {
 		return "https://quay.io", nil
 	} else {

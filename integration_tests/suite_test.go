@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,15 +53,65 @@ import (
 )
 
 type IntegrationTest struct {
-	Client          client.Client
-	NoPrivsClient   client.Client
-	TestEnvironment *envtest.Environment
-	Context         context.Context
-	TokenStorage    tokenstorage.TokenStorage
-	Cancel          context.CancelFunc
+	Client                   client.Client
+	NoPrivsClient            client.Client
+	TestEnvironment          *envtest.Environment
+	Context                  context.Context
+	TokenStorage             tokenstorage.TokenStorage
+	Cancel                   context.CancelFunc
+	TestServiceProviderProbe serviceprovider.Probe
+	TestServiceProvider      serviceprovider.ServiceProvider
 }
 
 var ITest IntegrationTest
+
+// TestServiceProvider is an implementation of the serviceprovider.ServiceProvider interface that can be modified by
+// supplying custom implementations of each of the interface method. It provides dummy implementations of them, too, so
+// that no null pointer dereferences should occur under normal operation.
+type TestServiceProvider struct {
+	LookupTokenImpl       func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+	GetBaseUrlImpl        func() string
+	TranslateToScopesImpl func(permission api.Permission) []string
+	GetTypeImpl           func() api.ServiceProviderType
+	GetOauthEndpointImpl  func() string
+}
+
+var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
+
+func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	if t.LookupTokenImpl == nil {
+		return nil, nil
+	}
+	return t.LookupTokenImpl(ctx, cl, binding)
+}
+
+func (t TestServiceProvider) GetBaseUrl() string {
+	if t.GetBaseUrlImpl == nil {
+		return "test-provider://"
+	}
+	return t.GetBaseUrlImpl()
+}
+
+func (t TestServiceProvider) TranslateToScopes(permission api.Permission) []string {
+	if t.TranslateToScopesImpl == nil {
+		return []string{}
+	}
+	return t.TranslateToScopesImpl(permission)
+}
+
+func (t TestServiceProvider) GetType() api.ServiceProviderType {
+	if t.GetTypeImpl == nil {
+		return "TestServiceProvider"
+	}
+	return t.GetTypeImpl()
+}
+
+func (t TestServiceProvider) GetOAuthEndpoint() string {
+	if t.GetOauthEndpointImpl == nil {
+		return ""
+	}
+	return t.GetOauthEndpointImpl()
+}
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -130,17 +181,21 @@ var _ = BeforeSuite(func() {
 	Expect(noPrivsClient).NotTo(BeNil())
 	ITest.NoPrivsClient = noPrivsClient
 
+	ITest.TestServiceProvider = TestServiceProvider{}
+	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
+		if strings.HasPrefix(baseUrl, "test-provider://") {
+			return "test-provider://", nil
+		}
+
+		return "", nil
+	})
+
 	operatorCfg := config.Configuration{
 		ServiceProviders: []config.ServiceProviderConfiguration{
 			{
-				ClientId:            "githubClient",
-				ClientSecret:        "githubSecret",
-				ServiceProviderType: "GitHub",
-			},
-			{
-				ClientId:            "quayClient",
-				ClientSecret:        "quaySecret",
-				ServiceProviderType: "Quay",
+				ClientId:            "testClient",
+				ClientSecret:        "testSecret",
+				ServiceProviderType: "TestServiceProvider",
 			},
 		},
 		SharedSecret: []byte("secret"),
@@ -173,26 +228,35 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&controllers.SPIAccessTokenReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		TokenStorage:  strg,
+	factory := serviceprovider.Factory{
 		Configuration: operatorCfg,
-		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration: operatorCfg,
-			Client:        http.DefaultClient,
+		Client:        http.DefaultClient,
+		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
+			"TestServiceProvider": {
+				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+				}),
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+					return ITest.TestServiceProvider, nil
+				}),
+			},
 		},
+	}
+
+	err = (&controllers.SPIAccessTokenReconciler{
+		Client:                 mgr.GetClient(),
+		Scheme:                 mgr.GetScheme(),
+		TokenStorage:           strg,
+		Configuration:          operatorCfg,
+		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		TokenStorage: strg,
-		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration: operatorCfg,
-			Client:        http.DefaultClient,
-		},
+		Client:                 mgr.GetClient(),
+		Scheme:                 mgr.GetScheme(),
+		TokenStorage:           strg,
+		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
