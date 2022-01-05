@@ -195,6 +195,9 @@ deploy_k8s: manifests kustomize ## Deploy controller to the K8s cluster specifie
 	cd config/oauth && $(KUSTOMIZE) edit set image oauth=${SPIS_IMG} && cd ../..
 	$(KUSTOMIZE) build config/k8s | kubectl apply -f -
 
+undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/k8s | kubectl delete -f -
+
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
