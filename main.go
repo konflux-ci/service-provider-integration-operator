@@ -118,20 +118,28 @@ func main() {
 
 	if config.RunControllers() {
 		if err = (&controllers.SPIAccessTokenReconciler{
-			Client:                 mgr.GetClient(),
-			Scheme:                 mgr.GetScheme(),
-			TokenStorage:           strg,
-			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
-			Configuration:          cfg,
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			TokenStorage: strg,
+			ServiceProviderFactory: serviceprovider.Factory{
+				Configuration: cfg,
+				Client:        http.DefaultClient,
+				Initializers:  serviceprovider.KnownInitializers(),
+			},
+			Configuration: cfg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
 			os.Exit(1)
 		}
 		if err = (&controllers.SPIAccessTokenBindingReconciler{
-			Client:                 mgr.GetClient(),
-			Scheme:                 mgr.GetScheme(),
-			TokenStorage:           strg,
-			ServiceProviderFactory: serviceprovider.Factory{Configuration: cfg, Client: http.DefaultClient},
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			TokenStorage: strg,
+			ServiceProviderFactory: serviceprovider.Factory{
+				Configuration: cfg,
+				Client:        http.DefaultClient,
+				Initializers:  serviceprovider.KnownInitializers(),
+			},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 			os.Exit(1)
