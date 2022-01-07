@@ -115,7 +115,7 @@ func (t TestServiceProvider) GetOAuthEndpoint() string {
 	return t.GetOauthEndpointImpl()
 }
 
-func (t TestServiceProvider) Reset() {
+func (t *TestServiceProvider) Reset() {
 	t.LookupTokenImpl = nil
 	t.GetBaseUrlImpl = nil
 	t.TranslateToScopesImpl = nil
