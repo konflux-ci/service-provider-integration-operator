@@ -18,13 +18,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	config2 "github.com/onsi/ginkgo/config"
 	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 

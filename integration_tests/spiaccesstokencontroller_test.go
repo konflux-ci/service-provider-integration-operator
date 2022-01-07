@@ -15,13 +15,14 @@
 package integrationtests
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var _ = Describe("Auto-creation of token", func() {
@@ -210,7 +211,7 @@ var _ = Describe("Delete token", func() {
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
-				Namespace: "default",
+				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
 				ServiceProviderType: "TestServiceProvider",
@@ -243,7 +244,7 @@ var _ = Describe("Delete token", func() {
 		Expect(ITest.Client.Delete(ITest.Context, binding)).To(Succeed())
 
 		if bindingDeleted {
-			Eventually(func () error {
+			Eventually(func() error {
 				return ITest.Client.Delete(ITest.Context, token)
 			}).Should(Not(Succeed()))
 		} else {

@@ -17,6 +17,8 @@ package integrationtests
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -24,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // a helper function to test that the controller eventually updates the object such that the linked token name
@@ -106,7 +107,7 @@ var _ = Describe("Update binding", func() {
 			},
 			Spec: api.SPIAccessTokenSpec{
 				ServiceProviderType: "TestServiceProvider",
-				ServiceProviderUrl: "test-provider://test",
+				ServiceProviderUrl:  "test-provider://test",
 			},
 		}
 		createdBinding = &api.SPIAccessTokenBinding{
@@ -163,10 +164,10 @@ var _ = Describe("Update binding", func() {
 			otherToken = &api.SPIAccessToken{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "other-test-token",
-					Namespace: "default",
+					Namespace:    "default",
 				},
 				Spec: api.SPIAccessTokenSpec{
-					ServiceProviderUrl: "test-provider://other",
+					ServiceProviderUrl:  "test-provider://other",
 					ServiceProviderType: "TestServiceProvider",
 				},
 			}
@@ -195,14 +196,14 @@ var _ = Describe("Update binding", func() {
 		})
 
 		It("changes the linked token, too", func() {
-			Eventually(func (g Gomega) {
+			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 
 				createdBinding.Spec.RepoUrl = "test-provider://other"
 				g.Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
 			}).Should(Succeed())
 
-			Eventually(func (g Gomega) {
+			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				g.Expect(createdBinding.Status.LinkedAccessTokenName).To(Equal(otherToken.Name))
 			}).Should(Succeed())
@@ -290,7 +291,7 @@ var _ = Describe("Syncing", func() {
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
-				Namespace: "default",
+				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
 				ServiceProviderType: "TestServiceProvider",
@@ -328,12 +329,12 @@ var _ = Describe("Syncing", func() {
 			Expect(createdBinding.Status.SyncedObjectRef.Name).To(BeEmpty())
 
 			By("updating the token")
-			Eventually(func (g Gomega) {
+			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), createdToken)).To(Succeed())
 				createdToken.Spec.RawTokenData = &api.Token{
-					AccessToken: "access",
+					AccessToken:  "access",
 					RefreshToken: "refresh",
-					TokenType: "awesome",
+					TokenType:    "awesome",
 				}
 				g.Expect(ITest.Client.Update(ITest.Context, createdToken)).To(Succeed())
 			}).Should(Succeed())
