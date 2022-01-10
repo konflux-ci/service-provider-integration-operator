@@ -44,18 +44,16 @@ spec:
               cpu: 100m
               memory: 20Mi
           volumeMounts:
-          - mountPath: $(CONFIG_MOUNT_PATH)/config.yaml
-            name: config
-            subPath: config.yaml
-          - mountPath: $(CONFIG_MOUNT_PATH)/shared-secret
-            name: shared-secret
-            subPath: shared-secret
+          - mountPath: /etc/spi-config/
+            name: oauth-config
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: config
-        configMap:
-          name: oauth-config
-      - name: shared-secret
+      - name: oauth-config
         secret:
-          secretName: shared-secret
+          secretName: oauth-config
+          items:
+            - key: shared-secret
+              path: shared-secret
+            - key: config.yaml
+              path: config.yaml

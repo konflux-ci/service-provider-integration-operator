@@ -4,31 +4,12 @@
 kind: Kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 
-resources:
-- meta-config.yaml
-- shared-secret.yaml
+#resources:
+#- oauth-config.yaml
 
-configurations:
-- varconfig.yaml
-
-configMapGenerator:
-- name: oauth-config
-  behavior: create
-  files:
-  - config.yaml
-
-vars:
-- name: CONFIG_MOUNT_PATH
-  objref:
-    kind: ConfigMap
-    apiVersion: v1
-    name: oauth-metaconfig
-  fieldref:
-    fieldpath: data.config-mount-path
-- name: OAUTH_HOST
-  objref:
-    kind: ConfigMap
-    apiVersion: v1
-    name: oauth-metaconfig
-  fieldref:
-    fieldpath: data.oauth-host
+secretGenerator:
+  - name: oauth-config
+    files:
+    - config.yaml
+    literals:
+    - shared-secret=eWFkZGF5YWRkYTEyMyRAIyoq

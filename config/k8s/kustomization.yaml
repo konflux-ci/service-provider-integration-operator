@@ -53,6 +53,17 @@ patchesStrategicMerge:
 # 'CERTMANAGER' needs to be enabled to use ca injection
 - webhookcainjection_patch.yaml
 
+replacements:
+  - source:
+      kind: Ingress
+      name: oauth-ingress
+      fieldPath: spec.rules.0.host
+    targets:
+      - select:
+          name: oauth-config
+        fieldPaths:
+          - data.baseUrl
+
 # the following config is for teaching kustomize how to do var substitution
 vars:
   # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
