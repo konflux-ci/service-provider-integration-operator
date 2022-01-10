@@ -43,7 +43,6 @@ import (
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	controller_config "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,8 +154,6 @@ var _ = BeforeSuite(func() {
 	}
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	controller_config.SetSpiUrlForTest("https://spi-oauth")
 
 	ITest = IntegrationTest{}
 
