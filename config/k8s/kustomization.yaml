@@ -60,9 +60,10 @@ replacements:
       fieldPath: spec.rules.0.host
     targets:
       - select:
-          name: oauth-config
+          kind: Deployment
         fieldPaths:
-          - data.baseUrl
+          - spec.template.spec.containers.[name=oauth].env.[name=OAUTH_BASE_URL].value
+          - spec.template.spec.containers.[name=manager].env.[name=OAUTH_BASE_URL].value
 
 # the following config is for teaching kustomize how to do var substitution
 vars:

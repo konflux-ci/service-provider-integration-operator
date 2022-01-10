@@ -1,5 +1,3 @@
-sharedSecretFile: $(CONFIG_MOUNT_PATH)/shared-secret
-baseUrl: $(OAUTH_HOST)
 serviceProviders:
 - type: GitHub
   clientId: "123"

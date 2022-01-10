@@ -26,6 +26,8 @@ spec:
         env:
         - name: SPI_URL
           value: http://service-provider-integration-api
+        - name: OAUTH_BASE_URL
+          value: the-url
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         securityContext:
@@ -50,8 +52,9 @@ spec:
             cpu: 100m
             memory: 20Mi
         volumeMounts:
-          - mountPath: /etc/spi-config/
+          - mountPath: /etc/spi/
             name: oauth-config
+            readOnly: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

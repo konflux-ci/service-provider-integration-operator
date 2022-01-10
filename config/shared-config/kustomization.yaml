@@ -12,4 +12,4 @@ secretGenerator:
     files:
     - config.yaml
     literals:
-    - shared-secret=eWFkZGF5YWRkYTEyMyRAIyoq
+    - shared-secret=yaddayadda123$@#**
