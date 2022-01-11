@@ -80,7 +80,7 @@ func RunWebhooks() bool {
 
 func ValidateEnv() error {
 	if _, ok := os.LookupEnv(spiUrlEnv); !ok {
-		return fmt.Errorf("SPI_URL environment variable required")
+		return fmt.Errorf("'%v' environment variable required", spiUrlEnv)
 	}
 
 	return nil

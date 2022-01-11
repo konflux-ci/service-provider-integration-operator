@@ -14,6 +14,7 @@
 package config
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -33,6 +34,8 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
+	baseUrlEnv                string              = "OAUTH_BASE_URL"
+	sharedSecretEnv           string              = "OAUTH_SHARED_SECRET"
 )
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
@@ -41,13 +44,6 @@ const (
 type PersistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
 	ServiceProviders []ServiceProviderConfiguration `yaml:"serviceProviders"`
-
-	// SharedSecretFile is the path to a file containing the secret value used for signing the JWT keys.
-	SharedSecretFile string `yaml:"sharedSecretFile"`
-
-	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
-	// service providers in the form of `${BASE_URL}/${SP_TYPE}/callback` (e.g. my-host/github/callback).
-	BaseUrl string `yaml:"baseUrl"`
 
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
@@ -109,19 +105,31 @@ func (c Configuration) KubernetesClient(opts client.Options) (client.Client, err
 // Inflate loads the files specified in the persisted configuration and returns a fully initialized configuration
 // struct.
 func (c PersistedConfiguration) Inflate() (Configuration, error) {
-	ret := Configuration{}
+	conf := Configuration{}
 	kcfg, err := readKubeConfig(c.KubeConfigPath)
 	if err != nil {
-		return ret, err
+		return conf, err
 	}
 
-	ret.KubernetesClientConfiguration = kcfg
-	ret.SharedSecret, err = ioutil.ReadFile(c.SharedSecretFile)
-	ret.BaseUrl = c.BaseUrl
-	ret.KubernetesAuthAudiences = c.KubernetesAuthAudiences
-	ret.ServiceProviders = c.ServiceProviders
+	if val, ok := os.LookupEnv(baseUrlEnv); !ok {
+		return conf, fmt.Errorf("'%v' env must be set", baseUrlEnv)
+	} else {
+		conf.BaseUrl = val
+	}
 
-	return ret, err
+	if val, ok := os.LookupEnv(sharedSecretEnv); !ok {
+		return conf, fmt.Errorf("'%v' env must be set", sharedSecretEnv)
+	} else {
+		conf.SharedSecret = []byte(val)
+	}
+
+	conf.KubernetesClientConfiguration = kcfg
+	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
+	conf.ServiceProviders = c.ServiceProviders
+
+	fmt.Printf("using configuration '%+v'", conf)
+
+	return conf, err
 }
 
 // KubernetesClientset creates a new kubernetes client. As with `KubernetesClient()` method, this is either created using
@@ -146,18 +154,18 @@ func LoadFrom(path string) (PersistedConfiguration, error) {
 // ReadFrom reads the configuration from the provided reader. Note that the returned configuration is fully initialized
 // with no need to call the Configuration.ParseFiles() method anymore.
 func ReadFrom(rdr io.Reader) (PersistedConfiguration, error) {
-	ret := PersistedConfiguration{}
+	conf := PersistedConfiguration{}
 
 	bytes, err := ioutil.ReadAll(rdr)
 	if err != nil {
-		return ret, err
+		return conf, err
 	}
 
-	if err := yaml.Unmarshal(bytes, &ret); err != nil {
-		return ret, err
+	if err := yaml.Unmarshal(bytes, &conf); err != nil {
+		return conf, err
 	}
 
-	return ret, err
+	return conf, err
 }
 
 func readKubeConfig(loc string) (*rest.Config, error) {

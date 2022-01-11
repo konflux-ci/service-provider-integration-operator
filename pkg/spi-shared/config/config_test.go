@@ -45,28 +45,20 @@ users:
   user:
     token: "123"
 `
-
-	secretFile, err := os.CreateTemp(os.TempDir(), "testSecret")
-	assert.NoError(t, err)
-	defer os.Remove(secretFile.Name())
+	os.Setenv(sharedSecretEnv, "secretValue")
+	os.Setenv(baseUrlEnv, "baseUrlValue")
 
 	kcfgFile, err := os.CreateTemp(os.TempDir(), "testKubeConfig")
 	assert.NoError(t, err)
 	defer os.Remove(kcfgFile.Name())
 
-	assert.NoError(t, ioutil.WriteFile(secretFile.Name(), []byte("secret"), fs.ModeExclusive))
 	assert.NoError(t, ioutil.WriteFile(kcfgFile.Name(), []byte(kubeConfigContent), fs.ModeExclusive))
-
-	secretFilePath, err := filepath.Abs(secretFile.Name())
-	assert.NoError(t, err)
 
 	kcfgFilePath, err := filepath.Abs(kcfgFile.Name())
 	assert.NoError(t, err)
 
 	configFileContent := `
-sharedSecretFile: ` + secretFilePath + `
 kubeConfigPath: ` + kcfgFilePath + `
-baseUrl: https://localhost:8080
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -82,9 +74,8 @@ serviceProviders:
 	cfg, err := pcfg.Inflate()
 	assert.NoError(t, err)
 
-	assert.Equal(t, "https://localhost:8080", cfg.BaseUrl)
-
-	assert.Equal(t, []byte("secret"), cfg.SharedSecret)
+	assert.Equal(t, "baseUrlValue", cfg.BaseUrl)
+	assert.Equal(t, []uint8("secretValue"), cfg.SharedSecret)
 
 	assert.Equal(t, "cluster.host", cfg.KubernetesClientConfiguration.Host)
 }
