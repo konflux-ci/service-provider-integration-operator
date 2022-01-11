@@ -19,9 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -150,16 +147,4 @@ func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 	}
 
 	return conf, err
-}
-
-func readKubeConfig(loc string) (*rest.Config, error) {
-	if loc == "" {
-		return rest.InClusterConfig()
-	} else {
-		content, err := ioutil.ReadFile(loc)
-		if err != nil {
-			return nil, err
-		}
-		return clientcmd.RESTConfigFromKubeConfig(content)
-	}
 }
