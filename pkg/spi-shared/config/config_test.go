@@ -18,13 +18,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRead(t *testing.T) {
+	os.Setenv(sharedSecretEnv, "secretValue")
+	os.Setenv(baseUrlEnv, "baseUrlValue")
+
 	kubeConfigContent := `
 apiVersion: v1
 clusters:
@@ -45,17 +47,8 @@ users:
   user:
     token: "123"
 `
-	os.Setenv(sharedSecretEnv, "secretValue")
-	os.Setenv(baseUrlEnv, "baseUrlValue")
-
-	kcfgFile, err := os.CreateTemp(os.TempDir(), "testKubeConfig")
-	assert.NoError(t, err)
-	defer os.Remove(kcfgFile.Name())
-
-	assert.NoError(t, ioutil.WriteFile(kcfgFile.Name(), []byte(kubeConfigContent), fs.ModeExclusive))
-
-	kcfgFilePath, err := filepath.Abs(kcfgFile.Name())
-	assert.NoError(t, err)
+	kcfgFilePath := createFile(t, "testKubeConfig", kubeConfigContent)
+	defer os.Remove(kcfgFilePath)
 
 	configFileContent := `
 kubeConfigPath: ` + kcfgFilePath + `
@@ -67,15 +60,24 @@ serviceProviders:
   clientId: "456"
   clientSecret: "54"
 `
+	cfgFilePath := createFile(t, "config", configFileContent)
+	defer os.Remove(cfgFilePath)
 
-	pcfg, err := ReadFrom(strings.NewReader(configFileContent))
-	assert.NoError(t, err)
-
-	cfg, err := pcfg.Inflate()
+	cfg, err := Config(cfgFilePath)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "baseUrlValue", cfg.BaseUrl)
 	assert.Equal(t, []uint8("secretValue"), cfg.SharedSecret)
+}
 
-	assert.Equal(t, "cluster.host", cfg.KubernetesClientConfiguration.Host)
+func createFile(t *testing.T, path string, content string) string {
+	file, err := os.CreateTemp(os.TempDir(), path)
+	assert.NoError(t, err)
+
+	assert.NoError(t, ioutil.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
+
+	filePath, err := filepath.Abs(file.Name())
+	assert.NoError(t, err)
+
+	return filePath
 }

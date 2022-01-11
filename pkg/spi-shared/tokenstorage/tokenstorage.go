@@ -19,11 +19,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -34,21 +30,6 @@ type TokenStorage interface {
 	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
 	GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error)
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
-}
-
-// NewFromConfig creates a new `TokenStorage` instance based on the provided configuration.
-func NewFromConfig(cfg *config.Configuration) (TokenStorage, error) {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-
-	cl, err := cfg.KubernetesClient(client.Options{Scheme: scheme})
-	if err != nil {
-		return nil, err
-	}
-
-	return New(cl)
 }
 
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
