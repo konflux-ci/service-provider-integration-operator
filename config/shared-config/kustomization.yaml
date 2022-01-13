@@ -8,5 +8,4 @@ secretGenerator:
   - name: oauth-config
     files:
     - config.yaml
-    literals:
-    - shared-secret=yaddayadda123$@#**
+    - shared-secret
