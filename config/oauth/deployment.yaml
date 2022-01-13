@@ -46,11 +46,6 @@ spec:
           env:
             - name: OAUTH_BASE_URL
               value: the-url
-            - name: OAUTH_SHARED_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: oauth-config
-                  key: shared-secret
           volumeMounts:
           - mountPath: /etc/spi/
             name: oauth-config
@@ -62,7 +57,5 @@ spec:
         secret:
           secretName: oauth-config
           items:
-            - key: shared-secret
-              path: shared-secret
             - key: config.yaml
               path: config.yaml

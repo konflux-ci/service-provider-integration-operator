@@ -1,3 +1,4 @@
+sharedSecret: yaddayadda123$@#**
 serviceProviders:
 - type: GitHub
   clientId: "123"

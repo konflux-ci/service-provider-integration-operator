@@ -41,6 +41,9 @@ type PersistedConfiguration struct {
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
 	KubernetesAuthAudiences []string `yaml:"kubernetesAuthAudiences,omitempty"`
+
+	// SharedSecret is secret value used for signing the JWT keys.
+	SharedSecret string `yaml:"sharedSecret"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -89,6 +92,7 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 
 	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
 	conf.ServiceProviders = c.ServiceProviders
+	conf.SharedSecret = []byte(c.SharedSecret)
 
 	return conf, nil
 }
@@ -109,12 +113,6 @@ func Config(configFile string) (Configuration, error) {
 		return cfg, fmt.Errorf("'%v' env must be set", baseUrlEnv)
 	} else {
 		cfg.BaseUrl = val
-	}
-
-	if val, ok := os.LookupEnv(sharedSecretEnv); !ok {
-		return cfg, fmt.Errorf("'%v' env must be set", sharedSecretEnv)
-	} else {
-		cfg.SharedSecret = []byte(val)
 	}
 
 	return cfg, nil
