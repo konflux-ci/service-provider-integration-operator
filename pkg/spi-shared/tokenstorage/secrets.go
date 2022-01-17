@@ -76,6 +76,18 @@ func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToke
 			secret.Data = data
 			secret.Type = corev1.SecretTypeOpaque
 
+			if owner.UID != "" {
+				// we're resetting the owner here, because we're taking over the secret from whoever created it before.
+				secret.OwnerReferences = []metav1.OwnerReference{
+					{
+						APIVersion: api.GroupVersion.String(),
+						Kind:       "SPIAccessToken",
+						Name:       owner.Name,
+						UID:        owner.UID,
+					},
+				}
+			}
+
 			err = s.Update(ctx, secret)
 		}
 
@@ -97,9 +109,12 @@ func (s secretsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken)
 		return nil, nil
 	}
 
-	expiry, err := strconv.ParseUint(string(secret.Data["expiry"]), 10, 64)
-	if err != nil {
-		return nil, err
+	var expiry uint64
+	if exp, ok := secret.Data["expiry"]; ok {
+		expiry, err = strconv.ParseUint(string(exp), 10, 64)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &api.Token{
@@ -124,25 +139,26 @@ func (s secretsTokenStorage) GetDataLocation(ctx context.Context, owner *api.SPI
 }
 
 func (s secretsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	secret := &corev1.Secret{}
-	if err := s.Client.Get(ctx, client.ObjectKey{Name: owner.Name, Namespace: owner.Namespace}, secret); err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
+	secret, err := s.getBackingSecret(ctx, owner)
+	if err != nil {
 		return err
+	}
+	if secret == nil {
+		return nil
 	}
 
 	return s.Client.Delete(ctx, secret)
 }
 
 func (s secretsTokenStorage) getBackingSecret(ctx context.Context, owner *api.SPIAccessToken) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-	dataLoc := strings.Split(owner.Spec.DataLocation, ":")
-	if len(dataLoc) != 2 {
+	key, ok := getSecretKeyFromLocation(owner)
+	if !ok {
 		return nil, nil
 	}
 
-	if err := s.Client.Get(ctx, client.ObjectKey{Name: dataLoc[1], Namespace: dataLoc[0]}, secret); err != nil {
+	secret := &corev1.Secret{}
+
+	if err := s.Client.Get(ctx, key, secret); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -154,4 +170,16 @@ func (s secretsTokenStorage) getBackingSecret(ctx context.Context, owner *api.SP
 
 func getDataLocationFromSecret(secret *corev1.Secret) string {
 	return secret.Namespace + ":" + secret.Name
+}
+
+func getSecretKeyFromLocation(owner *api.SPIAccessToken) (client.ObjectKey, bool) {
+	dataLoc := strings.Split(owner.Spec.DataLocation, ":")
+	if len(dataLoc) != 2 {
+		return client.ObjectKey{}, false
+	}
+
+	return client.ObjectKey{
+		Name:      dataLoc[1],
+		Namespace: dataLoc[0],
+	}, true
 }
