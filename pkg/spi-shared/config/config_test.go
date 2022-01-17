@@ -51,7 +51,7 @@ users:
 	defer os.Remove(kcfgFilePath)
 
 	configFileContent := `
-kubeConfigPath: ` + kcfgFilePath + `
+sharedSecret: yaddayadda123$@#**
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -67,7 +67,8 @@ serviceProviders:
 	assert.NoError(t, err)
 
 	assert.Equal(t, "baseUrlValue", cfg.BaseUrl)
-	assert.Equal(t, []uint8("secretValue"), cfg.SharedSecret)
+	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
+	assert.Len(t, cfg.ServiceProviders, 2)
 }
 
 func createFile(t *testing.T, path string, content string) string {

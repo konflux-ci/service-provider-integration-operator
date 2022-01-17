@@ -28,11 +28,6 @@ spec:
           value: http://service-provider-integration-api
         - name: OAUTH_BASE_URL
           value: the-url
-        - name: OAUTH_SHARED_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: oauth-config
-              key: shared-secret
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         securityContext:

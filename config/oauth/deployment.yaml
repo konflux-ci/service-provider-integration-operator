@@ -57,7 +57,5 @@ spec:
         secret:
           secretName: oauth-config
           items:
-            - key: shared-secret
-              path: shared-secret
             - key: config.yaml
               path: config.yaml
