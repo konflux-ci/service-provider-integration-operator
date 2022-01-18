@@ -43,11 +43,8 @@ SPIO_IMG=quay.io/acme/spio:42 make docker-push
 ```
 
 ## Configuration
-The operator is currently configured using environment variables.
 
-* `SPI_URL` - **mandatory** the URL to the REST API of the Service Provider Integration service to which the operator talks to receive the tokens
-* `SPI_BEARER_TOKEN_FILE` - *optional* the location of the file with the bearer token used to authenticate with the SPI REST API. This
-is autodetected when running in-cluster but can be useful to explicitly specify when running out of cluster when debugging.
+TBD
 
 ## Running
 It is possible to run the operator both in and out of a Kubernetes cluster.
@@ -67,18 +64,148 @@ To run the operator with the permissions of the currently active kubectl context
 make run_as_current_user
 ```
 
-Note that it is required to configure the operator using the environment variables as mentioned above.
 ### In cluster
 Again, there is a dedicated make target to deploy the operator into the cluster:
+
+For OpenShift, use:
 
 ```
 make deploy
 ```
 
-Once deployed, make sure to edit the operator Deployment in the `spi-system` namespace and set the `SPI_URL` to a URL on which the SPI REST API
-can be reached.
+For Kubernetes, use:
+```
+make deploy_k8s
+```
+
+Once deployed, several manual modifications need to be made. See the below section about manual testing
+with custom images for details.
+
 ## Debugging
 
 It is possible to debug the operator using `dlv` or some IDE like `vscode`. Just point the debugger of your choice to `main.go` as the main program file and remember to configure the environment variables for the correct/intended function of the operator.
 
 The `launch.json` file for `vscode` is included in the repository so you should be all set if using that IDE. Just make sure to run `make prepare` before debugging.
+
+## Manual testing with custom images
+
+This assumes the current working directory is your local checkout of this repository.
+
+First, we need to enable the ingress addon (skip this step, obviously, if you're working with OpenShift):
+```
+minikube addons enable ingress
+```
+
+Second, we need to install cert manager to handle the certificates for us (skip this step if you're on OpenShift):
+
+```
+make install_cert_manager
+```
+
+With this, we can install our CRDs:
+
+```
+make install
+```
+
+Next, we're ready to build and push the custom operator image:
+```
+make docker-build docker-push SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE>
+```
+
+Next step is to deploy the operator and oauth service along with all other Kubernetes objects to the cluster.
+This step assumes that you also want to use a custom image of the SPI OAuth service. If you want to use the
+default one, just don't specify the `SPIS_IMG` env var below.
+
+On OpenShift use:
+```
+make deploy SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+```
+
+On Kubernetes/Minikube use:
+```
+make deploy_k8s SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+```
+
+Next, comes the manual part. We need to set the external domain of the ingress/route of the OAuth service and reconfigure
+the OAuth service and operator to know about it:
+
+On Minikube, we can use `nip.io` to set the hostname like this:
+```
+SPI_HOST="spi.$(minikube ip).nip.io"
+kubectl -n spi-system patch ingress spi-oauth-ingress --type=json --patch '[{"op": "replace", "path": "/spec/rules/0/host", "value": "'$SPI_HOST'"}]'
+```
+
+On Kubernetes, the host of the ingress needs to be set be the means appropriate to your cluster environment.
+
+On OpenShift, you merely need to note down the hostname of your route.
+
+In either case, store the hostname of your ingress/route in the `$SPI_HOST` environment variable
+
+Also, note down the client id and client secret of the OAuth application in Github that you want SPI to act as
+and store the in the `CLIENT_ID` and `CLIENT_SECRET` env vars respectively.
+
+Next, we need to reconfigure the oauth service and operator. Both are configured using a single configmap:
+
+```
+SPI_CONFIGMAP=$(kubectl -n spi-system get configmap -l app.kubernetes.io/part-of=service-provider-integration-operator | grep spi-oauth-config | cut -f1 -d' ')
+kubectl -n spi-system patch configmap $SPI_CONFIGMAP --type=json --patch '[{"op": "replace", "path": "/data/config.yaml", "value": "'"$(kubectl -n spi-system get configmap $SPI_CONFIGMAP -o jsonpath='{.data.config\.yaml}' | yq -y 'setpath(["baseUrl"]; "https://'$SPI_HOST'")' | yq -y 'setpath(["serviceProviders", 0, "clientId"]; "'$CLIENT_ID'")' | yq -y 'setpath(["serviceProviders", 0, "clientSecret"]; "'$CLIENT_SECRET'")' | sed ':a;N;$!ba;s/\n/\\n/g')"'"}]'
+```
+
+All that is left for the setup is to restart the oauth service and operator to load the new configuration:
+```
+kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=0
+kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=1
+```
+
+### Go through the OAuth flow manually
+
+Let's assume that a) we're using the default namespace and that b) the default service account has permissions
+to CRUD `SPIAccessToken`s and `SPIAccessTokenBinding`s in the default namespace.
+
+This can be ensured by running:
+
+```
+kubectl apply -f hack/give-default-sa-perms-for-accesstokens.yaml
+```
+
+Now, let's create the `SPIAccessTokenBinding`:
+```
+kubectl apply -f samples/spiaccesstokenbinding.yaml --as system:serviceaccount:default:default
+```
+
+We're going to have to prove that we are a valid Kubernetes user that can create SPIAccessTokens, so we need
+to have the bearer token of the `default` service account (that we're using for all of our spi interaction):
+
+```
+BEARER_TOKEN=$(hack/get-default-sa-token.sh)
+```
+
+Now, we need initiate the OAuth flow. We've already created the spi access token binding. Let's examine
+it to see what access token it bound to:
+
+```
+SPI_ACCESS_TOKEN=$(kubectl get spiaccesstokenbindings test-access-token-binding -o=jsonpath='{.status.linkedAccessTokenName}')
+```
+
+Let's see if it has OAuth URL to go through:
+
+```
+OAUTH_URL=$(kubectl get spiaccesstoken $SPI_ACCESS_TOKEN -o=jsonpath='{.status.oAuthUrl}') 
+```
+
+Now let's use the bearer token of the default service account to authenticate with the OAuth service endpoint:
+
+```
+curl -v -k -H "Authorization: Bearer $BEARER_TOKEN" $OAUTH_URL 2>&1 | grep 'location: ' | cut -d' ' -f3
+```
+
+This gave us the link to the actual service provider (github) that we can use in the browser to approve and finish 
+the OAuth flow.
+
+Upon returning from that OAuth flow, you should end up back on the SPI endpoint on the `.../github/callback` URL.
+This concludes the flow and you should be able to see the secret configured in the binding with the requested data:
+
+```
+kubectl get secret token-secret -o yaml
+```
