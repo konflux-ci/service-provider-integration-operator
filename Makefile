@@ -186,13 +186,13 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${SPIO_IMG} && cd ../..
-	cd config/oauth && $(KUSTOMIZE) edit set image oauth=${SPIS_IMG} && cd ../..
+	cd config/default && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-operator=${SPIO_IMG} && cd ../..
+	cd config/default && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-oauth=${SPIS_IMG} && cd ../..
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 deploy_k8s: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${SPIO_IMG} && cd ../..
-	cd config/oauth && $(KUSTOMIZE) edit set image oauth=${SPIS_IMG} && cd ../..
+	cd config/k8s && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-operator=${SPIO_IMG} && cd ../..
+	cd config/k8s && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-oauth=${SPIS_IMG} && cd ../..
 	$(KUSTOMIZE) build config/k8s | kubectl apply -f -
 
 undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
