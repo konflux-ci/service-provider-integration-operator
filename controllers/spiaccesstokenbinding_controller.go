@@ -201,7 +201,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	if binding.Status.LinkedAccessTokenName != token.Name {
 		binding.Status.LinkedAccessTokenName = token.Name
 		if err := r.updateStatusSuccess(ctx, binding); err != nil {
-			return token, err
+			return token, NewReconcileError(err, "failed to update the binding status with the token link")
 		}
 	}
 
@@ -222,8 +222,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 	binding.Status.ErrorMessage = ""
 	binding.Status.ErrorReason = ""
 	if err := r.Client.Status().Update(ctx, binding); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update status")
-		return err
+		return NewReconcileError(err, "failed to update status")
 	}
 	return nil
 }
@@ -233,19 +232,27 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
-		return api.TargetObjectRef{}, err
+		return api.TargetObjectRef{}, NewReconcileError(err, "failed to get the token data from token storage")
 	}
 
 	if token == nil {
 		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
 	}
 
+	userName := ""
+	userId := ""
+
+	if tokenObject.Spec.TokenMetadata != nil {
+		userName = tokenObject.Spec.TokenMetadata.UserName
+		userId = tokenObject.Spec.TokenMetadata.UserId
+	}
+
 	at := AccessTokenMapper{
 		Name:                    tokenObject.Name,
 		Token:                   token.AccessToken,
 		ServiceProviderUrl:      tokenObject.Spec.ServiceProviderUrl,
-		ServiceProviderUserName: tokenObject.Spec.TokenMetadata.UserName,
-		ServiceProviderUserId:   tokenObject.Spec.TokenMetadata.UserId,
+		ServiceProviderUserName: userName,
+		ServiceProviderUserId:   userId,
 		UserId:                  "",
 		ExpiredAfter:            &token.Expiry,
 		Scopes:                  serviceprovider.GetAllScopes(sp, &binding.Spec.Permissions),
@@ -277,8 +284,15 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		Type: binding.Spec.Secret.Type,
 	}
 
+	if secret.Name == "" {
+		secret.GenerateName = binding.Name + "-secret-"
+	}
+
 	_, obj, err := r.syncer.Sync(ctx, binding, secret, secretDiffOpts)
-	return toObjectRef(obj), err
+	if err != nil {
+		return api.TargetObjectRef{}, NewReconcileError(err, "failed to sync the secret with the token data")
+	}
+	return toObjectRef(obj), nil
 }
 
 // toObjectRef creates a reference to a kubernetes object within the same namespace (i.e, a struct containing the name,

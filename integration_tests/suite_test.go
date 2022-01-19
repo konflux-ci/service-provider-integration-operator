@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	config2 "github.com/onsi/ginkgo/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -41,7 +43,6 @@ import (
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	controller_config "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,7 +61,7 @@ type IntegrationTest struct {
 	TokenStorage             tokenstorage.TokenStorage
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
-	TestServiceProvider      serviceprovider.ServiceProvider
+	TestServiceProvider      TestServiceProvider
 }
 
 var ITest IntegrationTest
@@ -113,6 +114,31 @@ func (t TestServiceProvider) GetOAuthEndpoint() string {
 	return t.GetOauthEndpointImpl()
 }
 
+func (t *TestServiceProvider) Reset() {
+	t.LookupTokenImpl = nil
+	t.GetBaseUrlImpl = nil
+	t.TranslateToScopesImpl = nil
+	t.GetTypeImpl = nil
+	t.GetOauthEndpointImpl = nil
+}
+
+// Returns a function that can be used as an implementation of the serviceprovider.ServiceProvider.LookupToken method
+// that just returns a freshly loaded version of the provided token. The token is a pointer to a pointer to the token
+// so that this can also support lazily initialized tokens.
+func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+		if *tokenPointer == nil {
+			return nil, nil
+		}
+
+		freshToken := &api.SPIAccessToken{}
+		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
+			return nil, err
+		}
+		return freshToken, nil
+	}
+}
+
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -120,9 +146,14 @@ func TestSuite(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	if config2.GinkgoConfig.ParallelTotal > 1 {
+		// The reason for this is that the tests can modify the behavior of the service provider implementation. If
+		// we allowed parallel execution, the tests would step on each other's toes by possibly using an incorrect
+		// service provider method implementation.
+		Fail("This testsuite cannot be run in parallel")
+	}
 
-	controller_config.SetSpiUrlForTest("https://spi-oauth")
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ITest = IntegrationTest{}
 
@@ -284,8 +315,13 @@ var _ = BeforeSuite(func() {
 }, 3600)
 
 var _ = AfterSuite(func() {
-	ITest.Cancel()
+	if ITest.Cancel != nil {
+		ITest.Cancel()
+	}
+
 	By("tearing down the test environment")
-	err := ITest.TestEnvironment.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	if ITest.TestEnvironment != nil {
+		err := ITest.TestEnvironment.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}
 })

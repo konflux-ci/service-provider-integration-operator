@@ -101,10 +101,13 @@ func (s *Syncer) create(ctx context.Context, owner client.Object, blueprint clie
 
 	actual := blueprint.DeepCopyObject().(client.Object)
 
-	err := controllerutil.SetControllerReference(owner, actual, s.client.Scheme())
-	if err != nil {
-		lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
-		return nil, err
+	var err error
+	if owner != nil {
+		err = controllerutil.SetControllerReference(owner, actual, s.client.Scheme())
+		if err != nil {
+			lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
+			return nil, err
+		}
 	}
 
 	err = s.client.Create(ctx, actual)
