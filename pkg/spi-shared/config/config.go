@@ -14,7 +14,6 @@
 package config
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -27,8 +26,6 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
-	baseUrlEnv                string              = "OAUTH_BASE_URL"
-	sharedSecretEnv           string              = "OAUTH_SHARED_SECRET"
 )
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
@@ -44,6 +41,9 @@ type PersistedConfiguration struct {
 
 	// SharedSecret is secret value used for signing the JWT keys.
 	SharedSecret string `yaml:"sharedSecret"`
+
+	// BaseUrl is the URL on which the OAuth service is deployed.
+	BaseUrl string `yaml:"baseUrl"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -93,6 +93,7 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
 	conf.ServiceProviders = c.ServiceProviders
 	conf.SharedSecret = []byte(c.SharedSecret)
+	conf.BaseUrl = c.BaseUrl
 
 	return conf, nil
 }
@@ -107,12 +108,6 @@ func Config(configFile string) (Configuration, error) {
 	cfg, err = pcfg.inflate()
 	if err != nil {
 		return cfg, err
-	}
-
-	if val, ok := os.LookupEnv(baseUrlEnv); !ok {
-		return cfg, fmt.Errorf("'%v' env must be set", baseUrlEnv)
-	} else {
-		cfg.BaseUrl = val
 	}
 
 	return cfg, nil

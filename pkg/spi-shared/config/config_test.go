@@ -24,9 +24,6 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	os.Setenv(sharedSecretEnv, "secretValue")
-	os.Setenv(baseUrlEnv, "baseUrlValue")
-
 	kubeConfigContent := `
 apiVersion: v1
 clusters:
@@ -59,6 +56,7 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
+baseUrl: blabol
 `
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
@@ -66,7 +64,7 @@ serviceProviders:
 	cfg, err := Config(cfgFilePath)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "baseUrlValue", cfg.BaseUrl)
+	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
 	assert.Len(t, cfg.ServiceProviders, 2)
 }
