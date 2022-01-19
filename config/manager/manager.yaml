@@ -26,8 +26,6 @@ spec:
         env:
         - name: SPI_URL
           value: http://service-provider-integration-api
-        - name: OAUTH_BASE_URL
-          value: the-url
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         securityContext:
