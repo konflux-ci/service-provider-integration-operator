@@ -12,40 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package v1beta1
 
 import (
-	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-const (
-	runControllersEnv = "RUN_CONTROLLERS"
-	runWebhooksEnv    = "RUN_WEBHOOKS"
+func TestPermissions(t *testing.T) {
+	var pt PermissionType
 
-	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
+	pt = PermissionTypeRead
+	assert.True(t, pt.IsRead())
+	assert.False(t, pt.IsWrite())
 
-	runControllersDefault = true
-	runWebhooksDefault    = true
-)
+	pt = PermissionTypeReadWrite
+	assert.True(t, pt.IsRead())
+	assert.True(t, pt.IsWrite())
 
-func RunControllers() bool {
-	ret, ok := os.LookupEnv(runControllersEnv)
-	if !ok {
-		return runControllersDefault
-	}
-
-	return "true" == ret
-}
-
-func RunWebhooks() bool {
-	ret, ok := os.LookupEnv(runWebhooksEnv)
-	if !ok {
-		return runWebhooksDefault
-	}
-
-	return "true" == ret
-}
-
-func ValidateEnv() error {
-	return nil
+	pt = PermissionTypeWrite
+	assert.False(t, pt.IsRead())
+	assert.True(t, pt.IsWrite())
 }

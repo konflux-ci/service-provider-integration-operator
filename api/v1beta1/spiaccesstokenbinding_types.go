@@ -75,8 +75,10 @@ type SPIAccessTokenBindingList struct {
 }
 
 type SecretSpec struct {
-	// Name is the name of the secret to be created.
-	Name string `json:"name"`
+	// Name is the name of the secret to be created. If it is not defined a random name based on the name of the binding
+	// is used.
+	// +optional
+	Name string `json:"name,omitempty"`
 	// Labels contains the labels that the created secret should be labeled with.
 	Labels map[string]string `json:"labels,omitempty"`
 	// Annotations is the keys and values that the create secret should be annotated with.

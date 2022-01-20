@@ -21,6 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -34,7 +40,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
+
+const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -43,6 +52,7 @@ type SPIAccessTokenReconciler struct {
 	TokenStorage           tokenstorage.TokenStorage
 	Configuration          config.Configuration
 	ServiceProviderFactory serviceprovider.Factory
+	finalizers             finalizer.Finalizers
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokens,verbs=get;list;watch;create;update;patch;delete
@@ -51,8 +61,29 @@ type SPIAccessTokenReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.finalizers = finalizer.NewFinalizers()
+	if err := r.finalizers.Register(linkedBindingsFinalizerName, &linkedBindingsFinalizer{client: r.Client}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
+		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+			tokenName := object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+
+			if tokenName == "" {
+				return []reconcile.Request{}
+			}
+
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Namespace: object.GetNamespace(),
+						Name:      tokenName,
+					},
+				},
+			}
+		})).
 		Complete(r)
 }
 
@@ -66,13 +97,32 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.Get(ctx, req.NamespacedName, &at); err != nil {
 		if errors.IsNotFound(err) {
+			lg.Info("token already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, NewReconcileError(err, "failed to load the token from the cluster")
+	}
+
+	finalizationResult, err := r.finalizers.Finalize(ctx, &at)
+	if err != nil {
+		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
+		// we get another reconciliation due to cluster state change
+		return ctrl.Result{Requeue: false}, NewReconcileError(err, "failed to finalize")
+	}
+	if finalizationResult.Updated {
+		if err = r.Client.Update(ctx, &at); err != nil {
+			return ctrl.Result{}, NewReconcileError(err, "failed to update based on finalization result")
+		}
+	}
+	if finalizationResult.StatusUpdated {
+		if err = r.Client.Status().Update(ctx, &at); err != nil {
+			return ctrl.Result{}, NewReconcileError(err, "failed to update the status based on finalization result")
+		}
 	}
 
 	if at.DeletionTimestamp != nil {
+		lg.Info("token being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
 	}
 
@@ -85,7 +135,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if loc != "" {
 			data, err := r.TokenStorage.Get(ctx, &at)
 			if err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from tokenstorage")
+				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from token storage")
 			}
 			if data != nil {
 				at.Spec.DataLocation = loc
@@ -159,4 +209,40 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 	}
 
 	return sp.GetOAuthEndpoint() + "?state=" + state, nil
+}
+
+type linkedBindingsFinalizer struct {
+	client client.Client
+}
+
+var _ finalizer.Finalizer = (*linkedBindingsFinalizer)(nil)
+
+func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+	res := finalizer.Result{}
+	token, ok := obj.(*api.SPIAccessToken)
+	if !ok {
+		return res, fmt.Errorf("unexpected object type")
+	}
+
+	hasBindings, err := f.hasLinkedBindings(ctx, token)
+	if err != nil {
+		return res, err
+	}
+
+	if hasBindings {
+		return res, fmt.Errorf("linked bindings present")
+	} else {
+		return res, nil
+	}
+}
+
+func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
+	list := &api.SPIAccessTokenBindingList{}
+	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
+		opconfig.SPIAccessTokenLinkLabel: token.Name,
+	}); err != nil {
+		return false, err
+	}
+
+	return len(list.Items) > 0, nil
 }

@@ -129,7 +129,9 @@ spec:
                       should be labeled with.
                     type: object
                   name:
-                    description: Name is the name of the secret to be created.
+                    description: Name is the name of the secret to be created. If
+                      it is not defined a random name based on the name of the binding
+                      is used.
                     type: string
                   type:
                     description: Type is the type of the secret to be created. If
@@ -142,8 +144,6 @@ spec:
                       are supported. All other secret types need to have their mapping
                       specified manually using the Fields.
                     type: string
-                required:
-                - name
                 type: object
             required:
             - permissions
