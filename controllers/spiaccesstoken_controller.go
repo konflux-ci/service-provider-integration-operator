@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -126,6 +128,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	updatePending := false
+	toPersist := at.DeepCopy()
+
 	if at.Spec.DataLocation == "" {
 		loc, err := r.TokenStorage.GetDataLocation(ctx, &at)
 		if err != nil {
@@ -138,11 +143,18 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from token storage")
 			}
 			if data != nil {
-				at.Spec.DataLocation = loc
-				if err := r.Update(ctx, &at); err != nil {
-					return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
-				}
+				toPersist.Spec.DataLocation = loc
+				updatePending = true
 			}
+		}
+	}
+
+	updatePending = toPersist.EnsureLabels() || updatePending
+
+	if updatePending {
+		if err := r.Update(ctx, toPersist); err != nil {
+			lg.Error(err, "failed to update the object with the changes", "diff", cmp.Diff(&at, toPersist))
+			return ctrl.Result{}, NewReconcileError(err, "failed to update the object with the changes")
 		}
 	}
 
