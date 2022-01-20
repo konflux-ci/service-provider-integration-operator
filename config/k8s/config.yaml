@@ -1,4 +1,4 @@
-sharedSecret: yaddayadda123$@#**
+sharedSecret: <SHARED_SECRET_VALUE>
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -6,4 +6,4 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
-baseUrl: http://oauth.192.168.64.46.nip.io
+baseUrl: http://<OAUTH_HOST_VALUE>

@@ -98,7 +98,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := sharedConfig.Config(configFile)
+	cfg, err := sharedConfig.LoadFrom(configFile)
 	if err != nil {
 		setupLog.Error(err, "Failed to load the configuration")
 		os.Exit(1)

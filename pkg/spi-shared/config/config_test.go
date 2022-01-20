@@ -61,7 +61,7 @@ baseUrl: blabol
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
 
-	cfg, err := Config(cfgFilePath)
+	cfg, err := LoadFrom(cfgFilePath)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)

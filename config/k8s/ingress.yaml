@@ -4,7 +4,7 @@ metadata:
   name: oauth-ingress
 spec:
   rules:
-  - host: oauth.192.168.64.46.nip.io
+  - host: <OAUTH_HOST_VALUE>
     http:
       paths:
       - backend:

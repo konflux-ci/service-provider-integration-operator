@@ -98,7 +98,7 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 	return conf, nil
 }
 
-func Config(configFile string) (Configuration, error) {
+func LoadFrom(configFile string) (Configuration, error) {
 	cfg := Configuration{}
 	pcfg, err := loadFrom(configFile)
 	if err != nil {
