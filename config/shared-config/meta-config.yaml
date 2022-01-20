@@ -1,9 +1,0 @@
-# Contains configuration for kustomize variables
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: oauth-metaconfig
-data:
-  oauth-host: the-host
-  config-mount-path: /etc/spi
-

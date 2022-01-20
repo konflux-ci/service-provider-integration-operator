@@ -1,4 +1,0 @@
-# allow variable replacement in the config.yaml map data fields
-varReference:
-- path: data
-  kind: ConfigMap

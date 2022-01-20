@@ -18,13 +18,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"k8s.io/client-go/kubernetes"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,19 +35,15 @@ type PersistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
 	ServiceProviders []ServiceProviderConfiguration `yaml:"serviceProviders"`
 
-	// SharedSecretFile is the path to a file containing the secret value used for signing the JWT keys.
-	SharedSecretFile string `yaml:"sharedSecretFile"`
-
-	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
-	// service providers in the form of `${BASE_URL}/${SP_TYPE}/callback` (e.g. my-host/github/callback).
-	BaseUrl string `yaml:"baseUrl"`
-
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
 	KubernetesAuthAudiences []string `yaml:"kubernetesAuthAudiences,omitempty"`
 
-	// KubeConfigPath is the path to the kube/config file. If left empty, the in-cluster configuration is assumed.
-	KubeConfigPath string `yaml:"kubeConfigPath,omitempty"`
+	// SharedSecret is secret value used for signing the JWT keys.
+	SharedSecret string `yaml:"sharedSecret"`
+
+	// BaseUrl is the URL on which the OAuth service is deployed.
+	BaseUrl string `yaml:"baseUrl"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -70,9 +59,6 @@ type Configuration struct {
 	//KubernetesAuthAudiences is the list of audiences used when performing the token reviews with the Kubernetes API.
 	// Can be left empty if not needed.
 	KubernetesAuthAudiences []string
-
-	// KubernetesClientConfiguration is the kubernetes client configuration to use.
-	KubernetesClientConfiguration *rest.Config
 
 	// SharedSecret is the secret value used for signing the JWT keys used as OAuth state.
 	SharedSecret []byte
@@ -99,75 +85,59 @@ type ServiceProviderConfiguration struct {
 	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
-// KubernetesClient creates a new kubernetes client based on the config. This is either the in-cluster client or
-// the client with configuration obtained from the file on `kubeConfigPath`. If no `kubeConfigPath` is provided in the
-// persisted configuration, the in-cluster client is assumed.
-func (c Configuration) KubernetesClient(opts client.Options) (client.Client, error) {
-	return client.New(c.KubernetesClientConfiguration, opts)
+// inflate loads the files specified in the persisted configuration and returns a fully initialized configuration
+// struct.
+func (c PersistedConfiguration) inflate() (Configuration, error) {
+	conf := Configuration{}
+
+	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
+	conf.ServiceProviders = c.ServiceProviders
+	conf.SharedSecret = []byte(c.SharedSecret)
+	conf.BaseUrl = c.BaseUrl
+
+	return conf, nil
 }
 
-// Inflate loads the files specified in the persisted configuration and returns a fully initialized configuration
-// struct.
-func (c PersistedConfiguration) Inflate() (Configuration, error) {
-	ret := Configuration{}
-	kcfg, err := readKubeConfig(c.KubeConfigPath)
+func LoadFrom(configFile string) (Configuration, error) {
+	cfg := Configuration{}
+	pcfg, err := loadFrom(configFile)
 	if err != nil {
-		return ret, err
+		return cfg, err
 	}
 
-	ret.KubernetesClientConfiguration = kcfg
-	ret.SharedSecret, err = ioutil.ReadFile(c.SharedSecretFile)
-	ret.BaseUrl = c.BaseUrl
-	ret.KubernetesAuthAudiences = c.KubernetesAuthAudiences
-	ret.ServiceProviders = c.ServiceProviders
+	cfg, err = pcfg.inflate()
+	if err != nil {
+		return cfg, err
+	}
 
-	return ret, err
+	return cfg, nil
 }
 
-// KubernetesClientset creates a new kubernetes client. As with `KubernetesClient()` method, this is either created using
-// the supplied configuration or the in-cluster config.yaml is used if no explicit configuration file path is provided in the
-// persisted configuration.
-func (c Configuration) KubernetesClientset() (*kubernetes.Clientset, error) {
-	return kubernetes.NewForConfig(c.KubernetesClientConfiguration)
-}
-
-// LoadFrom loads the configuration from the provided file-system path. Note that the returned configuration is fully
+// loadFrom loads the configuration from the provided file-system path. Note that the returned configuration is fully
 // initialized with no need to call the Configuration.ParseFiles() method anymore.
-func LoadFrom(path string) (PersistedConfiguration, error) {
+func loadFrom(path string) (PersistedConfiguration, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return PersistedConfiguration{}, err
 	}
 	defer file.Close()
 
-	return ReadFrom(file)
+	return readFrom(file)
 }
 
-// ReadFrom reads the configuration from the provided reader. Note that the returned configuration is fully initialized
+// readFrom reads the configuration from the provided reader. Note that the returned configuration is fully initialized
 // with no need to call the Configuration.ParseFiles() method anymore.
-func ReadFrom(rdr io.Reader) (PersistedConfiguration, error) {
-	ret := PersistedConfiguration{}
+func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
+	conf := PersistedConfiguration{}
 
 	bytes, err := ioutil.ReadAll(rdr)
 	if err != nil {
-		return ret, err
+		return conf, err
 	}
 
-	if err := yaml.Unmarshal(bytes, &ret); err != nil {
-		return ret, err
+	if err := yaml.Unmarshal(bytes, &conf); err != nil {
+		return conf, err
 	}
 
-	return ret, err
-}
-
-func readKubeConfig(loc string) (*rest.Config, error) {
-	if loc == "" {
-		return rest.InClusterConfig()
-	} else {
-		content, err := ioutil.ReadFile(loc)
-		if err != nil {
-			return nil, err
-		}
-		return clientcmd.RESTConfigFromKubeConfig(content)
-	}
+	return conf, err
 }

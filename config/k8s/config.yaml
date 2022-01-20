@@ -1,5 +1,4 @@
-sharedSecretFile: $(CONFIG_MOUNT_PATH)/shared-secret
-baseUrl: $(OAUTH_HOST)
+sharedSecret: <SHARED_SECRET_VALUE>
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -7,3 +6,4 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
+baseUrl: http://<OAUTH_HOST_VALUE>

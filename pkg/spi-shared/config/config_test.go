@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,28 +44,11 @@ users:
   user:
     token: "123"
 `
-
-	secretFile, err := os.CreateTemp(os.TempDir(), "testSecret")
-	assert.NoError(t, err)
-	defer os.Remove(secretFile.Name())
-
-	kcfgFile, err := os.CreateTemp(os.TempDir(), "testKubeConfig")
-	assert.NoError(t, err)
-	defer os.Remove(kcfgFile.Name())
-
-	assert.NoError(t, ioutil.WriteFile(secretFile.Name(), []byte("secret"), fs.ModeExclusive))
-	assert.NoError(t, ioutil.WriteFile(kcfgFile.Name(), []byte(kubeConfigContent), fs.ModeExclusive))
-
-	secretFilePath, err := filepath.Abs(secretFile.Name())
-	assert.NoError(t, err)
-
-	kcfgFilePath, err := filepath.Abs(kcfgFile.Name())
-	assert.NoError(t, err)
+	kcfgFilePath := createFile(t, "testKubeConfig", kubeConfigContent)
+	defer os.Remove(kcfgFilePath)
 
 	configFileContent := `
-sharedSecretFile: ` + secretFilePath + `
-kubeConfigPath: ` + kcfgFilePath + `
-baseUrl: https://localhost:8080
+sharedSecret: yaddayadda123$@#**
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -74,17 +56,27 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
+baseUrl: blabol
 `
+	cfgFilePath := createFile(t, "config", configFileContent)
+	defer os.Remove(cfgFilePath)
 
-	pcfg, err := ReadFrom(strings.NewReader(configFileContent))
+	cfg, err := LoadFrom(cfgFilePath)
 	assert.NoError(t, err)
 
-	cfg, err := pcfg.Inflate()
+	assert.Equal(t, "blabol", cfg.BaseUrl)
+	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
+	assert.Len(t, cfg.ServiceProviders, 2)
+}
+
+func createFile(t *testing.T, path string, content string) string {
+	file, err := os.CreateTemp(os.TempDir(), path)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "https://localhost:8080", cfg.BaseUrl)
+	assert.NoError(t, ioutil.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
 
-	assert.Equal(t, []byte("secret"), cfg.SharedSecret)
+	filePath, err := filepath.Abs(file.Name())
+	assert.NoError(t, err)
 
-	assert.Equal(t, "cluster.host", cfg.KubernetesClientConfiguration.Host)
+	return filePath
 }

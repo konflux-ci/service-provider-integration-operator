@@ -22,13 +22,13 @@ commonLabels:
 
 resources:
 # Common stuff with the prepare goal
-- ../shared-config
 - ../namespace
 - ../crd
 - ../rbac
 - ../webhook
 - ../certmanager
 - ../oauth
+- ingress.yaml
 # Additional stuff deployed by the default overlay
 - ../manager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
@@ -52,6 +52,11 @@ patchesStrategicMerge:
 # Uncomment 'CERTMANAGER' sections in crd/kustomization.yaml to enable the CA injection in the admission webhooks.
 # 'CERTMANAGER' needs to be enabled to use ca injection
 - webhookcainjection_patch.yaml
+
+secretGenerator:
+  - name: oauth-config
+    files:
+      - config.yaml
 
 # the following config is for teaching kustomize how to do var substitution
 vars:
