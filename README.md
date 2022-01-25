@@ -44,7 +44,25 @@ SPIO_IMG=quay.io/acme/spio:42 make docker-push
 
 ## Configuration
 
-TBD
+This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
+
+It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI. 
+Name of the secret should be `oauth-config` with this configuration yaml under `config.yaml` key.
+
+```yaml
+sharedSecret: <jwt_sign_secret>
+serviceProviders:
+- type: <service_provider_type>
+  clientId: <service_provider_client_id>
+  clientSecret: <service_provider_secret>
+baseUrl: <oauth_base_url>
+```
+
+ - `<jwt_sign_secret>` - secret value used for signing the JWT keys
+ - `<service_provider_type>` - type of the service provider. This must be one of the supported values: GitHub, Quay
+ - `<service_provider_client_id>` - client ID of the OAuth application
+ - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
+ - `<oauth_base_url>` - URL on which the OAuth service is deployed
 
 ## Running
 It is possible to run the operator both in and out of a Kubernetes cluster.
