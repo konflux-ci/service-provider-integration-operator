@@ -44,10 +44,10 @@ SPIO_IMG=quay.io/acme/spio:42 make docker-push
 
 ## Configuration
 
-This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
-
-It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI. 
+It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
 Name of the secret should be `oauth-config` with this configuration yaml under `config.yaml` key.
+
+This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
 
 ```yaml
 sharedSecret: <jwt_sign_secret>
