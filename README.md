@@ -64,6 +64,8 @@ baseUrl: <oauth_base_url>
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
  - `<oauth_base_url>` - URL on which the OAuth service is deployed
 
+_To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
+
 ## Running
 It is possible to run the operator both in and out of a Kubernetes cluster.
 
