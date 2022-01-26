@@ -33,7 +33,6 @@ type SPIAccessTokenSpec struct {
 	Permissions         Permissions         `json:"permissions"`
 	ServiceProviderUrl  string              `json:"serviceProviderUrl,omitempty"`
 	DataLocation        string              `json:"dataLocation"`
-	TokenMetadata       *TokenMetadata      `json:"tokenMetadata,omitempty"`
 	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
 }
 
@@ -49,8 +48,9 @@ type Token struct {
 // TokenMetadata is data about the token retrieved from the service provider. This data can be used for matching the
 // tokens with the token bindings.
 type TokenMetadata struct {
-	UserName string `json:"userName"`
-	UserId   string `json:"userId"`
+	UserName string   `json:"userName"`
+	UserId   string   `json:"userId"`
+	Scopes   []string `json:"scopes"`
 }
 
 // Permissions is a collection of operator-defined permissions (which are translated to service-provider-specific
@@ -113,8 +113,9 @@ const (
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
 type SPIAccessTokenStatus struct {
-	Phase    SPIAccessTokenPhase `json:"phase"`
-	OAuthUrl string              `json:"oAuthUrl"`
+	Phase         SPIAccessTokenPhase `json:"phase"`
+	OAuthUrl      string              `json:"oAuthUrl"`
+	TokenMetadata *TokenMetadata      `json:"tokenMetadata"`
 }
 
 // SPIAccessTokenPhase is the reconciliation phase of the SPIAccessToken object

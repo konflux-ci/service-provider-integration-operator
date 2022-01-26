@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 	"net/http"
 	"os"
 
@@ -116,9 +117,11 @@ func main() {
 			Scheme:       mgr.GetScheme(),
 			TokenStorage: strg,
 			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration: cfg,
-				Client:        http.DefaultClient,
-				Initializers:  serviceprovider.KnownInitializers(),
+				Configuration:    cfg,
+				KubernetesClient: mgr.GetClient(),
+				HttpClient:       http.DefaultClient,
+				Initializers:     serviceproviders.KnownInitializers(),
+				TokenStorage:     strg,
 			},
 			Configuration: cfg,
 		}).SetupWithManager(mgr); err != nil {
@@ -130,9 +133,11 @@ func main() {
 			Scheme:       mgr.GetScheme(),
 			TokenStorage: strg,
 			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration: cfg,
-				Client:        http.DefaultClient,
-				Initializers:  serviceprovider.KnownInitializers(),
+				Configuration:    cfg,
+				KubernetesClient: mgr.GetClient(),
+				HttpClient:       http.DefaultClient,
+				Initializers:     serviceproviders.KnownInitializers(),
+				TokenStorage:     strg,
 			},
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")

@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serviceprovider
+package quay
 
 import (
 	"context"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"net/http"
 	"strings"
 
@@ -25,24 +26,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ ServiceProvider = (*Quay)(nil)
+var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 type Quay struct {
 	Configuration config.Configuration
 }
 
-var QuayInitializer = Initializer{
+var QuayInitializer = serviceprovider.Initializer{
 	Probe:       quayProbe{},
-	Constructor: ConstructorFunc(newQuay),
+	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
 
-func newQuay(factory *Factory, _ string) (ServiceProvider, error) {
+func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 	return &Quay{
 		Configuration: factory.Configuration,
 	}, nil
 }
 
-var _ ConstructorFunc = newQuay
+var _ serviceprovider.ConstructorFunc = newQuay
 
 func (g *Quay) GetOAuthEndpoint() string {
 	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/quay/authenticate"
@@ -90,12 +91,12 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 }
 
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	return getHostWithScheme(repoUrl)
+	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
 type quayProbe struct{}
 
-var _ Probe = (*quayProbe)(nil)
+var _ serviceprovider.Probe = (*quayProbe)(nil)
 
 func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, "https://quay.io") {

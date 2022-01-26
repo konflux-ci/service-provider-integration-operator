@@ -260,8 +260,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	factory := serviceprovider.Factory{
-		Configuration: operatorCfg,
-		Client:        http.DefaultClient,
+		Configuration:    operatorCfg,
+		KubernetesClient: mgr.GetClient(),
+		HttpClient:       http.DefaultClient,
 		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
 			"TestServiceProvider": {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
@@ -272,6 +273,7 @@ var _ = BeforeSuite(func() {
 				}),
 			},
 		},
+		TokenStorage: strg,
 	}
 
 	err = (&controllers.SPIAccessTokenReconciler{

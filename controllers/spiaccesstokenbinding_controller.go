@@ -242,9 +242,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	userName := ""
 	userId := ""
 
-	if tokenObject.Spec.TokenMetadata != nil {
-		userName = tokenObject.Spec.TokenMetadata.UserName
-		userId = tokenObject.Spec.TokenMetadata.UserId
+	if tokenObject.Status.TokenMetadata != nil {
+		userName = tokenObject.Status.TokenMetadata.UserName
+		userId = tokenObject.Status.TokenMetadata.UserId
 	}
 
 	at := AccessTokenMapper{
@@ -255,7 +255,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		ServiceProviderUserId:   userId,
 		UserId:                  "",
 		ExpiredAfter:            &token.Expiry,
-		Scopes:                  serviceprovider.GetAllScopes(sp, &binding.Spec.Permissions),
+		Scopes:                  serviceprovider.GetAllScopes(sp.TranslateToScopes, &binding.Spec.Permissions),
 	}
 
 	stringData := at.toSecretType(binding.Spec.Secret.Type)

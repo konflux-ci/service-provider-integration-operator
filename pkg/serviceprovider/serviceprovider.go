@@ -17,11 +17,10 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,18 +48,11 @@ type ServiceProvider interface {
 
 // Factory is able to construct service providers from repository URLs.
 type Factory struct {
-	Configuration config.Configuration
-	Client        *http.Client
-	Initializers  map[config.ServiceProviderType]Initializer
-}
-
-// KnownInitializers returns a map of service provider initializers known at compile time. The Factory.Initializers
-// should be set to this value under normal circumstances.
-func KnownInitializers() map[config.ServiceProviderType]Initializer {
-	return map[config.ServiceProviderType]Initializer{
-		config.ServiceProviderTypeGitHub: GithubInitializer,
-		config.ServiceProviderTypeQuay:   QuayInitializer,
-	}
+	Configuration    config.Configuration
+	KubernetesClient client.Client
+	HttpClient       *http.Client
+	Initializers     map[config.ServiceProviderType]Initializer
+	TokenStorage     tokenstorage.TokenStorage
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
@@ -79,7 +71,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 			continue
 		}
 
-		baseUrl, err := probe.Examine(f.Client, repoUrl)
+		baseUrl, err := probe.Examine(f.HttpClient, repoUrl)
 		if err != nil {
 			continue
 		}
@@ -95,18 +87,4 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	}
 
 	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
-}
-
-// GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
-// scopes.
-func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
-	allScopes := make([]string, len(perms.AdditionalScopes)+len(perms.Required))
-
-	allScopes = append(allScopes, perms.AdditionalScopes...)
-
-	for _, p := range perms.Required {
-		allScopes = append(allScopes, sp.TranslateToScopes(p)...)
-	}
-
-	return allScopes
 }

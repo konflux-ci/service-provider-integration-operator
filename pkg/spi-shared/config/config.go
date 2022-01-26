@@ -14,11 +14,11 @@
 package config
 
 import (
+	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"os"
-
-	"gopkg.in/yaml.v3"
+	"time"
 )
 
 type ServiceProviderType string
@@ -44,6 +44,10 @@ type PersistedConfiguration struct {
 
 	// BaseUrl is the URL on which the OAuth service is deployed.
 	BaseUrl string `yaml:"baseUrl"`
+
+	// TokenLookupCacheTtl is the time the token lookup results are considered valid. This string expresses the
+	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.).
+	TokenLookupCacheTtl string
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -62,6 +66,9 @@ type Configuration struct {
 
 	// SharedSecret is the secret value used for signing the JWT keys used as OAuth state.
 	SharedSecret []byte
+
+	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
+	TokenLookupCacheTtl time.Duration
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -90,11 +97,16 @@ type ServiceProviderConfiguration struct {
 func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf := Configuration{}
 
+	ttl, err := time.ParseDuration(c.TokenLookupCacheTtl)
+	if err != nil {
+		return conf, err
+
+	}
 	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
 	conf.ServiceProviders = c.ServiceProviders
 	conf.SharedSecret = []byte(c.SharedSecret)
 	conf.BaseUrl = c.BaseUrl
-
+	conf.TokenLookupCacheTtl = ttl
 	return conf, nil
 }
 
