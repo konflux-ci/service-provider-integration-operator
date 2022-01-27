@@ -189,16 +189,9 @@ This can be ensured by running:
 kubectl apply -f hack/give-default-sa-perms-for-accesstokens.yaml
 ```
 
-Now, let's create the `SPIAccessTokenBinding`:
+Let's create the `SPIAccessTokenBinding`:
 ```
 kubectl apply -f samples/spiaccesstokenbinding.yaml --as system:serviceaccount:default:default
-```
-
-We're going to have to prove that we are a valid Kubernetes user that can create SPIAccessTokens, so we need
-to have the bearer token of the `default` service account (that we're using for all of our spi interaction):
-
-```
-BEARER_TOKEN=$(hack/get-default-sa-token.sh)
 ```
 
 Now, we need initiate the OAuth flow. We've already created the spi access token binding. Let's examine
@@ -217,7 +210,7 @@ OAUTH_URL=$(kubectl get spiaccesstoken $SPI_ACCESS_TOKEN -o=jsonpath='{.status.o
 Now let's use the bearer token of the default service account to authenticate with the OAuth service endpoint:
 
 ```
-curl -v -k -H "Authorization: Bearer $BEARER_TOKEN" $OAUTH_URL 2>&1 | grep 'location: ' | cut -d' ' -f3
+curl -v -k $OAUTH_URL 2>&1 | grep 'location: ' | cut -d' ' -f3
 ```
 
 This gave us the link to the actual service provider (github) that we can use in the browser to approve and finish 
