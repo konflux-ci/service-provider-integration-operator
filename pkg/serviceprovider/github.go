@@ -79,7 +79,10 @@ func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api
 	// for now just return the first SPIAccessToken that we find so that we prevent infinitely many SPIAccessTokens
 	// being created during the tests :)
 	ats := &api.SPIAccessTokenList{}
-	if err := cl.List(ctx, ats, client.Limit(1)); err != nil {
+	if err := cl.List(ctx, ats, &client.ListOptions{
+		Namespace: binding.Namespace,
+		Limit:     1,
+	}); err != nil {
 		return nil, err
 	}
 
