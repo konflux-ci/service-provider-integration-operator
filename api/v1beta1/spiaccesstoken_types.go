@@ -22,10 +22,12 @@ import (
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
+	//+kubebuilder:validation:Required
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
 	Permissions         Permissions         `json:"permissions"`
-	ServiceProviderUrl  string              `json:"serviceProviderUrl,omitempty"`
-	DataLocation        string              `json:"dataLocation"`
+	//+kubebuilder:validation:Required
+	ServiceProviderUrl  string              `json:"serviceProviderUrl"`
+	DataLocation        string              `json:"dataLocation,omitempty"`
 	TokenMetadata       *TokenMetadata      `json:"tokenMetadata,omitempty"`
 	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
 }

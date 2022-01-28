@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -54,10 +55,14 @@ var _ = Describe("Create binding", func() {
 			},
 			Spec: api.SPIAccessTokenSpec{
 				ServiceProviderType: "TestServiceProvider",
+				ServiceProviderUrl:  "test-provider://acme",
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
+			return "test-provider://acme"
+		}
 
 		createdBinding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -80,7 +85,7 @@ var _ = Describe("Create binding", func() {
 		testTokenNameInStatus(createdBinding, Equal(createdToken.Name))
 	})
 
-	It("updates to the linked token status should be reverted", func() {
+	It("should revert the updates to the linked token status", func() {
 		testTokenNameInStatus(createdBinding, Equal(createdToken.Name))
 
 		Eventually(func(g Gomega) error {
@@ -92,6 +97,17 @@ var _ = Describe("Create binding", func() {
 		}).Should(Succeed())
 
 		testTokenNameInStatus(createdBinding, Not(Or(BeEmpty(), Equal("my random link name"))))
+	})
+
+	It("should copy the OAuthUrl to the status and reflect the phase", func() {
+		Eventually(func(g Gomega) {
+			binding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+			g.Expect(binding.Status.OAuthUrl).NotTo(BeEmpty())
+			g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
+			g.Expect(binding.Status.ErrorReason).To(BeEmpty())
+			g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
 })
 
