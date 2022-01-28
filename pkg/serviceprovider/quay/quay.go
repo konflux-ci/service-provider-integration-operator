@@ -32,7 +32,7 @@ type Quay struct {
 	Configuration config.Configuration
 }
 
-var QuayInitializer = serviceprovider.Initializer{
+var Initializer = serviceprovider.Initializer{
 	Probe:       quayProbe{},
 	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
