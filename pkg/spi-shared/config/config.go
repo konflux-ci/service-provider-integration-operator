@@ -14,11 +14,12 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type ServiceProviderType string

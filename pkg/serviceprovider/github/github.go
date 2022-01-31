@@ -16,10 +16,11 @@ package github
 
 import (
 	"context"
-	"github.com/machinebox/graphql"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"net/http"
 	"strings"
+
+	"github.com/machinebox/graphql"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 

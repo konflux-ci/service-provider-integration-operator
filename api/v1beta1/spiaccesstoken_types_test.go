@@ -15,8 +15,9 @@
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -38,11 +39,11 @@ func TestPermissions(t *testing.T) {
 }
 
 func TestEnsureLabels(t *testing.T) {
-	t.Run("sets the predefined", func (t *testing.T) {
+	t.Run("sets the predefined", func(t *testing.T) {
 		at := SPIAccessToken{
 			Spec: SPIAccessTokenSpec{
 				ServiceProviderType: ServiceProviderType("sp_type"),
-				ServiceProviderUrl: "https://hello",
+				ServiceProviderUrl:  "https://hello",
 			},
 		}
 
@@ -51,18 +52,18 @@ func TestEnsureLabels(t *testing.T) {
 		assert.Equal(t, "hello", at.Labels[ServiceProviderHostLabel])
 	})
 
-	t.Run("doesn't overwrite existing", func (t *testing.T) {
+	t.Run("doesn't overwrite existing", func(t *testing.T) {
 		at := SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					"a": "av",
-					"b": "bv",
+					"a":                      "av",
+					"b":                      "bv",
 					ServiceProviderHostLabel: "orig-host",
 				},
 			},
 			Spec: SPIAccessTokenSpec{
 				ServiceProviderType: ServiceProviderType("sp_type"),
-				ServiceProviderUrl: "https://hello",
+				ServiceProviderUrl:  "https://hello",
 			},
 		}
 

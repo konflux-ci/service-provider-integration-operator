@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+
 	"github.com/machinebox/graphql"
 )
 

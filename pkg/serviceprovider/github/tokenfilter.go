@@ -2,6 +2,7 @@ package github
 
 import (
 	"encoding/json"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/client"

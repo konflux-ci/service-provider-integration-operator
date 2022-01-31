@@ -18,9 +18,10 @@ package main
 
 import (
 	"flag"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 	"net/http"
 	"os"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 

@@ -17,10 +17,11 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

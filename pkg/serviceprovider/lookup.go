@@ -2,10 +2,11 @@ package serviceprovider
 
 import (
 	"context"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"net/url"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GenericLookup implements a token lookup in a generic way such that the users only need to provide a function
