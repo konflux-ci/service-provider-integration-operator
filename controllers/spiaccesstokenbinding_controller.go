@@ -112,6 +112,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+
 	sp, rerr := r.getServiceProvider(ctx, &binding)
 	if rerr != nil {
 		return ctrl.Result{}, rerr
