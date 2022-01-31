@@ -1,4 +1,4 @@
-sharedSecret: <SHARED_SECRET_VALUE>
+sharedSecret: ${SHARED_SECRET}
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -6,4 +6,4 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
-baseUrl: http://<OAUTH_HOST_VALUE>
+baseUrl: http://${OAUTH_HOST}
