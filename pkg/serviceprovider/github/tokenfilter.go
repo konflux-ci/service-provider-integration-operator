@@ -7,10 +7,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var requiredRepositoryRolesForScopes = map[string][]ViewerPermission{
-	"admin:repo_hook": {ViewerPermissionAdmin},
-}
-
 type tokenFilter struct {
 	client client.Client
 }
@@ -39,10 +35,9 @@ func (t *tokenFilter) Matches(binding *api.SPIAccessTokenBinding, token *api.SPI
 func permsMatch(perms *api.Permissions, rec RepositoryRecord, tokenScopes []string) bool {
 	requiredScopes := serviceprovider.GetAllScopes(translateToScopes, perms)
 
-	// how can this NOT be a part of the standard library?
-	hasScope := func(scope string) bool {
+	hasScope := func(scope Scope) bool {
 		for _, s := range tokenScopes {
-			if s == scope {
+			if Scope(s).Implies(scope) {
 				return true
 			}
 		}
@@ -51,30 +46,15 @@ func permsMatch(perms *api.Permissions, rec RepositoryRecord, tokenScopes []stri
 	}
 
 	for _, s := range requiredScopes {
-		if !hasScope(s) {
+		scope := Scope(s)
+		if !hasScope(scope) {
+			return false
+		}
+
+		if !rec.ViewerPermission.Enables(scope) {
 			return false
 		}
 	}
 
-	// ok, so we have all the required scopes... but we also have to check that we have enough permissions in the
-	// provided repository
-	switch rec.ViewerPermission {
-	case ViewerPermissionAdmin:
-		return true
-	case ViewerPermissionMaintain:
-
-		// TODO implement
-		return false
-	case ViewerPermissionWrite:
-		// TODO implement
-		return false
-	case ViewerPermissionTriage:
-		// TODO implement
-		return false
-	case ViewerPermissionRead:
-		// TODO implement
-		return false
-	}
-
-	return false
+	return true
 }

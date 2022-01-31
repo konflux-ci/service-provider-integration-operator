@@ -32,7 +32,7 @@ type SPIAccessTokenSpec struct {
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
 	Permissions         Permissions         `json:"permissions"`
 	ServiceProviderUrl  string              `json:"serviceProviderUrl,omitempty"`
-	DataLocation        string              `json:"dataLocation"`
+	DataLocation        string              `json:"dataLocation,omitempty"`
 	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
 }
 
