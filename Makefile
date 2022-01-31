@@ -163,7 +163,7 @@ build: generate fmt vet ## Build manager binary.
 run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
 	go run ./main.go
 
-run: manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+run: ensure-tmp manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
 	KUBECONFIG=$(KUBECONFIG) go run ./main.go || true
 	rm $(KUBECONFIG)
@@ -185,21 +185,25 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/default && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-operator=${SPIO_IMG} && cd ../..
-	cd config/default && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-oauth=${SPIS_IMG} && cd ../..
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+deploy: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "default" "default"
 
-deploy_k8s: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/k8s && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-operator=${SPIO_IMG} && cd ../..
-	cd config/k8s && $(KUSTOMIZE) edit set image quay.io/redhat-appstudio/service-provider-integration-oauth=${SPIS_IMG} && cd ../..
-	$(KUSTOMIZE) build config/k8s | kubectl apply -f -
+deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "k8s" "k8s"
+
+deploy_minikube: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
+	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "k8s"
 
 undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/k8s | kubectl delete -f -
+	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_k8s/k8s | kubectl delete -f -
+
+undeploy_minikube: ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
+	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -
 
 install_cert_manager:
 	$(K8S_CLI) apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.yaml
@@ -211,6 +215,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.4.1)
+	chmod a+x $(KUSTOMIZE)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
@@ -285,3 +290,6 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push SPIO_IMG=$(CATALOG_IMG)
+
+ensure-tmp:
+	mkdir -p $(TEMP_DIR)
