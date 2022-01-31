@@ -34,23 +34,26 @@ type SPIAccessTokenBindingStatus struct {
 	ErrorReason           SPIAccessTokenBindingErrorReason `json:"errorReason,omitempty"`
 	ErrorMessage          string                           `json:"errorMessage,omitempty"`
 	LinkedAccessTokenName string                           `json:"linkedAccessTokenName"`
+	OAuthUrl              string                           `json:"oAuthUrl"`
 	SyncedObjectRef       TargetObjectRef                  `json:"syncedObjectRef"`
 }
 
 type SPIAccessTokenBindingPhase string
 
 const (
-	SPIAccessTokenBindingPhaseAwaitingTokenData = "AwaitingTokenData"
-	SPIAccessTokenBindingPhaseInjected          = "Injected"
-	SPIAccessTokenBindingPhaseError             = "Error"
+	SPIAccessTokenBindingPhaseAwaitingTokenData SPIAccessTokenBindingPhase = "AwaitingTokenData"
+	SPIAccessTokenBindingPhaseInjected          SPIAccessTokenBindingPhase = "Injected"
+	SPIAccessTokenBindingPhaseError             SPIAccessTokenBindingPhase = "Error"
 )
 
 type SPIAccessTokenBindingErrorReason string
 
 const (
-	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType = "UnknownServiceProviderType"
-	SPIAccessTokenBindingErrorReasonTokenLookup                = "TokenLookup"
-	SPIAccessTokenBindingErrorReasonLinkedToken                = "LinkedToken"
+	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType SPIAccessTokenBindingErrorReason = "UnknownServiceProviderType"
+	SPIAccessTokenBindingErrorReasonTokenLookup                SPIAccessTokenBindingErrorReason = "TokenLookup"
+	SPIAccessTokenBindingErrorReasonLinkedToken                SPIAccessTokenBindingErrorReason = "LinkedToken"
+	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
+	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
 )
 
 //+kubebuilder:object:root=true

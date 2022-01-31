@@ -22,12 +22,14 @@ import (
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
+	//+kubebuilder:validation:Required
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
 	Permissions         Permissions         `json:"permissions"`
-	ServiceProviderUrl  string              `json:"serviceProviderUrl,omitempty"`
-	DataLocation        string              `json:"dataLocation"`
-	TokenMetadata       *TokenMetadata      `json:"tokenMetadata,omitempty"`
-	RawTokenData        *Token              `json:"rawTokenData,omitempty"`
+	//+kubebuilder:validation:Required
+	ServiceProviderUrl string         `json:"serviceProviderUrl"`
+	DataLocation       string         `json:"dataLocation,omitempty"`
+	TokenMetadata      *TokenMetadata `json:"tokenMetadata,omitempty"`
+	RawTokenData       *Token         `json:"rawTokenData,omitempty"`
 }
 
 // Token is copied from golang.org/x/oauth2 and made easily json-serializable. It represents the data obtained from the

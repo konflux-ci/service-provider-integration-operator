@@ -112,6 +112,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+
 	sp, rerr := r.getServiceProvider(ctx, &binding)
 	if rerr != nil {
 		return ctrl.Result{}, rerr
@@ -121,16 +123,22 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	if err != nil {
 		return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
 	}
+	binding.Status.OAuthUrl = token.Status.OAuthUrl
 
-	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
+	switch token.Status.Phase {
+	case api.SPIAccessTokenPhaseReady:
 		ref, err := r.syncSecret(ctx, sp, &binding, token)
 		if err != nil {
 			return ctrl.Result{}, NewReconcileError(err, "failed to sync the secret")
 		}
 		binding.Status.SyncedObjectRef = ref
-		if err := r.updateStatusSuccess(ctx, &binding); err != nil {
-			return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
-		}
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
+	case api.SPIAccessTokenPhaseAwaitingTokenData:
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+	}
+
+	if err := r.updateStatusSuccess(ctx, &binding); err != nil {
+		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
 
 	return ctrl.Result{}, nil
@@ -194,6 +202,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
+			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return token, NewReconcileError(err, "failed to update the binding with the token link")
 		}
 	}
@@ -201,6 +210,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	if binding.Status.LinkedAccessTokenName != token.Name {
 		binding.Status.LinkedAccessTokenName = token.Name
 		if err := r.updateStatusSuccess(ctx, binding); err != nil {
+			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return token, NewReconcileError(err, "failed to update the binding status with the token link")
 		}
 	}
@@ -232,10 +242,12 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
 		return api.TargetObjectRef{}, NewReconcileError(err, "failed to get the token data from token storage")
 	}
 
 	if token == nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
 		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
 	}
 
@@ -290,6 +302,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 
 	_, obj, err := r.syncer.Sync(ctx, binding, secret, secretDiffOpts)
 	if err != nil {
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		return api.TargetObjectRef{}, NewReconcileError(err, "failed to sync the secret with the token data")
 	}
 	return toObjectRef(obj), nil
