@@ -4,7 +4,7 @@ metadata:
   name: oauth-ingress
 spec:
   rules:
-  - host: <OAUTH_HOST_VALUE>
+  - host: ${OAUTH_HOST}
     http:
       paths:
       - backend:
