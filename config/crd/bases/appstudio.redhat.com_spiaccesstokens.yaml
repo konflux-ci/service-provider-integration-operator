@@ -94,9 +94,9 @@ spec:
               serviceProviderUrl:
                 type: string
             required:
-            - dataLocation
             - permissions
             - serviceProviderType
+            - serviceProviderUrl
             type: object
           status:
             description: SPIAccessTokenStatus defines the observed state of SPIAccessToken

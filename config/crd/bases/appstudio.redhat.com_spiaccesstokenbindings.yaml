@@ -160,6 +160,8 @@ spec:
                 type: string
               linkedAccessTokenName:
                 type: string
+              oAuthUrl:
+                type: string
               phase:
                 type: string
               syncedObjectRef:
@@ -184,6 +186,7 @@ spec:
                 type: object
             required:
             - linkedAccessTokenName
+            - oAuthUrl
             - phase
             - syncedObjectRef
             type: object
