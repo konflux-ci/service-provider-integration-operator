@@ -113,7 +113,7 @@ func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
 	}
 
 	allScopes := make([]string, 0)
-	for s, _ := range scopesSet {
+	for s := range scopesSet {
 		allScopes = append(allScopes, s)
 	}
 	return allScopes
