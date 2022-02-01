@@ -100,13 +100,21 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 // GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
 // scopes.
 func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
-	allScopes := make([]string, len(perms.AdditionalScopes)+len(perms.Required))
+	scopesSet := make(map[string]bool)
 
-	allScopes = append(allScopes, perms.AdditionalScopes...)
-
-	for _, p := range perms.Required {
-		allScopes = append(allScopes, sp.TranslateToScopes(p)...)
+	for _, s := range perms.AdditionalScopes {
+		scopesSet[s] = true
 	}
 
+	for _, p := range perms.Required {
+		for _, s := range sp.TranslateToScopes(p) {
+			scopesSet[s] = true
+		}
+	}
+
+	allScopes := make([]string, 0)
+	for s := range scopesSet {
+		allScopes = append(allScopes, s)
+	}
 	return allScopes
 }
