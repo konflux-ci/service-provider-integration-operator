@@ -32,21 +32,21 @@ func GetHostWithScheme(repoUrl string) (string, error) {
 // GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
 // scopes.
 func GetAllScopes(convertToScopes func(permission api.Permission) []string, perms *api.Permissions) []string {
-	dedup := map[string]bool{}
+	scopesSet := make(map[string]bool)
+
 	for _, s := range perms.AdditionalScopes {
-		dedup[s] = true
+		scopesSet[s] = true
 	}
 
 	for _, p := range perms.Required {
 		for _, s := range convertToScopes(p) {
-			dedup[s] = true
+			scopesSet[s] = true
 		}
 	}
 
-	allScopes := make([]string, len(dedup))
-	for k, _ := range dedup {
-		allScopes = append(allScopes, k)
+	allScopes := make([]string, 0)
+	for s := range scopesSet {
+		allScopes = append(allScopes, s)
 	}
-
 	return allScopes
 }

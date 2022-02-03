@@ -48,7 +48,7 @@ type PersistedConfiguration struct {
 
 	// TokenLookupCacheTtl is the time the token lookup results are considered valid. This string expresses the
 	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.).
-	TokenLookupCacheTtl string
+	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
