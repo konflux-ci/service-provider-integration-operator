@@ -144,9 +144,32 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, err
 		}
 
-		if token.Status.Phase != api.SPIAccessTokenPhaseReady {
+		if token.Status.Phase == api.SPIAccessTokenPhaseReady && binding.Status.SyncedObjectRef.Name == "" {
+			// we've not yet synced the token... let's check that it fulfills the reqs
+			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
+			if err != nil {
+				return ctrl.Result{}, NewReconcileError(err, "failed to lookup token before definitely assiging it to the binding")
+			}
+			if newToken == nil {
+				// the token that we are linked to is ready but doesn't match the criteria of the binding.
+				// We can't do much here - the user granted the token the access we requested, but we still don't match
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+				binding.Status.OAuthUrl = ""
+				r.updateStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, fmt.Errorf("linked token doesn't match the criteria"))
+				return ctrl.Result{}, nil
+			}
+
+			if newToken.UID != token.UID {
+				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
+				}
+				token = newToken
+			}
+		} else if token.Status.Phase != api.SPIAccessTokenPhaseReady {
 			// let's try to do a lookup in case another token started matching our reqs
 			// this time, only do the lookup in SP and don't create a new token if no match found
+			//
+			// yes, this can create garbage - abandoned tokens, see https://issues.redhat.com/browse/SVPI-65
 			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
 			if err != nil {
 				lg.Error(err, "failed lookup when trying to reassign linked token")
@@ -156,7 +179,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 				// yay, we found another match! Let's persist that change otherwise we could enter a weird state below,
 				// where we would be syncing a secret that comes from a token that is not linked
 				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
-					return ctrl.Result{}, err
+					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
 				}
 				token = newToken
 			}

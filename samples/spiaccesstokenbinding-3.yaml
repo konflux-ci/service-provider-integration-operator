@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: test-access-token-binding
+  namespace: default
+spec:
+  permissions:
+    required:
+      - type: r
+        area: repository
+  repoUrl: https://github.com/spi-test-org-1/spi-org-test-repo-1
+  secret:
+    type: kubernetes.io/basic-auth
