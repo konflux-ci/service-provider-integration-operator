@@ -53,7 +53,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 			},
 			MetadataProvider: &metadataProvider{
 				graphqlClient: graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(factory.HttpClient)),
-				httpClient: factory.HttpClient,
+				httpClient:    factory.HttpClient,
 				tokenStorage:  factory.TokenStorage,
 			},
 			MetadataCache: &cache,

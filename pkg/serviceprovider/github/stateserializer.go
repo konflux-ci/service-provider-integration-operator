@@ -1,3 +1,17 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package github
 
 import (
@@ -16,7 +30,7 @@ import (
 
 type metadataProvider struct {
 	graphqlClient *graphql.Client
-	httpClient *http.Client
+	httpClient    *http.Client
 	tokenStorage  tokenstorage.TokenStorage
 }
 
@@ -75,8 +89,8 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName string, userId string, scopes []string, err error) {
 	var res *http.Response
 	res, err = s.httpClient.Do(&http.Request{
-		Method:           "GET",
-		URL:              githubUserApiEndpoint,
+		Method: "GET",
+		URL:    githubUserApiEndpoint,
 		Header: map[string][]string{
 			"Authorization": {"Bearer " + accessToken},
 		},

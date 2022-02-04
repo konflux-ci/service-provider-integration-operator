@@ -1,11 +1,26 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package serviceprovider
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"net/url"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
+
+	"k8s.io/apimachinery/pkg/util/errors"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,7 +75,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
 				mutex.Lock()
 				defer mutex.Unlock()
-				lg.Error(err, "failed to refresh the metadata of candidate token", "token", tkn.Namespace + "/" + tkn.Name)
+				lg.Error(err, "failed to refresh the metadata of candidate token", "token", tkn.Namespace+"/"+tkn.Name)
 				errs = append(errs, err)
 				return
 			}
@@ -69,7 +84,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 			if err != nil {
 				mutex.Lock()
 				defer mutex.Unlock()
-				lg.Error(err, "failed to match candidate token", "token", tkn.Namespace + "/" + tkn.Name)
+				lg.Error(err, "failed to match candidate token", "token", tkn.Namespace+"/"+tkn.Name)
 				errs = append(errs, err)
 				return
 			}

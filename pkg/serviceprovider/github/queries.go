@@ -1,3 +1,17 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package github
 
 import (
@@ -29,7 +43,7 @@ type AllAccessibleRepos struct {
 	Viewer struct {
 		Repositories struct {
 			PageInfo PageInfo `json:"pageInfo"`
-			Nodes []struct {
+			Nodes    []struct {
 				ViewerPermission string `json:"viewerPermission"`
 				Url              string `json:"url"`
 			} `json:"nodes"`
@@ -57,7 +71,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 
 // PageInfo should be reused in all the queries that need to be paged
 type PageInfo struct {
-	HasNextPage bool `json:"hasNextPage"`
+	HasNextPage bool   `json:"hasNextPage"`
 	EndCursor   string `json:"endCursor"`
 }
 
