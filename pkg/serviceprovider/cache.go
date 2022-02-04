@@ -2,37 +2,17 @@ package serviceprovider
 
 import (
 	"context"
-	"encoding/binary"
-	"fmt"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	stateLabel       = "spi.appstudio.redhat.com/sp-state-for-token"
-	stateKindLabel   = "spi.appstudio.redhat.com/sp-state-kind"
-	lastRefreshField = "lastRefresh"
-	dataField        = "data"
-)
-
-var (
-	secretDiff = cmp.Options{
-		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
-	}
-)
-
-// StateCache acts like a cache of serialized state of tokens. It actually uses Kubernetes secrets as the storage
-// mechanism (and therefore assumes caching at the kubernetes client level). This cache assigns a TTL to the data.
-type StateCache struct {
-	// Kind describes the kind of data being cached
-	Kind string
+// MetadataCache acts like a cache of metadata of tokens.
+// On top of just CRUDing the token metadata, this struct handles the refreshes of the data when it is determined
+// stale.
+type MetadataCache struct {
 	// Ttl limits how long the data stays in the cache
 	Ttl time.Duration
 
@@ -40,85 +20,56 @@ type StateCache struct {
 	sync   sync.Syncer
 }
 
-// NewStateCache creates a new cache instance with the provided configuration.
-func NewStateCache(ttl time.Duration, kind string, client client.Client) StateCache {
-	return StateCache{
-		Kind:   kind,
+// NewMetadataCache creates a new cache instance with the provided configuration.
+func NewMetadataCache(ttl time.Duration, client client.Client) MetadataCache {
+	return MetadataCache{
 		Ttl:    ttl,
 		client: client,
 		sync:   sync.New(client),
 	}
 }
 
-// Put stores the provided token state into the cache.
-func (c *StateCache) Put(ctx context.Context, token *api.SPIAccessToken, data []byte) error {
-	s := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "sp-token-state-" + c.Kind,
-			Labels: map[string]string{
-				stateLabel:     token.Name,
-				stateKindLabel: c.Kind,
-			},
-		},
+// Persist assigns the last refresh time of the token metadata and updates the token
+func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) error {
+	metadata := token.Status.TokenMetadata
+	if metadata == nil {
+		metadata := &api.TokenMetadata{}
+		token.Status.TokenMetadata = metadata
 	}
 
-	refreshAsBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(refreshAsBytes, time.Now().Unix())
+	metadata.LastRefreshTime = time.Now().Unix()
 
-	s.Data[dataField] = data
-	s.Data[lastRefreshField] = refreshAsBytes
-
-	_, _, err := c.sync.Sync(ctx, token, s, secretDiff)
-	return err
+	return c.client.Status().Update(ctx, token)
 }
 
-func (c *StateCache) Get(ctx context.Context, token *api.SPIAccessToken) ([]byte, error) {
-	ss := &corev1.SecretList{}
-	if err := c.client.List(ctx, ss, client.InNamespace(token.Namespace), client.MatchingLabels{
-		stateLabel:     token.Name,
-		stateKindLabel: c.Kind,
-	}); err != nil {
-		return nil, err
+// Refresh checks if the token's metadata is still valid. If it is stale, the metadata is cleared
+func (c *MetadataCache) Refresh(token *api.SPIAccessToken) {
+	metadata := token.Status.TokenMetadata
+	if metadata == nil {
+		return
 	}
 
-	var s *corev1.Secret
-
-	if len(ss.Items) > 0 {
-		s = &ss.Items[0]
-		timeStamp, ok := binary.Varint(s.Data[lastRefreshField])
-		if ok <= 0 {
-			return nil, fmt.Errorf("failed to read the last refresh timestamp from the serialized state of token %s in namespace %s", token.Name, token.Namespace)
-		}
-		lastRefresh := time.Unix(timeStamp, 0)
-
-		now := time.Now()
-		if now.Before(lastRefresh.Add(c.Ttl)) {
-			// the cached data is still considered valid
-			return s.Data[dataField], nil
-		}
+	if time.Now().After(time.Unix(metadata.LastRefreshTime, 0).Add(c.Ttl)) {
+		token.Status.TokenMetadata = nil
 	}
-
-	return nil, nil
 }
 
-// Ensure combines Get and Put. Returns the cached data if it is valid, or uses the provided serializer to serialize
-// the token state, caches it and returns the freshly obtained data.
-func (c *StateCache) Ensure(ctx context.Context, token *api.SPIAccessToken, ser StateSerializer) ([]byte, error) {
-	state, err := c.Get(ctx, token)
-	if err != nil {
-		return nil, err
-	}
+// Ensure combines Refresh and Persist. Makes sure that the metadata of the token is either still valid or has been
+// refreshed using the MetadataProvider.
+func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, ser MetadataProvider) error {
+	c.Refresh(token)
 
-	if state == nil {
-		state, err = ser.Serialize(ctx, token)
-		if err != nil {
-			return nil, err
+	if token.Status.TokenMetadata == nil {
+		if err := ser.Fetch(ctx, token); err != nil {
+			return err
 		}
-		err = c.Put(ctx, token, state)
-		if err != nil {
-			return nil, err
+
+		if token.Status.TokenMetadata != nil {
+			if err := c.Persist(ctx, token); err != nil {
+				return err
+			}
 		}
 	}
 
-	return state, nil
+	return nil
 }

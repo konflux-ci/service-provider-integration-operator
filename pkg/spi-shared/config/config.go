@@ -47,7 +47,8 @@ type PersistedConfiguration struct {
 	BaseUrl string `yaml:"baseUrl"`
 
 	// TokenLookupCacheTtl is the time the token lookup results are considered valid. This string expresses the
-	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.).
+	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.). The default
+	// is 1h (1 hour).
 	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
 }
 
@@ -98,7 +99,12 @@ type ServiceProviderConfiguration struct {
 func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf := Configuration{}
 
-	ttl, err := time.ParseDuration(c.TokenLookupCacheTtl)
+	ttlStr := c.TokenLookupCacheTtl
+	if ttlStr == "" {
+		ttlStr = "1h"
+	}
+
+	ttl, err := time.ParseDuration(ttlStr)
 	if err != nil {
 		return conf, err
 

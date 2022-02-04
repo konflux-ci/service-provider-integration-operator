@@ -112,23 +112,30 @@ spec:
                   the service provider. This data can be used for matching the tokens
                   with the token bindings.
                 properties:
+                  lastRefreshTime:
+                    format: int64
+                    type: integer
                   scopes:
                     items:
                       type: string
                     type: array
+                  serviceProviderState:
+                    format: byte
+                    type: string
                   userId:
                     type: string
                   userName:
                     type: string
                 required:
+                - lastRefreshTime
                 - scopes
+                - serviceProviderState
                 - userId
                 - userName
                 type: object
             required:
             - oAuthUrl
             - phase
-            - tokenMetadata
             type: object
         type: object
     served: true

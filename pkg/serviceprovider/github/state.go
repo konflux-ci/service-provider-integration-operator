@@ -1,6 +1,8 @@
 package github
 
-import "strings"
+import (
+	"strings"
+)
 
 type RepositoryUrl string
 
@@ -52,34 +54,30 @@ const (
 	ScopeWorkflow            Scope            = "workflow"
 )
 
-type TokenState map[RepositoryUrl]RepositoryRecord
+type TokenState struct {
+	AccessibleRepos map[RepositoryUrl]RepositoryRecord
+}
 
 func (s Scope) Implies(other Scope) bool {
 	if s == other {
 		return true
 	}
 
+	sother := string(other)
+
 	// per docs, read:user implies user:email and user:follow
 	if s == ScopeReadUser {
 		return other == ScopeUserEmail || other == ScopeUserFollow
 	}
-
-	// all scopes apart from repo and user-related scopes seem to be organized by admin:, read:, write: prefixes
-
-	sother := string(other)
-	otherColonIdx := strings.Index(sother, ":")
-	if otherColonIdx < 0 {
-		if s == ScopeRepo {
-			return other == ScopePublicRepo || strings.HasPrefix(sother, "repo")
-		}
-		if s == ScopeUser {
-			// user implies read:user, but does NOT imply user:email and user:follow
-			return other == ScopeReadUser
-		}
+	if s == ScopeRepo {
+		return other == ScopePublicRepo || strings.HasPrefix(sother, "repo")
+	}
+	if s == ScopeUser {
+		// user implies read:user, but does NOT imply user:email and user:follow
+		return other == ScopeReadUser
 	}
 
-	otherPrefix := sother[0:otherColonIdx]
-	otherSuffix := sother[otherColonIdx+1:]
+	// all scopes apart from the above seem to be organized by admin:, read:, write: prefixes
 
 	ss := string(s)
 	sColonIdx := strings.Index(ss, ":")
@@ -89,6 +87,14 @@ func (s Scope) Implies(other Scope) bool {
 
 	sPrefix := ss[0:sColonIdx]
 	sSuffix := ss[sColonIdx:]
+
+	otherColonIdx := strings.Index(sother, ":")
+	if otherColonIdx < 0 {
+		return false
+	}
+
+	otherPrefix := sother[0:otherColonIdx]
+	otherSuffix := sother[otherColonIdx+1:]
 
 	if sSuffix != otherSuffix {
 		return false

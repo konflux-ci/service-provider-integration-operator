@@ -26,44 +26,42 @@ const (
 
 // AllAccessibleRepos lists all the repositories accessible by the current user
 type AllAccessibleRepos struct {
-	viewer struct {
-		repositories struct {
-			pageInfo
-			nodes []struct {
-				viewerPermission string
-				url              string
-			}
-		}
-	}
+	Viewer struct {
+		Repositories struct {
+			PageInfo PageInfo `json:"pageInfo"`
+			Nodes []struct {
+				ViewerPermission string `json:"viewerPermission"`
+				Url              string `json:"url"`
+			} `json:"nodes"`
+		} `json:"repositories"`
+	} `json:"viewer"`
 }
 
-func (r AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string) (TokenState, error) {
-	results := TokenState{}
-
+func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
 	req := _newAuthorizedRequest(accessToken, allAccessibleReposQuery)
 
-	err := _fetchAll(ctx, client, req, &r, func() pageInfo {
-		return r.viewer.repositories.pageInfo
+	err := _fetchAll(ctx, client, req, r, func() PageInfo {
+		return r.Viewer.Repositories.PageInfo
 	}, func() {
-		for _, node := range r.viewer.repositories.nodes {
-			results[RepositoryUrl(node.url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.viewerPermission)}
+		for _, node := range r.Viewer.Repositories.Nodes {
+			state.AccessibleRepos[RepositoryUrl(node.Url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.ViewerPermission)}
 		}
 	})
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return results, nil
+	return nil
 }
 
-// pagePrelude should be reused in all the queries that need to be paged
-type pageInfo struct {
-	hasNextPage bool
-	endCursor   string
+// PageInfo should be reused in all the queries that need to be paged
+type PageInfo struct {
+	HasNextPage bool `json:"hasNextPage"`
+	EndCursor   string `json:"endCursor"`
 }
 
-func _fetchAll(ctx context.Context, client *graphql.Client, req *graphql.Request, self interface{}, pageInfoFromSelf func() pageInfo, processSelf func()) error {
+func _fetchAll(ctx context.Context, client *graphql.Client, req *graphql.Request, self interface{}, pageInfoFromSelf func() PageInfo, processSelf func()) error {
 	req.Var("after", nil)
 	for {
 		if err := client.Run(ctx, req, self); err != nil {
@@ -74,18 +72,18 @@ func _fetchAll(ctx context.Context, client *graphql.Client, req *graphql.Request
 
 		page := pageInfoFromSelf()
 
-		if !page.hasNextPage {
+		if !page.HasNextPage {
 			return nil
 		}
 
-		req.Var("after", page.endCursor)
+		req.Var("after", page.EndCursor)
 	}
 }
 
 func _newAuthorizedRequest(accessToken string, query string) *graphql.Request {
 	req := graphql.NewRequest(query)
 
-	req.Header.Set("Authorization", "Bearer"+accessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	return req
 }

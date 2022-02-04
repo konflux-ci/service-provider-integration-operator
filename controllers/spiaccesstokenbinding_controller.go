@@ -95,20 +95,24 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx, "SPIAccessTokenBinding", req.NamespacedName)
-	ctx = log.IntoContext(ctx, lg)
+	lg := log.FromContext(ctx)
+
+	lg.Info("Reconciling")
 
 	binding := api.SPIAccessTokenBinding{}
 
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		if errors.IsNotFound(err) {
+			lg.Info("object not found")
 			return ctrl.Result{}, nil
 		}
 
+		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, NewReconcileError(err, "failed to read the object")
 	}
 
 	if binding.DeletionTimestamp != nil {
+		lg.Info("object is being deleted")
 		return ctrl.Result{}, nil
 	}
 
@@ -116,19 +120,58 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	sp, rerr := r.getServiceProvider(ctx, &binding)
 	if rerr != nil {
+		lg.Error(rerr, "unable to get the service provider")
 		return ctrl.Result{}, rerr
 	}
 
-	token, err := r.linkToken(ctx, sp, &binding)
-	if err != nil {
-		return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
+	var token *api.SPIAccessToken
+
+	if binding.Status.LinkedAccessTokenName == "" {
+		var err error
+		token, err = r.linkToken(ctx, sp, &binding)
+		if err != nil {
+			lg.Error(err, "unable to link the token")
+			return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
+		}
+	} else {
+		token = &api.SPIAccessToken{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token); err != nil {
+			if errors.IsNotFound(err) {
+				binding.Status.LinkedAccessTokenName = ""
+				r.updateStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			}
+			lg.Error(err, "failed to fetch the linked token")
+			return ctrl.Result{}, err
+		}
+
+		if token.Status.Phase != api.SPIAccessTokenPhaseReady {
+			// let's try to do a lookup in case another token started matching our reqs
+			// this time, only do the lookup in SP and don't create a new token if no match found
+			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
+			if err != nil {
+				lg.Error(err, "failed lookup when trying to reassign linked token")
+				// we're not returning the error or writing the status here, because the binding already has a valid
+				// linked token.
+			} else if newToken != nil {
+				// yay, we found another match! Let's persist that change otherwise we could enter a weird state below,
+				// where we would be syncing a secret that comes from a token that is not linked
+				binding.Status.LinkedAccessTokenName = newToken.Name
+				binding.Status.OAuthUrl = newToken.Status.OAuthUrl
+				if err = r.updateStatusSuccess(ctx, &binding); err != nil {
+					return ctrl.Result{}, err
+				}
+				token = newToken
+			}
+		}
 	}
+
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
 
 	switch token.Status.Phase {
 	case api.SPIAccessTokenPhaseReady:
 		ref, err := r.syncSecret(ctx, sp, &binding, token)
 		if err != nil {
+			lg.Error(err, "unable to sync the secret")
 			return ctrl.Result{}, NewReconcileError(err, "failed to sync the secret")
 		}
 		binding.Status.SyncedObjectRef = ref
@@ -138,9 +181,11 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if err := r.updateStatusSuccess(ctx, &binding); err != nil {
+		lg.Error(err, "unable to update the status")
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
 
+	lg.Info("reconciliation complete")
 	return ctrl.Result{}, nil
 }
 
@@ -281,13 +326,18 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		data[k] = []byte(v)
 	}
 
+	secretName := binding.Status.SyncedObjectRef.Name
+	if secretName == "" {
+		secretName = binding.Spec.Secret.Name
+	}
+
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        binding.Spec.Secret.Name,
+			Name:        secretName,
 			Namespace:   binding.GetNamespace(),
 			Labels:      binding.Spec.Secret.Labels,
 			Annotations: binding.Spec.Secret.Annotations,

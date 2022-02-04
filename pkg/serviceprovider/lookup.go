@@ -2,7 +2,9 @@ package serviceprovider
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"net/url"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -19,14 +21,14 @@ type GenericLookup struct {
 	// TokenFilter is the filter function that decides whether a token matches the requirements of a binding, given
 	// the token's service-provider-specific state
 	TokenFilter TokenFilter
-	// StateSerializer is used to figure out a "state" of a token in the service provider useful for token lookup
-	StateSerializer StateSerializer
-	// StateCache is an abstraction used for storing/fetching the state of tokens
-	StateCache *StateCache
+	// MetadataProvider is used to figure out metadata of a token in the service provider useful for token lookup
+	MetadataProvider MetadataProvider
+	// MetadataCache is an abstraction used for storing/fetching the metadata of tokens
+	MetadataCache *MetadataCache
 }
 
 func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	var result []api.SPIAccessToken
+	var result = make([]api.SPIAccessToken, 0)
 
 	potentialMatches := &api.SPIAccessTokenList{}
 
@@ -42,30 +44,47 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 		return result, err
 	}
 
-	res := make(chan *api.SPIAccessToken)
+	lg := log.FromContext(ctx)
+
+	errs := make([]error, 0)
+
+	mutex := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	for _, t := range potentialMatches.Items {
+		if t.Status.Phase != api.SPIAccessTokenPhaseReady {
+			continue
+		}
 		wg.Add(1)
-		t := t // this is what intellij says is necessary to avoid "unexpected values"
-		go func() {
+		go func(tkn api.SPIAccessToken) {
 			defer wg.Done()
-			state, err := l.StateCache.Ensure(ctx, &t, l.StateSerializer)
-			if err != nil {
+			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
+				mutex.Lock()
+				defer mutex.Unlock()
+				lg.Error(err, "failed to refresh the metadata of candidate token", "token", tkn.Namespace + "/" + tkn.Name)
+				errs = append(errs, err)
 				return
 			}
-			ok, err := l.TokenFilter.Matches(binding, &t, state)
+
+			ok, err := l.TokenFilter.Matches(binding, &tkn)
 			if err != nil {
+				mutex.Lock()
+				defer mutex.Unlock()
+				lg.Error(err, "failed to match candidate token", "token", tkn.Namespace + "/" + tkn.Name)
+				errs = append(errs, err)
 				return
 			}
 			if ok {
-				res <- &t
+				mutex.Lock()
+				defer mutex.Unlock()
+				result = append(result, tkn)
 			}
-		}()
+		}(t)
 	}
 
 	wg.Wait()
-	for included := range res {
-		result = append(result, *included)
+
+	if len(errs) > 0 {
+		return nil, errors.NewAggregate(errs)
 	}
 
 	return result, nil

@@ -92,8 +92,9 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx, "SPIAccessToken", req.NamespacedName)
-	ctx = log.IntoContext(ctx, lg)
+	lg := log.FromContext(ctx)
+
+	lg.Info("Reconciling")
 
 	at := api.SPIAccessToken{}
 
@@ -161,6 +162,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.fillInStatus(ctx, &at); err != nil {
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
+
+	lg.Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }

@@ -14,17 +14,17 @@ type tokenFilter struct {
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-func (t *tokenFilter) Matches(binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, spState []byte) (bool, error) {
-	githubState := TokenState{}
-	if err := json.Unmarshal(spState, &githubState); err != nil {
-		return false, err
-	}
-
+func (t *tokenFilter) Matches(binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}
 
-	for repoUrl, rec := range githubState {
+	githubState := TokenState{}
+	if err := json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &githubState); err != nil {
+		return false, err
+	}
+
+	for repoUrl, rec := range githubState.AccessibleRepos {
 		if string(repoUrl) == binding.Spec.RepoUrl && permsMatch(&binding.Spec.Permissions, rec, token.Status.TokenMetadata.Scopes) {
 			return true, nil
 		}

@@ -42,7 +42,7 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-	cache := serviceprovider.NewStateCache(factory.Configuration.TokenLookupCacheTtl, "github", factory.KubernetesClient)
+	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
 
 	return &Github{
 		Configuration: factory.Configuration,
@@ -51,11 +51,12 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 			TokenFilter: &tokenFilter{
 				client: factory.KubernetesClient,
 			},
-			StateSerializer: &stateSerializer{
-				client:       graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(factory.HttpClient)),
-				tokenStorage: factory.TokenStorage,
+			MetadataProvider: &metadataProvider{
+				graphqlClient: graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(factory.HttpClient)),
+				httpClient: factory.HttpClient,
+				tokenStorage:  factory.TokenStorage,
 			},
-			StateCache: &cache,
+			MetadataCache: &cache,
 		},
 		httpClient: factory.HttpClient,
 	}, nil

@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"net/url"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
 )
 
 const (
@@ -50,9 +49,11 @@ type Token struct {
 // TokenMetadata is data about the token retrieved from the service provider. This data can be used for matching the
 // tokens with the token bindings.
 type TokenMetadata struct {
-	UserName string   `json:"userName"`
-	UserId   string   `json:"userId"`
-	Scopes   []string `json:"scopes"`
+	UserName             string   `json:"userName"`
+	UserId               string   `json:"userId"`
+	Scopes               []string `json:"scopes"`
+	ServiceProviderState []byte   `json:"serviceProviderState"`
+	LastRefreshTime      int64    `json:"lastRefreshTime"`
 }
 
 // Permissions is a collection of operator-defined permissions (which are translated to service-provider-specific
@@ -117,7 +118,7 @@ const (
 type SPIAccessTokenStatus struct {
 	Phase         SPIAccessTokenPhase `json:"phase"`
 	OAuthUrl      string              `json:"oAuthUrl"`
-	TokenMetadata *TokenMetadata      `json:"tokenMetadata"`
+	TokenMetadata *TokenMetadata      `json:"tokenMetadata,omitempty"`
 }
 
 // SPIAccessTokenPhase is the reconciliation phase of the SPIAccessToken object
