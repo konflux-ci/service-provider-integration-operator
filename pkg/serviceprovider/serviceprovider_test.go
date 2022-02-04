@@ -42,7 +42,7 @@ func TestGetAllScopesUniqueValues(t *testing.T) {
 		AdditionalScopes: []string{"a", "b", "d", "e"},
 	}
 
-	scopes := GetAllScopes(sp, perms)
+	scopes := GetAllScopes(sp.TranslateToScopes, perms)
 
 	expected := []string{"a", "b", "c", "d", "e"}
 	for _, e := range expected {

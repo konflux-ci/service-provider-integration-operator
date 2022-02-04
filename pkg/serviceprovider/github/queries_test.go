@@ -58,7 +58,10 @@ const fakeResponse = `
 func TestAllAccessibleRepos(t *testing.T) {
 	aar := &AllAccessibleRepos{}
 
-	ts, err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(&http.Client{
+	ts := &TokenState{
+		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
+	}
+	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(&http.Client{
 		Transport: serviceprovider.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
@@ -67,9 +70,9 @@ func TestAllAccessibleRepos(t *testing.T) {
 				Request:    r,
 			}, nil
 		}),
-	})), "access token")
+	})), "access token", ts)
 
 	assert.NoError(t, err)
 
-	assert.Equal(t, 3, len(ts))
+	assert.Equal(t, 3, len(ts.AccessibleRepos))
 }

@@ -155,9 +155,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			} else if newToken != nil {
 				// yay, we found another match! Let's persist that change otherwise we could enter a weird state below,
 				// where we would be syncing a secret that comes from a token that is not linked
-				binding.Status.LinkedAccessTokenName = newToken.Name
-				binding.Status.OAuthUrl = newToken.Status.OAuthUrl
-				if err = r.updateStatusSuccess(ctx, &binding); err != nil {
+				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
 					return ctrl.Result{}, err
 				}
 				token = newToken
@@ -240,6 +238,14 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
 	// up the watch to use the label to limit the scope...
+	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
 	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
@@ -248,19 +254,20 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 		if err := r.Client.Update(ctx, binding); err != nil {
 			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
-			return token, NewReconcileError(err, "failed to update the binding with the token link")
+			return NewReconcileError(err, "failed to update the binding with the token link")
 		}
 	}
 
 	if binding.Status.LinkedAccessTokenName != token.Name {
 		binding.Status.LinkedAccessTokenName = token.Name
+		binding.Status.OAuthUrl = token.Status.OAuthUrl
 		if err := r.updateStatusSuccess(ctx, binding); err != nil {
 			r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
-			return token, NewReconcileError(err, "failed to update the binding status with the token link")
+			return NewReconcileError(err, "failed to update the binding status with the token link")
 		}
 	}
 
-	return token, nil
+	return nil
 }
 
 // updateStatusError updates the status of the binding with the provided error

@@ -47,7 +47,7 @@ func NewMetadataCache(ttl time.Duration, client client.Client) MetadataCache {
 func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) error {
 	metadata := token.Status.TokenMetadata
 	if metadata == nil {
-		metadata := &api.TokenMetadata{}
+		metadata = &api.TokenMetadata{}
 		token.Status.TokenMetadata = metadata
 	}
 
