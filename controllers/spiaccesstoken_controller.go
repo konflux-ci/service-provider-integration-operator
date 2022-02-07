@@ -145,6 +145,18 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 			if data != nil {
 				toPersist.Spec.DataLocation = loc
+
+				// also persist the SP-specific state so that it is available as soon as the token flips to the ready
+				// state.
+				sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+				if err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to determine the service provider")
+				}
+
+				if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to persist token metadata")
+				}
+
 				updatePending = true
 			}
 		}

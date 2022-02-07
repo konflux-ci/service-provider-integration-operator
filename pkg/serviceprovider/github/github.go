@@ -110,6 +110,10 @@ func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api
 	return &list[0], nil
 }
 
+func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+	return g.lookup.PersistMetadata(ctx, token)
+}
+
 func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }

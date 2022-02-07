@@ -104,3 +104,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 
 	return result, nil
 }
+
+func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccessToken) error {
+	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
+}

@@ -94,6 +94,11 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 	return &ats.Items[0], nil
 }
 
+func (g *Quay) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+	// TODO implement
+	return nil
+}
+
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }

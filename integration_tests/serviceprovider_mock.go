@@ -22,10 +22,11 @@ import (
 )
 
 // TestServiceProvider is an implementation of the serviceprovider.ServiceProvider interface that can be modified by
-// supplying custom implementations of each of the interface method. It provides dummy implementations of them, too, so
+// supplying custom implementations of each of the interface methods. It provides dummy implementations of them, too, so
 // that no null pointer dereferences should occur under normal operation.
 type TestServiceProvider struct {
 	LookupTokenImpl       func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+	PersistMetadataImpl   func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl        func() string
 	TranslateToScopesImpl func(permission api.Permission) []string
 	GetTypeImpl           func() api.ServiceProviderType
@@ -37,6 +38,14 @@ func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, 
 		return nil, nil
 	}
 	return t.LookupTokenImpl(ctx, cl, binding)
+}
+
+func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+	if t.PersistMetadataImpl == nil {
+		return nil
+	}
+
+	return t.PersistMetadataImpl(ctx, cl, token)
 }
 
 func (t TestServiceProvider) GetBaseUrl() string {
