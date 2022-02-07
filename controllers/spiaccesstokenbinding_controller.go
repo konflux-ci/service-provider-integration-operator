@@ -326,12 +326,13 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
 	}
 
-	userName := ""
-	userId := ""
+	var userId, userName string
+	var scopes []string
 
 	if tokenObject.Status.TokenMetadata != nil {
 		userName = tokenObject.Status.TokenMetadata.UserName
 		userId = tokenObject.Status.TokenMetadata.UserId
+		scopes = tokenObject.Status.TokenMetadata.Scopes
 	}
 
 	at := AccessTokenMapper{
@@ -342,7 +343,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		ServiceProviderUserId:   userId,
 		UserId:                  "",
 		ExpiredAfter:            &token.Expiry,
-		Scopes:                  serviceprovider.GetAllScopes(sp.TranslateToScopes, &binding.Spec.Permissions),
+		Scopes:                  scopes,
 	}
 
 	stringData := at.toSecretType(binding.Spec.Secret.Type)
