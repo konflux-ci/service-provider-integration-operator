@@ -19,12 +19,9 @@ import (
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type tokenFilter struct {
-	client client.Client
-}
+type tokenFilter struct{}
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 

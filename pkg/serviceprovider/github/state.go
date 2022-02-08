@@ -100,7 +100,7 @@ func (s Scope) Implies(other Scope) bool {
 	}
 
 	sPrefix := ss[0:sColonIdx]
-	sSuffix := ss[sColonIdx:]
+	sSuffix := ss[sColonIdx+1:]
 
 	otherColonIdx := strings.Index(sother, ":")
 	if otherColonIdx < 0 {

@@ -48,9 +48,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			TokenFilter: &tokenFilter{
-				client: factory.KubernetesClient,
-			},
+			TokenFilter:         &tokenFilter{},
 			MetadataProvider: &metadataProvider{
 				graphqlClient: graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(factory.HttpClient)),
 				httpClient:    factory.HttpClient,

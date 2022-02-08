@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const fakeResponse = `
+const allRepositoriesFakeResponse = `
 {
   "data": {
     "viewer": {
@@ -66,7 +66,7 @@ func TestAllAccessibleRepos(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(fakeResponse))),
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(allRepositoriesFakeResponse))),
 				Request:    r,
 			}, nil
 		}),
