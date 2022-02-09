@@ -172,7 +172,7 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		lastRefresh := time.Now().Add(-5 * time.Hour)
 		token := &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-token-valid",
+				Name:      "test-token-stale",
 				Namespace: "default",
 			},
 			Status: api.SPIAccessTokenStatus{
@@ -192,7 +192,7 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		}))
 		assert.NoError(t, err)
 
-		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "test-token-valid", Namespace: "default"}, token))
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "test-token-stale", Namespace: "default"}, token))
 		assert.NotNil(t, token.Status.TokenMetadata)
 		assert.Equal(t, "42", token.Status.TokenMetadata.UserId)
 		assert.True(t, lastRefresh.Unix() < token.Status.TokenMetadata.LastRefreshTime)
