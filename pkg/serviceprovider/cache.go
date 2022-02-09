@@ -19,7 +19,6 @@ import (
 	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,7 +30,6 @@ type MetadataCache struct {
 	Ttl time.Duration
 
 	client client.Client
-	sync   sync.Syncer
 }
 
 // NewMetadataCache creates a new cache instance with the provided configuration.
@@ -39,7 +37,6 @@ func NewMetadataCache(ttl time.Duration, client client.Client) MetadataCache {
 	return MetadataCache{
 		Ttl:    ttl,
 		client: client,
-		sync:   sync.New(client),
 	}
 }
 
