@@ -50,11 +50,19 @@ type Token struct {
 // TokenMetadata is data about the token retrieved from the service provider. This data can be used for matching the
 // tokens with the token bindings.
 type TokenMetadata struct {
-	UserName             string   `json:"userName"`
-	UserId               string   `json:"userId"`
-	Scopes               []string `json:"scopes"`
-	ServiceProviderState []byte   `json:"serviceProviderState"`
-	LastRefreshTime      int64    `json:"lastRefreshTime"`
+	// UserName is the user name in the service provider that this token impersonates as
+	UserName string `json:"userName"`
+	// UserId is the user id in the service provider that this token impersonates as
+	UserId string `json:"userId"`
+	// Scopes is the list of OAuth scopes that this token possesses
+	Scopes []string `json:"scopes"`
+	// ServiceProviderState is an opaque state specific to the service provider. This includes data that the operator
+	// uses during token matching, etc.
+	ServiceProviderState []byte `json:"serviceProviderState"`
+	// LastRefreshTime is the Unix-epoch timestamp of the last time the metadata has been refreshed from the service
+	// provider. The operator is configured with a TTL for this information and automatically refreshes the metadata
+	// when it is needed but is found stale.
+	LastRefreshTime int64 `json:"lastRefreshTime"`
 }
 
 // Permissions is a collection of operator-defined permissions (which are translated to service-provider-specific

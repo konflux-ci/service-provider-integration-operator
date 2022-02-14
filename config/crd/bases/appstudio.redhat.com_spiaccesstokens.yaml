@@ -113,18 +113,32 @@ spec:
                   with the token bindings.
                 properties:
                   lastRefreshTime:
+                    description: LastRefreshTime is the Unix-epoch timestamp of the
+                      last time the metadata has been refreshed from the service provider.
+                      The operator is configured with a TTL for this information and
+                      automatically refreshes the metadata when it is needed but is
+                      found stale.
                     format: int64
                     type: integer
                   scopes:
+                    description: Scopes is the list of OAuth scopes that this token
+                      possesses
                     items:
                       type: string
                     type: array
                   serviceProviderState:
+                    description: ServiceProviderState is an opaque state specific
+                      to the service provider. This includes data that the operator
+                      uses during token matching, etc.
                     format: byte
                     type: string
                   userId:
+                    description: UserId is the user id in the service provider that
+                      this token impersonates as
                     type: string
                   userName:
+                    description: UserName is the user name in the service provider
+                      that this token impersonates as
                     type: string
                 required:
                 - lastRefreshTime
