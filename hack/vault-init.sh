@@ -7,7 +7,7 @@ KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 
 function vaultExec() {
   COMMAND=${1}
-  kubectl exec ${POD_NAME} -n ${NAMESPACE} -- ${COMMAND}
+  kubectl exec ${POD_NAME} -n ${NAMESPACE} -- ${COMMAND} 2> /dev/null
 }
 
 function init() {
@@ -21,7 +21,7 @@ function init() {
 
 function isInitialized() {
   STATUS=$( vaultExec "vault status -format=yaml" )
-  INITIALIZED=$( echo "${STATUS}" | sed -n "s/^.*initialized: \(\S*\).*/\1/p")
+  INITIALIZED=$( echo "${STATUS}" | sed -n "s/^.*initialized: \(\S*\).*/\1/p" )
   echo "${INITIALIZED}"
 }
 
