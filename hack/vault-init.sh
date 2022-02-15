@@ -7,7 +7,7 @@ KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 
 function vaultExec() {
   COMMAND=${1}
-  kubectl exec ${POD_NAME} -n ${NAMESPACE} -- ${COMMAND} 2> /dev/null
+  kubectl exec ${POD_NAME} -n ${NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
 }
 
 function init() {
@@ -20,9 +20,8 @@ function init() {
 }
 
 function isInitialized() {
-  STATUS=$( vaultExec "vault status -format=yaml" )
-  INITIALIZED=$( echo "${STATUS}" | sed -n "s/^.*initialized: \(\S*\).*/\1/p" )
-  echo "${INITIALIZED}"
+  INITIALIZED=$( vaultExec "vault status -format=yaml | grep initialized" )
+  echo "${INITIALIZED}" | awk '{split($0,a,": "); print a[2]}'
 }
 
 function secret() {
