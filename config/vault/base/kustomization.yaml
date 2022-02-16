@@ -12,6 +12,3 @@ configMapGenerator:
     files:
       - poststart.sh
       - root.sh
-
-resources:
-  - deployment_k8s.yaml

@@ -33,7 +33,7 @@ resources:
 - ../manager
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
-- ../vault
+- ../vault/k8s
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
