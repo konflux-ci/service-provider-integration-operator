@@ -66,6 +66,17 @@ baseUrl: <oauth_base_url>
 
 _To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
 
+## Vault
+
+Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically. 
+For other deployments, like [infra-deployments](https://github.com/redhat-appstudio/infra-deployments) run `./hack/vault-init.sh` manually.
+
+There are couple of support scripts to work with Vault
+ - `./hack/vault-init.sh` - Initialize and configure Vault instance
+ - `./hack/vault-generate-template.sh` - generates deployment yamls from [vault-helm](https://github.com/hashicorp/vault-helm). These should be commited in this repository.
+ - injected in vault pod `/vault/userconfig/scripts/poststart.sh` - unseal vault storage. Runs automatically after pod startup.
+ - injected in vault pod `/vault/userconfig/scripts/root.sh` - vault login as root with generated root token. Can be used for manual configuration.
+
 ## Running
 It is possible to run the operator both in and out of a Kubernetes cluster.
 
