@@ -59,7 +59,7 @@ func TestTokenFilter_Matches(t *testing.T) {
 				Spec: api.SPIAccessTokenSpec{},
 				Status: api.SPIAccessTokenStatus{
 					TokenMetadata: &api.TokenMetadata{
-						UserName:             "you",
+						Username:             "you",
 						UserId:               "42",
 						Scopes:               []string{},
 						ServiceProviderState: ts,
@@ -95,7 +95,7 @@ func TestTokenFilter_Matches(t *testing.T) {
 			Spec: api.SPIAccessTokenSpec{},
 			Status: api.SPIAccessTokenStatus{
 				TokenMetadata: &api.TokenMetadata{
-					UserName:             "you",
+					Username:             "you",
 					UserId:               "42",
 					Scopes:               []string{},
 					ServiceProviderState: ts,
@@ -107,7 +107,7 @@ func TestTokenFilter_Matches(t *testing.T) {
 			Spec: api.SPIAccessTokenSpec{},
 			Status: api.SPIAccessTokenStatus{
 				TokenMetadata: &api.TokenMetadata{
-					UserName:             "you",
+					Username:             "you",
 					UserId:               "42",
 					Scopes:               []string{"repo"},
 					ServiceProviderState: ts,

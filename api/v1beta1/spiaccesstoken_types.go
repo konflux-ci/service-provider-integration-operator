@@ -50,8 +50,8 @@ type Token struct {
 // TokenMetadata is data about the token retrieved from the service provider. This data can be used for matching the
 // tokens with the token bindings.
 type TokenMetadata struct {
-	// UserName is the user name in the service provider that this token impersonates as
-	UserName string `json:"userName"`
+	// Username is the username in the service provider that this token impersonates as
+	Username string `json:"username"`
 	// UserId is the user id in the service provider that this token impersonates as
 	UserId string `json:"userId"`
 	// Scopes is the list of OAuth scopes that this token possesses

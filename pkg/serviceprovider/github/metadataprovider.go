@@ -62,7 +62,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		return err
 	}
 
-	userName, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
+	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	}
 
 	metadata.UserId = userId
-	metadata.UserName = userName
+	metadata.Username = username
 	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
 

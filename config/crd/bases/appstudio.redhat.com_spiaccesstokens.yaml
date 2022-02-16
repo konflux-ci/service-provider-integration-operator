@@ -136,8 +136,8 @@ spec:
                     description: UserId is the user id in the service provider that
                       this token impersonates as
                     type: string
-                  userName:
-                    description: UserName is the user name in the service provider
+                  username:
+                    description: Username is the username in the service provider
                       that this token impersonates as
                     type: string
                 required:
@@ -145,7 +145,7 @@ spec:
                 - scopes
                 - serviceProviderState
                 - userId
-                - userName
+                - username
                 type: object
             required:
             - oAuthUrl

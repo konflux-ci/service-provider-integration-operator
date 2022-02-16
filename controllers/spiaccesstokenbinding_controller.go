@@ -330,7 +330,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	var scopes []string
 
 	if tokenObject.Status.TokenMetadata != nil {
-		userName = tokenObject.Status.TokenMetadata.UserName
+		userName = tokenObject.Status.TokenMetadata.Username
 		userId = tokenObject.Status.TokenMetadata.UserId
 		scopes = tokenObject.Status.TokenMetadata.Scopes
 	}

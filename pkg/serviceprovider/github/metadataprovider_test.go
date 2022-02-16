@@ -73,7 +73,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 	data := tkn.Status.TokenMetadata
 	assert.NotNil(t, data)
 	assert.Equal(t, "42", data.UserId)
-	assert.Equal(t, "test_user", data.UserName)
+	assert.Equal(t, "test_user", data.Username)
 	assert.Equal(t, []string{"a", "b", "c", "d"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
 
