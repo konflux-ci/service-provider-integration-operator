@@ -11,6 +11,7 @@ configMapGenerator:
   - name: vault-poststart-script
     files:
       - poststart.sh
+      - root.sh
 
 resources:
   - deployment_k8s.yaml
