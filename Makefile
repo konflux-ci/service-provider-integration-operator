@@ -193,6 +193,7 @@ deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s clust
 
 deploy_minikube: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
 	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "k8s"
+	hack/vault-init.sh
 
 undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
