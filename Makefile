@@ -187,6 +187,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 deploy: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "default" "default"
+	hack/vault-init.sh
 
 deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "k8s" "k8s"
