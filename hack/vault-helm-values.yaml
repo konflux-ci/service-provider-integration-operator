@@ -1,0 +1,57 @@
+global:
+  enabled: true
+  tlsDisable: true
+
+injector:
+  enabled: false
+
+server:
+  logLevel: "trace"
+
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: null
+    accessMode: ReadWriteOnce
+
+  service:
+    enabled: true
+
+  standalone:
+    config: |
+      ui = false
+
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+
+  ui:
+    enabled: false
+
+  serviceAccount:
+    create: true
+
+  postStart:
+    - /bin/sh
+    - /vault/userconfig/scripts/poststart.sh
+
+  volumes:
+    - name: poststart
+      configMap:
+        name: vault-poststart-script
+        defaultMode: 0544
+    - name: keys
+      secret:
+        secretName: spi-vault-keys
+        optional: true
+
+  volumeMounts:
+    - mountPath: /vault/userconfig/scripts
+      name: poststart
+    - mountPath: /vault/userconfig/keys
+      name: keys
