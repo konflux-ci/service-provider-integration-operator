@@ -63,7 +63,7 @@ type SPIAccessTokenBindingReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;list;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
