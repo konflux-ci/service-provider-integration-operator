@@ -123,7 +123,7 @@ func (s Scope) Implies(other Scope) bool {
 }
 
 func (vp ViewerPermission) Enables(scope Scope) bool {
-	// TODO implement this
+	// TODO implement this with https://issues.redhat.com/projects/SVPI/issues/SVPI-71
 	switch vp {
 	case ViewerPermissionAdmin:
 		return true

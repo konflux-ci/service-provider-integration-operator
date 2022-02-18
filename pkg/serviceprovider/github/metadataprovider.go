@@ -86,6 +86,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	return nil
 }
 
+// fetchUserAndScopes fetches the scopes and the details of the user associated with the token
 func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName string, userId string, scopes []string, err error) {
 	var res *http.Response
 	res, err = s.httpClient.Do(&http.Request{
@@ -99,6 +100,7 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		return
 	}
 
+	// https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps
 	scopesString := res.Header.Get("x-oauth-scopes")
 
 	untrimmedScopes := strings.Split(scopesString, ",")
