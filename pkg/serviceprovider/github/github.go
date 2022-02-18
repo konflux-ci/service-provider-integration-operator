@@ -96,16 +96,16 @@ func translateToScopes(permission api.Permission) []string {
 }
 
 func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	list, err := g.lookup.Lookup(ctx, cl, binding)
+	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(list) == 0 {
+	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	return &list[0], nil
+	return &tokens[0], nil
 }
 
 func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
