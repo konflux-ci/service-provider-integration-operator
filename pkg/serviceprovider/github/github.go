@@ -83,7 +83,11 @@ func translateToScopes(permission api.Permission) []string {
 	case api.PermissionAreaRepository:
 		return []string{"repo"}
 	case api.PermissionAreaWebhooks:
-		return []string{"admin:repo_hook"}
+		if permission.Type.IsWrite() {
+			return []string{"write:repo_hook"}
+		} else {
+			return []string{"read:repo_hook"}
+		}
 	case api.PermissionAreaUser:
 		if permission.Type.IsWrite() {
 			return []string{"user"}
