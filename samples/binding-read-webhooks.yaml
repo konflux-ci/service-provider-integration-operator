@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: binding-read-webhooks
+spec:
+  permissions:
+    required:
+      - type: r
+        area: webhooks
+  repoUrl: https://github.com/revapi/revapi
+  secret:
+    name: token-read-webhooks
+    type: kubernetes.io/basic-auth
