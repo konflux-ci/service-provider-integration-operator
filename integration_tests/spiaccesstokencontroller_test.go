@@ -179,27 +179,6 @@ var _ = Describe("Create without token data", func() {
 			g.Expect(accessToken.Spec.DataLocation).NotTo(Equal("over there"))
 		}).Should(Succeed())
 	})
-
-	It("allows token metadata to be updated", func() {
-
-		accessToken := updateWithData()
-		Expect(accessToken.Spec.TokenMetadata).To(BeNil())
-
-		Eventually(func(g Gomega) {
-			accessToken = &api.SPIAccessToken{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-			accessToken.Spec.TokenMetadata = &api.TokenMetadata{
-				UserName: "the-user-that-belongs-to-the-update-test",
-			}
-
-			g.Expect(ITest.Client.Update(ITest.Context, accessToken)).To(Succeed())
-		}).Should(Succeed())
-
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-
-		Expect(accessToken.Spec.TokenMetadata).NotTo(BeNil())
-		Expect(accessToken.Spec.TokenMetadata.UserName).To(Equal("the-user-that-belongs-to-the-update-test"))
-	})
 })
 
 var _ = Describe("Delete token", func() {

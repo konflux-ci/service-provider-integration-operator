@@ -5,6 +5,8 @@ go 1.16
 require (
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/google/go-cmp v0.5.6
+	github.com/machinebox/graphql v0.2.2
+	github.com/matryer/is v1.4.0 // indirect
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/stretchr/testify v1.7.0

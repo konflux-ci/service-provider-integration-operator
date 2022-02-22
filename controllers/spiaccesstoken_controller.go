@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -90,8 +92,9 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx, "SPIAccessToken", req.NamespacedName)
-	ctx = log.IntoContext(ctx, lg)
+	lg := log.FromContext(ctx)
+
+	lg.Info("Reconciling")
 
 	at := api.SPIAccessToken{}
 
@@ -126,6 +129,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	updatePending := false
+	toPersist := at.DeepCopy()
+
 	if at.Spec.DataLocation == "" {
 		loc, err := r.TokenStorage.GetDataLocation(ctx, &at)
 		if err != nil {
@@ -138,17 +144,38 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from token storage")
 			}
 			if data != nil {
-				at.Spec.DataLocation = loc
-				if err := r.Update(ctx, &at); err != nil {
-					return ctrl.Result{}, NewReconcileError(err, "failed to initialize data location")
+				toPersist.Spec.DataLocation = loc
+
+				// also persist the SP-specific state so that it is available as soon as the token flips to the ready
+				// state.
+				sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+				if err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to determine the service provider")
 				}
+
+				if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
+					return ctrl.Result{}, NewReconcileError(err, "failed to persist token metadata")
+				}
+
+				updatePending = true
 			}
+		}
+	}
+
+	updatePending = toPersist.EnsureLabels() || updatePending
+
+	if updatePending {
+		if err := r.Update(ctx, toPersist); err != nil {
+			lg.Error(err, "failed to update the object with the changes", "diff", cmp.Diff(&at, toPersist))
+			return ctrl.Result{}, NewReconcileError(err, "failed to update the object with the changes")
 		}
 	}
 
 	if err := r.fillInStatus(ctx, &at); err != nil {
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
+
+	lg.Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -200,7 +227,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		IssuedAt:            time.Now().Unix(),
-		Scopes:              serviceprovider.GetAllScopes(sp, &at.Spec.Permissions),
+		Scopes:              serviceprovider.GetAllScopes(sp.TranslateToScopes, &at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})

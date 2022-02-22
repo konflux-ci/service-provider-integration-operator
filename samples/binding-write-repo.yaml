@@ -1,16 +1,13 @@
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIAccessTokenBinding
 metadata:
-  name: test-access-token-binding
-  namespace: default
+  name: binding-write-repository
 spec:
   permissions:
     required:
-      - type: rw
+      - type: w
         area: repository
-      - type: r
-        area: webhooks
   repoUrl: https://github.com/revapi/revapi
   secret:
-    name: token-secret
+    name: token-write-repository
     type: kubernetes.io/basic-auth

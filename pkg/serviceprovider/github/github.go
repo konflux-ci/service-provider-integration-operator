@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serviceprovider
+package github
 
 import (
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/machinebox/graphql"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -25,24 +28,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ ServiceProvider = (*Github)(nil)
+var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 type Github struct {
 	Configuration config.Configuration
+	lookup        serviceprovider.GenericLookup
+	httpClient    *http.Client
 }
 
-var GithubInitializer = Initializer{
+var Initializer = serviceprovider.Initializer{
 	Probe:       githubProbe{},
-	Constructor: ConstructorFunc(newGithub),
+	Constructor: serviceprovider.ConstructorFunc(newGithub),
 }
 
-func newGithub(factory *Factory, _ string) (ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
+
 	return &Github{
 		Configuration: factory.Configuration,
+		lookup: serviceprovider.GenericLookup{
+			ServiceProviderType: api.ServiceProviderTypeGitHub,
+			TokenFilter:         &tokenFilter{},
+			MetadataProvider: &metadataProvider{
+				graphqlClient: graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(factory.HttpClient)),
+				httpClient:    factory.HttpClient,
+				tokenStorage:  factory.TokenStorage,
+			},
+			MetadataCache: &cache,
+		},
+		httpClient: factory.HttpClient,
 	}, nil
 }
 
-var _ ConstructorFunc = newGithub
+var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetOAuthEndpoint() string {
 	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/github/authenticate"
@@ -57,11 +75,19 @@ func (g *Github) GetType() api.ServiceProviderType {
 }
 
 func (g *Github) TranslateToScopes(permission api.Permission) []string {
+	return translateToScopes(permission)
+}
+
+func translateToScopes(permission api.Permission) []string {
 	switch permission.Area {
 	case api.PermissionAreaRepository:
 		return []string{"repo"}
 	case api.PermissionAreaWebhooks:
-		return []string{"admin:repo_hook"}
+		if permission.Type.IsWrite() {
+			return []string{"write:repo_hook"}
+		} else {
+			return []string{"read:repo_hook"}
+		}
 	case api.PermissionAreaUser:
 		if permission.Type.IsWrite() {
 			return []string{"user"}
@@ -74,32 +100,29 @@ func (g *Github) TranslateToScopes(permission api.Permission) []string {
 }
 
 func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	// TODO implement
-
-	// for now just return the first SPIAccessToken that we find so that we prevent infinitely many SPIAccessTokens
-	// being created during the tests :)
-	ats := &api.SPIAccessTokenList{}
-	if err := cl.List(ctx, ats, &client.ListOptions{
-		Namespace: binding.Namespace,
-		Limit:     1,
-	}); err != nil {
+	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(ats.Items) == 0 {
+	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	return &ats.Items[0], nil
+	return &tokens[0], nil
+}
+
+func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+	return g.lookup.PersistMetadata(ctx, token)
 }
 
 func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	return getHostWithScheme(repoUrl)
+	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
 type githubProbe struct{}
 
-var _ Probe = (*githubProbe)(nil)
+var _ serviceprovider.Probe = (*githubProbe)(nil)
 
 func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, "https://github.com") {

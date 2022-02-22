@@ -50,7 +50,6 @@ func TestSecretsTokenStorage_Delete(t *testing.T) {
 			Permissions:         api.Permissions{},
 			ServiceProviderUrl:  "https://sp",
 			DataLocation:        "default:secret",
-			TokenMetadata:       nil,
 			RawTokenData:        nil,
 		},
 	}
@@ -81,7 +80,6 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 			Permissions:         api.Permissions{},
 			ServiceProviderUrl:  "https://sp",
 			DataLocation:        "default:secret",
-			TokenMetadata:       nil,
 			RawTokenData:        nil,
 		},
 	}
@@ -144,7 +142,6 @@ func TestSecretsTokenStorage_GetDataLocation(t *testing.T) {
 				Permissions:         api.Permissions{},
 				ServiceProviderUrl:  "https://sp",
 				DataLocation:        "",
-				TokenMetadata:       nil,
 				RawTokenData:        nil,
 			},
 		}
@@ -166,7 +163,6 @@ func TestSecretsTokenStorage_GetDataLocation(t *testing.T) {
 				Permissions:         api.Permissions{},
 				ServiceProviderUrl:  "https://sp",
 				DataLocation:        "default:secret",
-				TokenMetadata:       nil,
 				RawTokenData:        nil,
 			},
 		}
@@ -201,7 +197,6 @@ func TestSecretsTokenStorage_GetDataLocation(t *testing.T) {
 				Permissions:         api.Permissions{},
 				ServiceProviderUrl:  "https://sp",
 				DataLocation:        "default:secret",
-				TokenMetadata:       nil,
 				RawTokenData:        nil,
 			},
 		}
@@ -220,7 +215,6 @@ func TestSecretsTokenStorage_Store(t *testing.T) {
 		Permissions:         api.Permissions{},
 		ServiceProviderUrl:  "https://sp",
 		DataLocation:        "",
-		TokenMetadata:       nil,
 		RawTokenData:        nil,
 	}
 
