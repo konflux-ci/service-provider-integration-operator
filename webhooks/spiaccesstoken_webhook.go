@@ -69,8 +69,6 @@ func (w *SPIAccessTokenWebhook) Handle(ctx context.Context, req wh.Request) wh.R
 			return wh.Errored(http.StatusBadRequest, err)
 		}
 		return w.handleUpdate(ctx, req, oldToken, token)
-	case adm.Delete:
-		return w.handleDelete(ctx, token)
 	}
 
 	return wh.Allowed("")
@@ -117,11 +115,4 @@ func (w *SPIAccessTokenWebhook) handleCreate(ctx context.Context, req wh.Request
 
 func (w *SPIAccessTokenWebhook) handleUpdate(ctx context.Context, req wh.Request, oldToken *api.SPIAccessToken, newToken *api.SPIAccessToken) wh.Response {
 	return w.handleCreate(ctx, req, newToken)
-}
-
-func (w *SPIAccessTokenWebhook) handleDelete(ctx context.Context, token *api.SPIAccessToken) wh.Response {
-	if err := w.TokenStorage.Delete(ctx, token); err != nil {
-		return wh.Denied(err.Error())
-	}
-	return wh.Allowed("")
 }
