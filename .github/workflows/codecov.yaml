@@ -24,6 +24,8 @@ jobs:
         with:
           go-version: 1.16
       - name: Run tests
+        env:
+          GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
         run: make test
       - name: Codecov
         uses: codecov/codecov-action@v2.1.0
