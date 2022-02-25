@@ -27,72 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Auto-creation of token", func() {
-	var createdToken *api.SPIAccessToken
-
-	var _ = BeforeEach(func() {
-		createdToken = &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-token",
-				Namespace:    "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: api.ServiceProviderTypeGitHub,
-				Permissions:         api.Permissions{},
-				RawTokenData: &api.Token{
-					AccessToken: "nazdar",
-				},
-			},
-		}
-
-		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
-	})
-
-	var _ = AfterEach(func() {
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), createdToken)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-	})
-
-	It("updates object with token location", func() {
-		token := &api.SPIAccessToken{}
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-		Expect(token.Spec.DataLocation).NotTo(BeEmpty())
-	})
-
-	It("removes the raw token from the object", func() {
-		t := api.SPIAccessToken{}
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &t)).To(Succeed())
-
-		Expect(t.Spec.RawTokenData).To(BeNil())
-		data, err := ITest.TokenStorage.Get(ITest.Context, &t)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(data).NotTo(BeNil())
-		Expect(data.AccessToken).To(Equal("nazdar"))
-	})
-
-	It("updates the token data with update", func() {
-		t := api.SPIAccessToken{}
-		Eventually(func() error {
-			// we need to do this in the eventually loop because we might be stepping over each others' toes with the controller
-			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &t)).To(Succeed())
-
-			t.Spec.RawTokenData = &api.Token{
-				AccessToken: "updated",
-			}
-
-			return ITest.Client.Update(ITest.Context, &t)
-		}).Should(Succeed())
-
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(&t), &t)).To(Succeed())
-
-		Expect(t.Spec.RawTokenData).To(BeNil())
-		data, err := ITest.TokenStorage.Get(ITest.Context, &t)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(data).NotTo(BeNil())
-		Expect(data.AccessToken).To(Equal("updated"))
-	})
-})
-
 var _ = Describe("Create without token data", func() {
 	var createdToken *api.SPIAccessToken
 
@@ -133,41 +67,6 @@ var _ = Describe("Create without token data", func() {
 		Expect(tokenData).To(BeNil())
 	})
 
-	updateWithData := func() *api.SPIAccessToken {
-		accessToken := &api.SPIAccessToken{}
-		Eventually(func(g Gomega) {
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-
-			accessToken.Spec.RawTokenData = &api.Token{
-				AccessToken:  "accessToken",
-				TokenType:    "type",
-				RefreshToken: "none",
-				Expiry:       1,
-			}
-
-			g.Expect(ITest.Client.Update(ITest.Context, accessToken)).To(Succeed())
-		}).Should(Succeed())
-		return accessToken
-	}
-
-	It("and update with token data auto-creates the token", func() {
-		accessToken := updateWithData()
-
-		Eventually(func(g Gomega) {
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-			g.Expect(accessToken.Spec.DataLocation).NotTo(BeEmpty())
-		}).Should(Succeed())
-
-		tokenData, err := ITest.TokenStorage.Get(ITest.Context, accessToken)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(tokenData).NotTo(BeNil())
-
-		Expect(tokenData.AccessToken).To(Equal("accessToken"))
-		Expect(tokenData.TokenType).To(Equal("type"))
-		Expect(tokenData.RefreshToken).To(Equal("none"))
-		Expect(tokenData.Expiry).To(Equal(uint64(1)))
-	})
-
 	It("allows data location to be updated", func() {
 		accessToken := &api.SPIAccessToken{}
 
@@ -182,13 +81,6 @@ var _ = Describe("Create without token data", func() {
 
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
 		Expect(accessToken.Spec.DataLocation).To(Equal("over there"))
-
-		accessToken = updateWithData()
-
-		Eventually(func(g Gomega) {
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-			g.Expect(accessToken.Spec.DataLocation).NotTo(Equal("over there"))
-		}).Should(Succeed())
 	})
 })
 

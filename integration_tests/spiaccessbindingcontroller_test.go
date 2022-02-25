@@ -252,15 +252,17 @@ var _ = Describe("Delete binding", func() {
 
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
 
+		By("waiting for the token to get linked")
+		createdToken = getLinkedToken(Default, createdBinding)
+
+		loc, err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+			AccessToken: "token",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
 		Eventually(func(g Gomega) {
-			By("waiting for the token to get linked")
-			createdToken = getLinkedToken(g, createdBinding)
-
-			createdToken.Spec.RawTokenData = &api.Token{
-				AccessToken: "token",
-			}
-
 			By("updating the token with data")
+			createdToken.Spec.DataLocation = loc
 			g.Expect(ITest.Client.Update(ITest.Context, createdToken)).To(Succeed())
 		}).Should(Succeed())
 
@@ -345,13 +347,15 @@ var _ = Describe("Syncing", func() {
 			Expect(createdBinding.Status.SyncedObjectRef.Name).To(BeEmpty())
 
 			By("updating the token")
+			loc, err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				TokenType:    "awesome",
+			})
+			Expect(err).NotTo(HaveOccurred())
 			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), createdToken)).To(Succeed())
-				createdToken.Spec.RawTokenData = &api.Token{
-					AccessToken:  "access",
-					RefreshToken: "refresh",
-					TokenType:    "awesome",
-				}
+				createdToken.Spec.DataLocation = loc
 				g.Expect(ITest.Client.Update(ITest.Context, createdToken)).To(Succeed())
 			}).Should(Succeed())
 

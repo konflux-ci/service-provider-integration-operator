@@ -28,7 +28,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	corev1 "k8s.io/api/core/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -148,23 +147,6 @@ func main() {
 		setupLog.Info("CRD controllers inactive")
 	}
 
-	if config.RunWebhooks() {
-		if err = (&webhooks.SPIAccessTokenWebhook{
-			Client:       mgr.GetClient(),
-			TokenStorage: strg,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenWebhook")
-			os.Exit(1)
-		}
-		if err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
-			Client: mgr.GetClient(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "SPIAccessTokenBindingValidatingWebhook")
-			os.Exit(1)
-		}
-	} else {
-		setupLog.Info("Webhooks inactive")
-	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
