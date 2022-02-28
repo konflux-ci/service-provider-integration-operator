@@ -202,11 +202,16 @@ var _ = Describe("Update binding", func() {
 		})
 
 		AfterEach(func() {
-			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
-			createdBinding.Spec.RepoUrl = "test-provider://test"
-			Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
+			Eventually(func(g Gomega) {
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+				createdBinding.Spec.RepoUrl = "test-provider://test"
+				Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
+			}).Should(Succeed())
 
-			Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
+			Eventually(func(g Gomega) {
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), otherToken)).To(Succeed())
+				Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
+			}).Should(Succeed())
 
 			ITest.TestServiceProvider.Reset()
 		})
