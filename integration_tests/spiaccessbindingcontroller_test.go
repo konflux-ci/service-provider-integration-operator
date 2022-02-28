@@ -262,6 +262,7 @@ var _ = Describe("Delete binding", func() {
 
 		Eventually(func(g Gomega) {
 			By("updating the token with data")
+			createdToken = getLinkedToken(Default, createdBinding)
 			createdToken.Spec.DataLocation = loc
 			g.Expect(ITest.Client.Update(ITest.Context, createdToken)).To(Succeed())
 		}).Should(Succeed())
