@@ -190,7 +190,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg, err := tokenstorage.New(ITest.Client)
+	strg, err := tokenstorage.New("test-role")
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&webhooks.SPIAccessTokenWebhook{

@@ -185,7 +185,7 @@ spec:
       containers:
         - name: vault
           
-          image: hashicorp/vault:1.9.2
+          image: hashicorp/vault:1.9.3
           imagePullPolicy: IfNotPresent
           command:
           - "/bin/sh"
@@ -323,7 +323,7 @@ spec:
   
   containers:
     - name: vault-server-test
-      image: hashicorp/vault:1.9.2
+      image: hashicorp/vault:1.9.3
       imagePullPolicy: IfNotPresent
       env:
         - name: VAULT_ADDR

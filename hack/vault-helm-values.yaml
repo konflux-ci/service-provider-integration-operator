@@ -8,6 +8,9 @@ injector:
 server:
   logLevel: "trace"
 
+  image:
+    tag: "1.9.3"
+
   dataStorage:
     enabled: true
     size: 1Gi

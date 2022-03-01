@@ -16,11 +16,12 @@ package tokenstorage
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
+	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
@@ -33,6 +34,24 @@ type TokenStorage interface {
 }
 
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
-func New(cl client.Client) (TokenStorage, error) {
-	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
+func New(role string) (TokenStorage, error) {
+	config := vault.DefaultConfig()
+	config.Address = "http://127.0.0.1:8200"
+	client, err := vault.NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+	k8sAuth, err := auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath("/Users/mvala/tmp/spi_token"))
+	if err != nil {
+		return nil, err
+	}
+
+	authInfo, err := client.Auth().Login(context.TODO(), k8sAuth)
+	if err != nil {
+		return nil, err
+	}
+	if authInfo == nil {
+		return nil, fmt.Errorf("no auth info was returned after login to vault")
+	}
+	return &vaultTokenStorage{client}, nil
 }
