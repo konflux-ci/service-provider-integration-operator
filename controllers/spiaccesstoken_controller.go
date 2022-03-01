@@ -46,6 +46,7 @@ import (
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
+const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage"
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -65,6 +66,9 @@ type SPIAccessTokenReconciler struct {
 func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()
 	if err := r.finalizers.Register(linkedBindingsFinalizerName, &linkedBindingsFinalizer{client: r.Client}); err != nil {
+		return err
+	}
+	if err := r.finalizers.Register(tokenStorageFinalizerName, &tokenStorageFinalizer{storage: r.TokenStorage}); err != nil {
 		return err
 	}
 
@@ -242,7 +246,12 @@ type linkedBindingsFinalizer struct {
 	client client.Client
 }
 
+type tokenStorageFinalizer struct {
+	storage tokenstorage.TokenStorage
+}
+
 var _ finalizer.Finalizer = (*linkedBindingsFinalizer)(nil)
+var _ finalizer.Finalizer = (*tokenStorageFinalizer)(nil)
 
 func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	res := finalizer.Result{}
@@ -272,4 +281,8 @@ func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *
 	}
 
 	return len(list.Items) > 0, nil
+}
+
+func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+	return finalizer.Result{}, f.storage.Delete(ctx, obj.(*api.SPIAccessToken))
 }
