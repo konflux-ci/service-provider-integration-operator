@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	runControllersEnv = "RUN_CONTROLLERS"
+	runControllersEnv     = "RUN_CONTROLLERS"
 	runControllersDefault = true
 
 	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
