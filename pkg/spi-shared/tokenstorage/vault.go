@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
-
 	vault "github.com/hashicorp/vault/api"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const baseVaultPath = "spi/data/spiaccesstoken/"
+const vaultDataPathFormat = "spi/data/%s/%s"
 
 var log = logf.Log.WithName("vault")
 
@@ -34,14 +32,11 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		log.Info(w)
 	}
 
-	return getVaultDataLocation(path), nil
+	return path, nil
 }
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	path, err := getVaultPathFromLocation(owner)
-	if err != nil {
-		return nil, err
-	}
+	path := getVaultPath(owner)
 
 	secret, err := v.Client.Logical().Read(path)
 	if err != nil {
@@ -56,11 +51,18 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 	if secret.Data == nil || len(secret.Data) == 0 {
 		return nil, fmt.Errorf("no data found in Vault at '%s'", path)
 	}
-	if _, ok := secret.Data["data"]; !ok {
+	data, dataOk := secret.Data["data"]
+	if !dataOk {
 		return nil, fmt.Errorf("corrupted data in Vault at '%s'", path)
 	}
 
-	jsonData, err := json.Marshal(secret.Data["data"])
+	return parseToken(data)
+}
+
+func parseToken(data interface{}) (*api.Token, error) {
+	// We only get `interface{}` from Vault. In order to get `Token{}` struct,
+	// we first marshall interface into JSON, and then unmarshall it back to `Token{}` struct.
+	jsonData, err := json.Marshal(data)
 	if err != nil {
 		log.Error(err, "failed to marshall token data back")
 		return nil, err
@@ -76,14 +78,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 }
 
 func (v *vaultTokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
-	token, err := v.Get(ctx, owner)
-	if err != nil {
-		log.Error(err, "not found?")
-		return "", err
-	} else {
-		log.Info("found", "token", token)
-		return getVaultPathFromLocation(owner)
-	}
+	return getVaultPath(owner), nil
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
@@ -95,26 +90,10 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	return nil
 }
 
-func getVaultDataLocation(path string) string {
-	return "vault:" + path
-}
-
 func getVaultPath(owner *api.SPIAccessToken) string {
 	name := owner.Name
 	if name == "" {
 		name = owner.GenerateName
 	}
-	return baseVaultPath + name
-}
-
-func getVaultPathFromLocation(owner *api.SPIAccessToken) (string, error) {
-	if owner.Spec.DataLocation == "" {
-		return "", nil
-	}
-	dataLoc := strings.Split(owner.Spec.DataLocation, ":")
-	if len(dataLoc) != 2 || dataLoc[0] != "vault" {
-		return "", fmt.Errorf("unknown format of data location '%s'", owner.Spec.DataLocation)
-	}
-
-	return dataLoc[1], nil
+	return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, name)
 }
