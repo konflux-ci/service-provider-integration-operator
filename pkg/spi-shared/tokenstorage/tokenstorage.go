@@ -36,12 +36,12 @@ type TokenStorage interface {
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
 func New(role string) (TokenStorage, error) {
 	config := vault.DefaultConfig()
-	config.Address = "http://127.0.0.1:8200"
+	config.Address = "http://spi-vault:8200"
 	client, err := vault.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
-	k8sAuth, err := auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath("/Users/mvala/tmp/spi_token"))
+	k8sAuth, err := auth.NewKubernetesAuth(role)
 	if err != nil {
 		return nil, err
 	}

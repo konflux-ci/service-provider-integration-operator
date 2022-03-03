@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	vault "github.com/hashicorp/vault/api"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
