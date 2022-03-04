@@ -19,28 +19,16 @@ import (
 )
 
 const (
-	runControllersEnv = "RUN_CONTROLLERS"
-	runWebhooksEnv    = "RUN_WEBHOOKS"
+	runControllersEnv     = "RUN_CONTROLLERS"
+	runControllersDefault = true
 
 	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
-
-	runControllersDefault = true
-	runWebhooksDefault    = true
 )
 
 func RunControllers() bool {
 	ret, ok := os.LookupEnv(runControllersEnv)
 	if !ok {
 		return runControllersDefault
-	}
-
-	return "true" == ret
-}
-
-func RunWebhooks() bool {
-	ret, ok := os.LookupEnv(runWebhooksEnv)
-	if !ok {
-		return runWebhooksDefault
 	}
 
 	return "true" == ret

@@ -1,6 +1,5 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- appstudio_v1beta1_accesstokensecret.yaml
 - appstudio_v1beta1_spiaccesstoken.yaml
 - appstudio_v1beta1_spiaccesstokenbinding.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

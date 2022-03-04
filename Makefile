@@ -207,9 +207,6 @@ undeploy_minikube: ## Undeploy controller from the Minikube cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -
 
-install_cert_manager:
-	$(K8S_CLI) apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.yaml
-
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)

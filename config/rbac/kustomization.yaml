@@ -11,8 +11,6 @@ resources:
 - leader_election_role_binding.yaml
 
 # Aggregating roles which are otherwise done by OLM
-- accesstokensecret_editor_role.yaml
-- accesstokensecret_viewer_role.yaml
 - spiaccesstoken_editor_role.yaml
 - spiaccesstoken_viewer_role.yaml
 - spiaccesstokenbinding_editor_role.yaml

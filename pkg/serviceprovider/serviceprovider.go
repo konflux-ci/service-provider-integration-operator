@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,6 +31,10 @@ type ServiceProvider interface {
 	// This usually searches kubernetes (using the provided client) and the service provider itself (using some specific
 	// mechanism (usually an http client)).
 	LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+
+	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any
+	// state and metadata required for the token lookup.
+	PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error
 
 	// GetBaseUrl returns the base URL of the service provider this instance talks to. This info is saved with the
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
@@ -49,18 +53,11 @@ type ServiceProvider interface {
 
 // Factory is able to construct service providers from repository URLs.
 type Factory struct {
-	Configuration config.Configuration
-	Client        *http.Client
-	Initializers  map[config.ServiceProviderType]Initializer
-}
-
-// KnownInitializers returns a map of service provider initializers known at compile time. The Factory.Initializers
-// should be set to this value under normal circumstances.
-func KnownInitializers() map[config.ServiceProviderType]Initializer {
-	return map[config.ServiceProviderType]Initializer{
-		config.ServiceProviderTypeGitHub: GithubInitializer,
-		config.ServiceProviderTypeQuay:   QuayInitializer,
-	}
+	Configuration    config.Configuration
+	KubernetesClient client.Client
+	HttpClient       *http.Client
+	Initializers     map[config.ServiceProviderType]Initializer
+	TokenStorage     tokenstorage.TokenStorage
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
@@ -79,7 +76,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 			continue
 		}
 
-		baseUrl, err := probe.Examine(f.Client, repoUrl)
+		baseUrl, err := probe.Examine(f.HttpClient, repoUrl)
 		if err != nil {
 			continue
 		}
@@ -95,26 +92,4 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	}
 
 	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
-}
-
-// GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
-// scopes.
-func GetAllScopes(sp ServiceProvider, perms *api.Permissions) []string {
-	scopesSet := make(map[string]bool)
-
-	for _, s := range perms.AdditionalScopes {
-		scopesSet[s] = true
-	}
-
-	for _, p := range perms.Required {
-		for _, s := range sp.TranslateToScopes(p) {
-			scopesSet[s] = true
-		}
-	}
-
-	allScopes := make([]string, 0)
-	for s := range scopesSet {
-		allScopes = append(allScopes, s)
-	}
-	return allScopes
 }

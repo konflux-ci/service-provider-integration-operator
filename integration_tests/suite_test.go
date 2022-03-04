@@ -16,14 +16,10 @@ package integrationtests
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
-	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	config2 "github.com/onsi/ginkgo/config"
 
@@ -43,7 +39,6 @@ import (
 	//+kubebuilder:scaffold:imports
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	"github.com/redhat-appstudio/service-provider-integration-operator/webhooks"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -111,9 +106,6 @@ var _ = BeforeSuite(func() {
 	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
-		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "config", "webhook")},
-		},
 	}
 	ITest.TestEnvironment = testEnv
 
@@ -193,21 +185,12 @@ var _ = BeforeSuite(func() {
 	strg, err := tokenstorage.New("test-role")
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&webhooks.SPIAccessTokenWebhook{
-		Client:       mgr.GetClient(),
-		TokenStorage: strg,
-	}).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
 	ITest.TokenStorage = strg
 
-	err = (&webhooks.SPIAccessTokenBindingValidatingWebhook{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
 	factory := serviceprovider.Factory{
-		Configuration: operatorCfg,
-		Client:        http.DefaultClient,
+		Configuration:    operatorCfg,
+		KubernetesClient: mgr.GetClient(),
+		HttpClient:       http.DefaultClient,
 		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
 			"TestServiceProvider": {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
@@ -218,6 +201,7 @@ var _ = BeforeSuite(func() {
 				}),
 			},
 		},
+		TokenStorage: strg,
 	}
 
 	err = (&controllers.SPIAccessTokenReconciler{
@@ -245,19 +229,6 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}()
-
-	// wait for the webhook server to get ready
-	dialer := &net.Dialer{Timeout: time.Second}
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
-	Eventually(func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
-		if err != nil {
-			return err
-		}
-		conn.Close()
-		return nil
-	}, 3600).Should(Succeed())
-
 }, 3600)
 
 var _ = AfterSuite(func() {

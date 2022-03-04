@@ -17,7 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"net/url"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	ServiceProviderTypeLabel = "spi.appstudio.redhat.com/service-provider-type"
+	ServiceProviderHostLabel = "spi.appstudio.redhat.com/service-provider-host"
 )
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
@@ -26,10 +33,9 @@ type SPIAccessTokenSpec struct {
 	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
 	Permissions         Permissions         `json:"permissions"`
 	//+kubebuilder:validation:Required
-	ServiceProviderUrl string         `json:"serviceProviderUrl"`
-	DataLocation       string         `json:"dataLocation,omitempty"`
-	TokenMetadata      *TokenMetadata `json:"tokenMetadata,omitempty"`
-	RawTokenData       *Token         `json:"rawTokenData,omitempty"`
+	ServiceProviderUrl string `json:"serviceProviderUrl"`
+	DataLocation       string `json:"dataLocation,omitempty"`
+	RawTokenData       *Token `json:"rawTokenData,omitempty"`
 }
 
 // Token is copied from golang.org/x/oauth2 and made easily json-serializable. It represents the data obtained from the
@@ -44,8 +50,19 @@ type Token struct {
 // TokenMetadata is data about the token retrieved from the service provider. This data can be used for matching the
 // tokens with the token bindings.
 type TokenMetadata struct {
-	UserName string `json:"userName"`
-	UserId   string `json:"userId"`
+	// Username is the username in the service provider that this token impersonates as
+	Username string `json:"username"`
+	// UserId is the user id in the service provider that this token impersonates as
+	UserId string `json:"userId"`
+	// Scopes is the list of OAuth scopes that this token possesses
+	Scopes []string `json:"scopes"`
+	// ServiceProviderState is an opaque state specific to the service provider. This includes data that the operator
+	// uses during token matching, etc.
+	ServiceProviderState []byte `json:"serviceProviderState"`
+	// LastRefreshTime is the Unix-epoch timestamp of the last time the metadata has been refreshed from the service
+	// provider. The operator is configured with a TTL for this information and automatically refreshes the metadata
+	// when it is needed but is found stale.
+	LastRefreshTime int64 `json:"lastRefreshTime"`
 }
 
 // Permissions is a collection of operator-defined permissions (which are translated to service-provider-specific
@@ -108,8 +125,9 @@ const (
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
 type SPIAccessTokenStatus struct {
-	Phase    SPIAccessTokenPhase `json:"phase"`
-	OAuthUrl string              `json:"oAuthUrl"`
+	Phase         SPIAccessTokenPhase `json:"phase"`
+	OAuthUrl      string              `json:"oAuthUrl"`
+	TokenMetadata *TokenMetadata      `json:"tokenMetadata,omitempty"`
 }
 
 // SPIAccessTokenPhase is the reconciliation phase of the SPIAccessToken object
@@ -139,6 +157,32 @@ type SPIAccessTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SPIAccessToken `json:"items"`
+}
+
+// EnsureLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
+// token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
+func (t *SPIAccessToken) EnsureLabels() (changed bool) {
+	if t.Labels == nil {
+		t.Labels = map[string]string{}
+	}
+
+	if t.Labels[ServiceProviderTypeLabel] != string(t.Spec.ServiceProviderType) {
+		t.Labels[ServiceProviderTypeLabel] = string(t.Spec.ServiceProviderType)
+		changed = true
+	}
+
+	if len(t.Spec.ServiceProviderUrl) > 0 {
+		// we can't use the full service provider URL as a label value, because K8s doesn't allow :// in label values.
+		spUrl, err := url.Parse(t.Spec.ServiceProviderUrl)
+		if err == nil {
+			if t.Labels[ServiceProviderHostLabel] != spUrl.Host {
+				t.Labels[ServiceProviderHostLabel] = spUrl.Host
+				changed = true
+			}
+		}
+	}
+
+	return
 }
 
 func init() {
