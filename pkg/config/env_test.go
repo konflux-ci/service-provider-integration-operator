@@ -45,8 +45,4 @@ func TestEnvConfiguration(t *testing.T) {
 	t.Run("controllers", func(t *testing.T) {
 		envBoolTest(t, runControllersEnv, runControllersDefault, RunControllers)
 	})
-
-	t.Run("webhooks", func(t *testing.T) {
-		envBoolTest(t, runWebhooksEnv, runWebhooksDefault, RunWebhooks)
-	})
 }
