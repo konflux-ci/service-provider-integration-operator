@@ -127,13 +127,7 @@ First, we need to enable the ingress addon (skip this step, obviously, if you're
 minikube addons enable ingress
 ```
 
-Second, we need to install cert manager to handle the certificates for us (skip this step if you're on OpenShift):
-
-```
-make install_cert_manager
-```
-
-With this, we can install our CRDs:
+Then we can install our CRDs:
 
 ```
 make install
