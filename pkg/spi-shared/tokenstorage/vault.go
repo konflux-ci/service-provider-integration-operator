@@ -19,13 +19,11 @@ type vaultTokenStorage struct {
 }
 
 func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
-	tokenJson, err := json.Marshal(token)
-	if err != nil {
-		return "", err
+	data := map[string]interface{}{
+		"data": token,
 	}
-
 	path := getVaultPath(owner)
-	s, err := v.Client.Logical().WriteBytes(path, tokenJson)
+	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
 		return "", err
 	}
@@ -43,14 +41,12 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 	if err != nil {
 		return nil, err
 	}
-	if secret == nil {
+	if secret == nil || secret.Data == nil || len(secret.Data) == 0 {
+		log.Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
 	for _, w := range secret.Warnings {
 		log.Info(w)
-	}
-	if secret.Data == nil || len(secret.Data) == 0 {
-		return nil, fmt.Errorf("no data found in Vault at '%s'", path)
 	}
 	data, dataOk := secret.Data["data"]
 	if !dataOk {

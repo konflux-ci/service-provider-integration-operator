@@ -182,7 +182,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg, err := tokenstorage.New("test-role")
+	strg, err := tokenstorage.New("test-role", "", "")
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = strg

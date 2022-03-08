@@ -27,6 +27,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
+	DefaultVaultHost          string              = "http://spi-vault:8200"
 )
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
@@ -50,6 +51,9 @@ type PersistedConfiguration struct {
 	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.). The default
 	// is 1h (1 hour).
 	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
+
+	// VaultHost is url to Vault storage. Default `spi-vault` which is default spi Vault service name for kubernetes deployments.
+	VaultHost string `yaml:"vaultHost"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -71,6 +75,10 @@ type Configuration struct {
 
 	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
 	TokenLookupCacheTtl time.Duration
+
+	VaultHost string
+
+	ServiceAccountTokenFilePath string
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -104,11 +112,21 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 		ttlStr = "1h"
 	}
 
+	if c.VaultHost == "" {
+		conf.VaultHost = DefaultVaultHost
+	} else {
+		conf.VaultHost = c.VaultHost
+	}
+
 	ttl, err := time.ParseDuration(ttlStr)
 	if err != nil {
 		return conf, err
-
 	}
+
+	if saTokenPath, ok := os.LookupEnv("SA_TOKEN_PATH"); ok {
+		conf.ServiceAccountTokenFilePath = saTokenPath
+	}
+
 	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences
 	conf.ServiceProviders = c.ServiceProviders
 	conf.SharedSecret = []byte(c.SharedSecret)

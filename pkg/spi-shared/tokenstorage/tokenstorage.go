@@ -34,14 +34,19 @@ type TokenStorage interface {
 }
 
 // New creates a new `TokenStorage` instance using the provided Kubernetes client.
-func New(role string) (TokenStorage, error) {
+func New(role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
 	config := vault.DefaultConfig()
-	config.Address = "http://spi-vault:8200"
+	config.Address = vaultHost
 	client, err := vault.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
-	k8sAuth, err := auth.NewKubernetesAuth(role)
+	var k8sAuth *auth.KubernetesAuth
+	if serviceAccountToken == "" {
+		k8sAuth, err = auth.NewKubernetesAuth(role)
+	} else {
+		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
+	}
 	if err != nil {
 		return nil, err
 	}
