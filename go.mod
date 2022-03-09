@@ -5,8 +5,11 @@ go 1.16
 require (
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/google/go-cmp v0.5.6
+	github.com/hashicorp/vault v1.9.4
+	github.com/hashicorp/vault-plugin-secrets-kv v0.10.1
 	github.com/hashicorp/vault/api v1.3.1
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
+	github.com/hashicorp/vault/sdk v0.3.1-0.20220224202448-00c495209246
 	github.com/machinebox/graphql v0.2.2
 	github.com/matryer/is v1.4.0 // indirect
 	github.com/onsi/ginkgo v1.16.5

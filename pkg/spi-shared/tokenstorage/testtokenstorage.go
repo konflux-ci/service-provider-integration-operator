@@ -18,6 +18,13 @@ package tokenstorage
 
 import (
 	"context"
+	"testing"
+
+	kv "github.com/hashicorp/vault-plugin-secrets-kv"
+	vaultapi "github.com/hashicorp/vault/api"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/vault"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
@@ -62,3 +69,30 @@ func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 }
 
 var _ TokenStorage = (*TestTokenStorage)(nil)
+
+func CreateTestVaultTokenStorage(t *testing.T) (*vault.TestCluster, TokenStorage) {
+	t.Helper()
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"kv": kv.Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	client := cluster.Cores[0].Client
+
+	// Create KV V2 mount
+	if err := client.Sys().Mount("spi", &vaultapi.MountInput{
+		Type: "kv",
+		Options: map[string]string{
+			"version": "2",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	return cluster, &vaultTokenStorage{Client: client}
+}

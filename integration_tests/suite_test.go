@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/vault/vault"
+
 	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -60,6 +62,7 @@ type IntegrationTest struct {
 }
 
 var ITest IntegrationTest
+var vaultTestCluster *vault.TestCluster
 
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
 
@@ -182,7 +185,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg, err := tokenstorage.New("test-role", "", "")
+	var strg tokenstorage.TokenStorage
+	vaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(&testing.T{})
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = strg
@@ -237,6 +241,7 @@ var _ = AfterSuite(func() {
 	}
 
 	By("tearing down the test environment")
+	vaultTestCluster.Cleanup()
 	if ITest.TestEnvironment != nil {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())

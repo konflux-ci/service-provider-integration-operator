@@ -33,8 +33,8 @@ type TokenStorage interface {
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
 }
 
-// New creates a new `TokenStorage` instance using the provided Kubernetes client.
-func New(role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
+// NewVaultStorage creates a new `TokenStorage` instance using the provided Kubernetes client.
+func NewVaultStorage(role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultHost
 	client, err := vault.NewClient(config)

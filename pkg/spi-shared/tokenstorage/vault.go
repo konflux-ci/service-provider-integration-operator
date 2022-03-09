@@ -27,6 +27,9 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	if err != nil {
 		return "", err
 	}
+	if s == nil {
+		return "", fmt.Errorf("failed to store the token, no error but returned nil")
+	}
 	for _, w := range s.Warnings {
 		log.Info(w)
 	}
@@ -41,7 +44,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 	if err != nil {
 		return nil, err
 	}
-	if secret == nil || secret.Data == nil || len(secret.Data) == 0 {
+	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
 		log.Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
