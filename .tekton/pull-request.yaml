@@ -12,6 +12,9 @@ spec:
       value: "{{repo_url}}"
     - name: revision
       value: "{{revision}}"
+  pipelineRef:
+          name: docker-build
+          bundle: quay.io/redhat-appstudio/build-templates-bundle:v0.1.4    
   pipelineSpec:
     params:
       - name: repo_url
