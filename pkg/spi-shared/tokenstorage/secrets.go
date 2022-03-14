@@ -35,6 +35,11 @@ type secretsTokenStorage struct {
 
 var _ TokenStorage = (*secretsTokenStorage)(nil)
 
+// NewSecretsStorage creates a new `TokenStorage` instance using the provided Kubernetes client.
+func NewSecretsStorage(cl client.Client) (TokenStorage, error) {
+	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
+}
+
 func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
 	data := map[string][]byte{
 		"token_type":    []byte(token.TokenType),
