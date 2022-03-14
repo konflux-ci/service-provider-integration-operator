@@ -13,8 +13,6 @@ import (
 
 const vaultDataPathFormat = "spi/data/%s/%s"
 
-var log = logf.Log.WithName("vault")
-
 type vaultTokenStorage struct {
 	*vault.Client
 }
@@ -60,7 +58,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		return "", fmt.Errorf("failed to store the token, no error but returned nil")
 	}
 	for _, w := range s.Warnings {
-		log.Info(w)
+		logf.FromContext(ctx).Info(w)
 	}
 
 	return path, nil
@@ -74,33 +72,33 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 		return nil, err
 	}
 	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
-		log.Info("no data found in vault at", "path", path)
+		logf.FromContext(ctx).Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
 	for _, w := range secret.Warnings {
-		log.Info(w)
+		logf.FromContext(ctx).Info(w)
 	}
 	data, dataOk := secret.Data["data"]
 	if !dataOk {
 		return nil, fmt.Errorf("corrupted data in Vault at '%s'", path)
 	}
 
-	return parseToken(data)
+	return parseToken(ctx, data)
 }
 
-func parseToken(data interface{}) (*api.Token, error) {
+func parseToken(ctx context.Context, data interface{}) (*api.Token, error) {
 	// We only get `interface{}` from Vault. In order to get `Token{}` struct,
 	// we first marshall interface into JSON, and then unmarshall it back to `Token{}` struct.
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		log.Error(err, "failed to marshall token data back")
+		logf.FromContext(ctx).Error(err, "failed to marshall token data back")
 		return nil, err
 	}
 
 	token := &api.Token{}
 	err = json.Unmarshal(jsonData, token)
 	if err != nil {
-		log.Error(err, "failed to unmarshall databack to token")
+		logf.FromContext(ctx).Error(err, "failed to unmarshall databack to token")
 		return nil, err
 	}
 	return token, nil
@@ -115,7 +113,7 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	if err != nil {
 		return err
 	}
-	log.Info("deleted", "secret", s)
+	logf.FromContext(ctx).Info("deleted", "secret", s)
 	return nil
 }
 
