@@ -323,8 +323,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	}
 
 	if token == nil {
-		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
-		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
+		noDataError := fmt.Errorf("access token data not found")
+		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, noDataError)
+		return api.TargetObjectRef{}, noDataError
 	}
 
 	var userId, userName string
