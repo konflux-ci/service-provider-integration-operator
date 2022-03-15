@@ -63,23 +63,6 @@ var ITest IntegrationTest
 
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
 
-// Returns a function that can be used as an implementation of the serviceprovider.ServiceProvider.LookupToken method
-// that just returns a freshly loaded version of the provided token. The token is a pointer to a pointer to the token
-// so that this can also support lazily initialized tokens.
-func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-		if *tokenPointer == nil {
-			return nil, nil
-		}
-
-		freshToken := &api.SPIAccessToken{}
-		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
-			return nil, err
-		}
-		return freshToken, nil
-	}
-}
-
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -185,7 +168,10 @@ var _ = BeforeSuite(func() {
 	strg, err := tokenstorage.New(ITest.Client)
 	Expect(err).NotTo(HaveOccurred())
 
-	ITest.TokenStorage = strg
+	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
+		Client:       cl,
+		TokenStorage: strg,
+	}
 
 	factory := serviceprovider.Factory{
 		Configuration:    operatorCfg,
@@ -207,7 +193,7 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           strg,
+		TokenStorage:           ITest.TokenStorage,
 		Configuration:          operatorCfg,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
@@ -216,8 +202,13 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.SPIAccessTokenBindingReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           strg,
+		TokenStorage:           ITest.TokenStorage,
 		ServiceProviderFactory: factory,
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.SPIAccessTokenDataUpdateReconciler{
+		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

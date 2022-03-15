@@ -248,7 +248,6 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 				Namespace:    binding.Namespace,
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: sp.GetType(),
 				Permissions:         binding.Spec.Permissions,
 				ServiceProviderUrl:  serviceProviderUrl,
 			},
@@ -323,8 +322,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	}
 
 	if token == nil {
+		err = fmt.Errorf("access token data not found")
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
-		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
+		return api.TargetObjectRef{}, err
 	}
 
 	var userId, userName string

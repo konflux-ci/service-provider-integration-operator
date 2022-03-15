@@ -83,3 +83,29 @@ func (t *TestServiceProvider) Reset() {
 	t.GetTypeImpl = nil
 	t.GetOauthEndpointImpl = nil
 }
+
+// LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns
+// a freshly loaded version of the provided token. The token is a pointer to a pointer to the token so that this can
+// also support lazily initialized tokens.
+func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+		if *tokenPointer == nil {
+			return nil, nil
+		}
+
+		freshToken := &api.SPIAccessToken{}
+		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
+			return nil, err
+		}
+		return freshToken, nil
+	}
+}
+
+// PersistConcreteMetadata returns a function that can be used as the TestServiceProvider.PersistMetadataImpl that
+// stores the provided metadata to any token.
+func PersistConcreteMetadata(metadata *api.TokenMetadata) func(context.Context, client.Client, *api.SPIAccessToken) error {
+	return func(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+		token.Status.TokenMetadata = metadata
+		return cl.Status().Update(ctx, token)
+	}
+}

@@ -42,12 +42,11 @@ func TestEnsureLabels(t *testing.T) {
 	t.Run("sets the predefined", func(t *testing.T) {
 		at := SPIAccessToken{
 			Spec: SPIAccessTokenSpec{
-				ServiceProviderType: ServiceProviderType("sp_type"),
 				ServiceProviderUrl:  "https://hello",
 			},
 		}
 
-		assert.True(t, at.EnsureLabels())
+		assert.True(t, at.EnsureLabels("sp_type"))
 		assert.Equal(t, "sp_type", at.Labels[ServiceProviderTypeLabel])
 		assert.Equal(t, "hello", at.Labels[ServiceProviderHostLabel])
 	})
@@ -62,12 +61,11 @@ func TestEnsureLabels(t *testing.T) {
 				},
 			},
 			Spec: SPIAccessTokenSpec{
-				ServiceProviderType: ServiceProviderType("sp_type"),
 				ServiceProviderUrl:  "https://hello",
 			},
 		}
 
-		assert.True(t, at.EnsureLabels())
+		assert.True(t, at.EnsureLabels("sp_type"))
 		assert.Equal(t, "sp_type", at.Labels[ServiceProviderTypeLabel])
 		assert.Equal(t, "hello", at.Labels[ServiceProviderHostLabel])
 		assert.Equal(t, "av", at.Labels["a"])

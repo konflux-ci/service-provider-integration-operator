@@ -17,7 +17,6 @@ package tokenstorage
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 
@@ -35,7 +34,7 @@ type secretsTokenStorage struct {
 
 var _ TokenStorage = (*secretsTokenStorage)(nil)
 
-func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
+func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	data := map[string][]byte{
 		"token_type":    []byte(token.TokenType),
 		"refresh_token": []byte(token.RefreshToken),
@@ -45,32 +44,26 @@ func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToke
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      owner.Name,
+			Name:      "spi-storage-" + owner.Name,
 			Namespace: owner.Namespace,
 		},
 		Data: data,
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	if secret.Name == "" {
-		secret.GenerateName = owner.GenerateName
-	}
-
-	if owner.UID != "" {
-		secret.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: api.GroupVersion.String(),
-				Kind:       "SPIAccessToken",
-				Name:       owner.Name,
-				UID:        owner.UID,
-			},
-		}
+	secret.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: api.GroupVersion.String(),
+			Kind:       "SPIAccessToken",
+			Name:       owner.Name,
+			UID:        owner.UID,
+		},
 	}
 
 	if err := s.Create(ctx, secret); err != nil {
 		if errors.IsAlreadyExists(err) {
 			if gerr := s.Client.Get(ctx, client.ObjectKey{Name: owner.Name, Namespace: owner.Namespace}, secret); gerr != nil {
-				return "", gerr
+				return gerr
 			}
 
 			secret.Data = data
@@ -92,11 +85,11 @@ func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToke
 		}
 
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
-	return getDataLocationFromSecret(secret), nil
+	return nil
 }
 
 func (s secretsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
@@ -125,19 +118,6 @@ func (s secretsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken)
 	}, nil
 }
 
-func (s secretsTokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
-	secret, err := s.getBackingSecret(ctx, owner)
-	if err != nil {
-		return "", err
-	}
-
-	if secret == nil {
-		return "", nil
-	}
-
-	return getDataLocationFromSecret(secret), nil
-}
-
 func (s secretsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	secret, err := s.getBackingSecret(ctx, owner)
 	if err != nil {
@@ -151,14 +131,9 @@ func (s secretsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessTok
 }
 
 func (s secretsTokenStorage) getBackingSecret(ctx context.Context, owner *api.SPIAccessToken) (*corev1.Secret, error) {
-	key, ok := getSecretKeyFromLocation(owner)
-	if !ok {
-		return nil, nil
-	}
-
 	secret := &corev1.Secret{}
 
-	if err := s.Client.Get(ctx, key, secret); err != nil {
+	if err := s.Client.Get(ctx, getSecretKey(owner), secret); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -168,18 +143,9 @@ func (s secretsTokenStorage) getBackingSecret(ctx context.Context, owner *api.SP
 	return secret, nil
 }
 
-func getDataLocationFromSecret(secret *corev1.Secret) string {
-	return secret.Namespace + ":" + secret.Name
-}
-
-func getSecretKeyFromLocation(owner *api.SPIAccessToken) (client.ObjectKey, bool) {
-	dataLoc := strings.Split(owner.Spec.DataLocation, ":")
-	if len(dataLoc) != 2 {
-		return client.ObjectKey{}, false
-	}
-
+func getSecretKey(owner *api.SPIAccessToken) client.ObjectKey {
 	return client.ObjectKey{
-		Name:      dataLoc[1],
-		Namespace: dataLoc[0],
-	}, true
+		Name:      "spi-storage-" + owner.Name,
+		Namespace: owner.Namespace,
+	}
 }
