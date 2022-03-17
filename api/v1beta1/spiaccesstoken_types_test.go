@@ -42,7 +42,7 @@ func TestEnsureLabels(t *testing.T) {
 	t.Run("sets the predefined", func(t *testing.T) {
 		at := SPIAccessToken{
 			Spec: SPIAccessTokenSpec{
-				ServiceProviderUrl:  "https://hello",
+				ServiceProviderUrl: "https://hello",
 			},
 		}
 
@@ -61,7 +61,7 @@ func TestEnsureLabels(t *testing.T) {
 				},
 			},
 			Spec: SPIAccessTokenSpec{
-				ServiceProviderUrl:  "https://hello",
+				ServiceProviderUrl: "https://hello",
 			},
 		}
 

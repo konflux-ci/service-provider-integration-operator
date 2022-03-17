@@ -31,6 +31,8 @@ var _ = Describe("Create without token data", func() {
 	var createdToken *api.SPIAccessToken
 
 	var _ = BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
@@ -38,7 +40,7 @@ var _ = Describe("Create without token data", func() {
 			},
 			Spec: api.SPIAccessTokenSpec{
 				ServiceProviderUrl: "test-provider://",
-				Permissions:         api.Permissions{},
+				Permissions:        api.Permissions{},
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
@@ -73,6 +75,8 @@ var _ = Describe("Delete token", func() {
 	tokenDeleteInProgress := false
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
@@ -106,7 +110,9 @@ var _ = Describe("Delete token", func() {
 		var createdBinding *api.SPIAccessTokenBinding
 
 		BeforeEach(func() {
+			ITest.TestServiceProvider.Reset()
 			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+
 			createdBinding = &api.SPIAccessTokenBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-binding",
@@ -154,7 +160,7 @@ var _ = Describe("Delete token", func() {
 		Expect(data).NotTo(BeNil())
 
 		// delete the token
-		Eventually(func (g Gomega) {
+		Eventually(func(g Gomega) {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
 			g.Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())

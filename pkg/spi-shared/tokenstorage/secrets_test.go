@@ -46,8 +46,8 @@ func TestSecretsTokenStorage_Delete(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.SPIAccessTokenSpec{
-			Permissions:         api.Permissions{},
-			ServiceProviderUrl:  "https://sp",
+			Permissions:        api.Permissions{},
+			ServiceProviderUrl: "https://sp",
 		},
 	}
 
@@ -73,8 +73,8 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.SPIAccessTokenSpec{
-			Permissions:         api.Permissions{},
-			ServiceProviderUrl:  "https://sp",
+			Permissions:        api.Permissions{},
+			ServiceProviderUrl: "https://sp",
 		},
 	}
 
@@ -127,8 +127,8 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 
 func TestSecretsTokenStorage_Store(t *testing.T) {
 	tokenSpec := api.SPIAccessTokenSpec{
-		Permissions:         api.Permissions{},
-		ServiceProviderUrl:  "https://sp",
+		Permissions:        api.Permissions{},
+		ServiceProviderUrl: "https://sp",
 	}
 
 	data := &api.Token{

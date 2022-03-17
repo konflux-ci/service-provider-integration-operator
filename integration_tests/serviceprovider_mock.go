@@ -82,6 +82,7 @@ func (t *TestServiceProvider) Reset() {
 	t.TranslateToScopesImpl = nil
 	t.GetTypeImpl = nil
 	t.GetOauthEndpointImpl = nil
+	t.PersistMetadataImpl = nil
 }
 
 // LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns

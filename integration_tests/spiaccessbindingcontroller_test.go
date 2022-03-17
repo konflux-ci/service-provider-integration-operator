@@ -40,7 +40,7 @@ func testTokenNameInStatus(createdBinding *api.SPIAccessTokenBinding, linkMatche
 			g.Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).Should(linkMatcher)
 
 		return cond
-	}, 10).Should(BeTrue())
+	}).WithTimeout(10 * time.Second).Should(BeTrue())
 }
 
 var _ = Describe("Create binding", func() {
@@ -48,13 +48,15 @@ var _ = Describe("Create binding", func() {
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "default",
-				GenerateName: "test-token",
+				GenerateName: "create-test-token",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl:  "test-provider://acme",
+				ServiceProviderUrl: "test-provider://acme",
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
@@ -65,7 +67,7 @@ var _ = Describe("Create binding", func() {
 
 		createdBinding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-binding",
+				GenerateName: "create-test-binding",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
@@ -115,18 +117,20 @@ var _ = Describe("Update binding", func() {
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-token",
+				GenerateName: "update-test-token",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl:  "test-provider://test",
+				ServiceProviderUrl: "test-provider://test",
 			},
 		}
 		createdBinding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-binding",
+				GenerateName: "update-test-binding",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenBindingSpec{
@@ -181,7 +185,7 @@ var _ = Describe("Update binding", func() {
 					Namespace:    "default",
 				},
 				Spec: api.SPIAccessTokenSpec{
-					ServiceProviderUrl:  "test-provider://other",
+					ServiceProviderUrl: "test-provider://other",
 				},
 			}
 
@@ -200,14 +204,14 @@ var _ = Describe("Update binding", func() {
 
 		AfterEach(func() {
 			Eventually(func(g Gomega) {
-				Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				createdBinding.Spec.RepoUrl = "test-provider://test"
-				Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
+				g.Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), otherToken)).To(Succeed())
-				Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), otherToken)).To(Succeed())
+				g.Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
 			}).Should(Succeed())
 
 			ITest.TestServiceProvider.Reset()
@@ -236,6 +240,8 @@ var _ = Describe("Delete binding", func() {
 	var bindingDeleted bool
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdBinding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-binding",
@@ -253,12 +259,6 @@ var _ = Describe("Delete binding", func() {
 		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
 
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
-		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
-			Username:             "alois",
-			UserId:               "42",
-			Scopes:               []string{},
-			ServiceProviderState: []byte("state"),
-		})
 
 		By("waiting for the token to get linked")
 		createdToken = getLinkedToken(Default, createdBinding)
@@ -268,6 +268,14 @@ var _ = Describe("Delete binding", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
+		// now that the token is stored, we can simulate parsing its metadata from the SP
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+			Username:             "alois",
+			UserId:               "42",
+			Scopes:               []string{},
+			ServiceProviderState: []byte("state"),
+		})
+
 		Eventually(func(g Gomega) {
 			By("waiting for the synced secret to appear")
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
@@ -276,7 +284,7 @@ var _ = Describe("Delete binding", func() {
 			g.Expect(ITest.Client.Get(ITest.Context,
 				client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace},
 				syncedSecret)).To(Succeed())
-		}).Should(Succeed())
+		}).WithTimeout(20 * time.Second).Should(Succeed())
 
 		bindingDeleted = false
 	})
@@ -308,6 +316,8 @@ var _ = Describe("Syncing", func() {
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
@@ -381,13 +391,15 @@ var _ = Describe("Status updates", func() {
 	var binding *api.SPIAccessTokenBinding
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		token = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "status-updates-",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl:  "test-provider://",
+				ServiceProviderUrl: "test-provider://",
 			},
 		}
 

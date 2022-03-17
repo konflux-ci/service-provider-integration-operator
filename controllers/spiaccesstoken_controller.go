@@ -124,6 +124,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, NewReconcileError(err, "failed to load the token from the cluster")
 	}
 
+	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase)
+
 	finalizationResult, err := r.finalizers.Finalize(ctx, &at)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
@@ -167,7 +169,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
 
-	lg.Info("reconciliation finished successfully")
+	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
+		Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -190,6 +193,10 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		changed = at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
 		at.Status.OAuthUrl = ""
+		if changed {
+			lg := log.FromContext(ctx)
+			lg.Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+		}
 	}
 
 	if changed {
