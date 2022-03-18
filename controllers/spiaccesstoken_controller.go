@@ -218,7 +218,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		return "", NewReconcileError(err, "failed to instantiate OAuth state codec")
 	}
 
-	state, err := codec.EncodeAnonymous(&oauthstate.AnonymousOAuthState{
+	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		IssuedAt:            time.Now().Unix(),

@@ -18,8 +18,6 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
-	"github.com/go-jose/go-jose/v3/jwt"
 )
 
 // AnonymousOAuthState is the state that is initially put to the OAuth URL by the operator. It does not hold
@@ -49,33 +47,21 @@ type AnonymousOAuthState struct {
 	ServiceProviderUrl string `json:"serviceProviderUrl"`
 }
 
-// EncodeAnonymous encodes the anonymous state as a string to be passed as a query parameter to the OAuth flow initiating
-// URL.
-func (s *Codec) EncodeAnonymous(state *AnonymousOAuthState) (string, error) {
-	return jwt.Signed(s.signer).Claims(state).CompactSerialize()
-}
-
-// ParseAnonymous parses the state from the URL query parameter and returns the anonymous state struct.
+// ParseAnonymous parses the state from the URL query parameter and returns the anonymous state struct. It also validates
+// the struct using AnonymousOAuthState.Validate method.
 func (s *Codec) ParseAnonymous(state string) (AnonymousOAuthState, error) {
-	token, err := jwt.ParseSigned(state)
-	if err != nil {
-		return AnonymousOAuthState{}, err
-	}
-
 	parsedState := AnonymousOAuthState{}
-	if err := token.Claims(s.signingSecret, &parsedState); err != nil {
-		return AnonymousOAuthState{}, err
+	err := s.ParseInto(state, &parsedState)
+	if err != nil {
+		return parsedState, err
 	}
 
-	if err := validateAnonymousState(&parsedState); err != nil {
-		return AnonymousOAuthState{}, err
-	}
-
-	return parsedState, nil
+	return parsedState, parsedState.Validate()
 }
 
-func validateAnonymousState(state *AnonymousOAuthState) error {
-	if time.Now().Unix() < state.IssuedAt {
+// Validate validates that IssuedAt is in the past.
+func (s AnonymousOAuthState) Validate() error {
+	if time.Now().Unix() < s.IssuedAt {
 		return fmt.Errorf("request from the future")
 	}
 	return nil
