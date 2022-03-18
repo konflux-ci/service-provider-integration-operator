@@ -68,9 +68,9 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 	}
 
 	tkn := api.SPIAccessToken{}
-	assert.NoError(t, mp.Fetch(context.TODO(), &tkn))
+	data, err := mp.Fetch(context.TODO(), &tkn)
+	assert.NoError(t, err)
 
-	data := tkn.Status.TokenMetadata
 	assert.NotNil(t, data)
 	assert.Equal(t, "42", data.UserId)
 	assert.Equal(t, "test_user", data.Username)

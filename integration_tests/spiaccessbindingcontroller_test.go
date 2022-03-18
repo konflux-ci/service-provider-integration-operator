@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -456,11 +458,6 @@ var _ = Describe("Status updates", func() {
 
 		AfterEach(func() {
 			Expect(ITest.TokenStorage.Delete(ITest.Context, token)).To(Succeed())
-			Eventually(func(g Gomega) {
-				currentToken := &api.SPIAccessToken{}
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
-			}).Should(Succeed())
-			ITest.TestServiceProvider.LookupTokenImpl = nil
 		})
 
 		It("should end in error phase if linked token doesn't fit the requirements", func() {
@@ -553,6 +550,63 @@ var _ = Describe("Status updates", func() {
 				currentBinding := &api.SPIAccessTokenBinding{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(testBinding), currentBinding)).To(Succeed())
 				g.Expect(currentBinding.Status.LinkedAccessTokenName).To(Equal(betterToken.Name))
+			}).Should(Succeed())
+		})
+	})
+
+	When("linked token data disappears after successful sync", func() {
+		var secret *corev1.Secret
+
+		BeforeEach(func() {
+			err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
+				AccessToken: "access_token",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				Username:             "alois",
+				UserId:               "42",
+				Scopes:               []string{},
+				ServiceProviderState: []byte("state"),
+			})
+
+			Eventually(func(g Gomega) {
+				currentToken := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
+				g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+			}).Should(Succeed())
+
+			currentBinding := &api.SPIAccessTokenBinding{}
+			Eventually(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+				g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseInjected))
+			}).Should(Succeed())
+
+			secret = &corev1.Secret{}
+			Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: currentBinding.Status.SyncedObjectRef.Name, Namespace: "default"}, secret)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(ITest.TokenStorage.Delete(ITest.Context, token)).To(Succeed())
+			Eventually(func(g Gomega) {
+				currentToken := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
+			}).Should(Succeed())
+		})
+
+		It("deletes the secret and flips back to awaiting phase", func() {
+			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+			Expect(ITest.TokenStorage.Delete(ITest.Context, token)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				currentBinding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+				g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
+				g.Expect(currentBinding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+				err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(secret), &corev1.Secret{})
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 		})
 	})

@@ -42,13 +42,9 @@ func NewMetadataCache(ttl time.Duration, client client.Client) MetadataCache {
 
 // Persist assigns the last refresh time of the token metadata and updates the token
 func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) error {
-	metadata := token.Status.TokenMetadata
-	if metadata == nil {
-		metadata = &api.TokenMetadata{}
-		token.Status.TokenMetadata = metadata
+	if token.Status.TokenMetadata != nil {
+		token.Status.TokenMetadata.LastRefreshTime = time.Now().Unix()
 	}
-
-	metadata.LastRefreshTime = time.Now().Unix()
 
 	return c.client.Status().Update(ctx, token)
 }
@@ -68,14 +64,22 @@ func (c *MetadataCache) Refresh(token *api.SPIAccessToken) {
 // Ensure combines Refresh and Persist. Makes sure that the metadata of the token is either still valid or has been
 // refreshed using the MetadataProvider.
 func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, ser MetadataProvider) error {
+	wasPresent := token.Status.TokenMetadata != nil
+
 	c.Refresh(token)
 
 	if token.Status.TokenMetadata == nil {
-		if err := ser.Fetch(ctx, token); err != nil {
+		data, err := ser.Fetch(ctx, token)
+		if err != nil {
 			return err
 		}
 
-		if token.Status.TokenMetadata != nil {
+		// we persist in 3 cases:
+		// 1) there was metadata but is not there anymore (wasPresent == true, metadata == nil)
+		// 2) the metadata was (potentially) changed (wasPresent == true, metadata = ?)
+		// 3) the metadata is newly available (wasPresent == false, metadata != nil)
+		token.Status.TokenMetadata = data
+		if wasPresent || token.Status.TokenMetadata != nil {
 			if err := c.Persist(ctx, token); err != nil {
 				return err
 			}

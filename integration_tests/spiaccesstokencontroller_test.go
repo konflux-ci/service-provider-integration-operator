@@ -70,6 +70,61 @@ var _ = Describe("Create without token data", func() {
 	})
 })
 
+var _ = Describe("Token data disappears", func() {
+	var token *api.SPIAccessToken
+
+	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
+		token = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "data-disappear-test-token",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "test-provider://",
+			},
+		}
+
+		Expect(ITest.Client.Create(ITest.Context, token)).To(Succeed())
+
+		Expect(ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
+			AccessToken: "access",
+		})).To(Succeed())
+
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+			Username:             "alois",
+			UserId:               "42",
+			Scopes:               []string{},
+			ServiceProviderState: []byte("state"),
+		})
+
+		Eventually(func(g Gomega) {
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
+			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+		}).Should(Succeed())
+	})
+
+	AfterEach(func() {
+		currentToken := &api.SPIAccessToken{}
+		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
+		Expect(ITest.Client.Delete(ITest.Context, currentToken)).To(Succeed())
+	})
+
+	It("flips token back to awaiting phase when data disappears", func() {
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+		Expect(ITest.TokenStorage.Delete(ITest.Context, token)).To(Succeed())
+
+		Eventually(func(g Gomega) {
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), currentToken)).To(Succeed())
+			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+			g.Expect(currentToken.Status.TokenMetadata).To(BeNil())
+		}).Should(Succeed())
+	})
+})
+
 var _ = Describe("Delete token", func() {
 	var createdToken *api.SPIAccessToken
 	tokenDeleteInProgress := false
