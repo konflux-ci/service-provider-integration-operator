@@ -415,7 +415,7 @@ func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context
 	if secretName == "" {
 		return nil
 	}
-	
+
 	secret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
