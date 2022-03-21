@@ -63,7 +63,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.17
       - name: Install CLI tools from GitHub
         uses: redhat-actions/openshift-tools-installer@v1
         with:
