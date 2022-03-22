@@ -27,9 +27,8 @@ func TestStorage(t *testing.T) {
 	cluster, storage := CreateTestVaultTokenStorage(t)
 	defer cluster.Cleanup()
 
-	stored, err := storage.Store(context.TODO(), testSpiAccessToken, testToken)
+	err := storage.Store(context.TODO(), testSpiAccessToken, testToken)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, stored)
 
 	gettedToken, err := storage.Get(context.TODO(), testSpiAccessToken)
 	assert.NoError(t, err)

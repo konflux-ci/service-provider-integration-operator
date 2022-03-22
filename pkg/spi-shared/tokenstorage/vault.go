@@ -45,23 +45,23 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string) 
 	return &vaultTokenStorage{client}, nil
 }
 
-func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
+func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	data := map[string]interface{}{
 		"data": token,
 	}
 	path := getVaultPath(owner)
 	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if s == nil {
-		return "", fmt.Errorf("failed to store the token, no error but returned nil")
+		return fmt.Errorf("failed to store the token, no error but returned nil")
 	}
 	for _, w := range s.Warnings {
 		logf.FromContext(ctx).Info(w)
 	}
 
-	return path, nil
+	return nil
 }
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
@@ -102,10 +102,6 @@ func parseToken(ctx context.Context, data interface{}) (*api.Token, error) {
 		return nil, err
 	}
 	return token, nil
-}
-
-func (v *vaultTokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
-	return getVaultPath(owner), nil
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
