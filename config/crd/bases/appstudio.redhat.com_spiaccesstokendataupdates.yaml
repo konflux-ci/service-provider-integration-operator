@@ -1,0 +1,64 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  creationTimestamp: null
+  name: spiaccesstokendataupdates.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessTokenDataUpdate
+    listKind: SPIAccessTokenDataUpdateList
+    plural: spiaccesstokendataupdates
+    singular: spiaccesstokendataupdate
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: SPIAccessTokenDataUpdate is a special CRD that advertises to
+          the controller in the Kubernetes cluster that there has been an update of
+          the data in the token storage. Because token storage is out-of-cluster,
+          updates to it are not registered by the controllers. This CRD serves as
+          a "trigger" for reconciliation of the SPIAccessToken after the data has
+          been updated in the token storage. The caller that updates the data in the
+          token storage is responsible for creating an object pointing to the SPIAccessToken
+          that should have been affected.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SPIAccessTokenDataUpdateSpec defines the desired state of
+              SPIAccessTokenDataUpdate
+            properties:
+              tokenName:
+                description: TokenName is the name of the SPIAccessToken object in
+                  the same namespace as the update object
+                type: string
+            required:
+            - tokenName
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

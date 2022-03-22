@@ -31,14 +31,16 @@ var _ = Describe("Create without token data", func() {
 	var createdToken *api.SPIAccessToken
 
 	var _ = BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: api.ServiceProviderTypeGitHub,
-				Permissions:         api.Permissions{},
+				ServiceProviderUrl: "test-provider://",
+				Permissions:        api.Permissions{},
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
@@ -66,22 +68,6 @@ var _ = Describe("Create without token data", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(tokenData).To(BeNil())
 	})
-
-	It("allows data location to be updated", func() {
-		accessToken := &api.SPIAccessToken{}
-
-		Eventually(func(g Gomega) {
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-			g.Expect(accessToken.Spec.DataLocation).To(BeEmpty())
-
-			accessToken.Spec.DataLocation = "over there"
-
-			g.Expect(ITest.Client.Update(ITest.Context, accessToken)).To(Succeed())
-		}).Should(Succeed())
-
-		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
-		Expect(accessToken.Spec.DataLocation).To(Equal("over there"))
-	})
 })
 
 var _ = Describe("Delete token", func() {
@@ -89,13 +75,15 @@ var _ = Describe("Delete token", func() {
 	tokenDeleteInProgress := false
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-token",
 				Namespace:    "default",
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: "TestServiceProvider",
+				ServiceProviderUrl: "test-provider://",
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
@@ -122,7 +110,9 @@ var _ = Describe("Delete token", func() {
 		var createdBinding *api.SPIAccessTokenBinding
 
 		BeforeEach(func() {
+			ITest.TestServiceProvider.Reset()
 			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+
 			createdBinding = &api.SPIAccessTokenBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-binding",
@@ -159,31 +149,27 @@ var _ = Describe("Delete token", func() {
 
 	It("deletes token data from storage", func() {
 		// store the token data
-		loc, err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+		err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
 			AccessToken: "42",
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		// update the token with the location of the token data
-		token := &api.SPIAccessToken{}
-		Eventually(func(g Gomega) {
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-			token.Spec.DataLocation = loc
-			g.Expect(ITest.Client.Update(ITest.Context, token)).To(Succeed())
-		}).Should(Succeed())
-
 		// check that we can read the data from the storage
-		data, err := ITest.TokenStorage.Get(ITest.Context, token)
+		data, err := ITest.TokenStorage.Get(ITest.Context, createdToken)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data).NotTo(BeNil())
 
 		// delete the token
-		Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
-		tokenDeleteInProgress = true
+		Eventually(func(g Gomega) {
+			token := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+			g.Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
+			tokenDeleteInProgress = true
+		}).Should(Succeed())
 
 		// test that the data disappears, too
 		Eventually(func(g Gomega) {
-			data, err := ITest.TokenStorage.Get(ITest.Context, token)
+			data, err := ITest.TokenStorage.Get(ITest.Context, createdToken)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(data).To(BeNil())
 		}).Should(Succeed())

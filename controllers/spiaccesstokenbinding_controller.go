@@ -109,6 +109,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, NewReconcileError(err, "failed to read the object")
 	}
 
+	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
+		"phase_at_reconcile_start", binding.Status.Phase)
+
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
 		return ctrl.Result{}, nil
@@ -133,6 +136,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			lg.Error(err, "unable to link the token")
 			return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
 		}
+
+		lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName, "token_phase", token.Status.Phase)
 	} else {
 		token = &api.SPIAccessToken{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token); err != nil {
@@ -143,12 +148,13 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			lg.Error(err, "failed to fetch the linked token")
 			return ctrl.Result{}, err
 		}
+		lg = lg.WithValues("token_phase", token.Status.Phase)
 
 		if token.Status.Phase == api.SPIAccessTokenPhaseReady && binding.Status.SyncedObjectRef.Name == "" {
 			// we've not yet synced the token... let's check that it fulfills the reqs
 			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
 			if err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to lookup token before definitely assiging it to the binding")
+				return ctrl.Result{}, NewReconcileError(err, "failed to lookup token before definitely assigning it to the binding")
 			}
 			if newToken == nil {
 				// the token that we are linked to is ready but doesn't match the criteria of the binding.
@@ -164,6 +170,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
 				}
 				token = newToken
+				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
 			}
 		} else if token.Status.Phase != api.SPIAccessTokenPhaseReady {
 			// let's try to do a lookup in case another token started matching our reqs
@@ -182,6 +189,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
 				}
 				token = newToken
+				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
 			}
 		}
 	}
@@ -248,9 +256,8 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 				Namespace:    binding.Namespace,
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: sp.GetType(),
-				Permissions:         binding.Spec.Permissions,
-				ServiceProviderUrl:  serviceProviderUrl,
+				Permissions:        binding.Spec.Permissions,
+				ServiceProviderUrl: serviceProviderUrl,
 			},
 		}
 
@@ -323,8 +330,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	}
 
 	if token == nil {
+		err = fmt.Errorf("access token data not found")
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
-		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
+		return api.TargetObjectRef{}, err
 	}
 
 	var userId, userName string
