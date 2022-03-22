@@ -179,7 +179,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	changed := false
 
-	if at.Status.TokenMetadata == nil {
+	if at.Status.TokenMetadata == nil || at.Status.TokenMetadata.Username == "" {
 		oauthUrl, err := r.oAuthUrlFor(at)
 		if err != nil {
 			return err
