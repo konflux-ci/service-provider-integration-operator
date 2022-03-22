@@ -17,6 +17,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -93,6 +94,11 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		},
 	})
 	if err != nil {
+		return
+	}
+
+	if res.StatusCode != 200 {
+		err = fmt.Errorf("invalid access token")
 		return
 	}
 

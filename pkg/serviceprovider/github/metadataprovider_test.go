@@ -81,3 +81,43 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
 	assert.Equal(t, 3, len(tokenState.AccessibleRepos))
 }
+
+func TestMetadataProvider_Fetch_fail(t *testing.T) {
+	httpCl := &http.Client{
+		Transport: serviceprovider.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			if r.URL == githubUserApiEndpoint {
+				return &http.Response{
+					StatusCode: 401,
+					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "Bad credentials"}`))),
+				}, nil
+			} else {
+				return &http.Response{
+					StatusCode: 200,
+					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(allRepositoriesFakeResponse))),
+				}, nil
+			}
+		}),
+	}
+
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+
+	mp := metadataProvider{
+		graphqlClient: graphql.NewClient("", graphql.WithHTTPClient(httpCl)),
+		httpClient:    httpCl,
+		tokenStorage:  &ts,
+	}
+
+	tkn := api.SPIAccessToken{}
+	data, err := mp.Fetch(context.TODO(), &tkn)
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
