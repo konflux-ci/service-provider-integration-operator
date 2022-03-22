@@ -29,17 +29,14 @@ const (
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
-	//+kubebuilder:validation:Required
-	ServiceProviderType ServiceProviderType `json:"serviceProviderType"`
-	Permissions         Permissions         `json:"permissions"`
+	Permissions Permissions `json:"permissions"`
 	//+kubebuilder:validation:Required
 	ServiceProviderUrl string `json:"serviceProviderUrl"`
-	DataLocation       string `json:"dataLocation,omitempty"`
-	RawTokenData       *Token `json:"rawTokenData,omitempty"`
 }
 
 // Token is copied from golang.org/x/oauth2 and made easily json-serializable. It represents the data obtained from the
 // OAuth flow.
+// TODO move this out of this package. The token is no longer part of the CRD in any shape or form.
 type Token struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type,omitempty"`
@@ -161,13 +158,13 @@ type SPIAccessTokenList struct {
 
 // EnsureLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
 // token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
-func (t *SPIAccessToken) EnsureLabels() (changed bool) {
+func (t *SPIAccessToken) EnsureLabels(detectedType ServiceProviderType) (changed bool) {
 	if t.Labels == nil {
 		t.Labels = map[string]string{}
 	}
 
-	if t.Labels[ServiceProviderTypeLabel] != string(t.Spec.ServiceProviderType) {
-		t.Labels[ServiceProviderTypeLabel] = string(t.Spec.ServiceProviderType)
+	if t.Labels[ServiceProviderTypeLabel] != string(detectedType) {
+		t.Labels[ServiceProviderTypeLabel] = string(detectedType)
 		changed = true
 	}
 

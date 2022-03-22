@@ -33,7 +33,8 @@ type ServiceProvider interface {
 	LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
 
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any
-	// state and metadata required for the token lookup.
+	// state and metadata required for the token lookup. The metadata must be stored in the Status.TokenMetadata field
+	// of the provided token.
 	PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error
 
 	// GetBaseUrl returns the base URL of the service provider this instance talks to. This info is saved with the

@@ -31,15 +31,14 @@ import (
 )
 
 type TestTokenStorage struct {
-	StoreImpl           func(context.Context, *api.SPIAccessToken, *api.Token) (string, error)
-	GetImpl             func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error)
-	GetDataLocationImpl func(ctx context.Context, token *api.SPIAccessToken) (string, error)
-	DeleteImpl          func(context.Context, *api.SPIAccessToken) error
+	StoreImpl  func(context.Context, *api.SPIAccessToken, *api.Token) error
+	GetImpl    func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error)
+	DeleteImpl func(context.Context, *api.SPIAccessToken) error
 }
 
-func (t TestTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) (string, error) {
+func (t TestTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	if t.StoreImpl == nil {
-		return "", nil
+		return nil
 	}
 
 	return t.StoreImpl(ctx, owner, token)
@@ -51,14 +50,6 @@ func (t TestTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*
 	}
 
 	return t.GetImpl(ctx, owner)
-}
-
-func (t TestTokenStorage) GetDataLocation(ctx context.Context, owner *api.SPIAccessToken) (string, error) {
-	if t.GetDataLocationImpl == nil {
-		return "", nil
-	}
-
-	return t.GetDataLocationImpl(ctx, owner)
 }
 
 func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
