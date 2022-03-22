@@ -106,10 +106,6 @@ func main() {
 	}
 
 	strg, err := tokenstorage.New(mgr.GetClient())
-	strg = &tokenstorage.NotifyingTokenStorage{
-		Client:       mgr.GetClient(),
-		TokenStorage: strg,
-	}
 
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
