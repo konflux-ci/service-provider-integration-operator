@@ -23,7 +23,7 @@ var testSpiAccessToken = &v1beta1.SPIAccessToken{
 	},
 }
 
-func TestStoreAndGet(t *testing.T) {
+func TestStorage(t *testing.T) {
 	cluster, storage := CreateTestVaultTokenStorage(t)
 	defer cluster.Cleanup()
 

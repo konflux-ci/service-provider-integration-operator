@@ -118,9 +118,5 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 }
 
 func getVaultPath(owner *api.SPIAccessToken) string {
-	name := owner.Name
-	if name == "" {
-		name = owner.GenerateName
-	}
-	return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, name)
+	return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
 }
