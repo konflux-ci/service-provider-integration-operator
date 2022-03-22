@@ -458,6 +458,7 @@ var _ = Describe("Status updates", func() {
 
 		AfterEach(func() {
 			Expect(ITest.TokenStorage.Delete(ITest.Context, token)).To(Succeed())
+			ITest.TestServiceProvider.LookupTokenImpl = nil
 		})
 
 		It("should end in error phase if linked token doesn't fit the requirements", func() {

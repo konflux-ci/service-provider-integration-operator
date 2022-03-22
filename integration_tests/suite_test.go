@@ -190,10 +190,16 @@ var _ = BeforeSuite(func() {
 		TokenStorage: strg,
 	}
 
+	// the controllers themselves do not need the notifying token storage because they operate in the cluster
+	// the notifying token storage is only needed if changes are only made to the storage and the cluster needs to be
+	// notified about it. This only happens in OAuth service or in tests. So the test code is using notifying token
+	// storage so that the controllers can react to the changes made to the token storage by the testsuite but the
+	// controllers themselves use the "raw" token storage because they only write to the storage based on the conditions
+	// in the cluster.
 	err = (&controllers.SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ITest.TokenStorage,
+		TokenStorage:           strg,
 		Configuration:          operatorCfg,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
@@ -202,7 +208,7 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.SPIAccessTokenBindingReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ITest.TokenStorage,
+		TokenStorage:           strg,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
