@@ -27,7 +27,7 @@
 //go:build !release
 // +build !release
 
-package serviceprovider
+package util
 
 import "net/http"
 

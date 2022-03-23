@@ -22,16 +22,17 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
+
 	"github.com/machinebox/graphql"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMetadataProvider_Fetch(t *testing.T) {
 	httpCl := &http.Client{
-		Transport: serviceprovider.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL == githubUserApiEndpoint {
 				return &http.Response{
 					StatusCode: 200,
@@ -84,7 +85,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 
 func TestMetadataProvider_Fetch_fail(t *testing.T) {
 	httpCl := &http.Client{
-		Transport: serviceprovider.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL == githubUserApiEndpoint {
 				return &http.Response{
 					StatusCode: 401,

@@ -98,7 +98,9 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 	}
 
 	if res.StatusCode != 200 {
-		err = fmt.Errorf("invalid access token")
+		// this should never happen because our http client should already handle the errors so we return a hard
+		// error that will cause the whole fetch to fail
+		err = fmt.Errorf("unhandled response from the service provider. status code: %d", res.StatusCode)
 		return
 	}
 

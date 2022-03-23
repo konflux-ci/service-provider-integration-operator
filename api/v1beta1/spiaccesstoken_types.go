@@ -122,9 +122,11 @@ const (
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
 type SPIAccessTokenStatus struct {
-	Phase         SPIAccessTokenPhase `json:"phase"`
-	OAuthUrl      string              `json:"oAuthUrl"`
-	TokenMetadata *TokenMetadata      `json:"tokenMetadata,omitempty"`
+	Phase         SPIAccessTokenPhase       `json:"phase"`
+	ErrorReason   SPIAccessTokenErrorReason `json:"errorReason"`
+	ErrorMessage  string                    `json:"errorMessage"`
+	OAuthUrl      string                    `json:"oAuthUrl"`
+	TokenMetadata *TokenMetadata            `json:"tokenMetadata,omitempty"`
 }
 
 // SPIAccessTokenPhase is the reconciliation phase of the SPIAccessToken object
@@ -133,6 +135,16 @@ type SPIAccessTokenPhase string
 const (
 	SPIAccessTokenPhaseAwaitingTokenData SPIAccessTokenPhase = "AwaitingTokenData"
 	SPIAccessTokenPhaseReady             SPIAccessTokenPhase = "Ready"
+	SPIAccessTokenPhaseInvalid           SPIAccessTokenPhase = "Invalid"
+	SPIAccessTokenPhaseError             SPIAccessTokenPhase = "Error"
+)
+
+// SPIAccessTokenErrorReason is the enumeration of reasons for the token being invalid
+type SPIAccessTokenErrorReason string
+
+const (
+	SPIAccessTokenErrorReasonUnknownServiceProvider SPIAccessTokenErrorReason = "UnknownServiceProvider"
+	SPIAccessTokenErrorReasonMetadataFailure        SPIAccessTokenErrorReason = "MetadataFailure"
 )
 
 //+kubebuilder:object:root=true

@@ -15,7 +15,10 @@
 package integrationtests
 
 import (
+	"context"
 	"time"
+
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -228,6 +231,109 @@ var _ = Describe("Delete token", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(data).To(BeNil())
 		}).Should(Succeed())
+	})
+})
+
+var _ = Describe("Phase", func() {
+	var createdToken *api.SPIAccessToken
+
+	Context("with valid SP url", func() {
+		BeforeEach(func() {
+			ITest.TestServiceProvider.Reset()
+
+			createdToken = &api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "phase-test-token",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenSpec{
+					ServiceProviderUrl: "test-provider://",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		It("defaults to AwaitingTokenData", func() {
+			Eventually(func(g Gomega) {
+				token := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+				g.Expect(token.Status.ErrorReason).To(BeEmpty())
+				g.Expect(token.Status.ErrorMessage).To(BeEmpty())
+			}).Should(Succeed())
+		})
+
+		When("metadata is persisted", func() {
+			BeforeEach(func() {
+				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					Username:             "user",
+					UserId:               "42",
+					Scopes:               []string{},
+					ServiceProviderState: []byte("state"),
+				})
+			})
+
+			It("flips to ready", func() {
+				Eventually(func(g Gomega) {
+					token := &api.SPIAccessToken{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+					g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+					g.Expect(token.Status.ErrorReason).To(BeEmpty())
+					g.Expect(token.Status.ErrorMessage).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
+
+		When("metadata fails to persist due to invalid token", func() {
+			It("flips to Invalid", func() {
+				ITest.TestServiceProvider.PersistMetadataImpl = func(ctx context.Context, c client.Client, token *api.SPIAccessToken) error {
+					return sperrors.InvalidAccessToken
+				}
+
+				Eventually(func(g Gomega) {
+					token := &api.SPIAccessToken{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+					g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseInvalid))
+					g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonMetadataFailure))
+					g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
+				})
+			})
+		})
+	})
+
+	Context("with invalid SP url", func() {
+		BeforeEach(func() {
+			ITest.TestServiceProvider.Reset()
+
+			createdToken = &api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "phase-test-token",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenSpec{
+					ServiceProviderUrl: "not-test-provider://",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		It("flips to Invalid due to invalid SP url", func() {
+			Eventually(func(g Gomega) {
+				token := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseInvalid))
+				g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnknownServiceProvider))
+				g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
+			}).Should(Succeed())
+		})
 	})
 })
 

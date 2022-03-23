@@ -17,9 +17,14 @@ package github
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
+
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
 	"github.com/machinebox/graphql"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -62,7 +67,7 @@ func TestAllAccessibleRepos(t *testing.T) {
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(&http.Client{
-		Transport: serviceprovider.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: 200,
 				Header:     http.Header{},
@@ -75,4 +80,28 @@ func TestAllAccessibleRepos(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 3, len(ts.AccessibleRepos))
+}
+
+func TestAllAccessibleRepos_fail(t *testing.T) {
+	aar := &AllAccessibleRepos{}
+
+	ts := &TokenState{
+		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
+	}
+
+	cl := serviceprovider.AuthenticatingHttpClient(&http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 401,
+				Header:     http.Header{},
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "This endpoint requires authentication."}`))),
+				Request:    r,
+			}, nil
+		}),
+	})
+
+	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(cl)), "access token", ts)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, sperrors.InvalidAccessToken))
 }
