@@ -9,7 +9,7 @@ server:
   logLevel: "trace"
 
   image:
-    tag: "1.9.3"
+    tag: "1.9.4"
 
   dataStorage:
     enabled: true
