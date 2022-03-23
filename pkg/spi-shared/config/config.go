@@ -52,7 +52,7 @@ type PersistedConfiguration struct {
 	// is 1h (1 hour).
 	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
 
-	// VaultHost is url to Vault storage. Default `spi-vault` which is default spi Vault service name for kubernetes deployments.
+	// VaultHost is url to Vault storage. Default `http://spi-vault:8200` which is default spi Vault service name for kubernetes deployments.
 	VaultHost string `yaml:"vaultHost"`
 }
 
@@ -76,8 +76,11 @@ type Configuration struct {
 	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
 	TokenLookupCacheTtl time.Duration
 
+	// VaultHost url to vault storage.
 	VaultHost string
 
+	// ServiceAccountTokenFilePath file with service account token. It is used for Vault kubernetes auth.
+	// No need to set when running in pod, but can be useful when running outside, like local dev.
 	ServiceAccountTokenFilePath string
 }
 
