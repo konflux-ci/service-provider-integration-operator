@@ -81,6 +81,7 @@ type Configuration struct {
 
 	// ServiceAccountTokenFilePath file with service account token. It is used for Vault kubernetes auth.
 	// No need to set when running in pod, but can be useful when running outside, like local dev.
+	// It is set with `SA_TOKEN_PATH` environment variable.
 	ServiceAccountTokenFilePath string
 }
 
