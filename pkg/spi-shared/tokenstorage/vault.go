@@ -16,8 +16,8 @@ package tokenstorage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/kubernetes"
@@ -97,25 +97,18 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 		return nil, fmt.Errorf("corrupted data in Vault at '%s'", path)
 	}
 
-	return parseToken(ctx, data)
+	return parseToken(data)
 }
 
-func parseToken(ctx context.Context, data interface{}) (*api.Token, error) {
-	// We only get `interface{}` from Vault. In order to get `Token{}` struct,
-	// we first marshall interface into JSON, and then unmarshall it back to `Token{}` struct.
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		logf.FromContext(ctx).Error(err, "failed to marshall token data back")
-		return nil, err
+func parseToken(data interface{}) (*api.Token, error) {
+	token := &api.Token{}
+	decoder, decoderErr := mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result: token, TagName: "json"})
+	if decoderErr != nil {
+		return nil, decoderErr
 	}
 
-	token := &api.Token{}
-	err = json.Unmarshal(jsonData, token)
-	if err != nil {
-		logf.FromContext(ctx).Error(err, "failed to unmarshall databack to token")
-		return nil, err
-	}
-	return token, nil
+	err := decoder.Decode(data)
+	return token, err
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
