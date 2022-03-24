@@ -19,13 +19,14 @@ package tokenstorage
 
 import (
 	"context"
-	"testing"
 
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	vaultapi "github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
+
+	vtesting "github.com/mitchellh/go-testing-interface"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
@@ -62,7 +63,7 @@ func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 
 var _ TokenStorage = (*TestTokenStorage)(nil)
 
-func CreateTestVaultTokenStorage(t *testing.T) (*vault.TestCluster, TokenStorage) {
+func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, TokenStorage) {
 	t.Helper()
 
 	coreConfig := &vault.CoreConfig{

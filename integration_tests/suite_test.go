@@ -169,7 +169,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	vaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(&testing.T{})
+	vaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
