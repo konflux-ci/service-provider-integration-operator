@@ -59,10 +59,10 @@ type IntegrationTest struct {
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
 	TestServiceProvider      TestServiceProvider
+	VaultTestCluster         *vault.TestCluster
 }
 
 var ITest IntegrationTest
-var vaultTestCluster *vault.TestCluster
 
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
 
@@ -169,7 +169,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	vaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
+	ITest.VaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
@@ -238,7 +238,7 @@ var _ = AfterSuite(func() {
 	}
 
 	By("tearing down the test environment")
-	vaultTestCluster.Cleanup()
+	ITest.VaultTestCluster.Cleanup()
 	if ITest.TestEnvironment != nil {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())
