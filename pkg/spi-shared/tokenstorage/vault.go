@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	k8s "sigs.k8s.io/controller-runtime/pkg/client"
-
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -34,7 +32,7 @@ type vaultTokenStorage struct {
 }
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(k8sClient k8s.Client, role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
+func NewVaultStorage(role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultHost
 	vaultClient, err := vault.NewClient(config)
@@ -58,10 +56,7 @@ func NewVaultStorage(k8sClient k8s.Client, role string, vaultHost string, servic
 	if authInfo == nil {
 		return nil, fmt.Errorf("no auth info was returned after login to vault")
 	}
-	return &NotifyingTokenStorage{
-		Client:       k8sClient,
-		TokenStorage: &vaultTokenStorage{vaultClient},
-	}, nil
+	return &vaultTokenStorage{vaultClient}, nil
 }
 
 func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
