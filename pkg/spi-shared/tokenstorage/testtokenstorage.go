@@ -72,6 +72,7 @@ func CreateTestVaultTokenStorage(t *testing.T) (*vault.TestCluster, TokenStorage
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
+		NumCores:    1,
 	})
 	cluster.Start()
 	client := cluster.Cores[0].Client
