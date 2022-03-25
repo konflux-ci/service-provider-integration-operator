@@ -16,8 +16,9 @@ package tokenstorage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
+	"strconv"
 
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/kubernetes"
@@ -101,14 +102,48 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 }
 
 func parseToken(data interface{}) (*api.Token, error) {
-	token := &api.Token{}
-	decoder, decoderErr := mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result: token, TagName: "json"})
-	if decoderErr != nil {
-		return nil, decoderErr
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected data")
 	}
 
-	err := decoder.Decode(data)
-	return token, err
+	token := &api.Token{}
+	token.AccessToken = ifaceMapFieldToString(dataMap, "access_token")
+	token.TokenType = ifaceMapFieldToString(dataMap, "token_type")
+	token.RefreshToken = ifaceMapFieldToString(dataMap, "refresh_token")
+	expiry, expiryErr := ifaceMapFieldToUint64(dataMap, "expiry")
+	if expiryErr != nil {
+		return nil, expiryErr
+	}
+	token.Expiry = expiry
+
+	return token, nil
+}
+
+// ifaceMapFieldToUint64 gets `fieldName` field from `source` map and returns its uint64 value.
+// If `fieldName` doesn't exist in map, returns 0. If `fieldName` can't be represented as uint64, return error.
+func ifaceMapFieldToUint64(source map[string]interface{}, fieldName string) (uint64, error) {
+	if mapVal, ok := source[fieldName]; ok {
+		if numberVal, ok := mapVal.(json.Number); ok {
+			if val, err := strconv.ParseUint(numberVal.String(), 10, 64); err == nil {
+				return val, nil
+			} else {
+				return 0, fmt.Errorf("invalid '%s' value. '%s' can't be parsed to uint64", fieldName, numberVal.String())
+			}
+		}
+	}
+	return 0, nil
+}
+
+// ifaceMapFieldToString gets `fieldName` field from `source` map and returns its string value.
+// If `fieldName` doesn't exist in map or can't be returned as string, returns empty string.
+func ifaceMapFieldToString(source map[string]interface{}, fieldName string) string {
+	if mapVal, ok := source[fieldName]; ok {
+		if stringVal, ok := mapVal.(string); ok {
+			return stringVal
+		}
+	}
+	return ""
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
