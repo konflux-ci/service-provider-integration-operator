@@ -16,6 +16,7 @@ package tokenstorage
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -55,4 +56,62 @@ func TestStorage(t *testing.T) {
 	gettedToken, err = storage.Get(context.TODO(), testSpiAccessToken)
 	assert.NoError(t, err)
 	assert.Nil(t, gettedToken)
+}
+
+func TestParseToken(t *testing.T) {
+	t.Run("nil data", func(t *testing.T) {
+		token, err := parseToken(nil)
+		assert.Nil(t, token)
+		assert.NotNil(t, err)
+	})
+
+	t.Run("wrong data", func(t *testing.T) {
+		token, err := parseToken(v1beta1.SPIAccessToken{})
+		assert.Nil(t, token)
+		assert.NotNil(t, err)
+	})
+
+	t.Run("full token", func(t *testing.T) {
+		data := map[string]interface{}{
+			"access_token":  "at",
+			"token_type":    "tt",
+			"refresh_token": "rt",
+			"expiry":        json.Number("1337"),
+		}
+		token, err := parseToken(data)
+		assert.Nil(t, err)
+		assert.Equal(t, "at", token.AccessToken)
+		assert.Equal(t, "tt", token.TokenType)
+		assert.Equal(t, "rt", token.RefreshToken)
+		assert.Equal(t, uint64(1337), token.Expiry)
+	})
+
+	t.Run("empty token", func(t *testing.T) {
+		data := map[string]interface{}{}
+		token, err := parseToken(data)
+		assert.Nil(t, err)
+		assert.NotNil(t, token)
+		assert.Equal(t, "", token.AccessToken)
+		assert.Equal(t, "", token.TokenType)
+		assert.Equal(t, "", token.RefreshToken)
+		assert.Equal(t, uint64(0), token.Expiry)
+	})
+
+	t.Run("expiry not json.Number", func(t *testing.T) {
+		data := map[string]interface{}{
+			"expiry": 1337,
+		}
+		token, err := parseToken(data)
+		assert.Nil(t, err)
+		assert.Equal(t, uint64(0), token.Expiry)
+	})
+
+	t.Run("invalid expiry", func(t *testing.T) {
+		data := map[string]interface{}{
+			"expiry": json.Number("blabol"),
+		}
+		token, err := parseToken(data)
+		assert.NotNil(t, err)
+		assert.Nil(t, token)
+	})
 }
