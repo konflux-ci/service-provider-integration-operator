@@ -24,3 +24,9 @@ rules:
   verbs:
   - get
   - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokendataupdates
+  verbs:
+  - create

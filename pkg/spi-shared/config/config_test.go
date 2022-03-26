@@ -57,6 +57,7 @@ serviceProviders:
   clientId: "456"
   clientSecret: "54"
 baseUrl: blabol
+vaultHost: vaultTestHost
 `
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
@@ -66,7 +67,20 @@ baseUrl: blabol
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
+	assert.Equal(t, "vaultTestHost", cfg.VaultHost)
 	assert.Len(t, cfg.ServiceProviders, 2)
+}
+
+func TestVaultDefaultHost(t *testing.T) {
+	configFileContent := `
+`
+	cfgFilePath := createFile(t, "config", configFileContent)
+	defer os.Remove(cfgFilePath)
+
+	cfg, err := LoadFrom(cfgFilePath)
+	assert.NoError(t, err)
+
+	assert.Equal(t, DefaultVaultHost, cfg.VaultHost)
 }
 
 func createFile(t *testing.T, path string, content string) string {
