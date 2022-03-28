@@ -17,10 +17,7 @@ package tokenstorage
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
@@ -29,9 +26,4 @@ type TokenStorage interface {
 	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error
 	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
-}
-
-// New creates a new `TokenStorage` instance using the provided Kubernetes client.
-func New(cl client.Client) (TokenStorage, error) {
-	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
 }
