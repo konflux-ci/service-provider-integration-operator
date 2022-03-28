@@ -46,16 +46,14 @@ func TestSecretsTokenStorage_Delete(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderType: "provider",
-			Permissions:         api.Permissions{},
-			ServiceProviderUrl:  "https://sp",
-			DataLocation:        "default:secret",
+			Permissions:        api.Permissions{},
+			ServiceProviderUrl: "https://sp",
 		},
 	}
 
 	storage := newStorage(token, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret",
+			Name:      "spi-storage-token",
 			Namespace: "default",
 		},
 		Data: map[string][]byte{},
@@ -75,17 +73,15 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderType: "provider",
-			Permissions:         api.Permissions{},
-			ServiceProviderUrl:  "https://sp",
-			DataLocation:        "default:secret",
+			Permissions:        api.Permissions{},
+			ServiceProviderUrl: "https://sp",
 		},
 	}
 
 	t.Run("with expiry", func(t *testing.T) {
 		storage := newStorage(token, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "secret",
+				Name:      "spi-storage-token",
 				Namespace: "default",
 			},
 			Data: map[string][]byte{
@@ -99,6 +95,7 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 
 		data, err := storage.Get(context.TODO(), token)
 		assert.NoError(t, err)
+		assert.NotNil(t, data)
 		assert.Equal(t, "access", data.AccessToken)
 		assert.Equal(t, "refresh", data.RefreshToken)
 		assert.Equal(t, "awesome", data.TokenType)
@@ -108,7 +105,7 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 	t.Run("without expiry", func(t *testing.T) {
 		storage := newStorage(token, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "secret",
+				Name:      "spi-storage-token",
 				Namespace: "default",
 			},
 			Data: map[string][]byte{
@@ -128,88 +125,10 @@ func TestSecretsTokenStorage_Get(t *testing.T) {
 	})
 }
 
-func TestSecretsTokenStorage_GetDataLocation(t *testing.T) {
-	t.Run("of pending token", func(t *testing.T) {
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "token",
-				Namespace: "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: "provider",
-				Permissions:         api.Permissions{},
-				ServiceProviderUrl:  "https://sp",
-				DataLocation:        "",
-			},
-		}
-		storage := newStorage(token)
-
-		loc, err := storage.GetDataLocation(context.TODO(), token)
-		assert.NoError(t, err)
-		assert.Empty(t, loc)
-	})
-
-	t.Run("of persisted token", func(t *testing.T) {
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "token",
-				Namespace: "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: "provider",
-				Permissions:         api.Permissions{},
-				ServiceProviderUrl:  "https://sp",
-				DataLocation:        "default:secret",
-			},
-		}
-
-		storage := newStorage(token, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "secret",
-				Namespace: "default",
-			},
-			Data: map[string][]byte{
-				"access_token":  []byte("access"),
-				"refresh_token": []byte("refresh"),
-				"token_type":    []byte("happy"),
-				"expiry":        []byte("42"),
-			},
-		})
-
-		loc, err := storage.GetDataLocation(context.TODO(), token)
-		assert.NoError(t, err)
-		assert.Equal(t, "default:secret", loc)
-	})
-
-	t.Run("in transitional state", func(t *testing.T) {
-		// token specifies a location but there is no backing secret yet/anymore
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "token",
-				Namespace: "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: "provider",
-				Permissions:         api.Permissions{},
-				ServiceProviderUrl:  "https://sp",
-				DataLocation:        "default:secret",
-			},
-		}
-
-		storage := newStorage(token)
-
-		loc, err := storage.GetDataLocation(context.TODO(), token)
-		assert.NoError(t, err)
-		assert.Empty(t, loc)
-	})
-}
-
 func TestSecretsTokenStorage_Store(t *testing.T) {
 	tokenSpec := api.SPIAccessTokenSpec{
-		ServiceProviderType: "provider",
-		Permissions:         api.Permissions{},
-		ServiceProviderUrl:  "https://sp",
-		DataLocation:        "",
+		Permissions:        api.Permissions{},
+		ServiceProviderUrl: "https://sp",
 	}
 
 	data := &api.Token{
@@ -219,13 +138,9 @@ func TestSecretsTokenStorage_Store(t *testing.T) {
 		Expiry:       42,
 	}
 
-	testSecret := func(t *testing.T, storage *secretsTokenStorage, location string, checkUid bool) {
-		key, ok := getSecretKeyFromLocation(&api.SPIAccessToken{
-			Spec: api.SPIAccessTokenSpec{
-				DataLocation: location,
-			},
-		})
-		assert.True(t, ok)
+	testSecret := func(t *testing.T, storage *secretsTokenStorage, token *api.SPIAccessToken) {
+		key := getSecretKey(token)
+
 		secret := &corev1.Secret{}
 		assert.NoError(t, storage.Client.Get(context.TODO(), key, secret))
 		assert.Equal(t, "access", string(secret.Data["access_token"]))
@@ -233,9 +148,7 @@ func TestSecretsTokenStorage_Store(t *testing.T) {
 		assert.Equal(t, "refresh", string(secret.Data["refresh_token"]))
 		assert.Equal(t, "42", string(secret.Data["expiry"]))
 		assert.Equal(t, 1, len(secret.OwnerReferences))
-		if checkUid {
-			assert.Equal(t, "42", string(secret.OwnerReferences[0].UID))
-		}
+		assert.Equal(t, "42", string(secret.OwnerReferences[0].UID))
 	}
 
 	t.Run("token with name", func(t *testing.T) {
@@ -250,28 +163,9 @@ func TestSecretsTokenStorage_Store(t *testing.T) {
 
 		storage := newStorage(token)
 
-		loc, err := storage.Store(context.TODO(), token, data)
+		err := storage.Store(context.TODO(), token, data)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, loc)
-		testSecret(t, storage, loc, true)
-	})
-
-	t.Run("token with generatename", func(t *testing.T) {
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "token-",
-				Namespace:    "default",
-				UID:          "42",
-			},
-			Spec: tokenSpec,
-		}
-
-		storage := newStorage(token)
-
-		loc, err := storage.Store(context.TODO(), token, data)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, loc)
-		testSecret(t, storage, loc, true)
+		testSecret(t, storage, token)
 	})
 
 	t.Run("with pre-existing secret", func(t *testing.T) {
@@ -298,10 +192,9 @@ func TestSecretsTokenStorage_Store(t *testing.T) {
 
 		storage := newStorage(token, preexistingSecret)
 
-		loc, err := storage.Store(context.TODO(), token, data)
+		err := storage.Store(context.TODO(), token, data)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, loc)
-		testSecret(t, storage, loc, true)
+		testSecret(t, storage, token)
 	})
 }
 

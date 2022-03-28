@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 NAMESPACE=spi-system
 SECRET_NAME=spi-vault-keys
 POD_NAME=spi-vault-0
@@ -22,6 +24,10 @@ function init() {
 
 function isInitialized() {
   INITIALIZED=$( vaultExec "vault status -format=yaml | grep initialized" )
+  if [ -z "${INITIALIZED}" ]; then
+    echo "failed to obtain initialized status"
+    exit 1
+  fi
   echo "${INITIALIZED}" | awk '{split($0,a,": "); print a[2]}'
 }
 
@@ -119,12 +125,19 @@ function k8sAuth() {
   if ! vaultExec "vault auth list | grep -q kubernetes" ; then
     echo "setup kubernetes authentication ..."
     vaultExec "vault auth enable kubernetes"
-    # shellcheck disable=SC2016
-    vaultExec 'vault write auth/kubernetes/config \
-      token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-      kubernetes_host=https://${KUBERNETES_PORT_443_TCP_ADDR}:443 \
-      kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
   fi
+  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
+  vaultExec "vault write auth/kubernetes/role/spi-controller-manager \
+        bound_service_account_names=spi-controller-manager \
+        bound_service_account_namespaces=spi-system \
+        policies=spi"
+  vaultExec "vault write auth/kubernetes/role/spi-oauth \
+          bound_service_account_names=spi-oauth-sa \
+          bound_service_account_namespaces=spi-system \
+          policies=spi"
+  # shellcheck disable=SC2016
+  vaultExec 'vault write auth/kubernetes/config \
+        kubernetes_host=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT'
 }
 
 function spiSecretEngine() {
@@ -152,6 +165,6 @@ unseal
 ensureRootToken
 login
 audit
-k8sAuth
 spiSecretEngine
+k8sAuth
 restart

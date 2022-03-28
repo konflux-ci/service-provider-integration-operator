@@ -45,45 +45,41 @@ func init() {
 	githubUserApiEndpoint = url
 }
 
-func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) error {
+func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if data == nil {
-		return nil
+		return nil, nil
 	}
 
 	state := &TokenState{
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	if err := (&AllAccessibleRepos{}).FetchAll(ctx, s.graphqlClient, data.AccessToken, state); err != nil {
-		return err
+		return nil, err
 	}
 
 	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	js, err := json.Marshal(state)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	metadata := token.Status.TokenMetadata
-	if metadata == nil {
-		metadata = &api.TokenMetadata{}
-		token.Status.TokenMetadata = metadata
-	}
+	metadata := &api.TokenMetadata{}
 
 	metadata.UserId = userId
 	metadata.Username = username
 	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
 
-	return nil
+	return metadata, nil
 }
 
 // fetchUserAndScopes fetches the scopes and the details of the user associated with the token

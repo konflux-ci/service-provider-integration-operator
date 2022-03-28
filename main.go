@@ -105,7 +105,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.New(mgr.GetClient())
+	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

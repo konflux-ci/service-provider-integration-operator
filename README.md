@@ -56,6 +56,7 @@ serviceProviders:
   clientId: <service_provider_client_id>
   clientSecret: <service_provider_secret>
 baseUrl: <oauth_base_url>
+vaultHost: <vault_url>
 ```
 
  - `<jwt_sign_secret>` - secret value used for signing the JWT keys
@@ -63,6 +64,8 @@ baseUrl: <oauth_base_url>
  - `<service_provider_client_id>` - client ID of the OAuth application
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
  - `<oauth_base_url>` - URL on which the OAuth service is deployed
+ - `<vault_url>` - Optional. URL to Vault token storage. Default works with deployment scripts. Useful for local development.
+
 
 _To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
 

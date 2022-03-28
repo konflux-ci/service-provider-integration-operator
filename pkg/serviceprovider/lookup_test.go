@@ -77,11 +77,10 @@ func TestGenericLookup_Lookup(t *testing.T) {
 		TokenFilter: TokenFilterFunc(func(binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
 			return token.Name == "matching", nil
 		}),
-		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) error {
-			token.Status.TokenMetadata = &api.TokenMetadata{
+		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+			return &api.TokenMetadata{
 				UserId: "42",
-			}
-			return nil
+			}, nil
 		}),
 		MetadataCache: &cache,
 	}
@@ -115,12 +114,11 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 
 	fetchCalled := false
 	gl := GenericLookup{
-		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) error {
+		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 			fetchCalled = true
-			token.Status.TokenMetadata = &api.TokenMetadata{
+			return &api.TokenMetadata{
 				UserId: "42",
-			}
-			return nil
+			}, nil
 		}),
 		MetadataCache: &cache,
 	}

@@ -109,6 +109,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, NewReconcileError(err, "failed to read the object")
 	}
 
+	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
+		"phase_at_reconcile_start", binding.Status.Phase)
+
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
 		return ctrl.Result{}, nil
@@ -133,6 +136,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			lg.Error(err, "unable to link the token")
 			return ctrl.Result{}, NewReconcileError(err, "failed to link the token")
 		}
+
+		lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName, "token_phase", token.Status.Phase)
 	} else {
 		token = &api.SPIAccessToken{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token); err != nil {
@@ -143,12 +148,13 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			lg.Error(err, "failed to fetch the linked token")
 			return ctrl.Result{}, err
 		}
+		lg = lg.WithValues("token_phase", token.Status.Phase)
 
 		if token.Status.Phase == api.SPIAccessTokenPhaseReady && binding.Status.SyncedObjectRef.Name == "" {
 			// we've not yet synced the token... let's check that it fulfills the reqs
 			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
 			if err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to lookup token before definitely assiging it to the binding")
+				return ctrl.Result{}, NewReconcileError(err, "failed to lookup token before definitely assigning it to the binding")
 			}
 			if newToken == nil {
 				// the token that we are linked to is ready but doesn't match the criteria of the binding.
@@ -164,6 +170,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
 				}
 				token = newToken
+				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
 			}
 		} else if token.Status.Phase != api.SPIAccessTokenPhaseReady {
 			// let's try to do a lookup in case another token started matching our reqs
@@ -182,15 +189,17 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 					return ctrl.Result{}, NewReconcileError(err, "failed to persist the newly matching token")
 				}
 				token = newToken
+				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
 			}
 		}
 	}
 
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
 
+	existingSyncedSecretName := ""
 	switch token.Status.Phase {
 	case api.SPIAccessTokenPhaseReady:
-		ref, err := r.syncSecret(ctx, sp, &binding, token)
+		ref, err := r.syncSecret(ctx, &binding, token)
 		if err != nil {
 			lg.Error(err, "unable to sync the secret")
 			return ctrl.Result{}, NewReconcileError(err, "failed to sync the secret")
@@ -199,11 +208,23 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
 	case api.SPIAccessTokenPhaseAwaitingTokenData:
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+		existingSyncedSecretName = binding.Status.SyncedObjectRef.Name
+		binding.Status.SyncedObjectRef = api.TargetObjectRef{}
 	}
 
 	if err := r.updateStatusSuccess(ctx, &binding); err != nil {
 		lg.Error(err, "unable to update the status")
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
+	}
+
+	// now that we set up the binding correctly, we need to clean up the potentially dangling secret (that might contain
+	// stale data if the data of the token disappeared from the token)
+	if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
+		if err := r.deleteSyncedSecret(ctx, existingSyncedSecretName, binding.Namespace); err != nil {
+			lg.Error(err, "failed to delete the stale synced object")
+			// note that we don't actually set any error on the binding itself, because it no longer references the
+			// secret. The secret will get cleaned up once the binding is deleted because of the owner reference.
+		}
 	}
 
 	lg.Info("reconciliation complete")
@@ -248,9 +269,8 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 				Namespace:    binding.Namespace,
 			},
 			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderType: sp.GetType(),
-				Permissions:         binding.Spec.Permissions,
-				ServiceProviderUrl:  serviceProviderUrl,
+				Permissions:        binding.Spec.Permissions,
+				ServiceProviderUrl: serviceProviderUrl,
 			},
 		}
 
@@ -315,7 +335,7 @@ func (r *SPIAccessTokenBindingReconciler) updateStatusSuccess(ctx context.Contex
 
 // syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
 // to the secret.
-func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
+func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
@@ -323,8 +343,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	}
 
 	if token == nil {
+		err = fmt.Errorf("access token data not found")
 		r.updateStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
-		return api.TargetObjectRef{}, fmt.Errorf("access token data not found")
+		return api.TargetObjectRef{}, err
 	}
 
 	var userId, userName string
@@ -388,6 +409,23 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		return api.TargetObjectRef{}, NewReconcileError(err, "failed to sync the secret with the token data")
 	}
 	return toObjectRef(obj), nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context, secretName string, secretNamespace string) error {
+	if secretName == "" {
+		return nil
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	return r.Client.Delete(ctx, secret)
 }
 
 // toObjectRef creates a reference to a kubernetes object within the same namespace (i.e, a struct containing the name,
