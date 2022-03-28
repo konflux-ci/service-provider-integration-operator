@@ -124,7 +124,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	sp, rerr := r.getServiceProvider(ctx, &binding)
 	if rerr != nil {
 		lg.Error(rerr, "unable to get the service provider")
-		return ctrl.Result{}, rerr
+		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+		return ctrl.Result{}, nil
 	}
 
 	var token *api.SPIAccessToken
@@ -237,6 +239,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, *ReconcileError) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(binding.Spec.RepoUrl)
 	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 		return nil, NewReconcileError(err, "failed to find the service provider")
 	}
