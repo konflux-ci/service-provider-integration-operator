@@ -77,6 +77,12 @@ spec:
           status:
             description: SPIAccessTokenStatus defines the observed state of SPIAccessToken
             properties:
+              errorMessage:
+                type: string
+              errorReason:
+                description: SPIAccessTokenErrorReason is the enumeration of reasons
+                  for the token being invalid
+                type: string
               oAuthUrl:
                 type: string
               phase:
@@ -124,6 +130,8 @@ spec:
                 - username
                 type: object
             required:
+            - errorMessage
+            - errorReason
             - oAuthUrl
             - phase
             type: object

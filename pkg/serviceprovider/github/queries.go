@@ -17,6 +17,9 @@ package github
 import (
 	"context"
 
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
 	"github.com/machinebox/graphql"
 )
 
@@ -52,7 +55,13 @@ type AllAccessibleRepos struct {
 }
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
-	req := _newAuthorizedRequest(accessToken, allAccessibleReposQuery)
+	if accessToken == "" {
+		return sperrors.InvalidAccessToken
+	}
+
+	ctx = httptransport.WithBearerToken(ctx, accessToken)
+
+	req := graphql.NewRequest(allAccessibleReposQuery)
 
 	err := _fetchAll(ctx, client, req, r, func() PageInfo {
 		return r.Viewer.Repositories.PageInfo
@@ -92,12 +101,4 @@ func _fetchAll(ctx context.Context, client *graphql.Client, req *graphql.Request
 
 		req.Var("after", page.EndCursor)
 	}
-}
-
-func _newAuthorizedRequest(accessToken string, query string) *graphql.Request {
-	req := graphql.NewRequest(query)
-
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	return req
 }

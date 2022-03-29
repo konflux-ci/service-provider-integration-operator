@@ -17,6 +17,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -93,6 +94,13 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		},
 	})
 	if err != nil {
+		return
+	}
+
+	if res.StatusCode != 200 {
+		// this should never happen because our http client should already handle the errors so we return a hard
+		// error that will cause the whole fetch to fail
+		err = fmt.Errorf("unhandled response from the service provider. status code: %d", res.StatusCode)
 		return
 	}
 
