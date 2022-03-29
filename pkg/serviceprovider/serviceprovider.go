@@ -101,9 +101,14 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
+	transport := cl.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
 	return &http.Client{
 		Transport: httptransport.ExaminingRoundTripper{
-			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: cl.Transport},
+			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
 			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
 				return sperrors.FromHttpStatusCode(response.StatusCode)
 			}),
