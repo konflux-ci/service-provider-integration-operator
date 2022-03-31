@@ -25,13 +25,15 @@ import (
 type MetadataProvider interface {
 	// Fetch tries to fetch the token metadata and assign it in the token. Note that the metadata of the token may or
 	// may not be nil and this method shouldn't change it unless there is data to assign.
-	Fetch(ctx context.Context, token *api.SPIAccessToken) error
+	// Implementors should make sure to return some errors.ServiceProviderError if the failure to fetch the metadata is
+	// caused by the token or service provider itself and not other environmental reasons
+	Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error)
 }
 
-type MetadataProviderFunc func(ctx context.Context, token *api.SPIAccessToken) error
+type MetadataProviderFunc func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error)
 
 var _ MetadataProvider = (MetadataProviderFunc)(nil)
 
-func (f MetadataProviderFunc) Fetch(ctx context.Context, token *api.SPIAccessToken) error {
+func (f MetadataProviderFunc) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	return f(ctx, token)
 }

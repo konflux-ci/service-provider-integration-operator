@@ -109,8 +109,7 @@ func TestMetadataCache_Persist(t *testing.T) {
 
 		mc := NewMetadataCache(1*time.Hour, cl)
 		assert.NoError(t, mc.Persist(context.TODO(), token))
-		assert.NotNil(t, token.Status.TokenMetadata)
-		assert.True(t, token.Status.TokenMetadata.LastRefreshTime > 0)
+		assert.Nil(t, token.Status.TokenMetadata)
 	})
 
 	t.Run("sets last refresh time", func(t *testing.T) {
@@ -152,11 +151,10 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		assert.NoError(t, cl.Create(context.TODO(), token))
 
 		mc := NewMetadataCache(1*time.Hour, cl)
-		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) error {
-			token.Status.TokenMetadata = &api.TokenMetadata{
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+			return &api.TokenMetadata{
 				UserId: "42",
-			}
-			return nil
+			}, nil
 		}))
 		assert.NoError(t, err)
 		// assert that we ran sufficiently quickly for the test to have a chance to pass
@@ -184,11 +182,10 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		assert.NoError(t, cl.Create(context.TODO(), token))
 
 		mc := NewMetadataCache(1*time.Hour, cl)
-		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) error {
-			token.Status.TokenMetadata = &api.TokenMetadata{
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+			return &api.TokenMetadata{
 				UserId: "42",
-			}
-			return nil
+			}, nil
 		}))
 		assert.NoError(t, err)
 
@@ -196,5 +193,32 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		assert.NotNil(t, token.Status.TokenMetadata)
 		assert.Equal(t, "42", token.Status.TokenMetadata.UserId)
 		assert.True(t, lastRefresh.Unix() < token.Status.TokenMetadata.LastRefreshTime)
+	})
+
+	t.Run("clears metadata when re-fetch yields nothing", func(t *testing.T) {
+		// This happens when there is no metadata or the metadata is stale and the attempt to fetch fresh metadata
+		// returns no data (but does not fail). I.e. when the token data disappears for some reason
+		lastRefresh := time.Now().Add(-5 * time.Hour)
+		token := &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-token-clear-metadata-",
+				Namespace:    "default",
+			},
+			Status: api.SPIAccessTokenStatus{
+				TokenMetadata: &api.TokenMetadata{
+					LastRefreshTime: lastRefresh.Unix(),
+				},
+			},
+		}
+		assert.NoError(t, cl.Create(context.TODO(), token))
+
+		mc := NewMetadataCache(1*time.Hour, cl)
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+			return nil, nil
+		}))
+		assert.NoError(t, err)
+
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKeyFromObject(token), token))
+		assert.Nil(t, token.Status.TokenMetadata)
 	})
 }

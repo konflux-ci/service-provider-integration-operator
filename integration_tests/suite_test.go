@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/vault/vault"
+
 	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -57,28 +59,12 @@ type IntegrationTest struct {
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
 	TestServiceProvider      TestServiceProvider
+	VaultTestCluster         *vault.TestCluster
 }
 
 var ITest IntegrationTest
 
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
-
-// Returns a function that can be used as an implementation of the serviceprovider.ServiceProvider.LookupToken method
-// that just returns a freshly loaded version of the provided token. The token is a pointer to a pointer to the token
-// so that this can also support lazily initialized tokens.
-func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-		if *tokenPointer == nil {
-			return nil, nil
-		}
-
-		freshToken := &api.SPIAccessToken{}
-		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
-			return nil, err
-		}
-		return freshToken, nil
-	}
-}
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -182,10 +168,14 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg, err := tokenstorage.New(ITest.Client)
+	var strg tokenstorage.TokenStorage
+	ITest.VaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
 	Expect(err).NotTo(HaveOccurred())
 
-	ITest.TokenStorage = strg
+	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
+		Client:       cl,
+		TokenStorage: strg,
+	}
 
 	factory := serviceprovider.Factory{
 		Configuration:    operatorCfg,
@@ -204,6 +194,12 @@ var _ = BeforeSuite(func() {
 		TokenStorage: strg,
 	}
 
+	// the controllers themselves do not need the notifying token storage because they operate in the cluster
+	// the notifying token storage is only needed if changes are only made to the storage and the cluster needs to be
+	// notified about it. This only happens in OAuth service or in tests. So the test code is using notifying token
+	// storage so that the controllers can react to the changes made to the token storage by the testsuite but the
+	// controllers themselves use the "raw" token storage because they only write to the storage based on the conditions
+	// in the cluster.
 	err = (&controllers.SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
@@ -218,6 +214,11 @@ var _ = BeforeSuite(func() {
 		Scheme:                 mgr.GetScheme(),
 		TokenStorage:           strg,
 		ServiceProviderFactory: factory,
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.SPIAccessTokenDataUpdateReconciler{
+		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -237,6 +238,7 @@ var _ = AfterSuite(func() {
 	}
 
 	By("tearing down the test environment")
+	ITest.VaultTestCluster.Cleanup()
 	if ITest.TestEnvironment != nil {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())

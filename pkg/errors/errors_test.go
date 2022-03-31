@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenstorage
+package errors
 
 import (
-	"context"
+	"errors"
+	"fmt"
+	"testing"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/stretchr/testify/assert"
 )
 
-// TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
-// so that we can provide either secret-based or Vault-based implementation.
-type TokenStorage interface {
-	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error
-	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
-	Delete(ctx context.Context, owner *api.SPIAccessToken) error
+func TestChecks(t *testing.T) {
+	err := InvalidAccessToken
+
+	assert.True(t, errors.Is(err, InvalidAccessToken))
+	assert.False(t, errors.Is(err, InternalServerError))
+	assert.False(t, errors.Is(err, fmt.Errorf("huh")))
+	assert.True(t, IsServiceProviderError(InvalidAccessToken))
+	assert.True(t, IsServiceProviderError(InternalServerError))
+	assert.False(t, IsServiceProviderError(fmt.Errorf("huh")))
+	assert.False(t, IsServiceProviderError(nil))
 }

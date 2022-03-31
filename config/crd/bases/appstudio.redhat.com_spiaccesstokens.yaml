@@ -36,8 +36,6 @@ spec:
           spec:
             description: SPIAccessTokenSpec defines the desired state of SPIAccessToken
             properties:
-              dataLocation:
-                type: string
               permissions:
                 description: Permissions is a collection of operator-defined permissions
                   (which are translated to service-provider-specific scopes) and potentially
@@ -70,37 +68,21 @@ spec:
                       type: object
                     type: array
                 type: object
-              rawTokenData:
-                description: Token is copied from golang.org/x/oauth2 and made easily
-                  json-serializable. It represents the data obtained from the OAuth
-                  flow.
-                properties:
-                  access_token:
-                    type: string
-                  expiry:
-                    format: int64
-                    type: integer
-                  refresh_token:
-                    type: string
-                  token_type:
-                    type: string
-                required:
-                - access_token
-                type: object
-              serviceProviderType:
-                description: ServiceProviderType defines the set of supported service
-                  providers
-                type: string
               serviceProviderUrl:
                 type: string
             required:
             - permissions
-            - serviceProviderType
             - serviceProviderUrl
             type: object
           status:
             description: SPIAccessTokenStatus defines the observed state of SPIAccessToken
             properties:
+              errorMessage:
+                type: string
+              errorReason:
+                description: SPIAccessTokenErrorReason is the enumeration of reasons
+                  for the token being invalid
+                type: string
               oAuthUrl:
                 type: string
               phase:
@@ -148,6 +130,8 @@ spec:
                 - username
                 type: object
             required:
+            - errorMessage
+            - errorReason
             - oAuthUrl
             - phase
             type: object

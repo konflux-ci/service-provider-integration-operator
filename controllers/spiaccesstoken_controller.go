@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
@@ -75,22 +76,37 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			tokenName := object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+			return requestsForTokenInObjectNamespace(object, func() string {
+				return object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+			})
+		})).
+		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+			return requestsForTokenInObjectNamespace(object, func() string {
+				update, ok := object.(*api.SPIAccessTokenDataUpdate)
+				if !ok {
+					return ""
+				}
 
-			if tokenName == "" {
-				return []reconcile.Request{}
-			}
-
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Namespace: object.GetNamespace(),
-						Name:      tokenName,
-					},
-				},
-			}
+				return update.Spec.TokenName
+			})
 		})).
 		Complete(r)
+}
+
+func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor func() string) []reconcile.Request {
+	tokenName := tokenNameExtractor()
+	if tokenName == "" {
+		return []reconcile.Request{}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: object.GetNamespace(),
+				Name:      tokenName,
+			},
+		},
+	}
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -110,6 +126,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		return ctrl.Result{}, NewReconcileError(err, "failed to load the token from the cluster")
 	}
+
+	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase)
+	log.IntoContext(ctx, lg)
 
 	finalizationResult, err := r.finalizers.Finalize(ctx, &at)
 	if err != nil {
@@ -133,82 +152,97 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	updatePending := false
-	toPersist := at.DeepCopy()
-
-	if at.Spec.DataLocation == "" {
-		loc, err := r.TokenStorage.GetDataLocation(ctx, &at)
-		if err != nil {
-			return ctrl.Result{}, NewReconcileError(err, "failed to determine data path")
+	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+	if err != nil {
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
+			return ctrl.Result{}, NewReconcileError(uerr, "failed update the status")
 		}
+		// we flipped the token to the invalid phase, which is valid phase to be in. All we can do is to wait for the
+		// next update of the token, so no need to repeat the reconciliation
+		return ctrl.Result{}, nil
+	}
 
-		if loc != "" {
-			data, err := r.TokenStorage.Get(ctx, &at)
-			if err != nil {
-				return ctrl.Result{}, NewReconcileError(err, "failed to read the data from token storage")
+	if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
+		if stderrors.Is(err, sperrors.InvalidAccessToken) {
+			if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonMetadataFailure, err); uerr != nil {
+				return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
 			}
-			if data != nil {
-				toPersist.Spec.DataLocation = loc
-
-				// also persist the SP-specific state so that it is available as soon as the token flips to the ready
-				// state.
-				sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
-				if err != nil {
-					return ctrl.Result{}, NewReconcileError(err, "failed to determine the service provider")
-				}
-
-				if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
-					return ctrl.Result{}, NewReconcileError(err, "failed to persist token metadata")
-				}
-
-				updatePending = true
+			// the token is invalid, there's no point in repeated reconciliation
+			lg.Info("access token determined invalid when trying to persist the metadata")
+			return ctrl.Result{}, nil
+		} else {
+			if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonMetadataFailure, err); uerr != nil {
+				return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
 			}
+			// there is some other kind of error in the service provider or environment. Let's retry...
+			lg.Error(err, "failed to persist metadata")
+			return ctrl.Result{}, err
 		}
 	}
 
-	updatePending = toPersist.EnsureLabels() || updatePending
-
-	if updatePending {
-		if err := r.Update(ctx, toPersist); err != nil {
-			lg.Error(err, "failed to update the object with the changes", "diff", cmp.Diff(&at, toPersist))
+	if at.EnsureLabels(sp.GetType()) {
+		if err := r.Update(ctx, &at); err != nil {
+			lg.Error(err, "failed to update the object with the changes")
 			return ctrl.Result{}, NewReconcileError(err, "failed to update the object with the changes")
 		}
 	}
 
-	if err := r.fillInStatus(ctx, &at); err != nil {
+	if err := r.updateTokenStatusSuccess(ctx, &at); err != nil {
 		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
 	}
 
-	lg.Info("reconciliation finished successfully")
+	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
+		Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }
 
+func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {
+	at.Status.Phase = phase
+	at.Status.ErrorMessage = err.Error()
+	at.Status.ErrorReason = reason
+	if uerr := r.Client.Status().Update(ctx, at); uerr != nil {
+		log.FromContext(ctx).Error(uerr, "failed to update the status with error", "reason", reason, "token_error", err)
+		return uerr
+	}
+
+	return nil
+}
+
+func (r *SPIAccessTokenReconciler) updateTokenStatusSuccess(ctx context.Context, at *api.SPIAccessToken) error {
+	if err := r.fillInStatus(ctx, at); err != nil {
+		return err
+	}
+	at.Status.ErrorMessage = ""
+	at.Status.ErrorReason = ""
+	if err := r.Client.Status().Update(ctx, at); err != nil {
+		return NewReconcileError(err, "failed to update status")
+	}
+	return nil
+}
+
 // fillInStatus examines the provided token object and updates its status to match the state of the object.
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
-	changed := false
-
-	if at.Spec.DataLocation == "" {
+	if at.Status.TokenMetadata == nil || at.Status.TokenMetadata.Username == "" {
 		oauthUrl, err := r.oAuthUrlFor(at)
 		if err != nil {
 			return err
 		}
 
-		changed = at.Status.OAuthUrl != oauthUrl || at.Status.Phase != api.SPIAccessTokenPhaseAwaitingTokenData
-
 		at.Status.OAuthUrl = oauthUrl
 		at.Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
 	} else {
-		changed = at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
+		changed := at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
 		at.Status.OAuthUrl = ""
+		if changed {
+			lg := log.FromContext(ctx)
+			lg.Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+		}
 	}
 
-	if changed {
-		return r.Client.Status().Update(ctx, at)
-	} else {
-		return nil
-	}
+	return nil
 }
 
 // oAuthUrlFor determines the OAuth flow initiation URL for given token.
@@ -218,16 +252,12 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		return "", err
 	}
 
-	if sp.GetType() != at.Spec.ServiceProviderType {
-		return "", fmt.Errorf("service provider URL not consistent with provider type")
-	}
-
 	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
 	if err != nil {
 		return "", NewReconcileError(err, "failed to instantiate OAuth state codec")
 	}
 
-	state, err := codec.EncodeAnonymous(&oauthstate.AnonymousOAuthState{
+	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		IssuedAt:            time.Now().Unix(),

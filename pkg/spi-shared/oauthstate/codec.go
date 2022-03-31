@@ -15,12 +15,13 @@ package oauthstate
 
 import (
 	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v3/jwt"
 )
 
 // Codec is in charge of encoding and decoding the state passed through the OAuth flow as the state query parameter.
 type Codec struct {
-	signer        jose.Signer
-	signingSecret []byte
+	Signer        jose.Signer
+	SigningSecret []byte
 }
 
 // NewCodec creates a new codec using the secret used for signing the JWT tokens that represent the state in the
@@ -37,7 +38,23 @@ func NewCodec(signingSecret []byte) (Codec, error) {
 	}
 
 	return Codec{
-		signer:        signer,
-		signingSecret: signingSecret,
+		Signer:        signer,
+		SigningSecret: signingSecret,
 	}, nil
+}
+
+// ParseInto tries to parse the provided state into the dest object. Note that no validation is done on the parsed
+// object.
+func (s *Codec) ParseInto(state string, dest interface{}) error {
+	token, err := jwt.ParseSigned(state)
+	if err != nil {
+		return err
+	}
+
+	return token.Claims(s.SigningSecret, dest)
+}
+
+// Encode encodes the provided state as a signed JWT token
+func (s *Codec) Encode(state interface{}) (string, error) {
+	return jwt.Signed(s.Signer).Claims(state).CompactSerialize()
 }

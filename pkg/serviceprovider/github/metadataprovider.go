@@ -17,6 +17,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -45,45 +46,41 @@ func init() {
 	githubUserApiEndpoint = url
 }
 
-func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) error {
+func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if data == nil {
-		return nil
+		return nil, nil
 	}
 
 	state := &TokenState{
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	if err := (&AllAccessibleRepos{}).FetchAll(ctx, s.graphqlClient, data.AccessToken, state); err != nil {
-		return err
+		return nil, err
 	}
 
 	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	js, err := json.Marshal(state)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	metadata := token.Status.TokenMetadata
-	if metadata == nil {
-		metadata = &api.TokenMetadata{}
-		token.Status.TokenMetadata = metadata
-	}
+	metadata := &api.TokenMetadata{}
 
 	metadata.UserId = userId
 	metadata.Username = username
 	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
 
-	return nil
+	return metadata, nil
 }
 
 // fetchUserAndScopes fetches the scopes and the details of the user associated with the token
@@ -97,6 +94,13 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		},
 	})
 	if err != nil {
+		return
+	}
+
+	if res.StatusCode != 200 {
+		// this should never happen because our http client should already handle the errors so we return a hard
+		// error that will cause the whole fetch to fail
+		err = fmt.Errorf("unhandled response from the service provider. status code: %d", res.StatusCode)
 		return
 	}
 
