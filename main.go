@@ -66,15 +66,17 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var configFile string
+	var devmode bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
+	flag.BoolVar(&devmode, "dev-mode", false, "Enable debug logging and insecure communication with vault")
 
 	opts := zap.Options{
-		Development: true,
+		Development: devmode,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -105,7 +107,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath)
+	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath, devmode)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
