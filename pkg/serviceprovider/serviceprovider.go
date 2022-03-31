@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"net/http"
 
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -35,6 +38,8 @@ type ServiceProvider interface {
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any
 	// state and metadata required for the token lookup. The metadata must be stored in the Status.TokenMetadata field
 	// of the provided token.
+	// Implementors should make sure that this method returns InvalidAccessTokenError if the reason for the failure is
+	// an invalid token. This is important to distinguish between environmental errors and errors in the data itself.
 	PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error
 
 	// GetBaseUrl returns the base URL of the service provider this instance talks to. This info is saved with the
@@ -93,4 +98,23 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 	}
 
 	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
+}
+
+func AuthenticatingHttpClient(cl *http.Client) *http.Client {
+	transport := cl.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
+	return &http.Client{
+		Transport: httptransport.ExaminingRoundTripper{
+			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
+			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
+				return sperrors.FromHttpStatusCode(response.StatusCode)
+			}),
+		},
+		CheckRedirect: cl.CheckRedirect,
+		Jar:           cl.Jar,
+		Timeout:       cl.Timeout,
+	}
 }
