@@ -130,7 +130,7 @@ END
   yq -y . < ../oauth/deployment.yaml | \
   yq -y '.spec.template.spec.containers[0].volumeMounts += [{"mountPath": "/tmp/vault-access", "name": "vault-access", "readOnly": true}]' | \
   yq -y '.spec.template.spec.volumes += [{"name": "vault-access", "secret": {"secretName": "vault-token", "items": [{"key": "vault-token", "path": "vault-token"}]}}]' | \
-  yq -y '.spec.template.spec.containers[0].env = [{"name": "API_SERVER", "value": "'"$API_SERVER_A"'"}, {"name": "SA_TOKEN_PATH", "value": "/tmp/vault-access/vault-token"}]' \
+  yq -y '.spec.template.spec.containers[0].env = [{"name": "DEVMODE", "value": "true"}, {"name": "API_SERVER", "value": "'"$API_SERVER_A"'"}, {"name": "SA_TOKEN_PATH", "value": "/tmp/vault-access/vault-token"}]' \
   > tmp.yaml
   mv tmp.yaml ../oauth/deployment.yaml
 
