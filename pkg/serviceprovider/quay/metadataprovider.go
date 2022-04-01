@@ -30,6 +30,7 @@ type metadataProvider struct {
 	graphqlClient *graphql.Client
 	httpClient    *http.Client
 	tokenStorage  tokenstorage.TokenStorage
+	quay          Quay
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
@@ -58,7 +59,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	}
 	//TODO: verify access
 
-	username, scopes, err := s.fetchUserAndScopes(data.AccessToken)
+	username, err := s.fetchUser(data.AccessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +75,11 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata = metadata
 	}
 
+	scopes := make([]string, 0)
+	for _, p := range token.Spec.Permissions.Required {
+		scopes = append(scopes, s.quay.TranslateToScopes(p)...)
+	}
+
 	metadata.Username = username
 	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
@@ -82,7 +88,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 }
 
 // fetchUserAndScopes fetches the scopes and the details of the user associated with the token
-func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName string, scopes []string, err error) {
+func (s metadataProvider) fetchUser(accessToken string) (userName string, err error) {
 	var res *http.Response
 	res, err = s.httpClient.Do(&http.Request{
 		Method: "GET",
@@ -94,9 +100,6 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 	if err != nil {
 		return
 	}
-
-	//TODO: replace dummy with real
-	scopes = []string{"repo:write", "user:read"}
 
 	content := map[string]interface{}{}
 	if err = json.NewDecoder(res.Body).Decode(&content); err != nil {
