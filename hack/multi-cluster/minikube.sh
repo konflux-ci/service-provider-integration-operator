@@ -1,10 +1,15 @@
 #!/bin/bash
 
+set -e
+
 ####
 # Script to setup 2 minikube clusters where one is running the operator, vault and the other runs oauth service
 ####
 
-SCRIPT_DIR=$(dirname "$0")
+SPIO_IMG=${SPIO_IMG:=quay.io/redhat-appstudio/service-provider-integration-operator:next}
+SPIS_IMG=${SPIS_IMG:=quay.io/redhat-appstudio/service-provider-integration-oauth:next}
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
 # the shared secret set in the configuration of SPI in both clusters
 SHARED_SECRET="kachny"
@@ -24,19 +29,18 @@ function defineVirtualNetwork {
   INET_IFACE=$(ip route get "$(getent ahosts "google.com" | awk '{print $1; exit}')" | grep -Po '(?<=(dev ))(\S+)')
 
   sh -c "cat > $NETWORK_FILE << END
-  <network>
-    <name>minikubes</name>
-    <uuid>33361b46-1581-acb7-1643-85a412626e70</uuid>
-    <forward dev='$INET_IFACE'/>
-    <bridge name='vminikubes' stp='on' forwardDelay='0' />
-    <ip address='192.168.139.1' netmask='255.255.255.0'>
-      <dhcp>
-        <range start='192.168.139.128' end='192.168.139.254' />
-      </dhcp>
-    </ip>
-  </network>
-  END
-  "
+<network>
+  <name>minikubes</name>
+  <uuid>33361b46-1581-acb7-1643-85a412626e70</uuid>
+  <forward dev='$INET_IFACE'/>
+  <bridge name='vminikubes' stp='on' forwardDelay='0' />
+  <ip address='192.168.139.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.139.128' end='192.168.139.254' />
+    </dhcp>
+  </ip>
+</network>
+END"
 
   sudo virsh net-define "$NETWORK_FILE"
   rm "$NETWORK_FILE"
@@ -60,9 +64,11 @@ function prepareMinikubeA {
   kubectl -n spi-system scale deployment spi-oauth-service --replicas=0
 
   # configure the shared secret in the configuration
-  SECRET_NAME=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name)
+  SECRET_NAME=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name | grep spi-oauth)
   SPI_CONFIG=$(kubectl -n spi-system get "$SECRET_NAME" -o jsonpath="{.data['config\.yaml']}" | base64 -d)
-  SPI_CONFIG=$(echo "$SPI_CONFIG" | yq ".sharedSecret = \"$SHARED_SECRET\"" | base64 -w0)
+  SPI_CONFIG=$(echo "$SPI_CONFIG" | yq -y ".sharedSecret = \"$SHARED_SECRET\" | .baseUrl = \"https://spi.$(minikube ip -p minikube-b).nip.io\" | .vaultHost = \"https://vault.$(minikube ip -p minikube-a).nip.io\"")
+  SPI_CONFIG=$(echo "$SPI_CONFIG" | base64 -w0)
+
   kubectl -n spi-system patch "$SECRET_NAME" -p "{\"data\": {\"config.yaml\": \"$SPI_CONFIG\"}}"
   kubectl -n spi-system scale deployment spi-controller-manager --replicas=0
   kubectl -n spi-system scale deployment spi-controller-manager --replicas=1
@@ -70,25 +76,24 @@ function prepareMinikubeA {
   # create an ingress for vault endpoint so that the oauth service from the other cluster can reach it
   # (executed in a subshell so that we can do variable expansion in the heredoc)
   sh -c "kubectl apply -f - << END
-  apiVersion: networking.k8s.io/v1
-  kind: Ingress
-  metadata:
-    name: vault-ingress
-    namespace: spi-system
-  spec:
-    rules:
-    - host: vault.$(minikube ip --profile minikube-a).nip.io
-      http:
-        paths:
-        - backend:
-            service:
-              name: spi-vault
-              port:
-                number: 8200
-          path: /
-          pathType: ImplementationSpecific
-  END
-  "
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-ingress
+  namespace: spi-system
+spec:
+  rules:
+  - host: vault.$(minikube ip --profile minikube-a).nip.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: spi-vault
+            port:
+              number: 8200
+        path: /
+        pathType: ImplementationSpecific
+END"
 }
 
 function prepareMinikubeB {
@@ -122,8 +127,7 @@ metadata:
     vault-token
 data:
   vault-token: \"$(echo "$TOKEN" | base64 -w0)\"
-END
-"
+END"
 
   # modify the deployment to mount the service account token from the minikube-a cluster to give us access to the vault
   # in minikube-b cluster
@@ -153,3 +157,31 @@ defineVirtualNetwork
 startMinikubes
 prepareMinikubeA
 prepareMinikubeB
+
+cd "$SCRIPT_DIR/../.." || exit 1
+
+echo "In the next step, edit the SPI configuration with your Github OAuth app clientId and clientSecret (press any key to start vim (<ESC> :wq <ENTER> to quit ;) )"
+read -r -n 1
+
+kubectl config use-context minikube-a
+hack/edit-spi-config.sh
+
+# now copy the SPI config from minikube-a to minikube-b
+SECRET_NAME=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name | grep spi-oauth)
+SPI_CONFIG=$(kubectl -n spi-system get "$SECRET_NAME" -o jsonpath="{.data['config\.yaml']}")
+kubectl config use-context minikube-b
+SECRET_NAME=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name | grep spi-oauth)
+kubectl -n spi-system patch "$SECRET_NAME" -p "{\"data\": {\"config.yaml\": \"$SPI_CONFIG\"}}"
+
+# restart all the deployments
+kubectl -n spi-system scale deployment spi-oauth-service --replicas=0
+kubectl -n spi-system scale deployment spi-oauth-service --replicas=1
+kubectl config use-context minikube-a
+kubectl -n spi-system scale deployment spi-controller-manager --replicas=0
+kubectl -n spi-system scale deployment spi-controller-manager --replicas=1
+
+echo "Now, you should be ready to create bindings in the minikube-a cluster and be led through the OAuth flow using OAuth service living in cluster minikube-b"
+echo "Remember to modify the configuration of your OAuth application in Github to point to https://spi.$(minikube ip -p minikube-b).nip.io/github/callback"
+echo ""
+echo "Press any key to exit"
+read -r -n 1
