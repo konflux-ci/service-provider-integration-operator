@@ -12,9 +12,9 @@ spec:
     - name: git-url
       value: 'https://github.com/redhat-appstudio/service-provider-integration-operator'
     - name: revision
-      value: ${{revision}}
+      value: "{{revision}}"
     - name: output-image
-      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:$(git-revision)'
+      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{revision}}'
     - name: path-context
       value: .
     - name: dockerfile
