@@ -83,8 +83,8 @@ func TestMetadataProvider_FetchRW(t *testing.T) {
 		Spec: api.SPIAccessTokenSpec{
 			Permissions: api.Permissions{Required: []api.Permission{
 				{
-					api.PermissionTypeReadWrite,
-					api.PermissionAreaRepository,
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaRepository,
 				},
 			}},
 		},
@@ -110,8 +110,8 @@ func TestMetadataProvider_FetchRO(t *testing.T) {
 		Spec: api.SPIAccessTokenSpec{
 			Permissions: api.Permissions{Required: []api.Permission{
 				{
-					api.PermissionTypeRead,
-					api.PermissionAreaRepository,
+					Type: api.PermissionTypeRead,
+					Area: api.PermissionAreaRepository,
 				},
 			}},
 		},
