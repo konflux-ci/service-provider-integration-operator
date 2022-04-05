@@ -1,0 +1,33 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: spi-on-push
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[push]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/max-keep-runs: "2"
+spec:
+  params:
+    - name: git-url
+      value: 'https://github.com/redhat-appstudio/service-provider-integration-operator'
+    - name: revision
+      value: ${{git-revision}}
+    - name: output-image
+      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:$(git-revision)'
+    - name: path-context
+      value: .
+    - name: dockerfile
+      value: Dockerfile
+  pipelineRef:
+    name: docker-build
+    bundle: quay.io/redhat-appstudio/build-templates-bundle:2448576aa60366079a75302c99fbd21ca4975dbf
+  workspaces: 
+   - name: workspace 
+     volumeClaimTemplate: 
+       spec: 
+         accessModes: 
+           - ReadWriteOnce 
+         resources: 
+           requests: 
+             storage: 200Mi
