@@ -63,6 +63,9 @@ function prepareMinikubeA {
   make install deploy_minikube
   kubectl -n spi-system scale deployment spi-oauth-service --replicas=0
 
+  # restart the operator deployment in devmode
+  kubectl -n spi-system patch deployment/spi-controller-manager --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--dev-mode"}]'
+
   # configure the shared secret in the configuration
   SECRET_NAME=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name | grep spi-oauth)
   SPI_CONFIG=$(kubectl -n spi-system get "$SECRET_NAME" -o jsonpath="{.data['config\.yaml']}" | base64 -d)
