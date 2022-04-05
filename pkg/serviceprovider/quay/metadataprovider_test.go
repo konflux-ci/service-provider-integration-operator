@@ -30,46 +30,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetadataProvider_FetchRW(t *testing.T) {
-	httpCl := &http.Client{
-		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			if r.URL == quayUserApiEndpoint {
-				return &http.Response{
-					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"anonymous": false, "username": "test_user"}`))),
-				}, nil
-			} else {
-				return &http.Response{
-					StatusCode: 404,
-				}, nil
-			}
-		}),
-	}
-
-	ts := tokenstorage.TestTokenStorage{
-		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
-			return &api.Token{
-				AccessToken:  "access",
-				TokenType:    "fake",
-				RefreshToken: "refresh",
-				Expiry:       0,
+var httpCl = &http.Client{
+	Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.URL == quayUserApiEndpoint {
+			return &http.Response{
+				StatusCode: 200,
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"anonymous": false, "username": "test_user"}`))),
 			}, nil
-		},
-	}
+		} else {
+			return &http.Response{
+				StatusCode: 404,
+			}, nil
+		}
+	}),
+}
 
-	quay := Quay{
-		Configuration: config.Configuration{},
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter:         &tokenFilter{},
-			MetadataProvider: &metadataProvider{
-				httpClient:   httpCl,
-				tokenStorage: ts,
-			},
-			MetadataCache: &serviceprovider.MetadataCache{},
+var ts = tokenstorage.TestTokenStorage{
+	GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{
+			AccessToken:  "access",
+			TokenType:    "fake",
+			RefreshToken: "refresh",
+			Expiry:       0,
+		}, nil
+	},
+}
+
+var quay = Quay{
+	Configuration: config.Configuration{},
+	lookup: serviceprovider.GenericLookup{
+		ServiceProviderType: api.ServiceProviderTypeQuay,
+		TokenFilter:         &tokenFilter{},
+		MetadataProvider: &metadataProvider{
+			httpClient:   httpCl,
+			tokenStorage: ts,
 		},
-		httpClient: httpCl,
-	}
+		MetadataCache: &serviceprovider.MetadataCache{},
+	},
+	httpClient: httpCl,
+}
+
+func TestMetadataProvider_FetchRW(t *testing.T) {
 
 	mp := metadataProvider{
 		httpClient:   httpCl,
@@ -97,45 +98,6 @@ func TestMetadataProvider_FetchRW(t *testing.T) {
 }
 
 func TestMetadataProvider_FetchRO(t *testing.T) {
-	httpCl := &http.Client{
-		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			if r.URL == quayUserApiEndpoint {
-				return &http.Response{
-					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"anonymous": false, "username": "test_user"}`))),
-				}, nil
-			} else {
-				return &http.Response{
-					StatusCode: 404,
-				}, nil
-			}
-		}),
-	}
-
-	ts := tokenstorage.TestTokenStorage{
-		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
-			return &api.Token{
-				AccessToken:  "access",
-				TokenType:    "fake",
-				RefreshToken: "refresh",
-				Expiry:       0,
-			}, nil
-		},
-	}
-
-	quay := Quay{
-		Configuration: config.Configuration{},
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter:         &tokenFilter{},
-			MetadataProvider: &metadataProvider{
-				httpClient:   httpCl,
-				tokenStorage: ts,
-			},
-			MetadataCache: &serviceprovider.MetadataCache{},
-		},
-		httpClient: httpCl,
-	}
 
 	mp := metadataProvider{
 		httpClient:   httpCl,

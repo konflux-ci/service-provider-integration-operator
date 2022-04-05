@@ -85,7 +85,6 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	return metadata, nil
 }
 
-// fetchUserAndScopes fetches the scopes and the details of the user associated with the token
 func (s metadataProvider) fetchUser(accessToken string) (userName string, err error) {
 	var res *http.Response
 	res, err = s.httpClient.Do(&http.Request{

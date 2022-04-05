@@ -89,23 +89,6 @@ func (g *Quay) TranslateToScopes(permission api.Permission) []string {
 }
 
 func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	// TODO implement
-
-	// for now just return the first SPIAccessToken that we find so that we prevent infinitely many SPIAccessTokens
-	// being created during the tests :)
-	//ats := &api.SPIAccessTokenList{}
-	//if err := cl.List(ctx, ats, &client.ListOptions{
-	//	Namespace: binding.Namespace,
-	//	Limit:     1,
-	//}); err != nil {
-	//	return nil, err
-	//}
-	//
-	//if len(ats.Items) == 0 {
-	//	return nil, nil
-	//}
-	//
-	//return &ats.Items[0], nil
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, err
