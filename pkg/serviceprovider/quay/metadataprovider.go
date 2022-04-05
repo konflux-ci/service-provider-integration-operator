@@ -20,17 +20,15 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/machinebox/graphql"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
 type metadataProvider struct {
-	graphqlClient *graphql.Client
-	httpClient    *http.Client
-	tokenStorage  tokenstorage.TokenStorage
-	quay          Quay
+	httpClient   *http.Client
+	tokenStorage tokenstorage.TokenStorage
+	quay         Quay
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
