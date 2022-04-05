@@ -17,11 +17,12 @@ package quay
 import (
 	"bytes"
 	"context"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
