@@ -6,7 +6,7 @@ metadata:
     pipelinesascode.tekton.dev/on-event: "[pull_request]"
     pipelinesascode.tekton.dev/on-target-branch: "[main]"
     pipelinesascode.tekton.dev/task: "git-clone"
-    pipelinesascode.tekton.dev/task-1: "buildah"
+    pipelinesascode.tekton.dev/task-1: "[https://raw.githubusercontent.com/redhat-appstudio/build-definitions/45e41f7e459e0b9b0e9501f81f7686152f4193cc/tasks/buildah.yaml]"
     pipelinesascode.tekton.dev/max-keep-runs: "5"
 spec:
   params:
