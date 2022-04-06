@@ -6,15 +6,15 @@ metadata:
   annotations:
     pipelinesascode.tekton.dev/on-event: "[push]"
     pipelinesascode.tekton.dev/on-target-branch: "[main]"
-    pipelinesascode.tekton.dev/max-keep-runs: "2"
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
 spec:
   params:
     - name: git-url
       value: 'https://github.com/redhat-appstudio/service-provider-integration-operator'
     - name: revision
-      value: "{{revision}}"
+      value: "{{ revision }}"
     - name: output-image
-      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{revision}}'
+      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{ revision}}'
     - name: path-context
       value: .
     - name: dockerfile
