@@ -5,7 +5,7 @@ metadata:
   annotations:
     pipelinesascode.tekton.dev/on-event: "[pull_request]"
     pipelinesascode.tekton.dev/on-target-branch: "[main]"
-    pipelinesascode.tekton.dev/task: "git-clone"
+    pipelinesascode.tekton.dev/task: ["git-clone", "buildah"]
     pipelinesascode.tekton.dev/max-keep-runs: "5"
 spec:
   params:
@@ -76,7 +76,6 @@ spec:
         runAfter:
           - git-clone
         taskRef:
-          kind: clusterTask
           name: buildah
         workspaces:
           - name: source
