@@ -62,6 +62,8 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		return nil, err
 	}
 
+	state.RemoteUsername = username
+
 	js, err := json.Marshal(state)
 	if err != nil {
 		return nil, err
@@ -78,7 +80,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		scopes = append(scopes, s.quay.TranslateToScopes(p)...)
 	}
 
-	metadata.Username = username
+	metadata.Username = "$oauthtoken"
 	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
 

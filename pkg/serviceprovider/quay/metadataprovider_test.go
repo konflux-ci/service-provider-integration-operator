@@ -17,6 +17,7 @@ package quay
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -93,9 +94,13 @@ func TestMetadataProvider_FetchRW(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotNil(t, data)
-	assert.Equal(t, "test_user", data.Username)
+	assert.Equal(t, "$oauthtoken", data.Username)
 	assert.Equal(t, []string{"repo:read", "repo:write", "user:read"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
+
+	tokenState := &TokenState{}
+	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
+	assert.Equal(t, "test_user", tokenState.RemoteUsername)
 }
 
 func TestMetadataProvider_FetchRO(t *testing.T) {
@@ -120,7 +125,11 @@ func TestMetadataProvider_FetchRO(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotNil(t, data)
-	assert.Equal(t, "test_user", data.Username)
+	assert.Equal(t, "$oauthtoken", data.Username)
 	assert.Equal(t, []string{"repo:read", "user:read"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
+
+	tokenState := &TokenState{}
+	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
+	assert.Equal(t, "test_user", tokenState.RemoteUsername)
 }

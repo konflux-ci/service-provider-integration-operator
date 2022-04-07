@@ -25,4 +25,5 @@ type Scope string
 
 type TokenState struct {
 	AccessibleRepos map[RepositoryUrl]RepositoryRecord
+	RemoteUsername  string
 }
