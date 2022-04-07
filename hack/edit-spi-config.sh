@@ -11,7 +11,7 @@
 
 set -e
 
-CONFIG_SECRET=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name)
+CONFIG_SECRET=$(kubectl -n spi-system get secret -l app.kubernetes.io/part-of=service-provider-integration-operator -o name | grep spi-oauth-config)
 
 TEMP_SECRET=$(mktemp)
 TEMP_CONFIG=$(mktemp)

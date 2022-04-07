@@ -33,9 +33,18 @@ type vaultTokenStorage struct {
 }
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(role string, vaultHost string, serviceAccountToken string) (TokenStorage, error) {
+func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultHost
+
+	if insecure {
+		if err := config.ConfigureTLS(&vault.TLSConfig{
+			Insecure: true,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	vaultClient, err := vault.NewClient(config)
 	if err != nil {
 		return nil, err
