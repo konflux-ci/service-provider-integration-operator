@@ -14,14 +14,14 @@ spec:
     - name: revision
       value: "{{ revision }}"
     - name: output-image
-      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{ revision}}'
+      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{ revision }}'
     - name: path-context
       value: .
     - name: dockerfile
       value: Dockerfile
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/build-templates-bundle:b2cb5d5b21dc59d172379e639b336533bd8a8bf6
+    bundle: quay.io/redhat-appstudio/build-templates-bundle:0866720a87aec4675074069cd16662d8e01237cf
   workspaces: 
    - name: workspace 
      volumeClaimTemplate: 
