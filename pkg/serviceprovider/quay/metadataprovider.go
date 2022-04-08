@@ -28,7 +28,6 @@ import (
 type metadataProvider struct {
 	httpClient   *http.Client
 	tokenStorage tokenstorage.TokenStorage
-	quay         Quay
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
@@ -75,13 +74,10 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata = metadata
 	}
 
-	scopes := make([]string, 0)
-	for _, p := range token.Spec.Permissions.Required {
-		scopes = append(scopes, s.quay.TranslateToScopes(p)...)
-	}
+	metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
 
 	metadata.Username = "$oauthtoken"
-	metadata.Scopes = scopes
+
 	metadata.ServiceProviderState = js
 
 	return metadata, nil
@@ -108,4 +104,20 @@ func (s metadataProvider) fetchUser(accessToken string) (userName string, err er
 	userName = content["username"].(string)
 
 	return
+}
+
+func translateToQuayScopes(permission api.Permission) []string {
+	switch permission.Area {
+	case api.PermissionAreaRepository:
+		switch permission.Type {
+		case api.PermissionTypeRead:
+			return []string{"repo:read", "user:read"}
+		case api.PermissionTypeWrite:
+			return []string{"repo:write", "user:read"}
+		case api.PermissionTypeReadWrite:
+			return []string{"repo:read", "repo:write", "user:read"}
+		}
+	}
+
+	return []string{}
 }

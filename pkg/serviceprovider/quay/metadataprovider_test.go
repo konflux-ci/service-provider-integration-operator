@@ -22,9 +22,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -58,26 +55,11 @@ var ts = tokenstorage.TestTokenStorage{
 	},
 }
 
-var quay = Quay{
-	Configuration: config.Configuration{},
-	lookup: serviceprovider.GenericLookup{
-		ServiceProviderType: api.ServiceProviderTypeQuay,
-		TokenFilter:         &tokenFilter{},
-		MetadataProvider: &metadataProvider{
-			httpClient:   httpCl,
-			tokenStorage: ts,
-		},
-		MetadataCache: &serviceprovider.MetadataCache{},
-	},
-	httpClient: httpCl,
-}
-
 func TestMetadataProvider_FetchRW(t *testing.T) {
 
 	mp := metadataProvider{
 		httpClient:   httpCl,
 		tokenStorage: &ts,
-		quay:         quay,
 	}
 
 	tkn := api.SPIAccessToken{
@@ -108,7 +90,6 @@ func TestMetadataProvider_FetchRO(t *testing.T) {
 	mp := metadataProvider{
 		httpClient:   httpCl,
 		tokenStorage: &ts,
-		quay:         quay,
 	}
 
 	tkn := api.SPIAccessToken{
