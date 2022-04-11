@@ -77,7 +77,7 @@ func TestMetadataProvider_FetchRW(t *testing.T) {
 
 	assert.NotNil(t, data)
 	assert.Equal(t, "$oauthtoken", data.Username)
-	assert.Equal(t, []string{"repo:read", "repo:write", "user:read"}, data.Scopes)
+	assert.ElementsMatch(t, []string{"repo:read", "repo:write", "user:read"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
 
 	tokenState := &TokenState{}
@@ -107,7 +107,7 @@ func TestMetadataProvider_FetchRO(t *testing.T) {
 
 	assert.NotNil(t, data)
 	assert.Equal(t, "$oauthtoken", data.Username)
-	assert.Equal(t, []string{"repo:read", "user:read"}, data.Scopes)
+	assert.ElementsMatch(t, []string{"repo:read", "user:read"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
 
 	tokenState := &TokenState{}
