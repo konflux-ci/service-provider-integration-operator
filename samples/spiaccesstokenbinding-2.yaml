@@ -8,6 +8,6 @@ spec:
     required:
       - type: rw
         area: repository
-  repoUrl: https://github.com/revapi/revapi
+  repoUrl: https://quay.io/repository/redhat_emp1/spi-test
   secret:
     type: kubernetes.io/basic-auth
