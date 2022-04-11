@@ -31,6 +31,8 @@ var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 type Quay struct {
 	Configuration config.Configuration
+	lookup        serviceprovider.GenericLookup
+	httpClient    *http.Client
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -39,8 +41,20 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+
+	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
 	return &Quay{
 		Configuration: factory.Configuration,
+		lookup: serviceprovider.GenericLookup{
+			ServiceProviderType: api.ServiceProviderTypeQuay,
+			TokenFilter:         &tokenFilter{},
+			MetadataProvider: &metadataProvider{
+				httpClient:   factory.HttpClient,
+				tokenStorage: factory.TokenStorage,
+			},
+			MetadataCache: &cache,
+		},
+		httpClient: factory.HttpClient,
 	}, nil
 }
 
@@ -63,11 +77,11 @@ func (g *Quay) TranslateToScopes(permission api.Permission) []string {
 	case api.PermissionAreaRepository:
 		switch permission.Type {
 		case api.PermissionTypeRead:
-			return []string{"repo:read"}
+			return []string{"repo:read", "user:read"}
 		case api.PermissionTypeWrite:
-			return []string{"repo:write"}
+			return []string{"repo:write", "user:read"}
 		case api.PermissionTypeReadWrite:
-			return []string{"repo:read", "repo:write"}
+			return []string{"repo:read", "repo:write", "user:read"}
 		}
 	}
 
@@ -75,28 +89,20 @@ func (g *Quay) TranslateToScopes(permission api.Permission) []string {
 }
 
 func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	// TODO implement
-
-	// for now just return the first SPIAccessToken that we find so that we prevent infinitely many SPIAccessTokens
-	// being created during the tests :)
-	ats := &api.SPIAccessTokenList{}
-	if err := cl.List(ctx, ats, &client.ListOptions{
-		Namespace: binding.Namespace,
-		Limit:     1,
-	}); err != nil {
+	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(ats.Items) == 0 {
+	if len(tokens) == 0 {
 		return nil, nil
 	}
 
-	return &ats.Items[0], nil
+	return &tokens[0], nil
 }
 
 func (g *Quay) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
-	// TODO implement
-	return nil
+	return g.lookup.PersistMetadata(ctx, token)
 }
 
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
