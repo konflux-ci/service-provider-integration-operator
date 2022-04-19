@@ -25,6 +25,7 @@ import (
 )
 
 var testToken = &v1beta1.Token{
+	Username:     "testUsername",
 	AccessToken:  "testAccessToken",
 	TokenType:    "testTokenType",
 	RefreshToken: "testRefreshToken",

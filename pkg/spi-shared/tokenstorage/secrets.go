@@ -41,6 +41,7 @@ func NewSecretsStorage(cl client.Client) (TokenStorage, error) {
 
 func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	data := map[string][]byte{
+		"username":      []byte(token.Username),
 		"token_type":    []byte(token.TokenType),
 		"refresh_token": []byte(token.RefreshToken),
 		"access_token":  []byte(token.AccessToken),
@@ -116,6 +117,7 @@ func (s secretsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken)
 	}
 
 	return &api.Token{
+		Username:     string(secret.Data["username"]),
 		AccessToken:  string(secret.Data["access_token"]),
 		TokenType:    string(secret.Data["token_type"]),
 		RefreshToken: string(secret.Data["refresh_token"]),
