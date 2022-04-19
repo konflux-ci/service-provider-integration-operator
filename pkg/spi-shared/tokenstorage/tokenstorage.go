@@ -17,7 +17,7 @@ package tokenstorage
 import (
 	"context"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
 )
 
 // TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done

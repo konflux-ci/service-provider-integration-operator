@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"net/url"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
 type metadataProvider struct {

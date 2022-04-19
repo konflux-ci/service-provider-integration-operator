@@ -17,8 +17,8 @@ package serviceprovider
 import (
 	"testing"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	integrationtests "github.com/redhat-appstudio/service-provider-integration-operator/integration_tests"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	integrationtests "github.com/mshaposhnik/service-provider-integration-operator/integration_tests"
 	"github.com/stretchr/testify/assert"
 )
 

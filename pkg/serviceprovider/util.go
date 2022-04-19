@@ -17,7 +17,7 @@ package serviceprovider
 import (
 	"net/url"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
 )
 
 // GetHostWithScheme is a helper function to extract the scheme and host portion of the provided url.

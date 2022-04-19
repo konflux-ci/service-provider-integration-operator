@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 )

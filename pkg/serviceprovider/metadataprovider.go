@@ -17,7 +17,7 @@ package serviceprovider
 import (
 	"context"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
 )
 
 // MetadataProvider is a function that converts a fills in the metadata in the token's status with

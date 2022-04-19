@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

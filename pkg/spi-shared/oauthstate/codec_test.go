@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/stretchr/testify/assert"
 )
 

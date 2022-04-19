@@ -25,10 +25,10 @@ import (
 
 	config2 "github.com/onsi/ginkgo/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -39,8 +39,8 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 
 	//+kubebuilder:scaffold:imports
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	"github.com/mshaposhnik/service-provider-integration-operator/controllers"
 	authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

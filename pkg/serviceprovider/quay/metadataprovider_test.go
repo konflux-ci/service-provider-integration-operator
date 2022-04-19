@@ -22,10 +22,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/util"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 )
 

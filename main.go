@@ -21,13 +21,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceproviders"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	"github.com/mshaposhnik/service-provider-integration-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -41,12 +41,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	appstudiov1beta1 "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	"github.com/mshaposhnik/service-provider-integration-operator/pkg/config"
 
 	//+kubebuilder:scaffold:imports
 
-	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	sharedConfig "github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 var (
