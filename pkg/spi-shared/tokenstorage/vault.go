@@ -117,6 +117,7 @@ func parseToken(data interface{}) (*api.Token, error) {
 	}
 
 	token := &api.Token{}
+	token.Username = ifaceMapFieldToString(dataMap, "username")
 	token.AccessToken = ifaceMapFieldToString(dataMap, "access_token")
 	token.TokenType = ifaceMapFieldToString(dataMap, "token_type")
 	token.RefreshToken = ifaceMapFieldToString(dataMap, "refresh_token")

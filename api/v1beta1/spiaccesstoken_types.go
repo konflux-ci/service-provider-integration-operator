@@ -38,6 +38,7 @@ type SPIAccessTokenSpec struct {
 // OAuth flow.
 // TODO move this out of this package. The token is no longer part of the CRD in any shape or form.
 type Token struct {
+	Username     string `json:"username,omitempty"`
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
