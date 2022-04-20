@@ -1,4 +1,4 @@
-module github.com/mshaposhnik/service-provider-integration-operator
+module github.com/redhat-appstudio/service-provider-integration-operator
 
 go 1.17
 
