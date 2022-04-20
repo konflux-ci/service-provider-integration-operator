@@ -78,12 +78,13 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata = metadata
 	}
 
-	metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
-
 	if len(data.Username) > 0 {
 		metadata.Username = data.Username
+		// TODO: replace with real repo access verification
+		metadata.Scopes = []string{"repo:read", "repo:write"}
 	} else {
 		metadata.Username = "$oauthtoken"
+		metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
 	}
 
 	metadata.ServiceProviderState = js
