@@ -4,10 +4,11 @@ metadata:
   name: test-access-token
   namespace: default
 spec:
+  serviceProviderType: Github
   permissions:
     required:
       - type: r
         area: repository
       - type: w
         area: repository
-  serviceProviderUrl: https://quay.io
+  serviceProviderUrl: https://github.com

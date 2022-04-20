@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/util"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
 )
 

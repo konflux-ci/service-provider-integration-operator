@@ -15,10 +15,10 @@
 package serviceproviders
 
 import (
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider/github"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider/quay"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 // KnownInitializers returns a map of service provider initializers known at compile time. The serviceprovider.Factory.Initializers

@@ -28,7 +28,7 @@ import (
 
 	vtesting "github.com/mitchellh/go-testing-interface"
 
-	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
 type TestTokenStorage struct {

@@ -18,9 +18,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/sync"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 
-	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

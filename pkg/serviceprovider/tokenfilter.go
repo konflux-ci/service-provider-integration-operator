@@ -14,7 +14,7 @@
 
 package serviceprovider
 
-import api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+import api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
 // TokenFilter is a helper interface to implement the ServiceProvider.LookupToken method using the GenericLookup struct.
 type TokenFilter interface {

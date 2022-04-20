@@ -17,8 +17,8 @@ package github
 import (
 	"encoding/json"
 
-	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
 type tokenFilter struct{}

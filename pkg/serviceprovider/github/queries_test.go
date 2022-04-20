@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/util"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
-	sperrors "github.com/mshaposhnik/service-provider-integration-operator/pkg/errors"
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
 	"github.com/machinebox/graphql"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/stretchr/testify/assert"
 )
 

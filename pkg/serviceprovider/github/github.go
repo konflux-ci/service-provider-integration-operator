@@ -20,11 +20,11 @@ import (
 	"strings"
 
 	"github.com/machinebox/graphql"
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
-	api "github.com/mshaposhnik/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

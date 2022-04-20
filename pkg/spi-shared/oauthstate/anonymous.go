@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mshaposhnik/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 // AnonymousOAuthState is the state that is initially put to the OAuth URL by the operator. It does not hold
