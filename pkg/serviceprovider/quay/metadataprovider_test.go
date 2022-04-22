@@ -55,7 +55,49 @@ var ts = tokenstorage.TestTokenStorage{
 	},
 }
 
-func TestMetadataProvider_FetchRW(t *testing.T) {
+func TestMetadataProvider_ReadRobotUsername(t *testing.T) {
+
+	var localTs = tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				Username:     "user1",
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+
+	mp := metadataProvider{
+		httpClient:   httpCl,
+		tokenStorage: &localTs,
+	}
+
+	tkn := api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{
+			Permissions: api.Permissions{Required: []api.Permission{
+				{
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaRepository,
+				},
+			}},
+		},
+	}
+	data, err := mp.Fetch(context.TODO(), &tkn)
+	assert.NoError(t, err)
+
+	assert.NotNil(t, data)
+	assert.Equal(t, "user1", data.Username)
+	assert.ElementsMatch(t, []string{"repo:read", "repo:write"}, data.Scopes)
+	assert.NotEmpty(t, data.ServiceProviderState)
+
+	tokenState := &TokenState{}
+	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
+	assert.Equal(t, "user1", tokenState.RemoteUsername)
+}
+
+func TestMetadataProvider_FetchUserAndRWPerms(t *testing.T) {
 
 	mp := metadataProvider{
 		httpClient:   httpCl,
@@ -85,7 +127,7 @@ func TestMetadataProvider_FetchRW(t *testing.T) {
 	assert.Equal(t, "test_user", tokenState.RemoteUsername)
 }
 
-func TestMetadataProvider_FetchRO(t *testing.T) {
+func TestMetadataProvider_FetchUserAndROPerms(t *testing.T) {
 
 	mp := metadataProvider{
 		httpClient:   httpCl,
