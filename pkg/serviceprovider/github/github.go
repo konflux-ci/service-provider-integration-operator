@@ -16,12 +16,13 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/google/go-github/v43/github"
 	"github.com/machinebox/graphql"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -120,6 +121,42 @@ func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *a
 
 func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
+}
+
+func (g *Github) GetRepositoryInfo(ctx context.Context, repoUrl string) *api.SPIAccessCheckStatus {
+	ghClient := github.NewClient(g.httpClient)
+	owner, repo, err := g.parseGithubRepoUrl(repoUrl)
+	status := &api.SPIAccessCheckStatus{
+		RepoURL:         repoUrl,
+		Accessible:      false,
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+	}
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorBadURL
+		status.ErrorMessage = err.Error()
+		return status
+	}
+
+	ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+		status.ErrorMessage = err.Error()
+		return status
+	}
+
+	status.Accessible = true
+	status.Private = *ghRepository.Private
+	return status
+}
+
+func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err error) {
+	repoPath := strings.TrimPrefix(repoUrl, g.GetBaseUrl())
+	splittedPath := strings.Split(repoPath, "/")
+	if len(splittedPath) >= 3 {
+		return splittedPath[1], splittedPath[2], nil
+	}
+	return "", "", fmt.Errorf("unable to parse path '%s'", repoUrl)
 }
 
 type githubProbe struct{}

@@ -52,6 +52,8 @@ type ServiceProvider interface {
 	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
 
+	GetRepositoryInfo(ctx context.Context, repoUrl string) *api.SPIAccessCheckStatus
+
 	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
 	//the service provider itself.
 	GetOAuthEndpoint() string

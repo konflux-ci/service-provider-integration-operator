@@ -109,6 +109,10 @@ func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
+func (q *Quay) GetRepositoryInfo(ctx context.Context, repoUrl string) *api.SPIAccessCheckStatus {
+	return &api.SPIAccessCheckStatus{}
+}
+
 type quayProbe struct{}
 
 var _ serviceprovider.Probe = (*quayProbe)(nil)
