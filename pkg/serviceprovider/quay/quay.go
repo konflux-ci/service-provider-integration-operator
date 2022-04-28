@@ -114,7 +114,7 @@ type quayProbe struct{}
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
 func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, "https://quay.io") {
+	if strings.HasPrefix(url, "https://quay.io") || strings.HasPrefix(url, "quay.io") {
 		return "https://quay.io", nil
 	} else {
 		return "", nil
