@@ -284,7 +284,7 @@ var _ = Describe("Delete binding", func() {
 			g.Expect(createdBinding.Status.SyncedObjectRef.Name).NotTo(BeEmpty())
 			syncedSecret = &corev1.Secret{}
 			g.Expect(ITest.Client.Get(ITest.Context,
-				client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace},
+				client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.ObjNamespace},
 				syncedSecret)).To(Succeed())
 		}).WithTimeout(20 * time.Second).Should(Succeed())
 
@@ -374,7 +374,7 @@ var _ = Describe("Syncing", func() {
 				g.Expect(createdBinding.Status.SyncedObjectRef.Name).To(Equal("binding-secret"))
 
 				secret := &corev1.Secret{}
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.ObjNamespace}, secret)).To(Succeed())
 				g.Expect(string(secret.Data["password"])).To(Equal("access"))
 			})
 		})

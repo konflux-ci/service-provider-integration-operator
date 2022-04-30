@@ -80,7 +80,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	lg.Info(fmt.Sprintf("'%s' is '%s'", at.Spec.RepoUrl, sp.GetType()))
 
-	status := sp.GetRepositoryInfo(ctx, at.Spec.RepoUrl)
+	status := sp.CheckRepositoryAccess(ctx, r.Client, &at)
 	at.Status = *status
 	at.Status.Ttl = time.Now().Add(ttlMin * time.Minute).Unix()
 

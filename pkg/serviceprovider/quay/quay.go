@@ -109,7 +109,7 @@ func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (q *Quay) GetRepositoryInfo(ctx context.Context, repoUrl string) *api.SPIAccessCheckStatus {
+func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) *api.SPIAccessCheckStatus {
 	return &api.SPIAccessCheckStatus{}
 }
 

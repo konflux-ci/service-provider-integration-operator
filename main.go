@@ -158,6 +158,7 @@ func main() {
 			KubernetesClient: mgr.GetClient(),
 			HttpClient:       http.DefaultClient,
 			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessCheck")

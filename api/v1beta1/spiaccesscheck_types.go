@@ -25,7 +25,8 @@ import (
 
 // SPIAccessCheckSpec defines the desired state of SPIAccessCheck
 type SPIAccessCheckSpec struct {
-	RepoUrl string `json:"repoUrl"`
+	RepoUrl     string      `json:"repoUrl"`
+	Permissions Permissions `json:"permissions,omitempty"`
 }
 
 // SPIAccessCheckStatus defines the observed state of SPIAccessCheck
@@ -50,6 +51,7 @@ const (
 type SPIAccessCheckErrorReason string
 
 const (
+	SPIAccessCheckErrorUnknownError           SPIAccessCheckErrorReason = "UnknownError"
 	SPIAccessCheckErrorUnknownServiceProvider SPIAccessCheckErrorReason = "UnknownServiceProviderType"
 	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepoNotFound"
 	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
@@ -78,4 +80,16 @@ type SPIAccessCheckList struct {
 
 func init() {
 	SchemeBuilder.Register(&SPIAccessCheck{}, &SPIAccessCheckList{})
+}
+
+func (c *SPIAccessCheck) RepoUrl() string {
+	return c.Spec.RepoUrl
+}
+
+func (c *SPIAccessCheck) ObjNamespace() string {
+	return c.Namespace
+}
+
+func (c *SPIAccessCheck) Permissions() *Permissions {
+	return &c.Spec.Permissions
 }

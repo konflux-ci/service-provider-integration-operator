@@ -129,3 +129,15 @@ type TargetObjectRef struct {
 func init() {
 	SchemeBuilder.Register(&SPIAccessTokenBinding{}, &SPIAccessTokenBindingList{})
 }
+
+func (in *SPIAccessTokenBinding) RepoUrl() string {
+	return in.Spec.RepoUrl
+}
+
+func (in *SPIAccessTokenBinding) ObjNamespace() string {
+	return in.Namespace
+}
+
+func (in *SPIAccessTokenBinding) Permissions() *Permissions {
+	return &in.Spec.Permissions
+}

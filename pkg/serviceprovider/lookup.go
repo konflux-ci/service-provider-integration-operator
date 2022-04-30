@@ -42,17 +42,17 @@ type GenericLookup struct {
 	MetadataCache *MetadataCache
 }
 
-func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable Matchable) ([]api.SPIAccessToken, error) {
 	var result = make([]api.SPIAccessToken, 0)
 
 	potentialMatches := &api.SPIAccessTokenList{}
 
-	repoUrl, err := url.Parse(binding.Spec.RepoUrl)
+	repoUrl, err := url.Parse(matchable.RepoUrl())
 	if err != nil {
 		return result, err
 	}
 
-	if err := cl.List(ctx, potentialMatches, client.InNamespace(binding.Namespace), client.MatchingLabels{
+	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
 		api.ServiceProviderTypeLabel: string(l.ServiceProviderType),
 		api.ServiceProviderHostLabel: repoUrl.Host,
 	}); err != nil {
@@ -80,7 +80,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 				return
 			}
 
-			ok, err := l.TokenFilter.Matches(binding, &tkn)
+			ok, err := l.TokenFilter.Matches(matchable, &tkn)
 			if err != nil {
 				mutex.Lock()
 				defer mutex.Unlock()
