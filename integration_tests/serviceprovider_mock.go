@@ -33,6 +33,11 @@ type TestServiceProvider struct {
 	GetOauthEndpointImpl  func() string
 }
 
+func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) *api.SPIAccessCheckStatus {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	if t.LookupTokenImpl == nil {
 		return nil, nil

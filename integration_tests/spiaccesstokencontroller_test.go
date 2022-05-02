@@ -344,7 +344,7 @@ func getLinkedToken(g Gomega, binding *api.SPIAccessTokenBinding) *api.SPIAccess
 		loadedBinding := &api.SPIAccessTokenBinding{}
 		g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), loadedBinding)).To(Succeed())
 		g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: loadedBinding.Labels[opconfig.SPIAccessTokenLinkLabel],
-			Namespace: binding.ObjNamespace}, token)).To(Succeed())
+			Namespace: binding.ObjNamespace()}, token)).To(Succeed())
 	}).Should(Succeed())
 
 	return token
