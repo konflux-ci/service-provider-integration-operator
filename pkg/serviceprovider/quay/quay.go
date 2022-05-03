@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -110,6 +111,7 @@ func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 }
 
 func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) *api.SPIAccessCheckStatus {
+	log.FromContext(ctx).Info("trying SPIAccessCheck on quay.io. This is not supported yet.")
 	return &api.SPIAccessCheckStatus{}
 }
 

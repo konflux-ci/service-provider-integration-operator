@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -37,9 +38,8 @@ type SPIAccessCheckReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	ServiceProviderFactory serviceprovider.Factory
+	Configuration          config.Configuration
 }
-
-const ttlMin = 1
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks/status,verbs=get;update;patch
@@ -48,8 +48,8 @@ const ttlMin = 1
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 
-	at := api.SPIAccessCheck{}
-	if err := r.Get(ctx, req.NamespacedName, &at); err != nil {
+	ac := api.SPIAccessCheck{}
+	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
 		if errors.IsNotFound(err) {
 			lg.Info("SPIAccessCheck not found on cluster",
 				"namespace:name", fmt.Sprintf("%s:%s", req.Namespace, req.Name))
@@ -58,37 +58,37 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, NewReconcileError(err, "failed to load the SPIAccessCheck from the cluster")
 	}
 
-	if at.Status.Ttl != 0 {
-		if time.Now().After(time.Unix(at.Status.Ttl, 0)) {
-			lg.Info("SPIAccessCheck is after ttl, deleting ...", "check", at.Name)
-			if deleteError := r.Delete(ctx, &at); deleteError != nil {
+	if ac.Status.Ttl != 0 {
+		if time.Now().After(time.Unix(ac.Status.Ttl, 0)) {
+			lg.Info("SPIAccessCheck is after ttl, deleting ...",
+				"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
+			if deleteError := r.Delete(ctx, &ac); deleteError != nil {
 				return ctrl.Result{Requeue: true}, deleteError
 			} else {
 				lg.Info("SPIAccessCheck deleted")
 				return ctrl.Result{}, nil
 			}
-		} else if at.Spec.RepoUrl == at.Status.RepoURL {
-			lg.Info("already analyzed, nothing to do", "check", at)
+		} else if ac.Spec.RepoUrl == ac.Status.RepoURL {
+			lg.Info("already analyzed, nothing to do",
+				"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
 			return ctrl.Result{}, nil
 		}
 	}
 
-	sp, spErr := r.ServiceProviderFactory.FromRepoUrl(at.Spec.RepoUrl)
-	if spErr != nil {
-		return ctrl.Result{}, spErr
+	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ac.Spec.RepoUrl); spErr == nil {
+		ac.Status = *sp.CheckRepositoryAccess(ctx, r.Client, &ac)
+		ac.Status.Ttl = time.Now().Add(r.Configuration.AccessCheckTtl).Unix()
+	} else {
+		lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
+		ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider
+		ac.Status.ErrorMessage = spErr.Error()
 	}
 
-	lg.Info(fmt.Sprintf("'%s' is '%s'", at.Spec.RepoUrl, sp.GetType()))
-
-	status := sp.CheckRepositoryAccess(ctx, r.Client, &at)
-	at.Status = *status
-	at.Status.Ttl = time.Now().Add(ttlMin * time.Minute).Unix()
-
-	if updateErr := r.Client.Status().Update(ctx, &at); updateErr != nil {
+	if updateErr := r.Client.Status().Update(ctx, &ac); updateErr != nil {
 		lg.Error(updateErr, "Failed to update status")
 		return ctrl.Result{}, updateErr
 	} else {
-		return ctrl.Result{RequeueAfter: (ttlMin + 1) * time.Minute}, nil
+		return ctrl.Result{RequeueAfter: r.Configuration.AccessCheckTtl}, nil
 	}
 }
 

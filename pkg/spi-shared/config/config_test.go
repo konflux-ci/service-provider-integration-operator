@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -58,6 +59,8 @@ serviceProviders:
   clientSecret: "54"
 baseUrl: blabol
 vaultHost: vaultTestHost
+accessCheckTtl: 37m
+tokenLookupCacheTtl: 62m
 `
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
@@ -68,10 +71,12 @@ vaultHost: vaultTestHost
 	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
 	assert.Equal(t, "vaultTestHost", cfg.VaultHost)
+	assert.Equal(t, time.Minute*37, cfg.AccessCheckTtl)
+	assert.Equal(t, time.Minute*62, cfg.TokenLookupCacheTtl)
 	assert.Len(t, cfg.ServiceProviders, 2)
 }
 
-func TestVaultDefaultHost(t *testing.T) {
+func TestDefaults(t *testing.T) {
 	configFileContent := `
 `
 	cfgFilePath := createFile(t, "config", configFileContent)
@@ -81,6 +86,8 @@ func TestVaultDefaultHost(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, DefaultVaultHost, cfg.VaultHost)
+	assert.Equal(t, time.Minute*30, cfg.AccessCheckTtl)
+	assert.Equal(t, time.Hour, cfg.TokenLookupCacheTtl)
 }
 
 func createFile(t *testing.T, path string, content string) string {
