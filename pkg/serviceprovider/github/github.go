@@ -149,7 +149,8 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	}
 
 	if len(tokens) > 0 {
-		ghClient, err := g.createAuthenticatedGhClient(ctx, &tokens[0])
+		token := &tokens[0]
+		ghClient, err := g.createAuthenticatedGhClient(ctx, token)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
@@ -207,11 +208,6 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		return false
 	}
 	return false
-}
-
-func (g *Github) obtainToken(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) string {
-	//g.lookup.LookupCheck(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck)
-	return "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"
 }
 
 func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err error) {
