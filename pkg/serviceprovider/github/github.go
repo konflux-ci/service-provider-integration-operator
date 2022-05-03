@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/google/go-github/v43/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
@@ -38,7 +40,7 @@ var _ serviceprovider.ServiceProvider = (*Github)(nil)
 type Github struct {
 	Configuration config.Configuration
 	lookup        serviceprovider.GenericLookup
-	httpClient    *http.Client
+	httpClient    rest.HTTPClient
 	tokenStorage  tokenstorage.TokenStorage
 }
 
@@ -197,7 +199,13 @@ func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.
 
 func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) bool {
 	lg := log.FromContext(ctx)
-	if resp, err := g.httpClient.Get(accessCheck.Spec.RepoUrl); err != nil {
+	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
+	if reqErr != nil {
+		lg.Error(reqErr, "failed to prepare request")
+		return false
+	}
+
+	if resp, err := g.httpClient.Do(req); err != nil {
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
 	} else if resp.StatusCode == http.StatusOK {
 		return true
@@ -211,6 +219,9 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 }
 
 func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err error) {
+	if !strings.HasPrefix(repoUrl, g.GetBaseUrl()) {
+		return "", "", fmt.Errorf("unable to parse path '%s'. looks like it's not a github repo url", repoUrl)
+	}
 	repoPath := strings.TrimPrefix(repoUrl, g.GetBaseUrl())
 	splittedPath := strings.Split(repoPath, "/")
 	if len(splittedPath) >= 3 {
