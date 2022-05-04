@@ -17,8 +17,9 @@ package quay
 import (
 	"context"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
