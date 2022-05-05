@@ -17,9 +17,10 @@ package github
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/pointer"
 	"net/http"
 	"strings"
+
+	"k8s.io/utils/pointer"
 
 	"k8s.io/client-go/rest"
 

@@ -3,17 +3,18 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/pointer"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
@@ -191,7 +192,6 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, status)
-	assert.Contains(t, status.Tokens, "token")
 }
 
 func mockGithub(cl client.Client, returnCode int) *Github {

@@ -111,9 +111,9 @@ func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) *api.SPIAccessCheckStatus {
+func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	log.FromContext(ctx).Info("trying SPIAccessCheck on quay.io. This is not supported yet.")
-	return &api.SPIAccessCheckStatus{}
+	return &api.SPIAccessCheckStatus{}, nil
 }
 
 type quayProbe struct{}
