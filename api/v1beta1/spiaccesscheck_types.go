@@ -31,13 +31,10 @@ type SPIAccessCheckSpec struct {
 
 // SPIAccessCheckStatus defines the observed state of SPIAccessCheck
 type SPIAccessCheckStatus struct {
-	RepoURL         string                    `json:"repoURL"`
 	Accessible      bool                      `json:"accessible"`
-	Private         bool                      `json:"private,omitempty"`
+	Private         *bool                     `json:"private,omitempty"`
 	Type            SPIRepoType               `json:"repo_type"`
 	ServiceProvider ServiceProviderType       `json:"service_provider"`
-	Tokens          []string                  `json:"tokens,omitempty"`
-	Ttl             int64                     `json:"ttl"`
 	ErrorReason     SPIAccessCheckErrorReason `json:"error_reason,omitempty"`
 	ErrorMessage    string                    `json:"error_message,omitempty"`
 }
@@ -53,7 +50,7 @@ type SPIAccessCheckErrorReason string
 const (
 	SPIAccessCheckErrorUnknownError           SPIAccessCheckErrorReason = "UnknownError"
 	SPIAccessCheckErrorUnknownServiceProvider SPIAccessCheckErrorReason = "UnknownServiceProviderType"
-	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepoNotFound"
+	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepositoryNotFound"
 	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
 )
 

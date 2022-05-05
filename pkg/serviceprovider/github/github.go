@@ -17,6 +17,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/pointer"
 	"net/http"
 	"strings"
 
@@ -131,15 +132,19 @@ func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) *api.SPIAccessCheckStatus {
+func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	repoUrl := accessCheck.Spec.RepoUrl
-	publicRepo := g.publicRepo(ctx, accessCheck)
+	publicRepo, err := g.publicRepo(ctx, accessCheck)
+	if err != nil {
+		return nil, err
+	}
 	status := &api.SPIAccessCheckStatus{
-		RepoURL:         repoUrl,
 		Accessible:      publicRepo,
-		Private:         !publicRepo,
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitHub,
+	}
+	if publicRepo {
+		status.Private = pointer.Bool(false)
 	}
 
 	lg := log.FromContext(ctx)
@@ -147,7 +152,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return status
+		return status, lookupErr
 	}
 
 	if len(tokens) > 0 {
@@ -156,33 +161,29 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
-			return status
+			return status, err
 		}
 		owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorBadURL
 			status.ErrorMessage = err.Error()
-			return status
+			return status, nil
 		}
 
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = err.Error()
-			return status
+			return status, nil
 		}
 
 		status.Accessible = true
-		status.Private = *ghRepository.Private
-		status.Tokens = make([]string, 0)
-		for _, t := range tokens {
-			status.Tokens = append(status.Tokens, t.Name)
-		}
+		status.Private = ghRepository.Private
 	} else {
-		lg.Info("we have no tokens for repo", "repo", repoUrl)
+		lg.Info("we have no tokens for repository", "repo", repoUrl)
 	}
 
-	return status
+	return status, nil
 }
 
 func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
@@ -197,25 +198,25 @@ func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.
 	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
 }
 
-func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) bool {
+func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to prepare request")
-		return false
+		return false, reqErr
 	}
 
 	if resp, err := g.httpClient.Do(req); err != nil {
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
+		return false, err
 	} else if resp.StatusCode == http.StatusOK {
-		return true
+		return true, nil
 	} else if resp.StatusCode == http.StatusNotFound {
-		return false
+		return false, nil
 	} else {
 		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
-		return false
+		return false, nil
 	}
-	return false
 }
 
 func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err error) {

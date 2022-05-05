@@ -59,26 +59,24 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, NewReconcileError(err, "failed to load the SPIAccessCheck from the cluster")
 	}
 
-	if ac.Status.Ttl != 0 {
-		if time.Now().After(time.Unix(ac.Status.Ttl, 0)) {
-			lg.Info("SPIAccessCheck is after ttl, deleting ...",
-				"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
-			if deleteError := r.Delete(ctx, &ac); deleteError != nil {
-				return ctrl.Result{Requeue: true}, deleteError
-			} else {
-				lg.Info("SPIAccessCheck deleted")
-				return ctrl.Result{}, nil
-			}
-		} else if ac.Spec.RepoUrl == ac.Status.RepoURL {
-			lg.Info("already analyzed, nothing to do",
-				"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
+	if time.Now().After(ac.ObjectMeta.CreationTimestamp.Add(r.Configuration.AccessCheckTtl)) {
+		lg.Info("SPIAccessCheck is after ttl, deleting ...",
+			"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
+		if deleteError := r.Delete(ctx, &ac); deleteError != nil {
+			return ctrl.Result{Requeue: true}, deleteError
+		} else {
+			lg.Info("SPIAccessCheck deleted")
 			return ctrl.Result{}, nil
 		}
 	}
 
 	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ac.Spec.RepoUrl); spErr == nil {
-		ac.Status = *sp.CheckRepositoryAccess(ctx, r.Client, &ac)
-		ac.Status.Ttl = time.Now().Add(r.Configuration.AccessCheckTtl).Unix()
+		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {
+			ac.Status = *status
+		} else {
+			lg.Error(repoCheckErr, "failed to check repository access")
+			return ctrl.Result{}, repoCheckErr
+		}
 	} else {
 		lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
 		ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider

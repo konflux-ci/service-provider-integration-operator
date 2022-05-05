@@ -86,25 +86,14 @@ spec:
                 type: boolean
               repo_type:
                 type: string
-              repoURL:
-                type: string
               service_provider:
                 description: ServiceProviderType defines the set of supported service
                   providers
                 type: string
-              tokens:
-                items:
-                  type: string
-                type: array
-              ttl:
-                format: int64
-                type: integer
             required:
             - accessible
-            - repoURL
             - repo_type
             - service_provider
-            - ttl
             type: object
         type: object
     served: true

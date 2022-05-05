@@ -3,12 +3,23 @@ package github
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/utils/pointer"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
+	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+const testValidRepoUrl = "https://github.com/redhat-appstudio/service-provider-integration-operator"
 
 type httpClientMock struct {
 	doFunc func(req *http.Request) (*http.Response, error)
@@ -16,6 +27,30 @@ type httpClientMock struct {
 
 func (h httpClientMock) Do(req *http.Request) (*http.Response, error) {
 	return h.doFunc(req)
+}
+
+type tokenFilterMock struct {
+	matchesFunc func(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error)
+}
+
+func (t tokenFilterMock) Matches(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+	return t.matchesFunc(matchable, token)
+}
+
+type tokenStorageMock struct {
+	getFunc func(ctx context.Context, owner *api.SPIAccessToken) *api.Token
+}
+
+func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
+	return nil
+}
+
+func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	return t.getFunc(ctx, owner), nil
+}
+
+func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
+	return nil
 }
 
 func TestCheckPublicRepo(t *testing.T) {
@@ -28,8 +63,9 @@ func TestCheckPublicRepo(t *testing.T) {
 			}}
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-			publicRepo := gh.publicRepo(context.TODO(), spiAccessCheck)
+			publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
 
+			assert.NoError(t, err)
 			assert.Equal(t, expected, publicRepo)
 		})
 	}
@@ -48,8 +84,9 @@ func TestCheckPublicRepo(t *testing.T) {
 		}}
 		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-		publicRepo := gh.publicRepo(context.TODO(), spiAccessCheck)
+		publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
 
+		assert.Error(t, err)
 		assert.Equal(t, false, publicRepo)
 	})
 }
@@ -84,4 +121,105 @@ func TestParseGithubRepositoryUrl(t *testing.T) {
 	testFail("https://blabol.com/redhat-appstudio/service-provider-integration-operator")
 	testFail("")
 	testFail("https://github.com/redhat-appstudio")
+}
+
+func TestCheckAccess(t *testing.T) {
+	cl := mockK8sClient()
+	gh := mockGithub(cl, http.StatusOK)
+
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.True(t, status.Accessible)
+	assert.Equal(t, pointer.Bool(false), status.Private)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+}
+
+func TestCheckAccessPrivate(t *testing.T) {
+	cl := mockK8sClient()
+	gh := mockGithub(cl, http.StatusNotFound)
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.False(t, status.Accessible)
+	assert.Nil(t, status.Private)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+}
+
+func TestCheckAccessWithMatchingTokens(t *testing.T) {
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: "github.com",
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: "https://github.com",
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusOK)
+	ac := api.SPIAccessCheck{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "access-check",
+			Namespace: "ac-namespace",
+		},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Contains(t, status.Tokens, "token")
+}
+
+func mockGithub(cl client.Client, returnCode int) *Github {
+	metadataCache := serviceprovider.NewMetadataCache(0, cl)
+	return &Github{
+		httpClient: httpClientMock{
+			doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: returnCode}, nil
+			},
+		},
+		lookup: serviceprovider.GenericLookup{
+			ServiceProviderType: api.ServiceProviderTypeGitHub,
+			MetadataCache:       &metadataCache,
+			TokenFilter: tokenFilterMock{
+				matchesFunc: func(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+					return true, nil
+				},
+			},
+		},
+		tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
+			return &api.Token{AccessToken: "blabol"}
+		}},
+	}
+}
+
+func mockK8sClient(objects ...client.Object) client.WithWatch {
+	sch := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(sch))
+	utilruntime.Must(api.AddToScheme(sch))
+	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }
