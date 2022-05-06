@@ -160,6 +160,7 @@ func main() {
 			Initializers:     serviceproviders.KnownInitializers(),
 			TokenStorage:     strg,
 		},
+		Configuration: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessCheck")
 		os.Exit(1)
