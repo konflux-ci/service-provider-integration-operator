@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v4
         with:
           images: |
             quay.io/redhat-appstudio/service-provider-integration-operator
