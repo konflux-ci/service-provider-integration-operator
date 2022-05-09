@@ -31,12 +31,12 @@ type SPIAccessCheckSpec struct {
 
 // SPIAccessCheckStatus defines the observed state of SPIAccessCheck
 type SPIAccessCheckStatus struct {
-	Accessible      bool                      `json:"accessible"`
-	Private         *bool                     `json:"private,omitempty"`
-	Type            SPIRepoType               `json:"repo_type"`
-	ServiceProvider ServiceProviderType       `json:"service_provider"`
-	ErrorReason     SPIAccessCheckErrorReason `json:"error_reason,omitempty"`
-	ErrorMessage    string                    `json:"error_message,omitempty"`
+	Accessible      bool                        `json:"accessible"`
+	Accessibility   SPIAccessCheckAccessibility `json:"accessibility"`
+	Type            SPIRepoType                 `json:"repo_type"`
+	ServiceProvider ServiceProviderType         `json:"service_provider"`
+	ErrorReason     SPIAccessCheckErrorReason   `json:"error_reason,omitempty"`
+	ErrorMessage    string                      `json:"error_message,omitempty"`
 }
 
 type SPIRepoType string
@@ -52,6 +52,14 @@ const (
 	SPIAccessCheckErrorUnknownServiceProvider SPIAccessCheckErrorReason = "UnknownServiceProviderType"
 	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepositoryNotFound"
 	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
+)
+
+type SPIAccessCheckAccessibility string
+
+const (
+	SPIAccessCheckAccessibilityPublic  SPIAccessCheckAccessibility = "public"
+	SPIAccessCheckAccessibilityPrivate SPIAccessCheckAccessibility = "private"
+	SPIAccessCheckAccessibilityUnknown SPIAccessCheckAccessibility = "unknown"
 )
 
 //+kubebuilder:object:root=true

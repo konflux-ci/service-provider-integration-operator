@@ -76,14 +76,14 @@ spec:
           status:
             description: SPIAccessCheckStatus defines the observed state of SPIAccessCheck
             properties:
+              accessibility:
+                type: string
               accessible:
                 type: boolean
               error_message:
                 type: string
               error_reason:
                 type: string
-              private:
-                type: boolean
               repo_type:
                 type: string
               service_provider:
@@ -91,6 +91,7 @@ spec:
                   providers
                 type: string
             required:
+            - accessibility
             - accessible
             - repo_type
             - service_provider

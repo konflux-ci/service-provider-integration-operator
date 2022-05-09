@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -137,9 +136,9 @@ func TestCheckAccess(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, status)
 	assert.True(t, status.Accessible)
-	assert.Equal(t, pointer.Bool(false), status.Private)
 	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
 }
 
 func TestCheckAccessPrivate(t *testing.T) {
@@ -154,9 +153,9 @@ func TestCheckAccessPrivate(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, status)
 	assert.False(t, status.Accessible)
-	assert.Nil(t, status.Private)
 	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
 }
 
 func TestCheckAccessWithMatchingTokens(t *testing.T) {

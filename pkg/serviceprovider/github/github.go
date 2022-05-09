@@ -143,9 +143,10 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		Accessible:      publicRepo,
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
 	if publicRepo {
-		status.Private = pointer.Bool(false)
+		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
 	}
 
 	lg := log.FromContext(ctx)
@@ -179,7 +180,9 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 
 		status.Accessible = true
-		status.Private = ghRepository.Private
+		if pointer.BoolDeref(ghRepository.Private, false) {
+			status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+		}
 	} else {
 		lg.Info("we have no tokens for repository", "repo", repoUrl)
 	}
