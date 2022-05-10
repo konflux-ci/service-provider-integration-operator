@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -52,8 +51,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("SPIAccessCheck not found on cluster",
-				"namespace:name", fmt.Sprintf("%s:%s", req.Namespace, req.Name))
+			lg.Info("SPIAccessCheck not found on cluster")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, NewReconcileError(err, "failed to load the SPIAccessCheck from the cluster")
