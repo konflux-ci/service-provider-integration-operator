@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/vault/vault"
 
@@ -153,7 +154,8 @@ var _ = BeforeSuite(func() {
 				ServiceProviderType: "TestServiceProvider",
 			},
 		},
-		SharedSecret: []byte("secret"),
+		SharedSecret:   []byte("secret"),
+		AccessCheckTtl: 10 * time.Second,
 	}
 
 	// start webhook server using Manager
