@@ -80,21 +80,21 @@ spec:
                 type: string
               accessible:
                 type: boolean
-              error_message:
+              errorMessage:
                 type: string
-              error_reason:
+              errorReason:
                 type: string
-              repo_type:
+              repoType:
                 type: string
-              service_provider:
+              serviceProvider:
                 description: ServiceProviderType defines the set of supported service
                   providers
                 type: string
             required:
             - accessibility
             - accessible
-            - repo_type
-            - service_provider
+            - repoType
+            - serviceProvider
             type: object
         type: object
     served: true

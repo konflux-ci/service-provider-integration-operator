@@ -33,10 +33,10 @@ type SPIAccessCheckSpec struct {
 type SPIAccessCheckStatus struct {
 	Accessible      bool                        `json:"accessible"`
 	Accessibility   SPIAccessCheckAccessibility `json:"accessibility"`
-	Type            SPIRepoType                 `json:"repo_type"`
-	ServiceProvider ServiceProviderType         `json:"service_provider"`
-	ErrorReason     SPIAccessCheckErrorReason   `json:"error_reason,omitempty"`
-	ErrorMessage    string                      `json:"error_message,omitempty"`
+	Type            SPIRepoType                 `json:"repoType"`
+	ServiceProvider ServiceProviderType         `json:"serviceProvider"`
+	ErrorReason     SPIAccessCheckErrorReason   `json:"errorReason,omitempty"`
+	ErrorMessage    string                      `json:"errorMessage,omitempty"`
 }
 
 type SPIRepoType string
