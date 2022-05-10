@@ -186,6 +186,24 @@ func TestCheckAccessPrivate(t *testing.T) {
 	assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
 }
 
+func TestCheckAccessBadUrl(t *testing.T) {
+	cl := mockK8sClient()
+	gh := mockGithub(cl, http.StatusNotFound, nil)
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: "blabol.this.is.not.github.url"},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.False(t, status.Accessible)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+	assert.Equal(t, api.SPIAccessCheckErrorBadURL, status.ErrorReason)
+}
+
 func TestCheckAccessWithMatchingTokens(t *testing.T) {
 	cl := mockK8sClient(&api.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{

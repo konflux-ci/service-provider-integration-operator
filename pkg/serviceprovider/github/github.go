@@ -135,16 +135,25 @@ func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	repoUrl := accessCheck.Spec.RepoUrl
-	publicRepo, err := g.publicRepo(ctx, accessCheck)
-	if err != nil {
-		return nil, err
-	}
+
 	status := &api.SPIAccessCheckStatus{
-		Accessible:      publicRepo,
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitHub,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
+
+	owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorBadURL
+		status.ErrorMessage = err.Error()
+		return status, nil
+	}
+
+	publicRepo, err := g.publicRepo(ctx, accessCheck)
+	if err != nil {
+		return nil, err
+	}
+	status.Accessible = publicRepo
 	if publicRepo {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
 	}
@@ -164,12 +173,6 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
 			return status, err
-		}
-		owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
-		if err != nil {
-			status.ErrorReason = api.SPIAccessCheckErrorBadURL
-			status.ErrorMessage = err.Error()
-			return status, nil
 		}
 
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
