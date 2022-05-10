@@ -60,8 +60,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if time.Now().After(ac.ObjectMeta.CreationTimestamp.Add(r.Configuration.AccessCheckTtl)) {
-		lg.Info("SPIAccessCheck is after ttl, deleting ...",
-			"namespace:name", fmt.Sprintf("%s:%s", ac.Namespace, ac.Name))
+		lg.Info("SPIAccessCheck is after ttl, deleting ...")
 		if deleteError := r.Delete(ctx, &ac); deleteError != nil {
 			return ctrl.Result{Requeue: true}, deleteError
 		} else {
