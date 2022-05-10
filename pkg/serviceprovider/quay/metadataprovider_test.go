@@ -15,34 +15,13 @@
 package quay
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"testing"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 )
-
-var httpCl = &http.Client{
-	Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-		if r.URL == quayUserApiEndpoint {
-			return &http.Response{
-				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"anonymous": false, "username": "test_user"}`))),
-			}, nil
-		} else {
-			return &http.Response{
-				StatusCode: 404,
-			}, nil
-		}
-	}),
-}
 
 var ts = tokenstorage.TestTokenStorage{
 	GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
@@ -70,7 +49,6 @@ func TestMetadataProvider_ReadRobotUsername(t *testing.T) {
 	}
 
 	mp := metadataProvider{
-		httpClient:   httpCl,
 		tokenStorage: &localTs,
 	}
 
@@ -89,18 +67,13 @@ func TestMetadataProvider_ReadRobotUsername(t *testing.T) {
 
 	assert.NotNil(t, data)
 	assert.Equal(t, "user1", data.Username)
-	assert.ElementsMatch(t, []string{"repo:read", "repo:write"}, data.Scopes)
+	assert.Empty(t, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
-
-	tokenState := &TokenState{}
-	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
-	assert.Equal(t, "user1", tokenState.RemoteUsername)
 }
 
 func TestMetadataProvider_FetchUserAndRWPerms(t *testing.T) {
 
 	mp := metadataProvider{
-		httpClient:   httpCl,
 		tokenStorage: &ts,
 	}
 
@@ -111,6 +84,10 @@ func TestMetadataProvider_FetchUserAndRWPerms(t *testing.T) {
 					Type: api.PermissionTypeReadWrite,
 					Area: api.PermissionAreaRepository,
 				},
+				{
+					Area: api.PermissionAreaUser,
+					Type: api.PermissionTypeReadWrite,
+				},
 			}},
 		},
 	}
@@ -119,18 +96,13 @@ func TestMetadataProvider_FetchUserAndRWPerms(t *testing.T) {
 
 	assert.NotNil(t, data)
 	assert.Equal(t, "$oauthtoken", data.Username)
-	assert.ElementsMatch(t, []string{"repo:read", "repo:write", "user:read"}, data.Scopes)
+	assert.ElementsMatch(t, []string{"repo:read", "repo:write", "user:admin"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
-
-	tokenState := &TokenState{}
-	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
-	assert.Equal(t, "test_user", tokenState.RemoteUsername)
 }
 
 func TestMetadataProvider_FetchUserAndROPerms(t *testing.T) {
 
 	mp := metadataProvider{
-		httpClient:   httpCl,
 		tokenStorage: &ts,
 	}
 
@@ -149,10 +121,6 @@ func TestMetadataProvider_FetchUserAndROPerms(t *testing.T) {
 
 	assert.NotNil(t, data)
 	assert.Equal(t, "$oauthtoken", data.Username)
-	assert.ElementsMatch(t, []string{"repo:read", "user:read"}, data.Scopes)
+	assert.ElementsMatch(t, []string{"repo:read"}, data.Scopes)
 	assert.NotEmpty(t, data.ServiceProviderState)
-
-	tokenState := &TokenState{}
-	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
-	assert.Equal(t, "test_user", tokenState.RemoteUsername)
 }

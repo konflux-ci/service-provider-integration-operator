@@ -80,7 +80,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, binding *ap
 				return
 			}
 
-			ok, err := l.TokenFilter.Matches(binding, &tkn)
+			ok, err := l.TokenFilter.Matches(ctx, binding, &tkn)
 			if err != nil {
 				mutex.Lock()
 				defer mutex.Unlock()

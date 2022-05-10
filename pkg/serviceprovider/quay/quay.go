@@ -33,6 +33,7 @@ type Quay struct {
 	Configuration config.Configuration
 	lookup        serviceprovider.GenericLookup
 	httpClient    *http.Client
+	BaseUrl       string
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -42,14 +43,20 @@ var Initializer = serviceprovider.Initializer{
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 
-	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
+	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
+	// therefore the metadata as a whole never gets refreshed.
+	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
 	return &Quay{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter:         &tokenFilter{},
+			TokenFilter: &tokenFilter{
+				kubernetesClient: factory.KubernetesClient,
+				httpClient:       factory.HttpClient,
+				tokenStorage:     factory.TokenStorage,
+				ttl:              factory.Configuration.TokenLookupCacheTtl,
+			},
 			MetadataProvider: &metadataProvider{
-				httpClient:   factory.HttpClient,
 				tokenStorage: factory.TokenStorage,
 			},
 			MetadataCache: &cache,
@@ -73,15 +80,28 @@ func (g *Quay) GetType() api.ServiceProviderType {
 }
 
 func (g *Quay) TranslateToScopes(permission api.Permission) []string {
+	return translateToQuayScopes(permission)
+}
+
+func translateToQuayScopes(permission api.Permission) []string {
 	switch permission.Area {
 	case api.PermissionAreaRepository:
 		switch permission.Type {
 		case api.PermissionTypeRead:
-			return []string{"repo:read", "user:read"}
+			return []string{string(ScopeRepoRead)}
 		case api.PermissionTypeWrite:
-			return []string{"repo:write", "user:read"}
+			return []string{string(ScopeRepoWrite)}
 		case api.PermissionTypeReadWrite:
-			return []string{"repo:read", "repo:write", "user:read"}
+			return []string{string(ScopeRepoRead), string(ScopeRepoWrite)}
+		}
+	case api.PermissionAreaUser:
+		switch permission.Type {
+		case api.PermissionTypeRead:
+			return []string{string(ScopeUserRead)}
+		case api.PermissionTypeWrite:
+			return []string{string(ScopeUserAdmin)}
+		case api.PermissionTypeReadWrite:
+			return []string{string(ScopeUserAdmin)}
 		}
 	}
 

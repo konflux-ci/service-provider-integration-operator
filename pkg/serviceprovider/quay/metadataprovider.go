@@ -17,8 +17,6 @@ package quay
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/url"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -26,20 +24,10 @@ import (
 )
 
 type metadataProvider struct {
-	httpClient   *http.Client
 	tokenStorage tokenstorage.TokenStorage
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
-var quayUserApiEndpoint *url.URL
-
-func init() {
-	qUrl, err := url.Parse("https://quay.io/api/v1/user")
-	if err != nil {
-		panic(err)
-	}
-	quayUserApiEndpoint = qUrl
-}
 
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
@@ -51,21 +39,13 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		return nil, err
 	}
 
+	// This method is called when we need to refresh (or obtain anew, after cache expiry) the metadata of the token.
+	// Because we load all the state iteratively for Quay, this info is always empty when fresh.
 	state := &TokenState{
-		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
+		Repositories:  map[string]EntityRecord{},
+		Organizations: map[string]EntityRecord{},
+		Users:         map[string]EntityRecord{},
 	}
-	//TODO: verify access
-	var username string
-	if len(data.Username) > 0 {
-		username = data.Username
-	} else {
-		username, err = s.fetchUser(data.AccessToken)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	state.RemoteUsername = username
 
 	js, err := json.Marshal(state)
 	if err != nil {
@@ -80,8 +60,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	if len(data.Username) > 0 {
 		metadata.Username = data.Username
-		// TODO: replace with real repo access verification
-		metadata.Scopes = []string{"repo:read", "repo:write"}
+		// TODO: The scopes are going to differ per-repo, so we're going to need an SP-specific secret sync
 	} else {
 		metadata.Username = "$oauthtoken"
 		metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
@@ -90,43 +69,4 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	metadata.ServiceProviderState = js
 
 	return metadata, nil
-}
-
-func (s metadataProvider) fetchUser(accessToken string) (userName string, err error) {
-	var res *http.Response
-	res, err = s.httpClient.Do(&http.Request{
-		Method: "GET",
-		URL:    quayUserApiEndpoint,
-		Header: map[string][]string{
-			"Authorization": {"Bearer " + accessToken},
-		},
-	})
-	if err != nil {
-		return
-	}
-
-	content := map[string]interface{}{}
-	if err = json.NewDecoder(res.Body).Decode(&content); err != nil {
-		return
-	}
-
-	userName = content["username"].(string)
-
-	return
-}
-
-func translateToQuayScopes(permission api.Permission) []string {
-	switch permission.Area {
-	case api.PermissionAreaRepository:
-		switch permission.Type {
-		case api.PermissionTypeRead:
-			return []string{"repo:read", "user:read"}
-		case api.PermissionTypeWrite:
-			return []string{"repo:write", "user:read"}
-		case api.PermissionTypeReadWrite:
-			return []string{"repo:read", "repo:write", "user:read"}
-		}
-	}
-
-	return []string{}
 }
