@@ -90,6 +90,34 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, time.Hour, cfg.TokenLookupCacheTtl)
 }
 
+func TestParseDuration(t *testing.T) {
+	t.Run("fail orig", func(t *testing.T) {
+		d, err := parseDuration("blabol", "1h")
+		assert.Empty(t, d)
+		assert.Error(t, err)
+	})
+	t.Run("fail default", func(t *testing.T) {
+		d, err := parseDuration("", "blabol")
+		assert.Empty(t, d)
+		assert.Error(t, err)
+	})
+	t.Run("ok orig", func(t *testing.T) {
+		d, err := parseDuration("1h23m", "1h")
+		assert.Equal(t, 83*time.Minute, d)
+		assert.NoError(t, err)
+	})
+	t.Run("ok default", func(t *testing.T) {
+		d, err := parseDuration("", "1h23m")
+		assert.Equal(t, 83*time.Minute, d)
+		assert.NoError(t, err)
+	})
+	t.Run("empty", func(t *testing.T) {
+		d, err := parseDuration("", "")
+		assert.Empty(t, d)
+		assert.Error(t, err)
+	})
+}
+
 func createFile(t *testing.T, path string, content string) string {
 	file, err := os.CreateTemp(os.TempDir(), path)
 	assert.NoError(t, err)

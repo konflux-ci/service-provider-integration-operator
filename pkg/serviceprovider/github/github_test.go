@@ -139,7 +139,7 @@ func TestParseGithubRepositoryUrl(t *testing.T) {
 
 func TestCheckAccess(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusOK)
+	gh := mockGithub(cl, http.StatusOK, nil)
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
@@ -155,9 +155,23 @@ func TestCheckAccess(t *testing.T) {
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
 }
 
+func TestFailWithGithubHttp(t *testing.T) {
+	cl := mockK8sClient()
+	gh := mockGithub(cl, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"))
+
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.Error(t, err)
+	assert.Nil(t, status)
+}
+
 func TestCheckAccessPrivate(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusNotFound)
+	gh := mockGithub(cl, http.StatusNotFound, nil)
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
 	}
@@ -192,7 +206,7 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 			},
 		},
 	})
-	gh := mockGithub(cl, http.StatusOK)
+	gh := mockGithub(cl, http.StatusOK, nil)
 	ac := api.SPIAccessCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "access-check",
@@ -207,12 +221,12 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 	assert.NotNil(t, status)
 }
 
-func mockGithub(cl client.Client, returnCode int) *Github {
+func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 	metadataCache := serviceprovider.NewMetadataCache(0, cl)
 	return &Github{
 		httpClient: httpClientMock{
 			doFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: returnCode}, nil
+				return &http.Response{StatusCode: returnCode}, httpErr
 			},
 		},
 		lookup: serviceprovider.GenericLookup{
