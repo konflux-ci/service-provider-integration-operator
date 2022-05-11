@@ -996,8 +996,9 @@ github.com/hashicorp/vault-plugin-secrets-gcp v0.11.2 h1:IsNnBsat7/AsiVKSrlAHlIN
 github.com/hashicorp/vault-plugin-secrets-gcp v0.11.2/go.mod h1:ndpmRkIPHW5UYqv2nn2AJNVZsucJ8lY2bp5i5Ngvhuc=
 github.com/hashicorp/vault-plugin-secrets-gcpkms v0.10.0 h1:0Vi5WEIpZctk/ZoRClodV9WCnM/lCzw9XekMhRZdo8k=
 github.com/hashicorp/vault-plugin-secrets-gcpkms v0.10.0/go.mod h1:6DPwGu8oGR1sZRpjwkcAnrQZWQuAJ/Ph+rQHfUo1Yf4=
-github.com/hashicorp/vault-plugin-secrets-kv v0.10.1 h1:88a6YkbU0FCboZoFdB5uv6ukBf3gc3zDLKM4z64dWxo=
 github.com/hashicorp/vault-plugin-secrets-kv v0.10.1/go.mod h1:TNPRoB53Twd9tYvlhqqEhMsQPiVN604kZw9jr2zUzDk=
+github.com/hashicorp/vault-plugin-secrets-kv v0.11.0 h1:xSvgh7ObLo3MhVzmGhOxiWND++cTP/QM2LxTmpYim/Q=
+github.com/hashicorp/vault-plugin-secrets-kv v0.11.0/go.mod h1:9V2Ecim3m/qw+YAQelUeFADqZ1GVo8xwoLqfKsqh9pI=
 github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.5.1 h1:Maewon4nu0KL1ALBOvL6Rsj+Qyr9hdULWflyMz7+9nk=
 github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.5.1/go.mod h1:PLx2vxXukfsKsDRo/PlG4fxmJ1d+H2h82wT3vf4buuI=
 github.com/hashicorp/vault-plugin-secrets-openldap v0.6.1 h1:XTU3fFthER4wPzUEzOE8sKmqHX/qq6h2lEVI0DUcU/U=
@@ -1024,6 +1025,7 @@ github.com/hashicorp/vault/sdk v0.1.14-0.20200215224050-f6547fa8e820/go.mod h1:W
 github.com/hashicorp/vault/sdk v0.1.14-0.20200519221530-14615acda45f/go.mod h1:WX57W2PwkrOPQ6rVQk+dy5/htHIaB4aBM70EwKThu10=
 github.com/hashicorp/vault/sdk v0.2.1/go.mod h1:WfUiO1vYzfBkz1TmoE4ZGU7HD0T0Cl/rZwaxjBkgN4U=
 github.com/hashicorp/vault/sdk v0.3.0/go.mod h1:aZ3fNuL5VNydQk8GcLJ2TV8YCRVvyaakYkhZRoVuhj0=
+github.com/hashicorp/vault/sdk v0.3.1-0.20220112143259-b48602fdb885/go.mod h1:LzlzYEnxJWaC5mlt2nOVJimp5R15ecXAucsdjRc7KC0=
 github.com/hashicorp/vault/sdk v0.3.1-0.20220224202448-00c495209246 h1:8mAW1AjNuPUznek6ETQcgyFvupJbayoKzTLrKVrxHro=
 github.com/hashicorp/vault/sdk v0.3.1-0.20220224202448-00c495209246/go.mod h1:aZ3fNuL5VNydQk8GcLJ2TV8YCRVvyaakYkhZRoVuhj0=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 h1:O/pT5C1Q3mVXMyuqg7yuAWUg/jMZR1/0QTzTRdNR6Uw=
