@@ -55,10 +55,14 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	//TODO: verify access
-
-	username, err := s.fetchUser(data.AccessToken)
-	if err != nil {
-		return nil, err
+	var username string
+	if len(data.Username) > 0 {
+		username = data.Username
+	} else {
+		username, err = s.fetchUser(data.AccessToken)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	state.RemoteUsername = username
@@ -74,9 +78,14 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata = metadata
 	}
 
-	metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
-
-	metadata.Username = "$oauthtoken"
+	if len(data.Username) > 0 {
+		metadata.Username = data.Username
+		// TODO: replace with real repo access verification
+		metadata.Scopes = []string{"repo:read", "repo:write"}
+	} else {
+		metadata.Username = "$oauthtoken"
+		metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
+	}
 
 	metadata.ServiceProviderState = js
 

@@ -25,6 +25,7 @@ import (
 )
 
 var testToken = &v1beta1.Token{
+	Username:     "testUsername",
 	AccessToken:  "testAccessToken",
 	TokenType:    "testTokenType",
 	RefreshToken: "testRefreshToken",
@@ -73,6 +74,7 @@ func TestParseToken(t *testing.T) {
 
 	t.Run("full token", func(t *testing.T) {
 		data := map[string]interface{}{
+			"username":      "un",
 			"access_token":  "at",
 			"token_type":    "tt",
 			"refresh_token": "rt",
@@ -80,6 +82,7 @@ func TestParseToken(t *testing.T) {
 		}
 		token, err := parseToken(data)
 		assert.Nil(t, err)
+		assert.Equal(t, "un", token.Username)
 		assert.Equal(t, "at", token.AccessToken)
 		assert.Equal(t, "tt", token.TokenType)
 		assert.Equal(t, "rt", token.RefreshToken)
@@ -91,6 +94,7 @@ func TestParseToken(t *testing.T) {
 		token, err := parseToken(data)
 		assert.Nil(t, err)
 		assert.NotNil(t, token)
+		assert.Equal(t, "", token.Username)
 		assert.Equal(t, "", token.AccessToken)
 		assert.Equal(t, "", token.TokenType)
 		assert.Equal(t, "", token.RefreshToken)

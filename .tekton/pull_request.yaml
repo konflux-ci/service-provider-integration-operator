@@ -21,10 +21,6 @@ spec:
   serviceAccountName: pipeline
   workspaces:
     - name: workspace
-      volumeClaimTemplate:
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 200Mi
+      persistentVolumeClaim:
+        claimName: app-studio-default-workspace
+      subPath: spi-operator-check-{{ revision }}
