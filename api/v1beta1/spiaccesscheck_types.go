@@ -52,6 +52,7 @@ const (
 	SPIAccessCheckErrorUnknownServiceProvider SPIAccessCheckErrorReason = "UnknownServiceProviderType"
 	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepositoryNotFound"
 	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
+	SPIAccessCheckErrorNotImplemented         SPIAccessCheckErrorReason = "NotImplemented"
 )
 
 type SPIAccessCheckAccessibility string
