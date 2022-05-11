@@ -25,12 +25,20 @@ import (
 // supplying custom implementations of each of the interface methods. It provides dummy implementations of them, too, so
 // that no null pointer dereferences should occur under normal operation.
 type TestServiceProvider struct {
-	LookupTokenImpl       func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
-	PersistMetadataImpl   func(context.Context, client.Client, *api.SPIAccessToken) error
-	GetBaseUrlImpl        func() string
-	TranslateToScopesImpl func(permission api.Permission) []string
-	GetTypeImpl           func() api.ServiceProviderType
-	GetOauthEndpointImpl  func() string
+	LookupTokenImpl           func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
+	GetBaseUrlImpl            func() string
+	TranslateToScopesImpl     func(permission api.Permission) []string
+	GetTypeImpl               func() api.ServiceProviderType
+	GetOauthEndpointImpl      func() string
+	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
+}
+
+func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	if t.CheckRepositoryAccessImpl == nil {
+		return &api.SPIAccessCheckStatus{}, nil
+	}
+	return t.CheckRepositoryAccessImpl(ctx, cl, accessCheck)
 }
 
 func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
@@ -83,6 +91,7 @@ func (t *TestServiceProvider) Reset() {
 	t.GetTypeImpl = nil
 	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil
+	t.CheckRepositoryAccessImpl = nil
 }
 
 // LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns

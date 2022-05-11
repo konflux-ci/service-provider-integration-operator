@@ -20,6 +20,32 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - spiaccesschecks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesschecks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesschecks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - spiaccesstokenbindings
   verbs:
   - create

@@ -1,0 +1,20 @@
+# permissions for end users to view spiaccesschecks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spiaccesscheck-viewer-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesschecks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesschecks/status
+  verbs:
+  - get

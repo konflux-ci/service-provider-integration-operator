@@ -37,4 +37,13 @@ resources:
   kind: SPIAccessTokenBinding
   path: github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: redhat.com
+  group: appstudio
+  kind: SPIAccessCheck
+  path: github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1
+  version: v1beta1
 version: "3"

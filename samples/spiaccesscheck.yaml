@@ -1,0 +1,6 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessCheck
+metadata:
+  name: spiaccesscheck-sample
+spec:
+  repoUrl: "https://github.com/redhat-appstudio/service-provider-integration-operator"

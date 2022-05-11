@@ -74,7 +74,7 @@ func TestGenericLookup_Lookup(t *testing.T) {
 	cache := NewMetadataCache(1*time.Hour, cl)
 	gl := GenericLookup{
 		ServiceProviderType: "test",
-		TokenFilter: TokenFilterFunc(func(binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
+		TokenFilter: TokenFilterFunc(func(binding Matchable, token *api.SPIAccessToken) (bool, error) {
 			return token.Name == "matching", nil
 		}),
 		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {

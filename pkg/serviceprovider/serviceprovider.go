@@ -52,6 +52,8 @@ type ServiceProvider interface {
 	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
 
+	CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
+
 	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
 	//the service provider itself.
 	GetOAuthEndpoint() string
@@ -118,3 +120,12 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Timeout:       cl.Timeout,
 	}
 }
+
+type Matchable interface {
+	RepoUrl() string
+	ObjNamespace() string
+	Permissions() *api.Permissions
+}
+
+var _ Matchable = (*api.SPIAccessCheck)(nil)
+var _ Matchable = (*api.SPIAccessTokenBinding)(nil)
