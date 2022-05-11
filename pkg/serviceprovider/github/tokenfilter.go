@@ -26,7 +26,7 @@ type tokenFilter struct{}
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-func (t *tokenFilter) Matches(_ context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
+func (t *tokenFilter) Matches(_ context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}
@@ -37,7 +37,7 @@ func (t *tokenFilter) Matches(_ context.Context, binding *api.SPIAccessTokenBind
 	}
 
 	for repoUrl, rec := range githubState.AccessibleRepos {
-		if string(repoUrl) == binding.Spec.RepoUrl && permsMatch(&binding.Spec.Permissions, rec, token.Status.TokenMetadata.Scopes) {
+		if string(repoUrl) == matchable.RepoUrl() && permsMatch(matchable.Permissions(), rec, token.Status.TokenMetadata.Scopes) {
 			return true, nil
 		}
 	}

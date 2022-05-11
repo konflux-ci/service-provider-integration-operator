@@ -5,4 +5,5 @@ resources:
 - bases/appstudio.redhat.com_spiaccesstokens.yaml
 - bases/appstudio.redhat.com_spiaccesstokenbindings.yaml
 - bases/appstudio.redhat.com_spiaccesstokendataupdates.yaml
+- bases/appstudio.redhat.com_spiaccesschecks.yaml
 #+kubebuilder:scaffold:crdkustomizeresource

@@ -52,8 +52,14 @@ type PersistedConfiguration struct {
 	// is 1h (1 hour).
 	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
 
-	// VaultHost is url to Vault storage. Default `http://spi-vault:8200` which is default spi Vault service name for kubernetes deployments.
+	// VaultHost is url to Vault storage. Default `http://spi-vault:8200` which is default spi Vault service name for
+	// kubernetes deployments.
 	VaultHost string `yaml:"vaultHost"`
+
+	// AccessCheckTtl is the time after that SPIAccessCheck CR will be deleted by operator. This string expresses the
+	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.). The default
+	// is 30m (30 minutes).
+	AccessCheckTtl string `yaml:"accessCheckTtl"`
 }
 
 // Configuration contains the specification of the known service providers as well as other configuration data shared
@@ -83,6 +89,9 @@ type Configuration struct {
 	// No need to set when running in pod, but can be useful when running outside, like local dev.
 	// It is set with `SA_TOKEN_PATH` environment variable.
 	ServiceAccountTokenFilePath string
+
+	// AccessCheckTtl is time after that SPIAccessCheck CR will be deleted.
+	AccessCheckTtl time.Duration
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -111,20 +120,21 @@ type ServiceProviderConfiguration struct {
 func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf := Configuration{}
 
-	ttlStr := c.TokenLookupCacheTtl
-	if ttlStr == "" {
-		ttlStr = "1h"
-	}
-
 	if c.VaultHost == "" {
 		conf.VaultHost = DefaultVaultHost
 	} else {
 		conf.VaultHost = c.VaultHost
 	}
 
-	ttl, err := time.ParseDuration(ttlStr)
-	if err != nil {
-		return conf, err
+	var parseErr error
+	conf.TokenLookupCacheTtl, parseErr = parseDuration(c.TokenLookupCacheTtl, "1h")
+	if parseErr != nil {
+		return conf, parseErr
+	}
+
+	conf.AccessCheckTtl, parseErr = parseDuration(c.AccessCheckTtl, "30m")
+	if parseErr != nil {
+		return conf, parseErr
 	}
 
 	if saTokenPath, ok := os.LookupEnv("SA_TOKEN_PATH"); ok {
@@ -135,8 +145,14 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf.ServiceProviders = c.ServiceProviders
 	conf.SharedSecret = []byte(c.SharedSecret)
 	conf.BaseUrl = c.BaseUrl
-	conf.TokenLookupCacheTtl = ttl
 	return conf, nil
+}
+
+func parseDuration(timeString string, defaultValue string) (time.Duration, error) {
+	if timeString == "" {
+		timeString = defaultValue
+	}
+	return time.ParseDuration(timeString)
 }
 
 func LoadFrom(configFile string) (Configuration, error) {

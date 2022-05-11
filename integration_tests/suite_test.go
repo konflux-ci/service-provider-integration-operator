@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/vault/vault"
 
@@ -153,7 +154,8 @@ var _ = BeforeSuite(func() {
 				ServiceProviderType: "TestServiceProvider",
 			},
 		},
-		SharedSecret: []byte("secret"),
+		SharedSecret:   []byte("secret"),
+		AccessCheckTtl: 10 * time.Second,
 	}
 
 	// start webhook server using Manager
@@ -219,6 +221,14 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.SPIAccessTokenDataUpdateReconciler{
 		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.SPIAccessCheckReconciler{
+		Client:                 mgr.GetClient(),
+		Scheme:                 mgr.GetScheme(),
+		ServiceProviderFactory: factory,
+		Configuration:          operatorCfg,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

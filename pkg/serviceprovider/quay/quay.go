@@ -19,6 +19,10 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -33,7 +37,7 @@ type Quay struct {
 	Configuration    config.Configuration
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
-	httpClient       *http.Client
+	httpClient       rest.HTTPClient
 	BaseUrl          string
 }
 
@@ -130,6 +134,15 @@ func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.
 
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
+}
+
+func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	log.FromContext(ctx).Info("trying SPIAccessCheck on quay.io. This is not supported yet.")
+	return &api.SPIAccessCheckStatus{
+		Accessibility: api.SPIAccessCheckAccessibilityUnknown,
+		ErrorReason:   api.SPIAccessCheckErrorNotImplemented,
+		ErrorMessage:  "Access check for quay.io is not implemented.",
+	}, nil
 }
 
 func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {

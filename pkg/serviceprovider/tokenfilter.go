@@ -22,14 +22,14 @@ import (
 
 // TokenFilter is a helper interface to implement the ServiceProvider.LookupToken method using the GenericLookup struct.
 type TokenFilter interface {
-	Matches(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error)
+	Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error)
 }
 
 // TokenFilterFunc converts a function into the implementation of the TokenFilter interface
-type TokenFilterFunc func(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error)
+type TokenFilterFunc func(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error)
 
 var _ TokenFilter = (TokenFilterFunc)(nil)
 
-func (f TokenFilterFunc) Matches(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
-	return f(ctx, binding, token)
+func (f TokenFilterFunc) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
+	return f(ctx, matchable, token)
 }

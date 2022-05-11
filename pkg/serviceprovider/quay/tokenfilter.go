@@ -27,17 +27,17 @@ type tokenFilter struct {
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-func (t *tokenFilter) Matches(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) (bool, error) {
+func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}
 
-	rec, err := t.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
+	rec, err := t.metadataProvider.FetchRepo(ctx, matchable.RepoUrl(), token)
 	if err != nil {
 		return false, err
 	}
 
-	requiredScopes := serviceprovider.GetAllScopes(translateToQuayScopes, &binding.Spec.Permissions)
+	requiredScopes := serviceprovider.GetAllScopes(translateToQuayScopes, matchable.Permissions())
 
 	for _, s := range requiredScopes {
 		requiredScope := Scope(s)

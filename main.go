@@ -27,8 +27,9 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -149,6 +150,21 @@ func main() {
 		setupLog.Info("CRD controllers inactive")
 	}
 
+	if err = (&controllers.SPIAccessCheckReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration:    cfg,
+			KubernetesClient: mgr.GetClient(),
+			HttpClient:       http.DefaultClient,
+			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
+		},
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessCheck")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
