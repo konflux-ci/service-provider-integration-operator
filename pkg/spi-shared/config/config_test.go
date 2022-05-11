@@ -90,6 +90,24 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, time.Hour, cfg.TokenLookupCacheTtl)
 }
 
+func TestTtlParseFail(t *testing.T) {
+	test := func(configFileContent string) {
+
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
+
+		_, err := LoadFrom(cfgFilePath)
+		assert.Error(t, err)
+	}
+	t.Run("accessCheckTtl", func(t *testing.T) {
+		test("accessCheckTtl: blabol")
+	})
+
+	t.Run("tokenLookupCacheTtl", func(t *testing.T) {
+		test("tokenLookupCacheTtl: blabol")
+	})
+}
+
 func TestParseDuration(t *testing.T) {
 	t.Run("fail orig", func(t *testing.T) {
 		d, err := parseDuration("blabol", "1h")
