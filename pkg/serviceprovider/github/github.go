@@ -114,12 +114,16 @@ func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api
 	return &tokens[0], nil
 }
 
-func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	return g.lookup.PersistMetadata(ctx, token)
 }
 
 func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
+}
+
+func (g *Github) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	return serviceprovider.DefaultMapToken(token, tokenData)
 }
 
 type githubProbe struct{}

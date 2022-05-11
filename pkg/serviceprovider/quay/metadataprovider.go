@@ -17,6 +17,10 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -24,13 +28,16 @@ import (
 )
 
 type metadataProvider struct {
-	tokenStorage tokenstorage.TokenStorage
+	tokenStorage     tokenstorage.TokenStorage
+	httpClient       *http.Client
+	kubernetesClient client.Client
+	ttl              time.Duration
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
-func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-	data, err := s.tokenStorage.Get(ctx, token)
+func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -69,4 +76,97 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	metadata.ServiceProviderState = js
 
 	return metadata, nil
+}
+
+type RepositoryMetadata struct {
+	Repository   EntityRecord
+	User         EntityRecord
+	Organization EntityRecord
+}
+
+// FetchRepo is the iterative version of Fetch used internally in the Quay service provider. It takes care of both
+// fetching and caching of the data on per-repository basis.
+func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata RepositoryMetadata, err error) {
+	if token.Status.TokenMetadata == nil {
+		return
+	}
+
+	quayState := TokenState{}
+	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
+		return
+	}
+
+	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
+
+	var orgChanged, userChanged, repoChanged bool
+	var orgRecord, userRecord, repoRecord EntityRecord
+
+	orgRecord, orgChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Organizations, fetchOrganizationRecord)
+	if err != nil {
+		return
+	}
+
+	userRecord, userChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Users, fetchUserRecord)
+	if err != nil {
+		return
+	}
+
+	repoRecord, repoChanged, err = p.getEntityRecord(ctx, token, orgOrUser+"/"+repo, quayState.Repositories, fetchRepositoryRecord)
+	if err != nil {
+		return
+	}
+
+	if orgChanged || userChanged || repoChanged {
+		if err = p.persistTokenState(ctx, token, &quayState); err != nil {
+			return
+		}
+	}
+
+	return RepositoryMetadata{
+		Repository:   repoRecord,
+		User:         userRecord,
+		Organization: orgRecord,
+	}, nil
+}
+
+func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, fetchFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error)) (rec EntityRecord, changed bool, err error) {
+	rec, present := cache[key]
+
+	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
+		var tokenData *api.Token
+		var repoRec *EntityRecord
+
+		tokenData, err = p.tokenStorage.Get(ctx, token)
+		if err != nil {
+			return
+		}
+
+		repoRec, err = fetchFn(ctx, p.httpClient, key, tokenData)
+		if err != nil {
+			return
+		}
+
+		if repoRec == nil {
+			repoRec = &EntityRecord{}
+		}
+
+		repoRec.LastRefreshTime = time.Now().Unix()
+
+		cache[key] = *repoRec
+		rec = *repoRec
+		changed = true
+	}
+
+	return
+}
+
+func (p metadataProvider) persistTokenState(ctx context.Context, token *api.SPIAccessToken, tokenState *TokenState) error {
+	data, err := json.Marshal(tokenState)
+	if err != nil {
+		return err
+	}
+
+	token.Status.TokenMetadata.ServiceProviderState = data
+
+	return p.kubernetesClient.Status().Update(ctx, token)
 }

@@ -54,6 +54,7 @@ const (
 	SPIAccessTokenBindingErrorReasonLinkedToken                SPIAccessTokenBindingErrorReason = "LinkedToken"
 	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
 	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
+	SPIAccessTokenBindingErrorReasonTokenAnalysis              SPIAccessTokenBindingErrorReason = "TokenAnalysis"
 )
 
 //+kubebuilder:object:root=true

@@ -16,21 +16,13 @@ package quay
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type tokenFilter struct {
-	kubernetesClient client.Client
-	httpClient       *http.Client
-	tokenStorage     tokenstorage.TokenStorage
-	ttl              time.Duration
+	metadataProvider *metadataProvider
 }
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
@@ -40,36 +32,9 @@ func (t *tokenFilter) Matches(ctx context.Context, binding *api.SPIAccessTokenBi
 		return false, nil
 	}
 
-	quayState := TokenState{}
-	if err := json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
-		return false, err
-	}
-
-	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(binding.Spec.RepoUrl)
-
-	var orgChanged, userChanged, repoChanged bool
-	var orgRecord, userRecord, repoRecord EntityRecord
-	var err error
-
-	orgRecord, orgChanged, err = t.getEntityRecord(ctx, token, orgOrUser, quayState.Organizations, FetchOrganizationRecord)
+	rec, err := t.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
 		return false, err
-	}
-
-	userRecord, userChanged, err = t.getEntityRecord(ctx, token, orgOrUser, quayState.Users, FetchUserRecord)
-	if err != nil {
-		return false, err
-	}
-
-	repoRecord, repoChanged, err = t.getEntityRecord(ctx, token, orgOrUser+"/"+repo, quayState.Repositories, FetchRepositoryRecord)
-	if err != nil {
-		return false, err
-	}
-
-	if orgChanged || userChanged || repoChanged {
-		if err = t.persistTokenState(ctx, token, &quayState); err != nil {
-			return false, err
-		}
 	}
 
 	requiredScopes := serviceprovider.GetAllScopes(translateToQuayScopes, &binding.Spec.Permissions)
@@ -81,11 +46,11 @@ func (t *tokenFilter) Matches(ctx context.Context, binding *api.SPIAccessTokenBi
 
 		switch requiredScope {
 		case ScopeUserRead, ScopeUserAdmin:
-			testedRecord = userRecord
+			testedRecord = rec.User
 		case ScopeOrgAdmin:
-			testedRecord = orgRecord
+			testedRecord = rec.Organization
 		default:
-			testedRecord = repoRecord
+			testedRecord = rec.Repository
 		}
 
 		if !requiredScope.IsIncluded(testedRecord.PossessedScopes) {
@@ -94,46 +59,4 @@ func (t *tokenFilter) Matches(ctx context.Context, binding *api.SPIAccessTokenBi
 	}
 
 	return true, nil
-}
-
-func (t *tokenFilter) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, fetchFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error)) (rec EntityRecord, changed bool, err error) {
-	rec, present := cache[key]
-
-	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(t.ttl)) {
-		var tokenData *api.Token
-		var repoRec *EntityRecord
-
-		tokenData, err = t.tokenStorage.Get(ctx, token)
-		if err != nil {
-			return
-		}
-
-		repoRec, err = fetchFn(ctx, t.httpClient, key, tokenData)
-		if err != nil {
-			return
-		}
-
-		if repoRec == nil {
-			repoRec = &EntityRecord{}
-		}
-
-		repoRec.LastRefreshTime = time.Now().Unix()
-
-		cache[key] = *repoRec
-		rec = *repoRec
-		changed = true
-	}
-
-	return
-}
-
-func (t *tokenFilter) persistTokenState(ctx context.Context, token *api.SPIAccessToken, tokenState *TokenState) error {
-	data, err := json.Marshal(tokenState)
-	if err != nil {
-		return err
-	}
-
-	token.Status.TokenMetadata.ServiceProviderState = data
-
-	return t.kubernetesClient.Status().Update(ctx, token)
 }

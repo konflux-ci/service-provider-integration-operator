@@ -17,6 +17,8 @@ package integrationtests
 import (
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,6 +33,7 @@ type TestServiceProvider struct {
 	TranslateToScopesImpl func(permission api.Permission) []string
 	GetTypeImpl           func() api.ServiceProviderType
 	GetOauthEndpointImpl  func() string
+	MapTokenImpl          func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
 }
 
 func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
@@ -74,6 +77,14 @@ func (t TestServiceProvider) GetOAuthEndpoint() string {
 		return ""
 	}
 	return t.GetOauthEndpointImpl()
+}
+
+func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	if t.MapTokenImpl == nil {
+		return serviceprovider.AccessTokenMapper{}, nil
+	}
+
+	return t.MapTokenImpl(ctx, binding, token, tokenData)
 }
 
 func (t *TestServiceProvider) Reset() {

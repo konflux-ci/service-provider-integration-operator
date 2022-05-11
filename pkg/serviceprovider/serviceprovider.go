@@ -55,6 +55,10 @@ type ServiceProvider interface {
 	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
 	//the service provider itself.
 	GetOAuthEndpoint() string
+
+	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
+	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
+	MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error)
 }
 
 // Factory is able to construct service providers from repository URLs.
@@ -117,4 +121,26 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Jar:           cl.Jar,
 		Timeout:       cl.Timeout,
 	}
+}
+
+func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error) {
+	var userId, userName string
+	var scopes []string
+
+	if tokenObject.Status.TokenMetadata != nil {
+		userName = tokenObject.Status.TokenMetadata.Username
+		userId = tokenObject.Status.TokenMetadata.UserId
+		scopes = tokenObject.Status.TokenMetadata.Scopes
+	}
+
+	return AccessTokenMapper{
+		Name:                    tokenObject.Name,
+		Token:                   tokenData.AccessToken,
+		ServiceProviderUrl:      tokenObject.Spec.ServiceProviderUrl,
+		ServiceProviderUserName: userName,
+		ServiceProviderUserId:   userId,
+		UserId:                  "",
+		ExpiredAfter:            &tokenData.Expiry,
+		Scopes:                  scopes,
+	}, nil
 }

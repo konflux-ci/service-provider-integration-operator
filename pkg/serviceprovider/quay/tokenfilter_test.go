@@ -101,25 +101,27 @@ func TestMatches_RobotToken(t *testing.T) {
 		}
 
 		filter := tokenFilter{
-			kubernetesClient: kubernetesClient,
-			httpClient:       httpClient,
-			tokenStorage: tokenstorage.TestTokenStorage{
-				StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, token2 *api.Token) error {
-					return nil
+			metadataProvider: &metadataProvider{
+				kubernetesClient: kubernetesClient,
+				httpClient:       httpClient,
+				tokenStorage: tokenstorage.TestTokenStorage{
+					StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, token2 *api.Token) error {
+						return nil
+					},
+					GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+						if token.Name == "token" {
+							return &api.Token{
+								AccessToken: "asdf",
+							}, nil
+						}
+						return nil, nil
+					},
+					DeleteImpl: func(ctx context.Context, token *api.SPIAccessToken) error {
+						return nil
+					},
 				},
-				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
-					if token.Name == "token" {
-						return &api.Token{
-							AccessToken: "asdf",
-						}, nil
-					}
-					return nil, nil
-				},
-				DeleteImpl: func(ctx context.Context, token *api.SPIAccessToken) error {
-					return nil
-				},
+				ttl: 1 * time.Hour,
 			},
-			ttl: 1 * time.Hour,
 		}
 
 		res, err := filter.Matches(context.TODO(), &binding, &token)

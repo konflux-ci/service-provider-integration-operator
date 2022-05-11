@@ -30,10 +30,11 @@ import (
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 type Quay struct {
-	Configuration config.Configuration
-	lookup        serviceprovider.GenericLookup
-	httpClient    *http.Client
-	BaseUrl       string
+	Configuration    config.Configuration
+	lookup           serviceprovider.GenericLookup
+	metadataProvider *metadataProvider
+	httpClient       *http.Client
+	BaseUrl          string
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -46,22 +47,24 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
+	mp := &metadataProvider{
+		tokenStorage:     factory.TokenStorage,
+		httpClient:       factory.HttpClient,
+		kubernetesClient: factory.KubernetesClient,
+		ttl:              factory.Configuration.TokenLookupCacheTtl,
+	}
 	return &Quay{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
 			TokenFilter: &tokenFilter{
-				kubernetesClient: factory.KubernetesClient,
-				httpClient:       factory.HttpClient,
-				tokenStorage:     factory.TokenStorage,
-				ttl:              factory.Configuration.TokenLookupCacheTtl,
+				metadataProvider: mp,
 			},
-			MetadataProvider: &metadataProvider{
-				tokenStorage: factory.TokenStorage,
-			},
-			MetadataCache: &cache,
+			MetadataProvider: mp,
+			MetadataCache:    &cache,
 		},
-		httpClient: factory.HttpClient,
+		httpClient:       factory.HttpClient,
+		metadataProvider: mp,
 	}, nil
 }
 
@@ -121,12 +124,38 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 	return &tokens[0], nil
 }
 
-func (g *Quay) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	return g.lookup.PersistMetadata(ctx, token)
 }
 
 func (g *Quay) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
+}
+
+func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	mapper, err := serviceprovider.DefaultMapToken(token, tokenData)
+	if err != nil {
+		return serviceprovider.AccessTokenMapper{}, err
+	}
+
+	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
+	if err != nil {
+		return serviceprovider.AccessTokenMapper{}, nil
+	}
+
+	allScopes := make([]Scope, 2)
+	allScopes = append(allScopes, repoMetadata.Repository.PossessedScopes...)
+	allScopes = append(allScopes, repoMetadata.User.PossessedScopes...)
+	allScopes = append(allScopes, repoMetadata.Organization.PossessedScopes...)
+
+	scopeStrings := make([]string, len(allScopes))
+	for i, s := range allScopes {
+		scopeStrings[i] = string(s)
+	}
+
+	mapper.Scopes = scopeStrings
+
+	return mapper, nil
 }
 
 type quayProbe struct{}

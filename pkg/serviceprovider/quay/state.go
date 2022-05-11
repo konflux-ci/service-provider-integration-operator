@@ -72,7 +72,8 @@ func (s Scope) IsIncluded(scopes []Scope) bool {
 	return false
 }
 
-func FetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error) {
+// fetchRepositoryRecord fetches the metadat about what access does the token have on the provided repository.
+func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error) {
 	password := tokenData.AccessToken
 	username := tokenData.Username
 
@@ -89,7 +90,8 @@ func FetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 	}
 }
 
-func FetchOrganizationRecord(ctx context.Context, cl *http.Client, organization string, tokenData *api.Token) (*EntityRecord, error) {
+// fetchOrganizationRecord fetches the metadata about what access does the token have on the provided organization.
+func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization string, tokenData *api.Token) (*EntityRecord, error) {
 	username := tokenData.Username
 
 	if username == "" {
@@ -116,7 +118,10 @@ func FetchOrganizationRecord(ctx context.Context, cl *http.Client, organization 
 	}, nil
 }
 
-func FetchUserRecord(ctx context.Context, cl *http.Client, user string, tokenData *api.Token) (*EntityRecord, error) {
+// fetchUserRecord fetches the metadata about what access does the token have on the user the token acts on behalf of.
+// the unused string parameter is kept for signature compatibility with the other fetch* functions so that they can
+// be used in the metadataProvider.
+func fetchUserRecord(ctx context.Context, cl *http.Client, _ string, tokenData *api.Token) (*EntityRecord, error) {
 	username := tokenData.Username
 
 	if username == "" {
