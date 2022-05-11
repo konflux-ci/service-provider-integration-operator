@@ -120,14 +120,6 @@ func AnalyzeLoginToken(token string) ([]LoginTokenInfo, error) {
 	ret := make([]LoginTokenInfo, len(claims.Access))
 
 	for i, access := range claims.Access {
-		possessedScopes := []Scope{}
-		if containsString(access.Actions, "push") {
-			possessedScopes = append(possessedScopes, ScopeRepoWrite)
-		}
-		if containsString(access.Actions, "pull") {
-			possessedScopes = append(possessedScopes, ScopeRepoRead)
-		}
-
 		ret[i] = LoginTokenInfo{
 			Repository: access.Name,
 			Pushable:   containsString(access.Actions, "push"),
