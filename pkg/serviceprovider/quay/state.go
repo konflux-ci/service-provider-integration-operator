@@ -281,11 +281,6 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	return resp.StatusCode == 200, nil
 }
 
-func splitToImageAndVersion(image string) (string, string) {
-	repo, img, ver := splitToOrganizationAndRepositoryAndVersion(image)
-	return repo + "/" + img, ver
-}
-
 func splitToOrganizationAndRepositoryAndVersion(image string) (string, string, string) {
 	schemeIndex := strings.Index(image, "://")
 	if schemeIndex > 0 {
