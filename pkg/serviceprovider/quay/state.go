@@ -157,8 +157,7 @@ func fetchUserRecord(ctx context.Context, cl *http.Client, _ string, tokenData *
 	}, nil
 }
 
-func robotAccountRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, username string, password string) (*EntityRecord, error) {
-	repository, _ := splitToImageAndVersion(repoUrl)
+func robotAccountRepositoryRecord(ctx context.Context, cl *http.Client, repository string, username string, password string) (*EntityRecord, error) {
 	loginToken, err := DockerLogin(ctx, cl, repository, username, password)
 	if err != nil {
 		return nil, err
@@ -190,9 +189,9 @@ func robotAccountRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl 
 	return nil, nil
 }
 
-func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, token string) (*EntityRecord, error) {
+func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string) (*EntityRecord, error) {
 	// first try to figure out repo:read and repo:write just by trying to log in
-	rr, err := robotAccountRepositoryRecord(ctx, cl, repoUrl, "$oauthtoken", token)
+	rr, err := robotAccountRepositoryRecord(ctx, cl, repository, "$oauthtoken", token)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +199,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 		return nil, nil
 	}
 
-	repoAdmin, err := hasRepoAdmin(ctx, cl, repoUrl, token)
+	repoAdmin, err := hasRepoAdmin(ctx, cl, repository, token)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +207,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 		rr.PossessedScopes = append(rr.PossessedScopes, ScopeRepoAdmin)
 	}
 
-	repoCreate, err := hasRepoCreate(ctx, cl, repoUrl, token)
+	repoCreate, err := hasRepoCreate(ctx, cl, repository, token)
 	if err != nil {
 		return nil, err
 	}
@@ -219,8 +218,13 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 	return rr, nil
 }
 
-func hasRepoCreate(ctx context.Context, cl *http.Client, repoUrl string, token string) (bool, error) {
-	organization, _, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
+func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
+	slashIdx := strings.Index(repository, "/")
+	var organization string
+	if slashIdx >= 0 {
+		organization = repository[0:slashIdx]
+	}
+
 	data := strings.NewReader(`{
 		"repository": "an/intentionally/invalid/name",
         "visibility": "public",
@@ -246,9 +250,8 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repoUrl string, token s
 	return resp.StatusCode == 400, nil
 }
 
-func hasRepoAdmin(ctx context.Context, cl *http.Client, repoUrl string, token string) (bool, error) {
-	img, _ := splitToImageAndVersion(repoUrl)
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/repository/"+img+"/notification/", token)
+func hasRepoAdmin(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
+	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/repository/"+repository+"/notification/", token)
 }
 
 func hasUserRead(ctx context.Context, cl *http.Client, token string) (bool, error) {

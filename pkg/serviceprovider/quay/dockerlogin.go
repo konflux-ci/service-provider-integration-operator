@@ -125,12 +125,12 @@ type quayClaims struct {
 }
 
 func AnalyzeLoginToken(token string) ([]LoginTokenInfo, error) {
-	tkn, _, err := jwt.NewParser().ParseUnverified(token, quayClaims{})
+	tkn, _, err := jwt.NewParser().ParseUnverified(token, &quayClaims{})
 	if err != nil {
 		return []LoginTokenInfo{}, err
 	}
 
-	claims := tkn.Claims.(quayClaims)
+	claims := tkn.Claims.(*quayClaims)
 	ret := make([]LoginTokenInfo, len(claims.Access))
 
 	for i, access := range claims.Access {

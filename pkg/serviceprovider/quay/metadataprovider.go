@@ -67,10 +67,8 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	if len(data.Username) > 0 {
 		metadata.Username = data.Username
-		// TODO: The scopes are going to differ per-repo, so we're going to need an SP-specific secret sync
 	} else {
 		metadata.Username = "$oauthtoken"
-		metadata.Scopes = serviceprovider.GetAllScopes(translateToQuayScopes, &token.Spec.Permissions)
 	}
 
 	metadata.ServiceProviderState = js
@@ -138,6 +136,12 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAcc
 
 		tokenData, err = p.tokenStorage.Get(ctx, token)
 		if err != nil {
+			return
+		}
+		if tokenData == nil {
+			// the data is stale or not present and we have no way of figuring out the new data because
+			// we don't have a token
+			rec = EntityRecord{}
 			return
 		}
 
