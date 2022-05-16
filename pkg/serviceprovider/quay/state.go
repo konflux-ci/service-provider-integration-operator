@@ -205,14 +205,6 @@ func hasRepoAdmin(ctx context.Context, cl *http.Client, repository string, token
 	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/repository/"+repository+"/notification/", token)
 }
 
-func hasUserRead(ctx context.Context, cl *http.Client, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/user/", token)
-}
-
-func hasUserAdmin(ctx context.Context, cl *http.Client, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/user/robots?limit=1&token=false&permissions=false", token)
-}
-
 func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, token string) (bool, error) {
 	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
 }
