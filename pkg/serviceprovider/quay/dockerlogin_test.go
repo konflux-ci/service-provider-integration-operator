@@ -61,14 +61,12 @@ func TestAnalyzeLoginToken(t *testing.T) {
 	// a fake token with the payload in the same format as quay uses
 	loginToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJxdWF5IiwiYXVkIjoicXVheS5pbyIsIm5iZiI6MTY1MjEwNTQ1OCwiaWF0IjoxNjUyMTA1NDU4LCJleHAiOjE2NTIxMDkwNTgsInN1YiI6InRlc3QrdGVzdCIsImFjY2VzcyI6W3sidHlwZSI6InJlcG9zaXRvcnkiLCJuYW1lIjoidGVzdG9yZy9yZXBvIiwiYWN0aW9ucyI6WyJwdXNoIiwicHVsbCJdfV0sImNvbnRleHQiOnsidmVyc2lvbiI6MiwiZW50aXR5X2tpbmQiOiJyb2JvdCIsImVudGl0eV9yZWZlcmVuY2UiOiJ0ZXN0K3Rlc3QiLCJraW5kIjoidXNlciIsInVzZXIiOiJ0ZXN0K3Rlc3QiLCJjb20uYXBvc3RpbGxlLnJvb3RzIjp7InVuaG9vay91bmhvb2stdHVubmVsIjoiJGRpc2FibGVkIn0sImNvbS5hcG9zdGlsbGUucm9vdCI6IiRkaXNhYmxlZCJ9fQ.W5juwSf4l2YQM7SGiuUpok5ZJBEF1hry01cQ5rObrP8"
 
-	infos, err := AnalyzeLoginToken(loginToken)
+	info, err := AnalyzeLoginToken(loginToken)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 1, len(infos))
+	assert.Equal(t, "test+test", info.Username)
 
-	info := infos[0]
-
-	assert.Equal(t, "testorg/repo", info.Repository)
-	assert.True(t, info.Pullable)
-	assert.True(t, info.Pushable)
+	assert.Contains(t, info.Repositories, "testorg/repo")
+	assert.True(t, info.Repositories["testorg/repo"].Pullable)
+	assert.True(t, info.Repositories["testorg/repo"].Pushable)
 }

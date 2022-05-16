@@ -45,8 +45,6 @@ func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Mat
 		var testedRecord EntityRecord
 
 		switch requiredScope {
-		case ScopeUserRead, ScopeUserAdmin:
-			testedRecord = rec.User
 		case ScopeOrgAdmin:
 			testedRecord = rec.Organization
 		default:

@@ -30,7 +30,6 @@ type EntityRecord struct {
 type TokenState struct {
 	Repositories  map[string]EntityRecord
 	Organizations map[string]EntityRecord
-	Users         map[string]EntityRecord
 }
 
 type Scope string
@@ -73,36 +72,39 @@ func (s Scope) IsIncluded(scopes []Scope) bool {
 }
 
 // fetchRepositoryRecord fetches the metadat about what access does the token have on the provided repository.
-func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error) {
-	password := tokenData.AccessToken
-	username := tokenData.Username
-
-	if username == "" {
-		username = "$oauthtoken"
-	}
+func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error) {
+	username, password := getUsernameAndPasswordFromTokenData(tokenData)
 
 	if username != "$oauthtoken" {
 		// we're dealing with robot account
-		return robotAccountRepositoryRecord(ctx, cl, repoUrl, username, password)
+		return robotAccountRepositoryRecord(repoUrl, info)
 	} else {
 		// we're dealing with an oauth token
-		return oauthRepositoryRecord(ctx, cl, repoUrl, password)
+		return oauthRepositoryRecord(ctx, cl, repoUrl, password, info)
 	}
 }
 
-// fetchOrganizationRecord fetches the metadata about what access does the token have on the provided organization.
-func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization string, tokenData *api.Token) (*EntityRecord, error) {
-	username := tokenData.Username
+func getUsernameAndPasswordFromTokenData(tokenData *api.Token) (username, password string) {
+	username = tokenData.Username
 
 	if username == "" {
 		username = "$oauthtoken"
 	}
+
+	password = tokenData.AccessToken
+
+	return
+}
+
+// fetchOrganizationRecord fetches the metadata about what access does the token have on the provided organization.
+func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization string, tokenData *api.Token, _ LoginTokenInfo) (*EntityRecord, error) {
+	username, accessToken := getUsernameAndPasswordFromTokenData(tokenData)
 
 	if username != "$oauthtoken" {
 		return nil, nil
 	}
 
-	orgAdmin, err := hasOrgAdmin(ctx, cl, organization, tokenData.AccessToken)
+	orgAdmin, err := hasOrgAdmin(ctx, cl, organization, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -118,80 +120,29 @@ func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization 
 	}, nil
 }
 
-// fetchUserRecord fetches the metadata about what access does the token have on the user the token acts on behalf of.
-// the unused string parameter is kept for signature compatibility with the other fetch* functions so that they can
-// be used in the metadataProvider.
-func fetchUserRecord(ctx context.Context, cl *http.Client, _ string, tokenData *api.Token) (*EntityRecord, error) {
-	username := tokenData.Username
-
-	if username == "" {
-		username = "$oauthtoken"
-	}
-
-	if username != "$oauthtoken" {
+func robotAccountRepositoryRecord(repository string, info LoginTokenInfo) (*EntityRecord, error) {
+	repoInfo, ok := info.Repositories[repository]
+	if !ok {
 		return nil, nil
 	}
 
-	userAdmin, err := hasUserAdmin(ctx, cl, tokenData.AccessToken)
-	if err != nil {
-		return nil, err
+	var possessedScopes []Scope
+	if repoInfo.Pullable {
+		possessedScopes = append(possessedScopes, ScopeRepoRead)
 	}
 
-	userRead, err := hasUserRead(ctx, cl, tokenData.AccessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	scopes := []Scope{}
-
-	if userAdmin {
-		scopes = append(scopes, ScopeUserAdmin)
-	}
-
-	if userRead {
-		scopes = append(scopes, ScopeUserRead)
+	if repoInfo.Pushable {
+		possessedScopes = append(possessedScopes, ScopeRepoWrite)
 	}
 
 	return &EntityRecord{
-		PossessedScopes: scopes,
+		PossessedScopes: possessedScopes,
 	}, nil
 }
 
-func robotAccountRepositoryRecord(ctx context.Context, cl *http.Client, repository string, username string, password string) (*EntityRecord, error) {
-	loginToken, err := DockerLogin(ctx, cl, repository, username, password)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenInfos, err := AnalyzeLoginToken(loginToken)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ti := range tokenInfos {
-		if ti.Repository == repository {
-			var possessedScopes []Scope
-
-			if ti.Pullable {
-				possessedScopes = append(possessedScopes, ScopeRepoRead)
-			}
-
-			if ti.Pushable {
-				possessedScopes = append(possessedScopes, ScopeRepoWrite)
-			}
-
-			return &EntityRecord{
-				PossessedScopes: possessedScopes,
-			}, nil
-		}
-	}
-
-	return nil, nil
-}
-
-func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string) (*EntityRecord, error) {
+func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string, info LoginTokenInfo) (*EntityRecord, error) {
 	// first try to figure out repo:read and repo:write just by trying to log in
-	rr, err := robotAccountRepositoryRecord(ctx, cl, repository, "$oauthtoken", token)
+	rr, err := robotAccountRepositoryRecord(repository, info)
 	if err != nil {
 		return nil, err
 	}
@@ -262,8 +213,8 @@ func hasUserAdmin(ctx context.Context, cl *http.Client, token string) (bool, err
 	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/user/robots?limit=1&token=false&permissions=false", token)
 }
 
-func hasOrgAdmin(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/organization/"+repository+"/robots?limit=1&token=false&permissions=false", token)
+func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, token string) (bool, error) {
+	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
 }
 
 func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token string) (bool, error) {

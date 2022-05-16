@@ -83,8 +83,6 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 			assert.Empty(t, state.Organizations)
 			assert.NotNil(t, state.Repositories)
 			assert.Empty(t, state.Repositories)
-			assert.NotNil(t, state.Users)
-			assert.Empty(t, state.Users)
 		}
 
 		t.Run("using oauth token", func(t *testing.T) {
@@ -130,7 +128,6 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 				PossessedScopes: []Scope{ScopeOrgAdmin},
 			},
 		},
-		Users: map[string]EntityRecord{},
 	}
 
 	stateBytes, err := json.Marshal(&state)
@@ -166,7 +163,6 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 
 		assert.Equal(t, []Scope{ScopeRepoRead, ScopeRepoWrite}, repoMetadata.Repository.PossessedScopes)
 		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
-		assert.Empty(t, repoMetadata.User.PossessedScopes)
 	})
 
 	t.Run("attempted fetch with missing initial metadata", func(t *testing.T) {
@@ -188,7 +184,6 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 
 		assert.Empty(t, repoMetadata.Repository.PossessedScopes)
 		assert.Empty(t, repoMetadata.Organization.PossessedScopes)
-		assert.Empty(t, repoMetadata.User.PossessedScopes)
 	})
 
 	t.Run("attempted fetch with missing token", func(t *testing.T) {
@@ -219,7 +214,6 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 
 		assert.Empty(t, repoMetadata.Repository.PossessedScopes)
 		assert.Empty(t, repoMetadata.Organization.PossessedScopes)
-		assert.Empty(t, repoMetadata.User.PossessedScopes)
 	})
 
 	t.Run("fetch from quay", func(t *testing.T) {
@@ -300,6 +294,5 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
 		assert.Equal(t, []Scope{ScopeRepoRead, ScopeRepoWrite, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
 		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
-		assert.Equal(t, []Scope{ScopeUserAdmin, ScopeUserRead}, repoMetadata.User.PossessedScopes)
 	})
 }

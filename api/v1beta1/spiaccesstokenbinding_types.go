@@ -55,6 +55,7 @@ const (
 	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
 	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
 	SPIAccessTokenBindingErrorReasonTokenAnalysis              SPIAccessTokenBindingErrorReason = "TokenAnalysis"
+	SPIAccessTokenBindingErrorReasonUnsupportedPermissions     SPIAccessTokenBindingErrorReason = "UnsupportedPermissions"
 )
 
 //+kubebuilder:object:root=true

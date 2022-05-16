@@ -146,6 +146,7 @@ type SPIAccessTokenErrorReason string
 const (
 	SPIAccessTokenErrorReasonUnknownServiceProvider SPIAccessTokenErrorReason = "UnknownServiceProvider"
 	SPIAccessTokenErrorReasonMetadataFailure        SPIAccessTokenErrorReason = "MetadataFailure"
+	SPIAccessTokenErrorReasonUnsupportedPermissions SPIAccessTokenErrorReason = "UnsupportedPermissions"
 )
 
 //+kubebuilder:object:root=true
@@ -197,4 +198,8 @@ func (t *SPIAccessToken) EnsureLabels(detectedType ServiceProviderType) (changed
 
 func init() {
 	SchemeBuilder.Register(&SPIAccessToken{}, &SPIAccessTokenList{})
+}
+
+func (in *SPIAccessToken) Permissions() *Permissions {
+	return &in.Spec.Permissions
 }

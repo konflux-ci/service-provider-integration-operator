@@ -193,6 +193,19 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	return status, nil
 }
 
+func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	// only the additional scopes can be invalid. We support the translation for all types
+	// of the Permission in github.
+	ret := serviceprovider.ValidationResult{}
+	for _, s := range validated.Permissions().AdditionalScopes {
+		if !IsValidScope(s) {
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("unknown scope: '%s'", s))
+		}
+	}
+
+	return ret, nil
+}
+
 func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
 	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	if tsErr != nil {

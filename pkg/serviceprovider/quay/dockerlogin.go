@@ -100,9 +100,13 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 }
 
 type LoginTokenInfo struct {
-	Repository string
-	Pushable   bool
-	Pullable   bool
+	Username     string
+	Repositories map[string]LoginTokenRepositoryInfo
+}
+
+type LoginTokenRepositoryInfo struct {
+	Pushable bool
+	Pullable bool
 }
 
 type quayClaims struct {
@@ -124,20 +128,20 @@ type quayClaims struct {
 	} `json:"context"`
 }
 
-func AnalyzeLoginToken(token string) ([]LoginTokenInfo, error) {
+func AnalyzeLoginToken(token string) (LoginTokenInfo, error) {
 	tkn, _, err := jwt.NewParser().ParseUnverified(token, &quayClaims{})
 	if err != nil {
-		return []LoginTokenInfo{}, err
+		return LoginTokenInfo{}, err
 	}
 
 	claims := tkn.Claims.(*quayClaims)
-	ret := make([]LoginTokenInfo, len(claims.Access))
-
-	for i, access := range claims.Access {
-		ret[i] = LoginTokenInfo{
-			Repository: access.Name,
-			Pushable:   containsString(access.Actions, "push"),
-			Pullable:   containsString(access.Actions, "pull"),
+	ret := LoginTokenInfo{}
+	ret.Username = claims.Context.User
+	ret.Repositories = make(map[string]LoginTokenRepositoryInfo, len(claims.Access))
+	for _, access := range claims.Access {
+		ret.Repositories[access.Name] = LoginTokenRepositoryInfo{
+			Pushable: containsString(access.Actions, "push"),
+			Pullable: containsString(access.Actions, "pull"),
 		}
 	}
 

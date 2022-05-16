@@ -16,8 +16,14 @@ package quay
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -62,6 +68,104 @@ func TestCheckAccessNotImplementedYetError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, status)
 	assert.Equal(t, api.SPIAccessCheckErrorNotImplemented, status.ErrorReason)
+}
+
+func TestMapToken(t *testing.T) {
+	k8sClient := mockK8sClient()
+	httpClient := &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return nil, nil
+		}),
+	}
+
+	fac := &serviceprovider.Factory{
+		Configuration: config.Configuration{
+			TokenLookupCacheTtl: 100 * time.Hour,
+		},
+		KubernetesClient: k8sClient,
+		HttpClient:       httpClient,
+		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
+			config.ServiceProviderTypeQuay: Initializer,
+		},
+		TokenStorage: tokenstorage.TestTokenStorage{},
+	}
+
+	quay, err := newQuay(fac, "")
+	assert.NoError(t, err)
+
+	now := time.Now().Unix()
+
+	state := TokenState{
+		Repositories: map[string]EntityRecord{
+			"org/repo": {
+				LastRefreshTime: now,
+				PossessedScopes: []Scope{ScopeRepoAdmin},
+			},
+		},
+		Organizations: nil,
+	}
+
+	stateBytes, err := json.Marshal(&state)
+	assert.NoError(t, err)
+	mapper, err := quay.MapToken(context.TODO(), &api.SPIAccessTokenBinding{
+		Spec: api.SPIAccessTokenBindingSpec{
+			RepoUrl: "quay.io/org/repo:latest",
+			Permissions: api.Permissions{
+				Required: []api.Permission{
+					{
+						Type: api.PermissionTypeRead,
+						Area: api.PermissionAreaUser,
+					},
+					{
+						Type: api.PermissionTypeReadWrite,
+						Area: api.PermissionAreaRepository,
+					},
+				},
+				AdditionalScopes: []string{string(ScopeOrgAdmin)},
+			},
+			Secret: api.SecretSpec{},
+		},
+	}, &api.SPIAccessToken{
+		Status: api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				Username:             "alois",
+				UserId:               "42",
+				Scopes:               nil,
+				ServiceProviderState: stateBytes,
+			},
+		},
+	}, &api.Token{
+		AccessToken: "access_token",
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(mapper.Scopes))
+	assert.Contains(t, mapper.Scopes, string(ScopeRepoAdmin))
+}
+
+func TestValidate(t *testing.T) {
+	q := &Quay{}
+
+	res, err := q.Validate(context.TODO(), &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{
+			Permissions: api.Permissions{
+				Required: []api.Permission{
+					{
+						Type: api.PermissionTypeRead,
+						Area: api.PermissionAreaUser,
+					},
+				},
+				AdditionalScopes: []string{"blah"},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 2, len(res.ScopeValidation))
+	assert.NotNil(t, res.ScopeValidation[0])
+	assert.Equal(t, "user-related permissions are not supported for Quay", res.ScopeValidation[0].Error())
+	assert.NotNil(t, res.ScopeValidation[1])
+	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
 }
 
 type httpClientMock struct {

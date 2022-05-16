@@ -15,7 +15,12 @@
 package quay
 
 import (
+	"context"
+	"net/http"
 	"testing"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -91,13 +96,107 @@ func TestScope_IsIncluded(t *testing.T) {
 }
 
 func TestFetchRepositoryRecord(t *testing.T) {
-	// TODO implement
+	repo := "testorg/repo"
+	testingHttpClient := func(repoCreateTested, repoAdminTested *bool) *http.Client {
+		return &http.Client{
+			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Host == "quay.io" {
+					auth := r.Header.Get("Authorization")
+					assert.Equal(t, "Bearer token", auth)
+					if r.URL.Path == "/api/v1/repository" {
+						*repoCreateTested = true
+						return &http.Response{StatusCode: 400}, nil
+					} else if r.URL.Path == "/api/v1/repository/"+repo+"/notification/" {
+						*repoAdminTested = true
+						return &http.Response{StatusCode: 200}, nil
+					}
+				}
+
+				assert.Fail(t, "unexpected request", "url", r.URL)
+				return nil, nil
+			}),
+		}
+	}
+
+	t.Run("robot account", func(t *testing.T) {
+		var repoCreateTested, repoAdminTested bool
+		httpClient := testingHttpClient(&repoCreateTested, &repoAdminTested)
+
+		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
+			Username:    "test+test",
+			AccessToken: "token",
+		}, LoginTokenInfo{
+			Username: "test+test",
+			Repositories: map[string]LoginTokenRepositoryInfo{
+				repo: {
+					Pushable: true,
+					Pullable: true,
+				},
+			},
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, rec)
+		assert.Equal(t, 2, len(rec.PossessedScopes))
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoRead)
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoWrite)
+		assert.False(t, repoCreateTested)
+		assert.False(t, repoAdminTested)
+	})
+
+	t.Run("oauth app", func(t *testing.T) {
+		var repoCreateTested, repoAdminTested bool
+		httpClient := testingHttpClient(&repoCreateTested, &repoAdminTested)
+
+		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
+			Username:    "",
+			AccessToken: "token",
+		}, LoginTokenInfo{
+			Username: "",
+			Repositories: map[string]LoginTokenRepositoryInfo{
+				repo: {
+					Pushable: true,
+					Pullable: true,
+				},
+			},
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, rec)
+		assert.Equal(t, 4, len(rec.PossessedScopes))
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoRead)
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoWrite)
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoCreate)
+		assert.Contains(t, rec.PossessedScopes, ScopeRepoAdmin)
+		assert.True(t, repoCreateTested)
+		assert.True(t, repoAdminTested)
+	})
 }
 
 func TestFetchOrganizationRecord(t *testing.T) {
-	// TODO implement
-}
+	org := "testorg"
+	httpClient := http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Host == "quay.io" && r.URL.Path == "/api/v1/organization/"+org+"/robots" {
+				auth := r.Header.Get("Authorization")
+				assert.Equal(t, "Bearer token", auth)
+				return &http.Response{StatusCode: 200}, nil
+			}
 
-func TestFetchUserRecord(t *testing.T) {
-	// TODO implement
+			assert.Fail(t, "unexpected request", "url", r.URL)
+			return nil, nil
+		}),
+	}
+
+	rec, err := fetchOrganizationRecord(context.TODO(), &httpClient, org, &api.Token{
+		AccessToken: "token",
+	}, LoginTokenInfo{
+		Username:     "",
+		Repositories: map[string]LoginTokenRepositoryInfo{},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, rec)
+	assert.Equal(t, 1, len(rec.PossessedScopes))
+	assert.Equal(t, ScopeOrgAdmin, rec.PossessedScopes[0])
 }

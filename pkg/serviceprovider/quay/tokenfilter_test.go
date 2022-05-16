@@ -58,12 +58,6 @@ func TestMatches_RobotToken(t *testing.T) {
 					LastRefreshTime: now,
 				},
 			},
-			Users: map[string]EntityRecord{
-				"repo": {
-					PossessedScopes: []Scope{},
-					LastRefreshTime: now,
-				},
-			},
 		})
 		assert.NoError(t, err)
 

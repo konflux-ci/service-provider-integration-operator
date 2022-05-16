@@ -239,6 +239,23 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 	assert.NotNil(t, status)
 }
 
+func TestValidate(t *testing.T) {
+	g := &Github{}
+
+	res, err := g.Validate(context.TODO(), &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{
+			Permissions: api.Permissions{
+				AdditionalScopes: []string{"blah"},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(res.ScopeValidation))
+	assert.NotNil(t, res.ScopeValidation[0])
+	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[0].Error())
+}
+
 func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	return &Github{

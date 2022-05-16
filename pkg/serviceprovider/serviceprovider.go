@@ -61,6 +61,15 @@ type ServiceProvider interface {
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
 	MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error)
+
+	// Validate checks that the provided object (token or binding) is valid in this service provider
+	Validate(ctx context.Context, validated Validated) (ValidationResult, error)
+}
+
+// ValidationResult represents the results of the ServiceProvider.Validate method.
+type ValidationResult struct {
+	// ScopeValidation is the reasons for the scopes and permissions to be invalid
+	ScopeValidation []error
 }
 
 // Factory is able to construct service providers from repository URLs.
@@ -125,10 +134,14 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 	}
 }
 
+type Validated interface {
+	Permissions() *api.Permissions
+}
+
 type Matchable interface {
+	Validated
 	RepoUrl() string
 	ObjNamespace() string
-	Permissions() *api.Permissions
 }
 
 var _ Matchable = (*api.SPIAccessCheck)(nil)

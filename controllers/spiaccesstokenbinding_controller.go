@@ -129,6 +129,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	validation, err := sp.Validate(ctx, &binding)
+	if err != nil {
+		lg.Error(err, "failed to validate the object")
+		return ctrl.Result{}, NewReconcileError(err, "failed to validate the object")
+	}
+	if len(validation.ScopeValidation) > 0 {
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
+		return ctrl.Result{}, nil
+	}
+
 	var token *api.SPIAccessToken
 
 	if binding.Status.LinkedAccessTokenName == "" {

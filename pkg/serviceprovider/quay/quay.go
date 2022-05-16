@@ -16,6 +16,8 @@ package quay
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -156,9 +158,8 @@ func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 		return serviceprovider.AccessTokenMapper{}, nil
 	}
 
-	allScopes := make([]Scope, 2)
+	allScopes := make([]Scope, 0, 2)
 	allScopes = append(allScopes, repoMetadata.Repository.PossessedScopes...)
-	allScopes = append(allScopes, repoMetadata.User.PossessedScopes...)
 	allScopes = append(allScopes, repoMetadata.Organization.PossessedScopes...)
 
 	scopeStrings := make([]string, len(allScopes))
@@ -169,6 +170,32 @@ func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 	mapper.Scopes = scopeStrings
 
 	return mapper, nil
+}
+
+func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	ret := serviceprovider.ValidationResult{}
+
+	userPermissionAreaRequested := false
+	for _, p := range validated.Permissions().Required {
+		if p.Area == api.PermissionAreaUser && !userPermissionAreaRequested {
+			ret.ScopeValidation = append(ret.ScopeValidation, errors.New("user-related permissions are not supported for Quay"))
+			userPermissionAreaRequested = true
+		}
+	}
+
+	for _, s := range validated.Permissions().AdditionalScopes {
+		switch Scope(s) {
+		case ScopeUserRead, ScopeUserAdmin:
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("scope '%s' is not supported", s))
+		case ScopeRepoRead, ScopeRepoWrite, ScopeRepoCreate, ScopeRepoAdmin, ScopeOrgAdmin:
+			{
+			}
+		default:
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("unknown scope: '%s'", s))
+		}
+	}
+
+	return ret, nil
 }
 
 type quayProbe struct{}

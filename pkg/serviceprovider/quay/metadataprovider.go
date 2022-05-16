@@ -48,10 +48,10 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	// This method is called when we need to refresh (or obtain anew, after cache expiry) the metadata of the token.
 	// Because we load all the state iteratively for Quay, this info is always empty when fresh.
+
 	state := &TokenState{
 		Repositories:  map[string]EntityRecord{},
 		Organizations: map[string]EntityRecord{},
-		Users:         map[string]EntityRecord{},
 	}
 
 	js, err := json.Marshal(state)
@@ -78,7 +78,6 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 type RepositoryMetadata struct {
 	Repository   EntityRecord
-	User         EntityRecord
 	Organization EntityRecord
 }
 
@@ -94,27 +93,51 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		return
 	}
 
+	var tokenData *api.Token
+
+	tokenData, err = p.tokenStorage.Get(ctx, token)
+	if err != nil {
+		return
+	}
+
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
 
-	var orgChanged, userChanged, repoChanged bool
-	var orgRecord, userRecord, repoRecord EntityRecord
+	// enable the lazy one-time login to docker in the subsequent calls
+	var loginToken *LoginTokenInfo
+	getLoginTokenInfo := func() (LoginTokenInfo, error) {
+		if loginToken != nil {
+			return *loginToken, nil
+		}
 
-	orgRecord, orgChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Organizations, fetchOrganizationRecord)
+		username, password := getUsernameAndPasswordFromTokenData(tokenData)
+		var loginToken string
+		loginToken, err = DockerLogin(ctx, p.httpClient, repo, username, password)
+		if err != nil {
+			return LoginTokenInfo{}, err
+		}
+
+		info, err := AnalyzeLoginToken(loginToken)
+		if err != nil {
+			return LoginTokenInfo{}, err
+		}
+
+		return info, nil
+	}
+
+	var orgChanged, repoChanged bool
+	var orgRecord, repoRecord EntityRecord
+
+	orgRecord, orgChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		return
 	}
 
-	userRecord, userChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Users, fetchUserRecord)
+	repoRecord, repoChanged, err = p.getEntityRecord(ctx, token, orgOrUser+"/"+repo, quayState.Repositories, getLoginTokenInfo, fetchRepositoryRecord)
 	if err != nil {
 		return
 	}
 
-	repoRecord, repoChanged, err = p.getEntityRecord(ctx, token, orgOrUser+"/"+repo, quayState.Repositories, fetchRepositoryRecord)
-	if err != nil {
-		return
-	}
-
-	if orgChanged || userChanged || repoChanged {
+	if orgChanged || repoChanged {
 		if err = p.persistTokenState(ctx, token, &quayState); err != nil {
 			return
 		}
@@ -122,12 +145,11 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 
 	return RepositoryMetadata{
 		Repository:   repoRecord,
-		User:         userRecord,
 		Organization: orgRecord,
 	}, nil
 }
 
-func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, fetchFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token) (*EntityRecord, error)) (rec EntityRecord, changed bool, err error) {
+func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, loginInfoFn func() (LoginTokenInfo, error), fetchFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error)) (rec EntityRecord, changed bool, err error) {
 	rec, present := cache[key]
 
 	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
@@ -139,13 +161,19 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAcc
 			return
 		}
 		if tokenData == nil {
-			// the data is stale or not present and we have no way of figuring out the new data because
+			// the data is stale or not present, and we have no way of figuring out the new data because
 			// we don't have a token
 			rec = EntityRecord{}
 			return
 		}
 
-		repoRec, err = fetchFn(ctx, p.httpClient, key, tokenData)
+		var loginInfo LoginTokenInfo
+		loginInfo, err = loginInfoFn()
+		if err != nil {
+			return
+		}
+
+		repoRec, err = fetchFn(ctx, p.httpClient, key, tokenData, loginInfo)
 		if err != nil {
 			return
 		}
