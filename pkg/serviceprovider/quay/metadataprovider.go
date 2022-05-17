@@ -149,7 +149,11 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	}, nil
 }
 
-func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, loginInfoFn func() (LoginTokenInfo, error), fetchFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error)) (rec EntityRecord, changed bool, err error) {
+// helper types for getEntityRecord parameters
+type loginInfoFn func() (LoginTokenInfo, error)
+type fetchEntityRecordFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error)
+
+func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, loginInfoFn loginInfoFn, fetchFn fetchEntityRecordFn) (rec EntityRecord, changed bool, err error) {
 	rec, present := cache[key]
 
 	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
