@@ -1,0 +1,21 @@
+# permissions for end users to edit spiaccesstokendataupdates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spiaccesstokendataupdate-editor-role
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: 'true'
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokendataupdates
+  verbs:
+  - create
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokendataupdates/status
+  verbs:
+  - get
+
