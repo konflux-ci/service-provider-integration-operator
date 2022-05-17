@@ -5,7 +5,6 @@ metadata:
   name: spiaccesstokendataupdate-editor-role
   labels:
     rbac.authorization.k8s.io/aggregate-to-edit: 'true'
-    rbac.authorization.k8s.io/aggregate-to-admin: 'true'
 rules:
 - apiGroups:
   - appstudio.redhat.com
@@ -13,12 +12,6 @@ rules:
   - spiaccesstokendataupdates
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
