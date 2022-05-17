@@ -1,0 +1,22 @@
+# permissions for end users to view spiaccesstokendataupdates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spiaccesstokendataupdate-viewer-role
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: 'true'
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokendataupdates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - spiaccesstokendataupdates/status
+  verbs:
+  - get
