@@ -155,17 +155,19 @@ func TestValidate(t *testing.T) {
 						Area: api.PermissionAreaUser,
 					},
 				},
-				AdditionalScopes: []string{"blah"},
+				AdditionalScopes: []string{"blah", "user:read", "repo:read"},
 			},
 		},
 	})
 	assert.NoError(t, err)
 
-	assert.Equal(t, 2, len(res.ScopeValidation))
+	assert.Equal(t, 3, len(res.ScopeValidation))
 	assert.NotNil(t, res.ScopeValidation[0])
 	assert.Equal(t, "user-related permissions are not supported for Quay", res.ScopeValidation[0].Error())
 	assert.NotNil(t, res.ScopeValidation[1])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
+	assert.NotNil(t, res.ScopeValidation[2])
+	assert.Equal(t, "scope 'user:read' is not supported", res.ScopeValidation[2].Error())
 }
 
 type httpClientMock struct {
