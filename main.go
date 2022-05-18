@@ -18,10 +18,11 @@ package main
 
 import (
 	"flag"
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
+
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 
