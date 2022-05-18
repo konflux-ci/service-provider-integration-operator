@@ -49,13 +49,17 @@ type Token struct {
 // tokens with the token bindings.
 type TokenMetadata struct {
 	// Username is the username in the service provider that this token impersonates as
+	// +optional
 	Username string `json:"username"`
 	// UserId is the user id in the service provider that this token impersonates as
+	// +optional
 	UserId string `json:"userId"`
 	// Scopes is the list of OAuth scopes that this token possesses
+	// +optional
 	Scopes []string `json:"scopes"`
 	// ServiceProviderState is an opaque state specific to the service provider. This includes data that the operator
 	// uses during token matching, etc.
+	// +optional
 	ServiceProviderState []byte `json:"serviceProviderState"`
 	// LastRefreshTime is the Unix-epoch timestamp of the last time the metadata has been refreshed from the service
 	// provider. The operator is configured with a TTL for this information and automatically refreshes the metadata

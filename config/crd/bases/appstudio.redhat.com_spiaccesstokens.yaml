@@ -124,10 +124,6 @@ spec:
                     type: string
                 required:
                 - lastRefreshTime
-                - scopes
-                - serviceProviderState
-                - userId
-                - username
                 type: object
             required:
             - errorMessage
