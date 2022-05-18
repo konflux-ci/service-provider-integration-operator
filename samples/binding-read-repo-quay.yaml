@@ -7,7 +7,7 @@ spec:
     required:
       - type: r
         area: repository
-  repoUrl: https:///quay.io/unhook/unhook-tunnel
+  repoUrl: https://quay.io/unhook/unhook-tunnel
   secret:
     name: token-read-repository
     type: kubernetes.io/basic-auth
