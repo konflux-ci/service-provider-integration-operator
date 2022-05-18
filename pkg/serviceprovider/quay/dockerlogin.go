@@ -32,9 +32,7 @@ import (
 // `repository` is in the form of `org/name`.
 func DockerLogin(ctx context.Context, cl *http.Client, repository string, username string, password string) (string, error) {
 	lg := log.FromContext(ctx, "repository", repository)
-	dbg := lg.V(100)
-
-	dbg.Info("attempting docker login to quay")
+	lg.Info("attempting docker login to quay")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://quay.io/v2/auth?service=quay.io&scope=repository:"+repository+":push,pull", nil)
 	if err != nil {
@@ -66,7 +64,7 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 
 		msg := string(bytes)
 
-		dbg.Info("quay docker login attempt unsuccessful (without error)", "response", msg)
+		lg.Info("quay docker login attempt unsuccessful (without error)", "response", msg)
 		return "", fmt.Errorf("login did not succeed (status %d): %s", res.StatusCode, msg)
 	}
 
@@ -94,7 +92,7 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 		return "", errors.New("unexpected token format in quay login response")
 	}
 
-	dbg.Info("quay docker login attempt successful")
+	lg.Info("quay docker login attempt successful")
 
 	return token, nil
 }

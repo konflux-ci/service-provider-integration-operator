@@ -17,6 +17,8 @@ package quay
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
@@ -28,12 +30,16 @@ type tokenFilter struct {
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
 func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+	lg := log.FromContext(ctx, "matchableUrl", matchable.RepoUrl())
+
+	lg.Info("matching", "token", token)
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}
 
 	rec, err := t.metadataProvider.FetchRepo(ctx, matchable.RepoUrl(), token)
 	if err != nil {
+		lg.Error(err, "failed to fetch token metadata")
 		return false, err
 	}
 

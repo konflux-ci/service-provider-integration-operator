@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
@@ -77,7 +79,7 @@ func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 
 	if username != "$oauthtoken" {
 		// we're dealing with robot account
-		return robotAccountRepositoryRecord(repoUrl, info)
+		return robotAccountRepositoryRecord(ctx, repoUrl, info)
 	} else {
 		// we're dealing with an oauth token
 		return oauthRepositoryRecord(ctx, cl, repoUrl, password, info)
@@ -98,6 +100,8 @@ func getUsernameAndPasswordFromTokenData(tokenData *api.Token) (username, passwo
 
 // fetchOrganizationRecord fetches the metadata about what access does the token have on the provided organization.
 func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization string, tokenData *api.Token, _ LoginTokenInfo) (*EntityRecord, error) {
+	lg := log.FromContext(ctx)
+
 	username, accessToken := getUsernameAndPasswordFromTokenData(tokenData)
 
 	if username != "$oauthtoken" {
@@ -115,12 +119,13 @@ func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization 
 		scopes = append(scopes, ScopeOrgAdmin)
 	}
 
+	lg.Info("detected org-level scopes", "scopes", scopes)
 	return &EntityRecord{
 		PossessedScopes: scopes,
 	}, nil
 }
 
-func robotAccountRepositoryRecord(repository string, info LoginTokenInfo) (*EntityRecord, error) {
+func robotAccountRepositoryRecord(ctx context.Context, repository string, info LoginTokenInfo) (*EntityRecord, error) {
 	repoInfo, ok := info.Repositories[repository]
 	if !ok {
 		return nil, nil
@@ -135,23 +140,30 @@ func robotAccountRepositoryRecord(repository string, info LoginTokenInfo) (*Enti
 		possessedScopes = append(possessedScopes, ScopeRepoWrite)
 	}
 
+	log.FromContext(ctx).Info("detected robot-account-compatible scopes", "scopes", possessedScopes)
+
 	return &EntityRecord{
 		PossessedScopes: possessedScopes,
 	}, nil
 }
 
 func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string, info LoginTokenInfo) (*EntityRecord, error) {
+	lg := log.FromContext(ctx)
+
 	// first try to figure out repo:read and repo:write just by trying to log in
-	rr, err := robotAccountRepositoryRecord(repository, info)
+	rr, err := robotAccountRepositoryRecord(ctx, repository, info)
 	if err != nil {
+		lg.Error(err, "failed to detect robot-account-compatible scopes")
 		return nil, err
 	}
 	if rr == nil {
-		return nil, nil
+		// ok, this token is not usable for push or pull but it still can have other perms...
+		rr = &EntityRecord{}
 	}
 
 	repoAdmin, err := hasRepoAdmin(ctx, cl, repository, token)
 	if err != nil {
+		lg.Error(err, "failed to detect repo:admin scope")
 		return nil, err
 	}
 	if repoAdmin {
@@ -160,11 +172,14 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 
 	repoCreate, err := hasRepoCreate(ctx, cl, repository, token)
 	if err != nil {
+		lg.Error(err, "failed to detect repo:create scope")
 		return nil, err
 	}
 	if repoCreate {
 		rr.PossessedScopes = append(rr.PossessedScopes, ScopeRepoCreate)
 	}
+
+	lg.Info("detected OAuth token scopes", "scopes", rr.PossessedScopes)
 
 	return rr, nil
 }
@@ -183,14 +198,23 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 		"description": "",
         "repo_kind": "image"
     }`)
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://quay.io/api/v1/repository", data)
+
+	url := "https://quay.io/api/v1/repository"
+
+	lg := log.FromContext(ctx, "url", url)
+
+	lg.Info("asking quay API")
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, data)
 	if err != nil {
+		lg.Error(err, "failed to build the request")
 		return false, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
 	if err != nil {
+		lg.Error(err, "failed to perform the request")
 		return false, err
 	}
 
@@ -210,14 +234,20 @@ func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, toke
 }
 
 func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token string) (bool, error) {
+	lg := log.FromContext(ctx, "url", url)
+
+	lg.Info("asking quay API")
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
+		lg.Error(err, "failed to compose the request")
 		return false, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
 	if err != nil {
+		lg.Error(err, "failed to perform the request")
 		return false, err
 	}
 

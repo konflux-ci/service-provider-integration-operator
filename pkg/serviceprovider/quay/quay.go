@@ -148,13 +148,18 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 }
 
 func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	lg := log.FromContext(ctx, "bindingName", binding.Name, "bindingNamespace", binding.Namespace)
+	lg.Info("mapping quay token")
+
 	mapper, err := serviceprovider.DefaultMapToken(token, tokenData)
 	if err != nil {
+		lg.Error(err, "default mapping failed")
 		return serviceprovider.AccessTokenMapper{}, err
 	}
 
 	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
+		lg.Error(err, "failed to fetch repository metadata")
 		return serviceprovider.AccessTokenMapper{}, nil
 	}
 

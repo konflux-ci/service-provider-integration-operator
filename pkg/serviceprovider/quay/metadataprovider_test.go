@@ -152,7 +152,13 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		k8sClient := fake.NewClientBuilder().Build()
 
 		mp := metadataProvider{
-			tokenStorage:     tokenstorage.TestTokenStorage{},
+			tokenStorage: tokenstorage.TestTokenStorage{
+				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+					return &api.Token{
+						AccessToken: "token",
+					}, nil
+				},
+			},
 			httpClient:       failingHttpClient,
 			kubernetesClient: k8sClient,
 			ttl:              10 * time.Hour,

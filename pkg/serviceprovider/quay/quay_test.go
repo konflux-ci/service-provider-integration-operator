@@ -87,7 +87,13 @@ func TestMapToken(t *testing.T) {
 		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
 			config.ServiceProviderTypeQuay: Initializer,
 		},
-		TokenStorage: tokenstorage.TestTokenStorage{},
+		TokenStorage: tokenstorage.TestTokenStorage{
+			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+				return &api.Token{
+					AccessToken: "accessToken",
+				}, nil
+			},
+		},
 	}
 
 	quay, err := newQuay(fac, "")
@@ -102,7 +108,12 @@ func TestMapToken(t *testing.T) {
 				PossessedScopes: []Scope{ScopeRepoAdmin},
 			},
 		},
-		Organizations: nil,
+		Organizations: map[string]EntityRecord{
+			"org": {
+				LastRefreshTime: now,
+				PossessedScopes: []Scope{},
+			},
+		},
 	}
 
 	stateBytes, err := json.Marshal(&state)

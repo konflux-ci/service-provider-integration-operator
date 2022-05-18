@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -37,8 +39,11 @@ type metadataProvider struct {
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
+		lg.Error(err, "failed to get the token metadata")
 		return nil, err
 	}
 
@@ -56,6 +61,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	js, err := json.Marshal(state)
 	if err != nil {
+		lg.Error(err, "failed to serialize the token metadata, this should not happen")
 		return nil, err
 	}
 
@@ -73,6 +79,8 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	metadata.ServiceProviderState = js
 
+	lg.Info("token metadata initialized")
+
 	return metadata, nil
 }
 
@@ -84,12 +92,18 @@ type RepositoryMetadata struct {
 // FetchRepo is the iterative version of Fetch used internally in the Quay service provider. It takes care of both
 // fetching and caching of the data on per-repository basis.
 func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata RepositoryMetadata, err error) {
+	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+
+	lg.Info("fetching repository metadata")
+
 	if token.Status.TokenMetadata == nil {
+		lg.Info("no metadata on the token object, bailing")
 		return
 	}
 
 	quayState := TokenState{}
 	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
+		lg.Error(err, "failed to unmarshal quay token state")
 		return
 	}
 
@@ -97,6 +111,11 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 
 	tokenData, err = p.tokenStorage.Get(ctx, token)
 	if err != nil {
+		lg.Error(err, "failed to get token data")
+		return
+	}
+	if tokenData == nil {
+		lg.Info("no token data found")
 		return
 	}
 
@@ -110,16 +129,23 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		}
 
 		username, password := getUsernameAndPasswordFromTokenData(tokenData)
-		var loginToken string
-		loginToken, err = DockerLogin(ctx, p.httpClient, repo, username, password)
+		var tkn string
+		tkn, err = DockerLogin(log.IntoContext(ctx, lg), p.httpClient, repo, username, password)
 		if err != nil {
+			lg.Error(err, "failed to perform docker login")
 			return LoginTokenInfo{}, err
 		}
 
-		info, err := AnalyzeLoginToken(loginToken)
+		info, err := AnalyzeLoginToken(tkn)
 		if err != nil {
+			lg.Error(err, "failed to analyze the docker login token")
 			return LoginTokenInfo{}, err
 		}
+
+		lg.Info("used docker login to detect rw perms successfully", "repo:read",
+			info.Repositories[repo].Pullable, "repo:write", info.Repositories[repo].Pushable)
+
+		loginToken = &info
 
 		return info, nil
 	}
@@ -127,18 +153,21 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	var orgChanged, repoChanged bool
 	var orgRecord, repoRecord EntityRecord
 
-	orgRecord, orgChanged, err = p.getEntityRecord(ctx, token, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
+	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
+		lg.Error(err, "failed to read the organization metadata")
 		return
 	}
 
-	repoRecord, repoChanged, err = p.getEntityRecord(ctx, token, orgOrUser+"/"+repo, quayState.Repositories, getLoginTokenInfo, fetchRepositoryRecord)
+	repoRecord, repoChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "repository")), tokenData, orgOrUser+"/"+repo, quayState.Repositories, getLoginTokenInfo, fetchRepositoryRecord)
 	if err != nil {
+		lg.Error(err, "failed to read the repository metadata")
 		return
 	}
 
 	if orgChanged || repoChanged {
 		if err = p.persistTokenState(ctx, token, &quayState); err != nil {
+			lg.Error(err, "failed to persist the metadata changes")
 			return
 		}
 	}
@@ -153,32 +182,26 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 type loginInfoFn func() (LoginTokenInfo, error)
 type fetchEntityRecordFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error)
 
-func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAccessToken, key string, cache map[string]EntityRecord, loginInfoFn loginInfoFn, fetchFn fetchEntityRecordFn) (rec EntityRecord, changed bool, err error) {
+func (p metadataProvider) getEntityRecord(ctx context.Context, tokenData *api.Token, key string, cache map[string]EntityRecord, loginInfoFn loginInfoFn, fetchFn fetchEntityRecordFn) (rec EntityRecord, changed bool, err error) {
 	rec, present := cache[key]
 
-	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
-		var tokenData *api.Token
-		var repoRec *EntityRecord
+	lg := log.FromContext(ctx)
 
-		tokenData, err = p.tokenStorage.Get(ctx, token)
-		if err != nil {
-			return
-		}
-		if tokenData == nil {
-			// the data is stale or not present, and we have no way of figuring out the new data because
-			// we don't have a token
-			rec = EntityRecord{}
-			return
-		}
+	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
+		lg.Info("entity metadata stale, reloading")
+
+		var repoRec *EntityRecord
 
 		var loginInfo LoginTokenInfo
 		loginInfo, err = loginInfoFn()
 		if err != nil {
+			lg.Error(err, "failed to get the docker login info")
 			return
 		}
 
 		repoRec, err = fetchFn(ctx, p.httpClient, key, tokenData, loginInfo)
 		if err != nil {
+			lg.Error(err, "failed to fetch the metadata entity")
 			return
 		}
 
@@ -191,14 +214,20 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, token *api.SPIAcc
 		cache[key] = *repoRec
 		rec = *repoRec
 		changed = true
+		lg.Info("metadata entity fetched successfully")
+	} else {
+		lg.Info("requested metadata entity still valid")
 	}
 
 	return
 }
 
 func (p metadataProvider) persistTokenState(ctx context.Context, token *api.SPIAccessToken, tokenState *TokenState) error {
+	lg := log.FromContext(ctx)
+
 	data, err := json.Marshal(tokenState)
 	if err != nil {
+		lg.Error(err, "failed to serialize the metadata")
 		return err
 	}
 
