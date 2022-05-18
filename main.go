@@ -51,8 +51,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -76,13 +75,15 @@ func main() {
 	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
 	flag.BoolVar(&devmode, "dev-mode", false, "Enable debug logging and insecure communication with vault")
 
-	opts := zap.Options{
-		Development: devmode,
-	}
-	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
+	opts := zap.Options{}
+	opts.BindFlags(flag.CommandLine)
+	opts.Development = devmode
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	setupLog := ctrl.Log.WithName("setup")
 
 	if err := config.ValidateEnv(); err != nil {
 		setupLog.Error(err, "invalid configuration")
@@ -96,6 +97,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
+		Logger:                 ctrl.Log,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
