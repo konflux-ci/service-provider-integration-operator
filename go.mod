@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-jose/go-jose/v3 v3.0.0
+	github.com/go-logr/zapr v0.4.0
 	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/google/go-cmp v0.5.7
 	github.com/google/go-github/v43 v43.0.0
@@ -18,6 +19,7 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
+	go.uber.org/zap v1.19.1
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.22.3
@@ -69,7 +71,6 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-logr/logr v0.4.0 // indirect
-	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/go-test/deep v1.0.8 // indirect
@@ -173,7 +174,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20220208050332-20e1d8d225ab // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
