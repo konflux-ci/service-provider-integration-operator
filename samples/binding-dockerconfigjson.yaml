@@ -1,0 +1,14 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: test-binding-dockerconfigjson
+  namespace: default
+spec:
+  permissions:
+    required:
+      - type: rw
+        area: repository
+  repoUrl: quay.io/repository/redhat_emp1/spi-test
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    name: test-secret-dockerconfigjson

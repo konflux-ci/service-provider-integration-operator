@@ -17,6 +17,7 @@ limitations under the License.
 package serviceprovider
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -49,7 +50,10 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 	case corev1.SecretTypeDockercfg:
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
-		ret[corev1.DockerConfigJsonKey] = at.Token
+		ret[corev1.DockerConfigJsonKey] = fmt.Sprintf(`{"auths":{"%s":{"username":"%s","password":"%s"}}}`,
+			strings.TrimPrefix(at.ServiceProviderUrl, "https://"),
+			at.ServiceProviderUserName,
+			at.Token)
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	}
