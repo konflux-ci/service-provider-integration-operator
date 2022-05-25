@@ -50,8 +50,12 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 	case corev1.SecretTypeDockercfg:
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
+		url := at.ServiceProviderUrl
+		if split := strings.Split(at.ServiceProviderUrl, "://"); len(split) > 1 {
+			url = split[1]
+		}
 		ret[corev1.DockerConfigJsonKey] = fmt.Sprintf(`{"auths":{"%s":{"username":"%s","password":"%s"}}}`,
-			strings.TrimPrefix(at.ServiceProviderUrl, "https://"),
+			url,
 			at.ServiceProviderUserName,
 			at.Token)
 	case corev1.SecretTypeSSHAuth:
