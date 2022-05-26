@@ -40,26 +40,49 @@ type GenericLookup struct {
 	MetadataProvider MetadataProvider
 	// MetadataCache is an abstraction used for storing/fetching the metadata of tokens
 	MetadataCache *MetadataCache
+	// RepoHostParser is a function that extracts the host from the repoUrl
+	RepoHostParser RepoHostParser
+}
+
+type RepoHostParser interface {
+	Host(url string) (string, error)
+}
+
+type RepoHostParserFunc func(repoUrl string) (string, error)
+
+func (f RepoHostParserFunc) Host(url string) (string, error) {
+	return f(url)
+}
+
+func RepoHostFromUrl(repoUrl string) (string, error) {
+	parsed, err := url.Parse(repoUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return parsed.Host, nil
 }
 
 func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable Matchable) ([]api.SPIAccessToken, error) {
+	lg := log.FromContext(ctx)
+
 	var result = make([]api.SPIAccessToken, 0)
 
 	potentialMatches := &api.SPIAccessTokenList{}
 
-	repoUrl, err := url.Parse(matchable.RepoUrl())
+	repoHost, err := l.RepoHostParser.Host(matchable.RepoUrl())
 	if err != nil {
 		return result, err
 	}
 
 	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
 		api.ServiceProviderTypeLabel: string(l.ServiceProviderType),
-		api.ServiceProviderHostLabel: repoUrl.Host,
+		api.ServiceProviderHostLabel: repoHost,
 	}); err != nil {
 		return result, err
 	}
 
-	lg := log.FromContext(ctx)
+	lg.Info("lookup", "potential_matches", len(potentialMatches.Items))
 
 	errs := make([]error, 0)
 
@@ -67,10 +90,13 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	wg := sync.WaitGroup{}
 	for _, t := range potentialMatches.Items {
 		if t.Status.Phase != api.SPIAccessTokenPhaseReady {
+			lg.Info("skipping lookup, token not ready", "token", t.Name)
 			continue
 		}
+
 		wg.Add(1)
 		go func(tkn api.SPIAccessToken) {
+			lg.Info("matching", "token", tkn.Name)
 			defer wg.Done()
 			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
 				mutex.Lock()
@@ -101,6 +127,8 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	if len(errs) > 0 {
 		return nil, errors.NewAggregate(errs)
 	}
+
+	lg.Info("lookup finished", "matching_tokens", len(result))
 
 	return result, nil
 }

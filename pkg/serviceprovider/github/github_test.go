@@ -272,6 +272,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 					return true, nil
 				},
 			},
+			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
 		tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
 			return &api.Token{AccessToken: "blabol"}

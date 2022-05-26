@@ -32,7 +32,7 @@ var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	lg := log.FromContext(ctx, "matchableUrl", matchable.RepoUrl())
 
-	lg.Info("matching", "token", token)
+	lg.Info("matching", "token", token.Name)
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}

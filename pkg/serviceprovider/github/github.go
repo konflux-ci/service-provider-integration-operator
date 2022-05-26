@@ -67,7 +67,8 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 				httpClient:    httpClient,
 				tokenStorage:  factory.TokenStorage,
 			},
-			MetadataCache: &cache,
+			MetadataCache:  &cache,
+			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
 		httpClient: factory.HttpClient,
 	}, nil
