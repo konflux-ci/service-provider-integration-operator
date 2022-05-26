@@ -181,6 +181,42 @@ func TestValidate(t *testing.T) {
 	assert.Equal(t, "scope 'user:read' is not supported", res.ScopeValidation[2].Error())
 }
 
+func TestQuay_TranslateToScopes(t *testing.T) {
+	repoR := api.Permission{
+		Area: api.PermissionAreaRepository,
+		Type: api.PermissionTypeRead,
+	}
+	repoW := api.Permission{
+		Area: api.PermissionAreaRepository,
+		Type: api.PermissionTypeWrite,
+	}
+	repoRW := api.Permission{
+		Area: api.PermissionAreaRepository,
+		Type: api.PermissionTypeReadWrite,
+	}
+	repoMR := api.Permission{
+		Area: api.PermissionAreaRepositoryMetadata,
+		Type: api.PermissionTypeRead,
+	}
+	repoMW := api.Permission{
+		Area: api.PermissionAreaRepositoryMetadata,
+		Type: api.PermissionTypeWrite,
+	}
+	repoMRW := api.Permission{
+		Area: api.PermissionAreaRepositoryMetadata,
+		Type: api.PermissionTypeReadWrite,
+	}
+
+	q := &Quay{}
+
+	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoR))
+	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoW))
+	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoRW))
+	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoMR))
+	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoMW))
+	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoMRW))
+}
+
 type httpClientMock struct {
 	doFunc func(req *http.Request) (*http.Response, error)
 }

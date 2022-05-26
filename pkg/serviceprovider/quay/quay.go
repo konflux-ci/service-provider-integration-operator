@@ -89,7 +89,53 @@ func (g *Quay) GetType() api.ServiceProviderType {
 }
 
 func (g *Quay) TranslateToScopes(permission api.Permission) []string {
-	return translateToQuayScopes(permission)
+	// This method is called when constructing the OAuth URL.
+	// We represent the ability to pull/push images using fake scopes that don't exist in the Quay model and are used
+	// only to represent the permissions of the robot accounts. Since this is an OAuth URL, we need to replace those
+	// scopes with their "real" equivalents in the OAuth APIs - i.e. pull == repo:read and push == repo:write
+
+	fullScopes := translateToQuayScopes(permission)
+
+	replace := func(str *string) {
+		if *str == string(ScopePull) {
+			*str = string(ScopeRepoRead)
+		} else if *str == string(ScopePush) {
+			*str = string(ScopeRepoWrite)
+		}
+	}
+
+	// we only return 0, 1 or 2 elements in the arrays, so let's be very concrete here
+	if len(fullScopes) == 0 {
+		return fullScopes
+	} else if len(fullScopes) == 1 {
+		replace(&fullScopes[0])
+		return fullScopes
+	} else if len(fullScopes) == 2 {
+		replace(&fullScopes[0])
+		replace(&fullScopes[1])
+		return fullScopes
+	}
+
+	// the generic case in case translateToQuayScopes() returns something longer than 0, 1 or 2 elements
+
+	scopeMap := map[string]bool{}
+
+	for _, s := range fullScopes {
+		if s == string(ScopePull) {
+			s = string(ScopeRepoRead)
+		} else if s == string(ScopePush) {
+			s = string(ScopeRepoWrite)
+		}
+
+		scopeMap[s] = true
+	}
+
+	ret := make([]string, 0, len(scopeMap))
+	for s, _ := range scopeMap {
+		ret = append(ret, s)
+	}
+
+	return ret
 }
 
 func translateToQuayScopes(permission api.Permission) []string {
