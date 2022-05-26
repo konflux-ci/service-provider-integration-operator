@@ -130,7 +130,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 
 		username, password := getUsernameAndPasswordFromTokenData(tokenData)
 		var tkn string
-		tkn, err = DockerLogin(log.IntoContext(ctx, lg), p.httpClient, repo, username, password)
+		tkn, err = DockerLogin(log.IntoContext(ctx, lg), p.httpClient, orgOrUser+"/"+repo, username, password)
 		if err != nil {
 			lg.Error(err, "failed to perform docker login")
 			return LoginTokenInfo{}, err

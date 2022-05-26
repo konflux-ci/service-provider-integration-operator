@@ -253,6 +253,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 						assert.Fail(t, "unexpected method in %s", r.URL.String())
 					}
 				case "/v2/auth":
+					assert.Equal(t, "repository:org/repo:push,pull", r.URL.Query().Get("scope"))
 					// this returns a fake JWT token giving push and pull access to "org/repo" repository to a test+test user
 					res = &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJxdWF5IiwiYXVkIjoicXVheS5pbyIsIm5iZiI6MTY1MjEwNTQ1OCwiaWF0IjoxNjUyMTA1NDU4LCJleHAiOjE2NTIxMDkwNTgsInN1YiI6InRlc3QrdGVzdCIsImFjY2VzcyI6W3sidHlwZSI6InJlcG9zaXRvcnkiLCJuYW1lIjoib3JnL3JlcG8iLCJhY3Rpb25zIjpbInB1c2giLCJwdWxsIl19XSwiY29udGV4dCI6eyJ2ZXJzaW9uIjoyLCJlbnRpdHlfa2luZCI6InJvYm90IiwiZW50aXR5X3JlZmVyZW5jZSI6InRlc3QrdGVzdCIsImtpbmQiOiJ1c2VyIiwidXNlciI6InRlc3QrdGVzdCIsImNvbS5hcG9zdGlsbGUucm9vdHMiOnsidW5ob29rL3VuaG9vay10dW5uZWwiOiIkZGlzYWJsZWQifSwiY29tLmFwb3N0aWxsZS5yb290IjoiJGRpc2FibGVkIn19.6bdjhEosHqNjlsvyiaKUxqWm6mF98EPLs08jJBtXcNA"}`))}
 					basicAuthExpected = true
