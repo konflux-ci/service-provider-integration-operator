@@ -243,6 +243,15 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 				case "/api/v1/repository":
 					res = &http.Response{StatusCode: 400}
 					bearerAuthExpected = true
+				case "/api/v1/repository/org/repo":
+					bearerAuthExpected = true
+					if r.Method == "PUT" {
+						res = &http.Response{StatusCode: 200}
+					} else if r.Method == "GET" {
+						res = &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"description": "asdf"}`))}
+					} else {
+						assert.Fail(t, "unexpected method in %s", r.URL.String())
+					}
 				case "/v2/auth":
 					// this returns a fake JWT token giving push and pull access to "org/repo" repository to a test+test user
 					res = &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJxdWF5IiwiYXVkIjoicXVheS5pbyIsIm5iZiI6MTY1MjEwNTQ1OCwiaWF0IjoxNjUyMTA1NDU4LCJleHAiOjE2NTIxMDkwNTgsInN1YiI6InRlc3QrdGVzdCIsImFjY2VzcyI6W3sidHlwZSI6InJlcG9zaXRvcnkiLCJuYW1lIjoib3JnL3JlcG8iLCJhY3Rpb25zIjpbInB1c2giLCJwdWxsIl19XSwiY29udGV4dCI6eyJ2ZXJzaW9uIjoyLCJlbnRpdHlfa2luZCI6InJvYm90IiwiZW50aXR5X3JlZmVyZW5jZSI6InRlc3QrdGVzdCIsImtpbmQiOiJ1c2VyIiwidXNlciI6InRlc3QrdGVzdCIsImNvbS5hcG9zdGlsbGUucm9vdHMiOnsidW5ob29rL3VuaG9vay10dW5uZWwiOiIkZGlzYWJsZWQifSwiY29tLmFwb3N0aWxsZS5yb290IjoiJGRpc2FibGVkIn19.6bdjhEosHqNjlsvyiaKUxqWm6mF98EPLs08jJBtXcNA"}`))}
@@ -298,7 +307,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		assert.NoError(t, err)
 
 		// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
-		assert.Equal(t, []Scope{ScopeRepoRead, ScopeRepoWrite, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
+		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
 		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
 	})
 }

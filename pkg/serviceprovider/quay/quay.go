@@ -94,7 +94,7 @@ func (g *Quay) TranslateToScopes(permission api.Permission) []string {
 
 func translateToQuayScopes(permission api.Permission) []string {
 	switch permission.Area {
-	case api.PermissionAreaRepository:
+	case api.PermissionAreaRepositoryMetadata:
 		switch permission.Type {
 		case api.PermissionTypeRead:
 			return []string{string(ScopeRepoRead)}
@@ -102,6 +102,15 @@ func translateToQuayScopes(permission api.Permission) []string {
 			return []string{string(ScopeRepoWrite)}
 		case api.PermissionTypeReadWrite:
 			return []string{string(ScopeRepoRead), string(ScopeRepoWrite)}
+		}
+	case api.PermissionAreaRepository:
+		switch permission.Type {
+		case api.PermissionTypeRead:
+			return []string{string(ScopePull)}
+		case api.PermissionTypeWrite:
+			return []string{string(ScopePush)}
+		case api.PermissionTypeReadWrite:
+			return []string{string(ScopePull), string(ScopePush)}
 		}
 	case api.PermissionAreaUser:
 		switch permission.Type {

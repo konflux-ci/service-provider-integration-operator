@@ -120,9 +120,10 @@ func (pt PermissionType) IsWrite() bool {
 type PermissionArea string
 
 const (
-	PermissionAreaRepository PermissionArea = "repository"
-	PermissionAreaWebhooks   PermissionArea = "webhooks"
-	PermissionAreaUser       PermissionArea = "user"
+	PermissionAreaRepository         PermissionArea = "repository"
+	PermissionAreaRepositoryMetadata PermissionArea = "repositoryMetadata"
+	PermissionAreaWebhooks           PermissionArea = "webhooks"
+	PermissionAreaUser               PermissionArea = "user"
 )
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken

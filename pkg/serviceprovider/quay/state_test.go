@@ -16,7 +16,9 @@ package quay
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -33,6 +35,8 @@ var allScopes = []Scope{
 	ScopeUserRead,
 	ScopeUserAdmin,
 	ScopeOrgAdmin,
+	ScopePull,
+	ScopePush,
 }
 
 func TestScope_Implies(t *testing.T) {
@@ -57,15 +61,15 @@ func TestScope_Implies(t *testing.T) {
 	}
 
 	t.Run(string(ScopeRepoRead), func(t *testing.T) {
-		testImplies(t, ScopeRepoRead /* nothing implied */)
+		testImplies(t, ScopeRepoRead, ScopePull)
 	})
 
 	t.Run(string(ScopeRepoWrite), func(t *testing.T) {
-		testImplies(t, ScopeRepoWrite, ScopeRepoRead)
+		testImplies(t, ScopeRepoWrite, ScopeRepoRead, ScopePull, ScopePush)
 	})
 
 	t.Run(string(ScopeRepoAdmin), func(t *testing.T) {
-		testImplies(t, ScopeRepoAdmin, ScopeRepoWrite, ScopeRepoRead, ScopeRepoCreate)
+		testImplies(t, ScopeRepoAdmin, ScopeRepoWrite, ScopeRepoRead, ScopeRepoCreate, ScopePull, ScopePush)
 	})
 
 	t.Run(string(ScopeRepoCreate), func(t *testing.T) {
@@ -97,7 +101,7 @@ func TestScope_IsIncluded(t *testing.T) {
 
 func TestFetchRepositoryRecord(t *testing.T) {
 	repo := "testorg/repo"
-	testingHttpClient := func(repoCreateTested, repoAdminTested *bool) *http.Client {
+	testingHttpClient := func(repoCreateTested, repoWriteTested, repoReadTested, repoAdminTested *bool) *http.Client {
 		return &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Host == "quay.io" {
@@ -106,6 +110,14 @@ func TestFetchRepositoryRecord(t *testing.T) {
 					if r.URL.Path == "/api/v1/repository" {
 						*repoCreateTested = true
 						return &http.Response{StatusCode: 400}, nil
+					} else if r.URL.Path == "/api/v1/repository/"+repo {
+						if r.Method == "PUT" {
+							*repoWriteTested = true
+							return &http.Response{StatusCode: 200}, nil
+						} else if r.Method == "GET" {
+							*repoReadTested = true
+							return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"description": "asdf"}`))}, nil
+						}
 					} else if r.URL.Path == "/api/v1/repository/"+repo+"/notification/" {
 						*repoAdminTested = true
 						return &http.Response{StatusCode: 200}, nil
@@ -119,8 +131,8 @@ func TestFetchRepositoryRecord(t *testing.T) {
 	}
 
 	t.Run("robot account", func(t *testing.T) {
-		var repoCreateTested, repoAdminTested bool
-		httpClient := testingHttpClient(&repoCreateTested, &repoAdminTested)
+		var repoCreateTested, repoAdminTested, repoWriteTested, repoReadTested bool
+		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested)
 
 		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
 			Username:    "test+test",
@@ -138,15 +150,17 @@ func TestFetchRepositoryRecord(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, rec)
 		assert.Equal(t, 2, len(rec.PossessedScopes))
-		assert.Contains(t, rec.PossessedScopes, ScopeRepoRead)
-		assert.Contains(t, rec.PossessedScopes, ScopeRepoWrite)
+		assert.Contains(t, rec.PossessedScopes, ScopePull)
+		assert.Contains(t, rec.PossessedScopes, ScopePush)
 		assert.False(t, repoCreateTested)
+		assert.False(t, repoWriteTested)
+		assert.False(t, repoReadTested)
 		assert.False(t, repoAdminTested)
 	})
 
 	t.Run("oauth app", func(t *testing.T) {
-		var repoCreateTested, repoAdminTested bool
-		httpClient := testingHttpClient(&repoCreateTested, &repoAdminTested)
+		var repoCreateTested, repoAdminTested, repoWriteTested, repoReadTested bool
+		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested)
 
 		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
 			Username:    "",
@@ -163,12 +177,16 @@ func TestFetchRepositoryRecord(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, rec)
-		assert.Equal(t, 4, len(rec.PossessedScopes))
+		assert.Equal(t, 6, len(rec.PossessedScopes))
+		assert.Contains(t, rec.PossessedScopes, ScopePush)
+		assert.Contains(t, rec.PossessedScopes, ScopePull)
 		assert.Contains(t, rec.PossessedScopes, ScopeRepoRead)
 		assert.Contains(t, rec.PossessedScopes, ScopeRepoWrite)
 		assert.Contains(t, rec.PossessedScopes, ScopeRepoCreate)
 		assert.Contains(t, rec.PossessedScopes, ScopeRepoAdmin)
 		assert.True(t, repoCreateTested)
+		assert.True(t, repoWriteTested)
+		assert.True(t, repoReadTested)
 		assert.True(t, repoAdminTested)
 	})
 }

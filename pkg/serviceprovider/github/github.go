@@ -93,7 +93,7 @@ func (g *Github) TranslateToScopes(permission api.Permission) []string {
 
 func translateToScopes(permission api.Permission) []string {
 	switch permission.Area {
-	case api.PermissionAreaRepository:
+	case api.PermissionAreaRepository, api.PermissionAreaRepositoryMetadata:
 		return []string{"repo"}
 	case api.PermissionAreaWebhooks:
 		if permission.Type.IsWrite() {

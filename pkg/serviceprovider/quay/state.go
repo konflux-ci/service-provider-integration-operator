@@ -16,6 +16,9 @@ package quay
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -44,6 +47,9 @@ const (
 	ScopeUserRead   Scope = "user:read"
 	ScopeUserAdmin  Scope = "user:admin"
 	ScopeOrgAdmin   Scope = "org:admin"
+	// These are not real scopes in Quay, but we represent the permissions of the robot tokens with them
+	ScopePush Scope = "push"
+	ScopePull Scope = "pull"
 )
 
 func (s Scope) Implies(other Scope) bool {
@@ -52,10 +58,12 @@ func (s Scope) Implies(other Scope) bool {
 	}
 
 	switch s {
+	case ScopeRepoRead:
+		return other == ScopePull
 	case ScopeRepoWrite:
-		return other == ScopeRepoRead
+		return other == ScopeRepoRead || other == ScopePush || other == ScopePull
 	case ScopeRepoAdmin:
-		return other == ScopeRepoRead || other == ScopeRepoWrite || other == ScopeRepoCreate
+		return other == ScopeRepoRead || other == ScopeRepoWrite || other == ScopeRepoCreate || other == ScopePush || other == ScopePull
 	case ScopeUserAdmin:
 		return other == ScopeUserRead
 	}
@@ -133,11 +141,11 @@ func robotAccountRepositoryRecord(ctx context.Context, repository string, info L
 
 	var possessedScopes []Scope
 	if repoInfo.Pullable {
-		possessedScopes = append(possessedScopes, ScopeRepoRead)
+		possessedScopes = append(possessedScopes, ScopePull)
 	}
 
 	if repoInfo.Pushable {
-		possessedScopes = append(possessedScopes, ScopeRepoWrite)
+		possessedScopes = append(possessedScopes, ScopePush)
 	}
 
 	log.FromContext(ctx).Info("detected robot-account-compatible scopes", "scopes", possessedScopes)
@@ -150,15 +158,27 @@ func robotAccountRepositoryRecord(ctx context.Context, repository string, info L
 func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string, info LoginTokenInfo) (*EntityRecord, error) {
 	lg := log.FromContext(ctx)
 
-	// first try to figure out repo:read and repo:write just by trying to log in
-	rr, err := robotAccountRepositoryRecord(ctx, repository, info)
+	rr := &EntityRecord{}
+
+	repoRead, description, err := hasRepoRead(ctx, cl, repository, token)
 	if err != nil {
-		lg.Error(err, "failed to detect robot-account-compatible scopes")
+		lg.Error(err, "failed to detect repo:read scope")
 		return nil, err
 	}
-	if rr == nil {
-		// ok, this token is not usable for push or pull but it still can have other perms...
-		rr = &EntityRecord{}
+	if repoRead {
+		rr.PossessedScopes = append(rr.PossessedScopes, ScopeRepoRead, ScopePull)
+	}
+
+	var repoWrite bool
+	if repoRead {
+		repoWrite, err = hasRepoWrite(ctx, cl, repository, token, description)
+		if err != nil {
+			lg.Error(err, "failed to detect repo:write scope")
+			return nil, err
+		}
+		if repoWrite {
+			rr.PossessedScopes = append(rr.PossessedScopes, ScopeRepoWrite, ScopePush)
+		}
 	}
 
 	repoAdmin, err := hasRepoAdmin(ctx, cl, repository, token)
@@ -183,6 +203,66 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 
 	return rr, nil
 }
+func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, string, error) {
+	url := "https://quay.io/api/v1/repository/" + repository
+
+	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil)
+	if err != nil {
+		return false, "", err
+	}
+	if resp == nil {
+		return false, "", nil
+	}
+
+	if resp.StatusCode != 200 {
+		return false, "", nil
+	}
+
+	lg := log.FromContext(ctx, "url", url)
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		lg.Error(err, "read the response")
+		return false, "", err
+	}
+	data := map[string]interface{}{}
+	if err = json.Unmarshal(bytes, &data); err != nil {
+		lg.Error(err, "failed to read the response as JSON")
+		return false, "", err
+	}
+
+	descriptionObj, ok := data["description"]
+	if !ok {
+		lg.Info("the repository data doesn't contain 'description'")
+		return false, "", errors.New("the repository data doesn't contain 'description'")
+	}
+
+	description, ok := descriptionObj.(string)
+	if !ok {
+		lg.Info("the repository data 'description' is not a string")
+		return false, "", errors.New("the repository data 'description' is not a string")
+	}
+
+	return true, description, nil
+}
+
+func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description string) (bool, error) {
+	url := "https://quay.io/api/v1/repository/" + repository
+
+	data := strings.NewReader(`{
+		"description": "` + description + `",
+    }`)
+
+	resp, err := doQuayRequest(ctx, cl, url, token, "PUT", data)
+	if err != nil {
+		return false, err
+	}
+	if resp == nil {
+		return false, nil
+	}
+
+	return resp.StatusCode == 200, nil
+}
 
 func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
 	slashIdx := strings.Index(repository, "/")
@@ -205,17 +285,12 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 
 	lg.Info("asking quay API")
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, data)
+	resp, err := doQuayRequest(ctx, cl, url, token, "POST", data)
 	if err != nil {
-		lg.Error(err, "failed to build the request")
 		return false, err
 	}
-
-	req.Header.Add("Authorization", "Bearer "+token)
-	resp, err := cl.Do(req)
-	if err != nil {
-		lg.Error(err, "failed to perform the request")
-		return false, err
+	if resp == nil {
+		return false, nil
 	}
 
 	// here, we exploit the order of input validation in Quay. The ability to write to a certain namespace is checked
@@ -234,24 +309,36 @@ func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, toke
 }
 
 func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token string) (bool, error) {
+	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil)
+	if err != nil {
+		return false, err
+	}
+	if resp == nil {
+		return false, nil
+	}
+
+	return resp.StatusCode == 200, nil
+}
+
+func doQuayRequest(ctx context.Context, cl *http.Client, url string, token string, method string, body io.Reader) (*http.Response, error) {
 	lg := log.FromContext(ctx, "url", url)
 
 	lg.Info("asking quay API")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		lg.Error(err, "failed to compose the request")
-		return false, err
+		return nil, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to perform the request")
-		return false, err
+		return nil, err
 	}
 
-	return resp.StatusCode == 200, nil
+	return resp, nil
 }
 
 func splitToOrganizationAndRepositoryAndVersion(image string) (string, string, string) {
