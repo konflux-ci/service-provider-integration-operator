@@ -255,7 +255,7 @@ func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated
 		switch Scope(s) {
 		case ScopeUserRead, ScopeUserAdmin:
 			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("scope '%s' is not supported", s))
-		case ScopeRepoRead, ScopeRepoWrite, ScopeRepoCreate, ScopeRepoAdmin, ScopeOrgAdmin:
+		case ScopeRepoRead, ScopeRepoWrite, ScopeRepoCreate, ScopeRepoAdmin, ScopeOrgAdmin, ScopePull, ScopePush:
 			{
 			}
 		default:

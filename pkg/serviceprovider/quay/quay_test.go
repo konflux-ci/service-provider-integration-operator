@@ -166,7 +166,7 @@ func TestValidate(t *testing.T) {
 						Area: api.PermissionAreaUser,
 					},
 				},
-				AdditionalScopes: []string{"blah", "user:read", "repo:read"},
+				AdditionalScopes: []string{"blah", "user:read", "repo:read", "push", "pull"},
 			},
 		},
 	})
