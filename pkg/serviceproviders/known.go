@@ -18,6 +18,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/snyk"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
@@ -30,5 +31,6 @@ func KnownInitializers() map[config.ServiceProviderType]serviceprovider.Initiali
 	return map[config.ServiceProviderType]serviceprovider.Initializer{
 		config.ServiceProviderTypeGitHub: github.Initializer,
 		config.ServiceProviderTypeQuay:   quay.Initializer,
+		config.ServiceProviderTypeSnyk:   snyk.Initializer,
 	}
 }

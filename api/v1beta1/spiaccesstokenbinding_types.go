@@ -34,7 +34,7 @@ type SPIAccessTokenBindingStatus struct {
 	ErrorReason           SPIAccessTokenBindingErrorReason `json:"errorReason,omitempty"`
 	ErrorMessage          string                           `json:"errorMessage,omitempty"`
 	LinkedAccessTokenName string                           `json:"linkedAccessTokenName"`
-	OAuthUrl              string                           `json:"oAuthUrl"`
+	OAuthUrl              string                           `json:"oAuthUrl,omitempty"`
 	SyncedObjectRef       TargetObjectRef                  `json:"syncedObjectRef"`
 }
 

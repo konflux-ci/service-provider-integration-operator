@@ -27,6 +27,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
+	ServiceProviderTypeSnyk   ServiceProviderType = "Snyk"
 	DefaultVaultHost          string              = "http://spi-vault:8200"
 )
 

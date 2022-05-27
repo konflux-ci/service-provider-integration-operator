@@ -78,6 +78,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
+	ServiceProviderTypeSnyk   ServiceProviderType = "Snyk"
 )
 
 // Permission is an element of Permissions and express a requirement on the service provider scopes in an agnostic

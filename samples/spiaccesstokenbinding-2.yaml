@@ -8,6 +8,6 @@ spec:
     required:
       - type: rw
         area: repository
-  repoUrl: https://quay.io/repository/redhat_emp1/spi-test
+  repoUrl: https://snyk.io/
   secret:
     type: kubernetes.io/basic-auth

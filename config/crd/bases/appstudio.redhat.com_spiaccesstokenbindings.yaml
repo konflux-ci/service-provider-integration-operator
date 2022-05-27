@@ -186,7 +186,6 @@ spec:
                 type: object
             required:
             - linkedAccessTokenName
-            - oAuthUrl
             - phase
             - syncedObjectRef
             type: object
