@@ -17,6 +17,8 @@ package github
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
@@ -72,6 +74,8 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 	})
 
 	if err != nil {
+		lg := log.FromContext(ctx)
+		lg.Error(err, "Error in FetchAll")
 		return err
 	}
 
