@@ -15,6 +15,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,26 +40,26 @@ func (e ServiceProviderError) Error() string {
 }
 
 func IsServiceProviderError(err error) bool {
-	_, ok := err.(*ServiceProviderError)
-	return ok
+	spe := &ServiceProviderError{}
+	return errors.As(err, &spe)
 }
 
 func IsInvalidAccessToken(err error) bool {
-	e, ok := err.(*ServiceProviderError)
-	if !ok {
+	spe := &ServiceProviderError{}
+	if !errors.As(err, &spe) {
 		return false
 	}
 
-	return e.StatusCode >= 400 && e.StatusCode < 500
+	return spe.StatusCode >= 400 && spe.StatusCode < 500
 }
 
 func IsInternalServerError(err error) bool {
-	e, ok := err.(*ServiceProviderError)
-	if !ok {
+	spe := &ServiceProviderError{}
+	if !errors.As(err, &spe) {
 		return false
 	}
 
-	return e.StatusCode >= 500 && e.StatusCode < 600
+	return spe.StatusCode >= 500 && spe.StatusCode < 600
 }
 
 // FromHttpResponse returns a non-nil error if the provided response has a status code >= 400 and < 600 (i.e. auth and
