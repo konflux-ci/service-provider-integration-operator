@@ -291,7 +291,7 @@ var _ = Describe("Phase", func() {
 		When("metadata fails to persist due to invalid token", func() {
 			It("flips to Invalid", func() {
 				ITest.TestServiceProvider.PersistMetadataImpl = func(ctx context.Context, c client.Client, token *api.SPIAccessToken) error {
-					return sperrors.InvalidAccessToken
+					return sperrors.ServiceProviderError{StatusCode: 401, Response: "the token is invalid"}
 				}
 
 				Eventually(func(g Gomega) {

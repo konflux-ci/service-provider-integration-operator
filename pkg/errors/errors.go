@@ -14,32 +14,71 @@
 
 package errors
 
-type ServiceProviderError int
-
-const (
-	InvalidAccessToken ServiceProviderError = iota
-	InternalServerError
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
 )
 
+type ServiceProviderError struct {
+	StatusCode int
+	Response   string
+}
+
 func (e ServiceProviderError) Error() string {
-	switch e {
-	case InvalidAccessToken:
-		return "invalid access token"
-	case InternalServerError:
-		return "error in the service provider"
+	var identification string
+	if e.StatusCode >= 400 && e.StatusCode < 500 {
+		identification = "invalid access token"
+	} else if e.StatusCode > 500 && e.StatusCode < 600 {
+		identification = "error in the service provider"
+	} else {
+		identification = "unknown service provider error"
 	}
-	return "unknown service provider error"
+
+	return fmt.Sprintf("%s (http status %d): %s", identification, e.StatusCode, e.Response)
 }
 
 func IsServiceProviderError(err error) bool {
-	return err == InternalServerError || err == InvalidAccessToken
+	spe := &ServiceProviderError{}
+	return errors.As(err, &spe)
 }
 
-func FromHttpStatusCode(statusCode int) error {
-	if statusCode >= 400 && statusCode < 500 {
-		return InvalidAccessToken
-	} else if statusCode >= 500 && statusCode < 600 {
-		return InternalServerError
+func IsInvalidAccessToken(err error) bool {
+	spe := &ServiceProviderError{}
+	if !errors.As(err, &spe) {
+		return false
+	}
+
+	return spe.StatusCode >= 400 && spe.StatusCode < 500
+}
+
+func IsInternalServerError(err error) bool {
+	spe := &ServiceProviderError{}
+	if !errors.As(err, &spe) {
+		return false
+	}
+
+	return spe.StatusCode >= 500 && spe.StatusCode < 600
+}
+
+// FromHttpResponse returns a non-nil error if the provided response has a status code >= 400 and < 600 (i.e. auth and
+// internal server errors). Note that the body of the response is consumed when the erroneous status code is detected so
+// that it is preserved in the returned error object.
+func FromHttpResponse(response *http.Response) error {
+	if response.StatusCode >= 400 && response.StatusCode < 600 {
+		var body string
+		bytes, err := io.ReadAll(response.Body)
+		if err != nil {
+			body = fmt.Sprintf("failed to read the error response from the service provider: %s", err.Error())
+		} else {
+			body = string(bytes)
+		}
+
+		return &ServiceProviderError{
+			StatusCode: response.StatusCode,
+			Response:   body,
+		}
 	}
 
 	return nil
