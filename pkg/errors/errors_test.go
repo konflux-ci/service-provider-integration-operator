@@ -26,14 +26,14 @@ import (
 )
 
 func TestChecks(t *testing.T) {
-	invalidAccessToken := ServiceProviderError{
+	invalidAccessToken := &ServiceProviderError{
 		StatusCode: 401,
 		Response:   "",
 	}
 
-	internalServerError := ServiceProviderError{
+	internalServerError := &ServiceProviderError{
 		StatusCode: 501,
-		Response: "",
+		Response:   "",
 	}
 
 	assert.True(t, errors.Is(invalidAccessToken, invalidAccessToken))
@@ -47,10 +47,10 @@ func TestChecks(t *testing.T) {
 
 func TestFromHttpResponse(t *testing.T) {
 	resp := http.Response{
-		StatusCode:       401,
-		Body:             io.NopCloser(strings.NewReader("an error")),
+		StatusCode: 401,
+		Body:       io.NopCloser(strings.NewReader("an error")),
 	}
-	
+
 	err := FromHttpResponse(&resp)
 	assert.Equal(t, "invalid access token (http status 401): an error", err.Error())
 }

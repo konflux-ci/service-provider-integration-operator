@@ -58,7 +58,10 @@ type AllAccessibleRepos struct {
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
 	if accessToken == "" {
-		return sperrors.InvalidAccessToken
+		return sperrors.ServiceProviderError{
+			StatusCode: 401,
+			Response:   "the access token is empty, service provider not contacted at all",
+		}
 	}
 
 	ctx = httptransport.WithBearerToken(ctx, accessToken)

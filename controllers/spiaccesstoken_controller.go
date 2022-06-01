@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -164,7 +163,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
-		if stderrors.Is(err, sperrors.InvalidAccessToken) {
+		if sperrors.IsInvalidAccessToken(err) {
 			if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonMetadataFailure, err); uerr != nil {
 				return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
 			}

@@ -22,7 +22,7 @@ import (
 
 type ServiceProviderError struct {
 	StatusCode int
-	Response string
+	Response   string
 }
 
 func (e ServiceProviderError) Error() string {
@@ -39,8 +39,26 @@ func (e ServiceProviderError) Error() string {
 }
 
 func IsServiceProviderError(err error) bool {
-	_, ok := err.(ServiceProviderError)
+	_, ok := err.(*ServiceProviderError)
 	return ok
+}
+
+func IsInvalidAccessToken(err error) bool {
+	e, ok := err.(*ServiceProviderError)
+	if !ok {
+		return false
+	}
+
+	return e.StatusCode >= 400 && e.StatusCode < 500
+}
+
+func IsInternalServerError(err error) bool {
+	e, ok := err.(*ServiceProviderError)
+	if !ok {
+		return false
+	}
+
+	return e.StatusCode >= 500 && e.StatusCode < 600
 }
 
 // FromHttpResponse returns a non-nil error if the provided response has a status code >= 400 and < 600 (i.e. auth and
@@ -55,7 +73,6 @@ func FromHttpResponse(response *http.Response) error {
 		} else {
 			body = string(bytes)
 		}
-
 
 		return &ServiceProviderError{
 			StatusCode: response.StatusCode,
