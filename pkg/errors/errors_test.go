@@ -17,19 +17,40 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestChecks(t *testing.T) {
-	err := InvalidAccessToken
+	invalidAccessToken := ServiceProviderError{
+		StatusCode: 401,
+		Response:   "",
+	}
 
-	assert.True(t, errors.Is(err, InvalidAccessToken))
-	assert.False(t, errors.Is(err, InternalServerError))
-	assert.False(t, errors.Is(err, fmt.Errorf("huh")))
-	assert.True(t, IsServiceProviderError(InvalidAccessToken))
-	assert.True(t, IsServiceProviderError(InternalServerError))
+	internalServerError := ServiceProviderError{
+		StatusCode: 501,
+		Response: "",
+	}
+
+	assert.True(t, errors.Is(invalidAccessToken, invalidAccessToken))
+	assert.False(t, errors.Is(invalidAccessToken, internalServerError))
+	assert.False(t, errors.Is(invalidAccessToken, fmt.Errorf("huh")))
+	assert.True(t, IsServiceProviderError(invalidAccessToken))
+	assert.True(t, IsServiceProviderError(internalServerError))
 	assert.False(t, IsServiceProviderError(fmt.Errorf("huh")))
 	assert.False(t, IsServiceProviderError(nil))
+}
+
+func TestFromHttpResponse(t *testing.T) {
+	resp := http.Response{
+		StatusCode:       401,
+		Body:             io.NopCloser(strings.NewReader("an error")),
+	}
+	
+	err := FromHttpResponse(&resp)
+	assert.Equal(t, "invalid access token (http status 401): an error", err.Error())
 }

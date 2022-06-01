@@ -112,7 +112,7 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Transport: httptransport.ExaminingRoundTripper{
 			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
 			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
-				return sperrors.FromHttpStatusCode(response.StatusCode)
+				return sperrors.FromHttpResponse(response)
 			}),
 		},
 		CheckRedirect: cl.CheckRedirect,
