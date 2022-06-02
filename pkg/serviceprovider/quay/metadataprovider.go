@@ -123,6 +123,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
 	if orgOrUser == "" || repo == "" {
 		err = fmt.Errorf("repository URL invalid: %s", repoUrl)
+		lg.Error(err, "failed to parse the repository URL")
 		return
 	}
 
