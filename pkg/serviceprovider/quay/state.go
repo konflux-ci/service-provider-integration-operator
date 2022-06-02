@@ -17,7 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -203,19 +203,19 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 
 	return rr, nil
 }
-func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, string, error) {
+func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
 	url := "https://quay.io/api/v1/repository/" + repository
 
 	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil)
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 	if resp == nil {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	if resp.StatusCode != 200 {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	lg := log.FromContext(ctx, "url", url)
@@ -223,35 +223,42 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		lg.Error(err, "read the response")
-		return false, "", err
+		return false, nil, err
 	}
 	data := map[string]interface{}{}
 	if err = json.Unmarshal(bytes, &data); err != nil {
 		lg.Error(err, "failed to read the response as JSON")
-		return false, "", err
+		return false, nil, err
 	}
 
 	descriptionObj, ok := data["description"]
 	if !ok {
-		lg.Info("the repository data doesn't contain 'description'")
-		return false, "", errors.New("the repository data doesn't contain 'description'")
+		return true, nil, nil
 	}
 
-	description, ok := descriptionObj.(string)
-	if !ok {
-		lg.Info("the repository data 'description' is not a string")
-		return false, "", errors.New("the repository data 'description' is not a string")
+	var description *string
+	if descriptionObj != nil {
+		str, ok := descriptionObj.(string)
+		if !ok {
+			lg.Info("the repository data 'description' is not a string")
+			return false, nil, fmt.Errorf("the repository data 'description' is not a string: %v", descriptionObj)
+		}
+		description = &str
 	}
 
 	return true, description, nil
 }
 
-func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description string) (bool, error) {
+func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description *string) (bool, error) {
 	url := "https://quay.io/api/v1/repository/" + repository
 
-	data := strings.NewReader(`{
-		"description": "` + description + `",
-    }`)
+	var val string
+	if description == nil {
+		val = "null"
+	} else {
+		val = `"` + *description + `"`
+	}
+	data := strings.NewReader(`{"description": ` + val + `}`)
 
 	resp, err := doQuayRequest(ctx, cl, url, token, "PUT", data)
 	if err != nil {

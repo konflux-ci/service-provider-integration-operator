@@ -101,7 +101,11 @@ func TestScope_IsIncluded(t *testing.T) {
 
 func TestFetchRepositoryRecord(t *testing.T) {
 	repo := "testorg/repo"
-	testingHttpClient := func(repoCreateTested, repoWriteTested, repoReadTested, repoAdminTested *bool) *http.Client {
+	repoWithDescription := `{"description": "asdf"}`
+	repoWithNullDescription := `{"description": null}`
+	repoWithoutDescription := `{}`
+
+	testingHttpClient := func(repoCreateTested, repoWriteTested, repoReadTested, repoAdminTested *bool, repoDetailsBody string) *http.Client {
 		return &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Host == "quay.io" {
@@ -116,7 +120,7 @@ func TestFetchRepositoryRecord(t *testing.T) {
 							return &http.Response{StatusCode: 200}, nil
 						} else if r.Method == "GET" {
 							*repoReadTested = true
-							return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"description": "asdf"}`))}, nil
+							return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(repoDetailsBody))}, nil
 						}
 					} else if r.URL.Path == "/api/v1/repository/"+repo+"/notification/" {
 						*repoAdminTested = true
@@ -132,7 +136,7 @@ func TestFetchRepositoryRecord(t *testing.T) {
 
 	t.Run("robot account", func(t *testing.T) {
 		var repoCreateTested, repoAdminTested, repoWriteTested, repoReadTested bool
-		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested)
+		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested, repoWithDescription)
 
 		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
 			Username:    "test+test",
@@ -160,7 +164,7 @@ func TestFetchRepositoryRecord(t *testing.T) {
 
 	t.Run("oauth app", func(t *testing.T) {
 		var repoCreateTested, repoAdminTested, repoWriteTested, repoReadTested bool
-		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested)
+		httpClient := testingHttpClient(&repoCreateTested, &repoWriteTested, &repoReadTested, &repoAdminTested, repoWithDescription)
 
 		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
 			Username:    "",
@@ -188,6 +192,48 @@ func TestFetchRepositoryRecord(t *testing.T) {
 		assert.True(t, repoWriteTested)
 		assert.True(t, repoReadTested)
 		assert.True(t, repoAdminTested)
+	})
+
+	t.Run("null repo description", func(t *testing.T) {
+		var unused bool
+		httpClient := testingHttpClient(&unused, &unused, &unused, &unused, repoWithNullDescription)
+
+		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
+			Username:    "",
+			AccessToken: "token",
+		}, LoginTokenInfo{
+			Username: "",
+			Repositories: map[string]LoginTokenRepositoryInfo{
+				repo: {
+					Pushable: true,
+					Pullable: true,
+				},
+			},
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, rec)
+	})
+
+	t.Run("no repo description", func(t *testing.T) {
+		var unused bool
+		httpClient := testingHttpClient(&unused, &unused, &unused, &unused, repoWithoutDescription)
+
+		rec, err := fetchRepositoryRecord(context.TODO(), httpClient, repo, &api.Token{
+			Username:    "",
+			AccessToken: "token",
+		}, LoginTokenInfo{
+			Username: "",
+			Repositories: map[string]LoginTokenRepositoryInfo{
+				repo: {
+					Pushable: true,
+					Pullable: true,
+				},
+			},
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, rec)
 	})
 }
 
