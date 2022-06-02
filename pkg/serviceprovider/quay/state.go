@@ -348,14 +348,22 @@ func doQuayRequest(ctx context.Context, cl *http.Client, url string, token strin
 	return resp, nil
 }
 
-func splitToOrganizationAndRepositoryAndVersion(image string) (string, string, string) {
-	schemeIndex := strings.Index(image, "://")
+// splitToOrganizationAndRepositoryAndVersion tries to parse the provided repository ID into the organization,
+// repository and version parts. It supports both scheme-less docker-like repository ID and URLs of the repositories in
+// the quay UI.
+func splitToOrganizationAndRepositoryAndVersion(repository string) (string, string, string) {
+	schemeIndex := strings.Index(repository, "://")
 	if schemeIndex > 0 {
-		image = image[(schemeIndex + 3):]
+		repository = repository[(schemeIndex + 3):]
 	}
 
-	parts := strings.Split(image, "/")
-	if len(parts) != 3 {
+	parts := strings.Split(repository, "/")
+	if len(parts) < 3 {
+		return "", "", ""
+	}
+
+	isUIUrl := len(parts) == 4 && parts[1] == "repository"
+	if !isUIUrl && len(parts) == 4 {
 		return "", "", ""
 	}
 
@@ -367,6 +375,11 @@ func splitToOrganizationAndRepositoryAndVersion(image string) (string, string, s
 
 	repo := parts[1]
 	img := parts[2]
+	if isUIUrl {
+		repo = parts[2]
+		img = parts[3]
+	}
+
 	imgParts := strings.Split(img, ":")
 	version := ""
 	if len(imgParts) == 2 {

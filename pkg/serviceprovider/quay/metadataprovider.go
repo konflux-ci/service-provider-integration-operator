@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -120,6 +121,10 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	}
 
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
+	if orgOrUser == "" || repo == "" {
+		err = fmt.Errorf("repository URL invalid: %s", repoUrl)
+		return
+	}
 
 	// enable the lazy one-time login to docker in the subsequent calls
 	var loginToken *LoginTokenInfo

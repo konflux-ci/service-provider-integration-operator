@@ -264,3 +264,31 @@ func TestFetchOrganizationRecord(t *testing.T) {
 	assert.Equal(t, 1, len(rec.PossessedScopes))
 	assert.Equal(t, ScopeOrgAdmin, rec.PossessedScopes[0])
 }
+
+func TestSplitToOrganizationAndRepositoryAndVersion(t *testing.T) {
+	cases := map[string][]string{
+		"quay.io/org/repo:latest":                    {"org", "repo", "latest"},
+		"quay.io/org/repo":                           {"org", "repo", ""},
+		"http://quay.io/org/repo:latest":             {"org", "repo", "latest"},
+		"http://quay.io/org/repo":                    {"org", "repo", ""},
+		"https://quay.io/org/repo:latest":            {"org", "repo", "latest"},
+		"https://quay.io/org/repo":                   {"org", "repo", ""},
+		"http://quay.io/repository/org/repo:latest":  {"org", "repo", "latest"},
+		"http://quay.io/repository/org/repo":         {"org", "repo", ""},
+		"https://quay.io/repository/org/repo:latest": {"org", "repo", "latest"},
+		"https://quay.io/repository/org/repo":        {"org", "repo", ""},
+		"docker.io/org/repo":                         {"", "", ""},
+		"https:/docker.io/org/repo":                  {"", "", ""},
+		"google.com":                                 {"", "", ""},
+		"completely invalid something":               {"", "", ""},
+	}
+
+	for url, expected := range cases {
+		t.Run(url, func(t *testing.T) {
+			org, repo, version := splitToOrganizationAndRepositoryAndVersion(url)
+			assert.Equal(t, expected[0], org)
+			assert.Equal(t, expected[1], repo)
+			assert.Equal(t, expected[2], version)
+		})
+	}
+}
