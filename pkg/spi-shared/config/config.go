@@ -199,3 +199,7 @@ func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 
 	return conf, err
 }
+
+func (c ServiceProviderConfiguration) OAuthConfigured() bool {
+	return c.ClientId != "" && c.ClientSecret != ""
+}

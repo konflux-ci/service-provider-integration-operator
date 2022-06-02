@@ -4,10 +4,6 @@ metadata:
   name: test-access-token-binding-2
   namespace: default
 spec:
-  permissions:
-    required:
-      - type: rw
-        area: repository
   repoUrl: https://snyk.io/
   secret:
     type: kubernetes.io/basic-auth

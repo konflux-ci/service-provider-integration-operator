@@ -93,6 +93,14 @@ func (g *Snyk) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	}, nil
 }
 
+func (g *Snyk) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	return serviceprovider.DefaultMapToken(token, tokenData)
+}
+
+func (g *Snyk) Validate(ctx context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	return serviceprovider.ValidationResult{}, nil
+}
+
 type snykProbe struct{}
 
 var _ serviceprovider.Probe = (*snykProbe)(nil)

@@ -37,7 +37,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		return nil, err
 	}
 
-	username, err := s.fetchUser(data.AccessToken)
+	userid, username, err := s.fetchUser(data.AccessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -48,10 +48,11 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata = metadata
 	}
 	metadata.Username = username
+	metadata.UserId = userid
 	return metadata, nil
 }
 
-func (s metadataProvider) fetchUser(accessToken string) (userName string, err error) {
+func (s metadataProvider) fetchUser(accessToken string) (userId string, userName string, err error) {
 	var res *http.Response
 	res, err = s.httpClient.Do(&http.Request{
 		Method: "GET",
@@ -69,6 +70,7 @@ func (s metadataProvider) fetchUser(accessToken string) (userName string, err er
 		return
 	}
 
+	userId = content["id"].(string)
 	userName = content["username"].(string)
 
 	return
