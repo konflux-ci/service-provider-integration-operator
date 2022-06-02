@@ -25,3 +25,18 @@ func TestAggregatedError(t *testing.T) {
 	e := NewAggregatedError(errors.New("a"), errors.New("b"), errors.New("c"))
 	assert.Equal(t, "a, b, c", e.Error())
 }
+
+func TestAggregatedError_Add(t *testing.T) {
+	e := NewAggregatedError()
+
+	assert.Equal(t, "", e.Error())
+
+	e.Add(errors.New("a"))
+	assert.Equal(t, "a", e.Error())
+
+	e.Add(errors.New("b"))
+	assert.Equal(t, "a, b", e.Error())
+
+	e.Add(errors.New("c"))
+	assert.Equal(t, "a, b, c", e.Error())
+}
