@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: binding-read-repository
+spec:
+  permissions:
+    required:
+      - type: r
+        area: repository
+  repoUrl: https://quay.io/unhook/unhook-tunnel
+  secret:
+    name: token-read-repository
+    type: kubernetes.io/basic-auth

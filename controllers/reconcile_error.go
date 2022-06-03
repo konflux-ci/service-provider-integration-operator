@@ -14,7 +14,10 @@
 
 package controllers
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var (
 	_ error = (*ReconcileError)(nil)
@@ -47,4 +50,27 @@ func (e *ReconcileError) Error() string {
 
 func (e *ReconcileError) Unwrap() error {
 	return e.cause
+}
+
+type AggregatedError struct {
+	errors []error
+}
+
+func NewAggregatedError(errs ...error) *AggregatedError {
+	return &AggregatedError{
+		errors: errs,
+	}
+}
+
+func (ae *AggregatedError) Add(errs ...error) {
+	ae.errors = append(ae.errors, errs...)
+}
+
+func (ae *AggregatedError) Error() string {
+	strs := make([]string, len(ae.errors))
+	for i, e := range ae.errors {
+		strs[i] = e.Error()
+	}
+
+	return strings.Join(strs, ", ")
 }

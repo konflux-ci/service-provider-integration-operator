@@ -22,21 +22,57 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// MetadataExpirationPolicy is responsible for the decision whether the metadata of a token should be refreshed or whether
+// they are still considered valid.
+type MetadataExpirationPolicy interface {
+	// IsExpired returns true if the metadata of the supplied token should be refreshed, false otherwise.
+	// The implementation can assume that `token.Status.TokenMetadata` is not nil.
+	IsExpired(token *api.SPIAccessToken) bool
+}
+
+// MetadataExpirationPolicyFunc an adaptor for making a function an implementation of MetadataExpirationPolicy interface.
+type MetadataExpirationPolicyFunc func(token *api.SPIAccessToken) bool
+
+var _ MetadataExpirationPolicy = (MetadataExpirationPolicyFunc)(nil)
+
+func (f MetadataExpirationPolicyFunc) IsExpired(token *api.SPIAccessToken) bool {
+	return f(token)
+}
+
 // MetadataCache acts like a cache of metadata of tokens.
 // On top of just CRUDing the token metadata, this struct handles the refreshes of the data when it is determined
 // stale.
 type MetadataCache struct {
-	// Ttl limits how long the data stays in the cache
-	Ttl time.Duration
+	client           client.Client
+	expirationPolicy MetadataExpirationPolicy
+}
 
-	client client.Client
+// TtlMetadataExpirationPolicy is a MetadataExpirationPolicy implementation that checks whether the metadata of the token is
+// older than the configured TTL (time to live).
+type TtlMetadataExpirationPolicy struct {
+	Ttl time.Duration
+}
+
+var _ MetadataExpirationPolicy = (*TtlMetadataExpirationPolicy)(nil)
+
+func (t TtlMetadataExpirationPolicy) IsExpired(token *api.SPIAccessToken) bool {
+	return time.Now().After(time.Unix(token.Status.TokenMetadata.LastRefreshTime, 0).Add(t.Ttl))
+}
+
+// NeverMetadataExpirationPolicy is a MetadataExpirationPolicy that makes the metadata to never expire.
+type NeverMetadataExpirationPolicy struct{}
+
+var _ MetadataExpirationPolicy = (*NeverMetadataExpirationPolicy)(nil)
+
+func (t NeverMetadataExpirationPolicy) IsExpired(_ *api.SPIAccessToken) bool {
+	return false
 }
 
 // NewMetadataCache creates a new cache instance with the provided configuration.
-func NewMetadataCache(ttl time.Duration, client client.Client) MetadataCache {
+func NewMetadataCache(client client.Client, expirationPolicy MetadataExpirationPolicy) MetadataCache {
 	return MetadataCache{
-		Ttl:    ttl,
-		client: client,
+		client:           client,
+		expirationPolicy: expirationPolicy,
 	}
 }
 
@@ -49,24 +85,24 @@ func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) 
 	return c.client.Status().Update(ctx, token)
 }
 
-// Refresh checks if the token's metadata is still valid. If it is stale, the metadata is cleared
-func (c *MetadataCache) Refresh(token *api.SPIAccessToken) {
+// refresh checks if the token's metadata is still valid. If it is stale, the metadata is cleared
+func (c *MetadataCache) refresh(token *api.SPIAccessToken) {
 	metadata := token.Status.TokenMetadata
 	if metadata == nil {
 		return
 	}
 
-	if time.Now().After(time.Unix(metadata.LastRefreshTime, 0).Add(c.Ttl)) {
+	if c.expirationPolicy.IsExpired(token) {
 		token.Status.TokenMetadata = nil
 	}
 }
 
-// Ensure combines Refresh and Persist. Makes sure that the metadata of the token is either still valid or has been
-// refreshed using the MetadataProvider.
+// Ensure makes sure that the metadata of the token is either still valid or has been refreshed using
+// the MetadataProvider. This method calls Persist if needed.
 func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, ser MetadataProvider) error {
 	wasPresent := token.Status.TokenMetadata != nil
 
-	c.Refresh(token)
+	c.refresh(token)
 
 	if token.Status.TokenMetadata == nil {
 		data, err := ser.Fetch(ctx, token)

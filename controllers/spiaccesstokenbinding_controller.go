@@ -129,6 +129,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	validation, err := sp.Validate(ctx, &binding)
+	if err != nil {
+		lg.Error(err, "failed to validate the object")
+		return ctrl.Result{}, NewReconcileError(err, "failed to validate the object")
+	}
+	if len(validation.ScopeValidation) > 0 {
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
+		return ctrl.Result{}, nil
+	}
+
 	var token *api.SPIAccessToken
 
 	if binding.Status.LinkedAccessTokenName == "" {
@@ -201,7 +211,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	existingSyncedSecretName := ""
 	switch token.Status.Phase {
 	case api.SPIAccessTokenPhaseReady:
-		ref, err := r.syncSecret(ctx, &binding, token)
+		ref, err := r.syncSecret(ctx, sp, &binding, token)
 		if err != nil {
 			lg.Error(err, "unable to sync the secret")
 			return ctrl.Result{}, NewReconcileError(err, "failed to sync the secret")
@@ -338,7 +348,7 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 
 // syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
 // to the secret.
-func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
+func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
@@ -351,28 +361,14 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, bindin
 		return api.TargetObjectRef{}, err
 	}
 
-	var userId, userName string
-	var scopes []string
-
-	if tokenObject.Status.TokenMetadata != nil {
-		userName = tokenObject.Status.TokenMetadata.Username
-		userId = tokenObject.Status.TokenMetadata.UserId
-		scopes = tokenObject.Status.TokenMetadata.Scopes
+	at, err := sp.MapToken(ctx, binding, tokenObject, token)
+	if err != nil {
+		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, err)
+		return api.TargetObjectRef{}, NewReconcileError(err, "failed to analyze the token to produce the mapping to the secret")
 	}
 
-	at := AccessTokenMapper{
-		Name:                    tokenObject.Name,
-		Token:                   token.AccessToken,
-		ServiceProviderUrl:      tokenObject.Spec.ServiceProviderUrl,
-		ServiceProviderUserName: userName,
-		ServiceProviderUserId:   userId,
-		UserId:                  "",
-		ExpiredAfter:            &token.Expiry,
-		Scopes:                  scopes,
-	}
-
-	stringData := at.toSecretType(binding.Spec.Secret.Type)
-	at.fillByMapping(&binding.Spec.Secret.Fields, stringData)
+	stringData := at.ToSecretType(binding.Spec.Secret.Type)
+	at.FillByMapping(&binding.Spec.Secret.Fields, stringData)
 
 	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
 	// used the Secret.StringData, but Sync gives us other goodies.

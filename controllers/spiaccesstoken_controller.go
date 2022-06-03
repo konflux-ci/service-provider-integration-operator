@@ -154,11 +154,23 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
 	if err != nil {
-		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
 			return ctrl.Result{}, NewReconcileError(uerr, "failed update the status")
 		}
 		// we flipped the token to the invalid phase, which is valid phase to be in. All we can do is to wait for the
 		// next update of the token, so no need to repeat the reconciliation
+		return ctrl.Result{}, nil
+	}
+
+	validation, err := sp.Validate(ctx, &at)
+	if err != nil {
+		lg.Error(err, "failed to validate the object")
+		return ctrl.Result{}, NewReconcileError(err, "failed to validate the object")
+	}
+	if len(validation.ScopeValidation) > 0 {
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
+			return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
+		}
 		return ctrl.Result{}, nil
 	}
 

@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: route
+spec:
+  port:
+    targetPort: 8000
+  to:
+    kind: Service
+    # NOTE: Kustomize doesn't seem to know about routes, so we have to use the "rendered" name here, not just the name
+    # used in the kustomization, because kustomize would not replace it...
+    name: spi-oauth-service
+  tls:
+    termination: edge
+

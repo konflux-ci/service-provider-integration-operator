@@ -15,6 +15,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -25,7 +26,7 @@ type tokenFilter struct{}
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-func (t *tokenFilter) Matches(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+func (t *tokenFilter) Matches(_ context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}

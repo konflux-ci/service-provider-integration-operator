@@ -17,6 +17,8 @@ package integrationtests
 import (
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,6 +34,8 @@ type TestServiceProvider struct {
 	GetTypeImpl               func() api.ServiceProviderType
 	GetOauthEndpointImpl      func() string
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
+	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
+	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
 }
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -84,6 +88,22 @@ func (t TestServiceProvider) GetOAuthEndpoint() string {
 	return t.GetOauthEndpointImpl()
 }
 
+func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	if t.MapTokenImpl == nil {
+		return serviceprovider.AccessTokenMapper{}, nil
+	}
+
+	return t.MapTokenImpl(ctx, binding, token, tokenData)
+}
+
+func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	if t.ValidateImpl == nil {
+		return serviceprovider.ValidationResult{}, nil
+	}
+
+	return t.ValidateImpl(ctx, validated)
+}
+
 func (t *TestServiceProvider) Reset() {
 	t.LookupTokenImpl = nil
 	t.GetBaseUrlImpl = nil
@@ -92,6 +112,8 @@ func (t *TestServiceProvider) Reset() {
 	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil
 	t.CheckRepositoryAccessImpl = nil
+	t.MapTokenImpl = nil
+	t.ValidateImpl = nil
 }
 
 // LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns

@@ -44,11 +44,11 @@ func (h httpClientMock) Do(req *http.Request) (*http.Response, error) {
 }
 
 type tokenFilterMock struct {
-	matchesFunc func(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error)
+	matchesFunc func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error)
 }
 
-func (t tokenFilterMock) Matches(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-	return t.matchesFunc(matchable, token)
+func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+	return t.matchesFunc(ctx, matchable, token)
 }
 
 type tokenStorageMock struct {
@@ -239,8 +239,25 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 	assert.NotNil(t, status)
 }
 
+func TestValidate(t *testing.T) {
+	g := &Github{}
+
+	res, err := g.Validate(context.TODO(), &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{
+			Permissions: api.Permissions{
+				AdditionalScopes: []string{"blah"},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(res.ScopeValidation))
+	assert.NotNil(t, res.ScopeValidation[0])
+	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[0].Error())
+}
+
 func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
-	metadataCache := serviceprovider.NewMetadataCache(0, cl)
+	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	return &Github{
 		httpClient: httpClientMock{
 			doFunc: func(req *http.Request) (*http.Response, error) {
@@ -251,10 +268,11 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
 			MetadataCache:       &metadataCache,
 			TokenFilter: tokenFilterMock{
-				matchesFunc: func(matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+				matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 					return true, nil
 				},
 			},
+			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
 		tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
 			return &api.Token{AccessToken: "blabol"}

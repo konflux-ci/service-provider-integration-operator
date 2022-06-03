@@ -52,7 +52,7 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
+	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
 
@@ -67,7 +67,8 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 				httpClient:    httpClient,
 				tokenStorage:  factory.TokenStorage,
 			},
-			MetadataCache: &cache,
+			MetadataCache:  &cache,
+			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
 		httpClient: factory.HttpClient,
 	}, nil
@@ -93,7 +94,7 @@ func (g *Github) TranslateToScopes(permission api.Permission) []string {
 
 func translateToScopes(permission api.Permission) []string {
 	switch permission.Area {
-	case api.PermissionAreaRepository:
+	case api.PermissionAreaRepository, api.PermissionAreaRepositoryMetadata:
 		return []string{"repo"}
 	case api.PermissionAreaWebhooks:
 		if permission.Type.IsWrite() {
@@ -125,7 +126,7 @@ func (g *Github) LookupToken(ctx context.Context, cl client.Client, binding *api
 	return &tokens[0], nil
 }
 
-func (g *Github) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	return g.lookup.PersistMetadata(ctx, token)
 }
 
@@ -193,6 +194,19 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	return status, nil
 }
 
+func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	// only the additional scopes can be invalid. We support the translation for all types
+	// of the Permission in github.
+	ret := serviceprovider.ValidationResult{}
+	for _, s := range validated.Permissions().AdditionalScopes {
+		if !IsValidScope(s) {
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("unknown scope: '%s'", s))
+		}
+	}
+
+	return ret, nil
+}
+
 func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
 	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	if tsErr != nil {
@@ -236,6 +250,10 @@ func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err err
 		return splittedPath[1], splittedPath[2], nil
 	}
 	return "", "", fmt.Errorf("unable to parse path '%s'", repoUrl)
+}
+
+func (g *Github) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+	return serviceprovider.DefaultMapToken(token, tokenData)
 }
 
 type githubProbe struct{}

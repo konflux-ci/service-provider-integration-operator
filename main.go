@@ -21,6 +21,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -40,7 +43,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -51,8 +54,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -76,13 +78,18 @@ func main() {
 	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
 	flag.BoolVar(&devmode, "dev-mode", false, "Enable debug logging and insecure communication with vault")
 
-	opts := zap.Options{
-		Development: devmode,
-	}
-	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	opts := crzap.Options{}
+	opts.BindFlags(flag.CommandLine)
+	opts.Development = devmode
+
+	// set everything up such that we can use the same logger in controller runtime zap.L().*
+	logger := crzap.NewRaw(crzap.UseFlagOptions(&opts))
+	_ = zap.ReplaceGlobals(logger)
+	ctrl.SetLogger(zapr.NewLogger(logger))
+
+	setupLog := ctrl.Log.WithName("setup")
 
 	if err := config.ValidateEnv(); err != nil {
 		setupLog.Error(err, "invalid configuration")
@@ -96,6 +103,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
+		Logger:                 ctrl.Log,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

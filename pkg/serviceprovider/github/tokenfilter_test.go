@@ -15,6 +15,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestTokenFilter_Matches(t *testing.T) {
 	tf := &tokenFilter{}
 
 	t.Run("no metadata", func(t *testing.T) {
-		res, err := tf.Matches(
+		res, err := tf.Matches(context.TODO(),
 			&api.SPIAccessTokenBinding{},
 			&api.SPIAccessToken{})
 		assert.NoError(t, err)
@@ -34,7 +35,7 @@ func TestTokenFilter_Matches(t *testing.T) {
 	})
 
 	test := func(t *testing.T, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, expectedMatch bool) {
-		res, err := tf.Matches(binding, token)
+		res, err := tf.Matches(context.TODO(), binding, token)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedMatch, res)
 	}

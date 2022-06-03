@@ -16,9 +16,12 @@ package integrationtests
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -609,6 +612,33 @@ var _ = Describe("Status updates", func() {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(errors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
+		})
+	})
+
+	When("binding requires invalid scopes", func() {
+		It("should flip to error state", func() {
+			ITest.TestServiceProvider.ValidateImpl = func(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+				return serviceprovider.ValidationResult{
+					ScopeValidation: []error{stderrors.New("nope")},
+				}, nil
+			}
+
+			// update the binding to force reconciliation after we change the impl of the validation
+			Eventually(func(g Gomega) {
+				currentBinding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+				currentBinding.Annotations = map[string]string{"just-an-annotation": "to force reconciliation"}
+				g.Expect(ITest.Client.Update(ITest.Context, currentBinding)).To(Succeed())
+			}).Should(Succeed())
+
+			// now check that the binding flipped to the error state
+			Eventually(func(g Gomega) {
+				currentBinding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+
+				g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+				g.Expect(currentBinding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions))
+			})
 		})
 	})
 })
