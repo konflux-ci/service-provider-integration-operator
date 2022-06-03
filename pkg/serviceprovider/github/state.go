@@ -122,6 +122,47 @@ func (s Scope) Implies(other Scope) bool {
 	return false
 }
 
+func IsValidScope(scope string) bool {
+	switch Scope(scope) {
+	case ScopeRepo,
+		ScopeRepoStatus,
+		ScopeRepoDeployment,
+		ScopePublicRepo,
+		ScopeRepoInvite,
+		ScopeSecurityEvent,
+		ScopeAdminRepoHook,
+		ScopeWriteRepoHook,
+		ScopeReadRepoHook,
+		ScopeAdminOrg,
+		ScopeWriteOrg,
+		ScopeReadOrg,
+		ScopeAdminPublicKey,
+		ScopeWritePublicKey,
+		ScopeReadPublicKey,
+		ScopeAdminOrgHook,
+		ScopeGist,
+		ScopeNotifications,
+		ScopeUser,
+		ScopeReadUser,
+		ScopeUserEmail,
+		ScopeUserFollow,
+		ScopeDeleteRepo,
+		ScopeWriteDiscussion,
+		ScopeReadDiscussion,
+		ScopeWritePackages,
+		ScopeReadPackages,
+		ScopeDeletePackages,
+		ScopeAdminGpgKey,
+		ScopeWriteGpgKey,
+		ScopeReadGpgKey,
+		ScopeCodespace,
+		ScopeWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
 func (vp ViewerPermission) Enables(scope Scope) bool {
 	// TODO implement this with https://issues.redhat.com/projects/SVPI/issues/SVPI-71
 	switch vp {

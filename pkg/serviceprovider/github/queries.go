@@ -17,6 +17,8 @@ package github
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
@@ -56,7 +58,10 @@ type AllAccessibleRepos struct {
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
 	if accessToken == "" {
-		return sperrors.InvalidAccessToken
+		return sperrors.ServiceProviderError{
+			StatusCode: 401,
+			Response:   "the access token is empty, service provider not contacted at all",
+		}
 	}
 
 	ctx = httptransport.WithBearerToken(ctx, accessToken)
@@ -72,6 +77,8 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 	})
 
 	if err != nil {
+		lg := log.FromContext(ctx)
+		lg.Error(err, "Error in FetchAll")
 		return err
 	}
 

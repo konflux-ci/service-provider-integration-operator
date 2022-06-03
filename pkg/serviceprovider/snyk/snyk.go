@@ -28,7 +28,7 @@ var Initializer = serviceprovider.Initializer{
 
 func newSnyk(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 
-	cache := serviceprovider.NewMetadataCache(factory.Configuration.TokenLookupCacheTtl, factory.KubernetesClient)
+	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
 
 	return &Snyk{
 		Configuration: factory.Configuration,
@@ -59,7 +59,7 @@ func (g *Snyk) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeSnyk
 }
 
-func (g *Snyk) TranslateToScopes(permission api.Permission) []string {
+func (g *Snyk) TranslateToScopes(_ api.Permission) []string {
 	return []string{}
 }
 
@@ -76,7 +76,7 @@ func (g *Snyk) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 	return &tokens[0], nil
 }
 
-func (g *Snyk) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
+func (g *Snyk) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	return g.lookup.PersistMetadata(ctx, token)
 }
 

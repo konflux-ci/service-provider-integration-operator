@@ -15,19 +15,21 @@
 package serviceprovider
 
 import (
+	"context"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
 // TokenFilter is a helper interface to implement the ServiceProvider.LookupToken method using the GenericLookup struct.
 type TokenFilter interface {
-	Matches(matchable Matchable, token *api.SPIAccessToken) (bool, error)
+	Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error)
 }
 
 // TokenFilterFunc converts a function into the implementation of the TokenFilter interface
-type TokenFilterFunc func(matchable Matchable, token *api.SPIAccessToken) (bool, error)
+type TokenFilterFunc func(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error)
 
 var _ TokenFilter = (TokenFilterFunc)(nil)
 
-func (f TokenFilterFunc) Matches(matchable Matchable, token *api.SPIAccessToken) (bool, error) {
-	return f(matchable, token)
+func (f TokenFilterFunc) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
+	return f(ctx, matchable, token)
 }

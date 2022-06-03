@@ -16,7 +16,10 @@ package integrationtests
 
 import (
 	"context"
+	stderrors "errors"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
@@ -291,7 +294,7 @@ var _ = Describe("Phase", func() {
 		When("metadata fails to persist due to invalid token", func() {
 			It("flips to Invalid", func() {
 				ITest.TestServiceProvider.PersistMetadataImpl = func(ctx context.Context, c client.Client, token *api.SPIAccessToken) error {
-					return sperrors.InvalidAccessToken
+					return sperrors.ServiceProviderError{StatusCode: 401, Response: "the token is invalid"}
 				}
 
 				Eventually(func(g Gomega) {
@@ -299,6 +302,24 @@ var _ = Describe("Phase", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
 					g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseInvalid))
 					g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonMetadataFailure))
+					g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
+				})
+			})
+		})
+
+		When("service provider doesn't support some permissions", func() {
+			It("flips to Invalid", func() {
+				ITest.TestServiceProvider.ValidateImpl = func(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+					return serviceprovider.ValidationResult{
+						ScopeValidation: []error{stderrors.New("nah")},
+					}, nil
+				}
+
+				Eventually(func(g Gomega) {
+					token := &api.SPIAccessToken{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+					g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseInvalid))
+					g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnsupportedPermissions))
 					g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
 				})
 			})
@@ -325,11 +346,11 @@ var _ = Describe("Phase", func() {
 			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
 		})
 
-		It("flips to Invalid due to invalid SP url", func() {
+		It("flips to Error due to invalid SP url", func() {
 			Eventually(func(g Gomega) {
 				token := &api.SPIAccessToken{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseInvalid))
+				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseError))
 				g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnknownServiceProvider))
 				g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
 			}).Should(Succeed())

@@ -71,6 +71,7 @@ spec:
               serviceProviderUrl:
                 type: string
             required:
+            - permissions
             - serviceProviderUrl
             type: object
           status:
@@ -123,12 +124,11 @@ spec:
                     type: string
                 required:
                 - lastRefreshTime
-                - userId
-                - username
                 type: object
             required:
             - errorMessage
             - errorReason
+            - oAuthUrl
             - phase
             type: object
         type: object

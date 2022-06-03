@@ -191,9 +191,14 @@ deploy: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster s
 
 deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "k8s" "k8s"
+	hack/vault-init.sh
 
 deploy_minikube: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
 	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "k8s"
+	hack/vault-init.sh
+
+deploy_openshift: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config using the example OpenShift kustomization
+	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift-example" "openshift-example"
 	hack/vault-init.sh
 
 undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.

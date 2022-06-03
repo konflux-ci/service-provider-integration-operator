@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package serviceprovider
 
 import (
 	"strconv"
@@ -37,8 +37,8 @@ type AccessTokenMapper struct {
 	Scopes                  []string `json:"scopes"`
 }
 
-// toSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) toSecretType(secretType corev1.SecretType) map[string]string {
+// ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
+func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[string]string {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -57,9 +57,9 @@ func (at AccessTokenMapper) toSecretType(secretType corev1.SecretType) map[strin
 	return ret
 }
 
-// fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
+// FillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
 // mapping.
-func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
+func (at AccessTokenMapper) FillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
 	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
 		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
 	}

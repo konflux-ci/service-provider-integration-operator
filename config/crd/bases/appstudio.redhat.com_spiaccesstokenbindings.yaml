@@ -146,6 +146,7 @@ spec:
                     type: string
                 type: object
             required:
+            - permissions
             - repoUrl
             - secret
             type: object

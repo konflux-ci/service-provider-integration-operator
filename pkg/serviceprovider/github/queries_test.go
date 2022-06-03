@@ -17,9 +17,9 @@ package github
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
@@ -103,5 +103,5 @@ func TestAllAccessibleRepos_fail(t *testing.T) {
 	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(cl)), "access token", ts)
 
 	assert.Error(t, err)
-	assert.True(t, errors.Is(err, sperrors.InvalidAccessToken))
+	assert.True(t, sperrors.IsInvalidAccessToken(err.(*url.Error).Err))
 }

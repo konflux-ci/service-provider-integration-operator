@@ -49,13 +49,17 @@ type Token struct {
 // tokens with the token bindings.
 type TokenMetadata struct {
 	// Username is the username in the service provider that this token impersonates as
+	// +optional
 	Username string `json:"username"`
 	// UserId is the user id in the service provider that this token impersonates as
+	// +optional
 	UserId string `json:"userId"`
 	// Scopes is the list of OAuth scopes that this token possesses
+	// +optional
 	Scopes []string `json:"scopes"`
 	// ServiceProviderState is an opaque state specific to the service provider. This includes data that the operator
 	// uses during token matching, etc.
+	// +optional
 	ServiceProviderState []byte `json:"serviceProviderState"`
 	// LastRefreshTime is the Unix-epoch timestamp of the last time the metadata has been refreshed from the service
 	// provider. The operator is configured with a TTL for this information and automatically refreshes the metadata
@@ -117,9 +121,10 @@ func (pt PermissionType) IsWrite() bool {
 type PermissionArea string
 
 const (
-	PermissionAreaRepository PermissionArea = "repository"
-	PermissionAreaWebhooks   PermissionArea = "webhooks"
-	PermissionAreaUser       PermissionArea = "user"
+	PermissionAreaRepository         PermissionArea = "repository"
+	PermissionAreaRepositoryMetadata PermissionArea = "repositoryMetadata"
+	PermissionAreaWebhooks           PermissionArea = "webhooks"
+	PermissionAreaUser               PermissionArea = "user"
 )
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
@@ -147,6 +152,7 @@ type SPIAccessTokenErrorReason string
 const (
 	SPIAccessTokenErrorReasonUnknownServiceProvider SPIAccessTokenErrorReason = "UnknownServiceProvider"
 	SPIAccessTokenErrorReasonMetadataFailure        SPIAccessTokenErrorReason = "MetadataFailure"
+	SPIAccessTokenErrorReasonUnsupportedPermissions SPIAccessTokenErrorReason = "UnsupportedPermissions"
 )
 
 //+kubebuilder:object:root=true
@@ -198,4 +204,8 @@ func (t *SPIAccessToken) EnsureLabels(detectedType ServiceProviderType) (changed
 
 func init() {
 	SchemeBuilder.Register(&SPIAccessToken{}, &SPIAccessTokenList{})
+}
+
+func (in *SPIAccessToken) Permissions() *Permissions {
+	return &in.Spec.Permissions
 }

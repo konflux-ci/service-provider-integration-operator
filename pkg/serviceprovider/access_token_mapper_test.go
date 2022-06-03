@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package serviceprovider
 
 import (
 	"strconv"
@@ -54,28 +54,28 @@ func init() {
 
 func TestSecretTypeDefaultFields(t *testing.T) {
 	t.Run("basicAuth", func(t *testing.T) {
-		converted := at.toSecretType(corev1.SecretTypeBasicAuth)
+		converted := at.ToSecretType(corev1.SecretTypeBasicAuth)
 		assert.Equal(t, at.ServiceProviderUserName, converted[corev1.BasicAuthUsernameKey])
 		assert.Equal(t, at.Token, converted[corev1.BasicAuthPasswordKey])
 	})
 
 	t.Run("serviceAccountToken", func(t *testing.T) {
-		converted := at.toSecretType(corev1.SecretTypeServiceAccountToken)
+		converted := at.ToSecretType(corev1.SecretTypeServiceAccountToken)
 		assert.Equal(t, at.Token, converted["extra"])
 	})
 
 	t.Run("dockercfg", func(t *testing.T) {
-		converted := at.toSecretType(corev1.SecretTypeDockercfg)
+		converted := at.ToSecretType(corev1.SecretTypeDockercfg)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigKey])
 	})
 
 	t.Run("dockerconfigjson", func(t *testing.T) {
-		converted := at.toSecretType(corev1.SecretTypeDockerConfigJson)
+		converted := at.ToSecretType(corev1.SecretTypeDockerConfigJson)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigJsonKey])
 	})
 
 	t.Run("ssh-privatekey", func(t *testing.T) {
-		converted := at.toSecretType(corev1.SecretTypeSSHAuth)
+		converted := at.ToSecretType(corev1.SecretTypeSSHAuth)
 		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
 	})
 }
@@ -94,7 +94,7 @@ func TestMapping(t *testing.T) {
 
 	converted := map[string]string{}
 
-	at.fillByMapping(fields, converted)
+	at.FillByMapping(fields, converted)
 
 	assert.Equal(t, at.Token, converted["TOKEN"])
 	assert.Equal(t, at.Name, converted["NAME"])

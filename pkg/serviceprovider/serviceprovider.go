@@ -57,6 +57,19 @@ type ServiceProvider interface {
 	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
 	//the service provider itself.
 	GetOAuthEndpoint() string
+
+	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
+	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
+	MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error)
+
+	// Validate checks that the provided object (token or binding) is valid in this service provider
+	Validate(ctx context.Context, validated Validated) (ValidationResult, error)
+}
+
+// ValidationResult represents the results of the ServiceProvider.Validate method.
+type ValidationResult struct {
+	// ScopeValidation is the reasons for the scopes and permissions to be invalid
+	ScopeValidation []error
 }
 
 // Factory is able to construct service providers from repository URLs.
@@ -112,7 +125,7 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Transport: httptransport.ExaminingRoundTripper{
 			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
 			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
-				return sperrors.FromHttpStatusCode(response.StatusCode)
+				return sperrors.FromHttpResponse(response)
 			}),
 		},
 		CheckRedirect: cl.CheckRedirect,
@@ -121,11 +134,37 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 	}
 }
 
+type Validated interface {
+	Permissions() *api.Permissions
+}
+
 type Matchable interface {
+	Validated
 	RepoUrl() string
 	ObjNamespace() string
-	Permissions() *api.Permissions
 }
 
 var _ Matchable = (*api.SPIAccessCheck)(nil)
 var _ Matchable = (*api.SPIAccessTokenBinding)(nil)
+
+func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error) {
+	var userId, userName string
+	var scopes []string
+
+	if tokenObject.Status.TokenMetadata != nil {
+		userName = tokenObject.Status.TokenMetadata.Username
+		userId = tokenObject.Status.TokenMetadata.UserId
+		scopes = tokenObject.Status.TokenMetadata.Scopes
+	}
+
+	return AccessTokenMapper{
+		Name:                    tokenObject.Name,
+		Token:                   tokenData.AccessToken,
+		ServiceProviderUrl:      tokenObject.Spec.ServiceProviderUrl,
+		ServiceProviderUserName: userName,
+		ServiceProviderUserId:   userId,
+		UserId:                  "",
+		ExpiredAfter:            &tokenData.Expiry,
+		Scopes:                  scopes,
+	}, nil
+}
