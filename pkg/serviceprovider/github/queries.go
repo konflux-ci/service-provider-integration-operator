@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -26,10 +27,25 @@ import (
 )
 
 const (
-	allAccessibleReposQuery = `
+	allAccessibleAffiliationsReposQuery = `
 		query($after: String) {
 			viewer {
-				repositories(first: 100, after: $after, affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
+				repositories(first: 100, after: $after, affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+					nodes {
+						viewerPermission
+						url
+					}
+				}
+			}
+		}`
+	allAccessibleOwnerAffiliationsReposQuery = `
+		query($after: String) {
+			viewer {
+				repositories(first: 100, after: $after, ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
 					pageInfo {
 						hasNextPage
 						endCursor
@@ -66,19 +82,11 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 
 	ctx = httptransport.WithBearerToken(ctx, accessToken)
 
-	req := graphql.NewRequest(allAccessibleReposQuery)
+	if err := _fetchAll(r, ctx, client, allAccessibleAffiliationsReposQuery, state); err != nil {
+		return err
+	}
 
-	err := _fetchAll(ctx, client, req, r, func() PageInfo {
-		return r.Viewer.Repositories.PageInfo
-	}, func() {
-		for _, node := range r.Viewer.Repositories.Nodes {
-			state.AccessibleRepos[RepositoryUrl(node.Url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.ViewerPermission)}
-		}
-	})
-
-	if err != nil {
-		lg := log.FromContext(ctx)
-		lg.Error(err, "Error in FetchAll")
+	if err := _fetchAll(r, ctx, client, allAccessibleOwnerAffiliationsReposQuery, state); err != nil {
 		return err
 	}
 
@@ -91,7 +99,27 @@ type PageInfo struct {
 	EndCursor   string `json:"endCursor"`
 }
 
-func _fetchAll(ctx context.Context, client *graphql.Client, req *graphql.Request, self interface{}, pageInfoFromSelf func() PageInfo, processSelf func()) error {
+func _fetchAll(r *AllAccessibleRepos, ctx context.Context, client *graphql.Client, request string, state *TokenState) error {
+
+	lg := log.FromContext(ctx)
+	err := _fetchAllWithPages(ctx, client, graphql.NewRequest(request), r, func() PageInfo {
+		return r.Viewer.Repositories.PageInfo
+	}, func() {
+		for _, node := range r.Viewer.Repositories.Nodes {
+			state.AccessibleRepos[RepositoryUrl(node.Url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.ViewerPermission)}
+		}
+	})
+	//TODO how to do lg.Debug ?
+	lg.Info("_fetchAll state.AccessibleRepos.len=" + strconv.Itoa(len(state.AccessibleRepos)))
+	if err != nil {
+
+		lg.Error(err, "Error in FetchAll", "request", request)
+		return err
+	}
+	return nil
+}
+
+func _fetchAllWithPages(ctx context.Context, client *graphql.Client, req *graphql.Request, self interface{}, pageInfoFromSelf func() PageInfo, processSelf func()) error {
 	req.Var("after", nil)
 	for {
 		if err := client.Run(ctx, req, self); err != nil {

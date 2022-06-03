@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
@@ -31,7 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const allRepositoriesFakeResponse = `
+const repositoriesAffiliationsFakeResponse = `
 {
   "data": {
     "viewer": {
@@ -43,7 +44,7 @@ const allRepositoriesFakeResponse = `
         "nodes": [
           {
             "viewerPermission": "ADMIN",
-            "url": "https://github.com/metlos/RHQ-old"
+            "url": "https://github.com/jdoe/RHQ-old"
           },
           {
             "viewerPermission": "WRITE",
@@ -52,6 +53,54 @@ const allRepositoriesFakeResponse = `
           {
             "viewerPermission": "READ",
             "url": "https://github.com/openshiftio/booster-parent"
+          },
+          {
+            "viewerPermission": "READ",
+            "url": "https://github.com/redhat-developer/opencompose-old"
+          },
+          {
+            "viewerPermission": "ADMIN",
+            "url": "https://github.com/jdoe/emonTH"
+          },
+          {
+            "viewerPermission": "WRITE",
+            "url": "https://github.com/redhat-developer/rh-che"
+          },
+          {
+            "viewerPermission": "ADMIN",
+            "url": "https://github.com/jdoe/far2go"
+          }
+        ]
+      }
+    }
+  }
+}
+`
+const repositoriesOwnerAffiliationsFakeResponse = `
+{
+  "data": {
+    "viewer": {
+      "repositories": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": ""
+        },
+        "nodes": [
+         {
+            "viewerPermission": "READ",
+            "url": "https://github.com/eclipse/jdtc"
+          },
+          {
+            "viewerPermission": "READ",
+            "url": "https://github.com/eclipse/manifest"
+          },
+          {
+            "viewerPermission": "ADMIN",
+            "url": "https://github.com/jdoe/mockitong"
+          },
+          {
+            "viewerPermission": "ADMIN",
+            "url": "https://github.com/jdoe/everrest-assured"
           }
         ]
       }
@@ -68,10 +117,22 @@ func TestAllAccessibleRepos(t *testing.T) {
 	}
 	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(&http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			requestBody, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				panic(err)
+			}
+			if strings.Contains(string(requestBody), "ownerAffiliations") {
+				return &http.Response{
+					StatusCode: 200,
+					Header:     http.Header{},
+					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesOwnerAffiliationsFakeResponse))),
+					Request:    r,
+				}, nil
+			}
 			return &http.Response{
 				StatusCode: 200,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(allRepositoriesFakeResponse))),
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesAffiliationsFakeResponse))),
 				Request:    r,
 			}, nil
 		}),
@@ -79,7 +140,7 @@ func TestAllAccessibleRepos(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	assert.Equal(t, 3, len(ts.AccessibleRepos))
+	assert.Equal(t, 11, len(ts.AccessibleRepos))
 }
 
 func TestAllAccessibleRepos_fail(t *testing.T) {

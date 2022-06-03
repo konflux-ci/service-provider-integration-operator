@@ -45,7 +45,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 			} else {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(allRepositoriesFakeResponse))),
+					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesOwnerAffiliationsFakeResponse))),
 				}, nil
 			}
 		}),
@@ -94,7 +94,7 @@ func TestMetadataProvider_Fetch_fail(t *testing.T) {
 			} else {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(allRepositoriesFakeResponse))),
+					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesOwnerAffiliationsFakeResponse))),
 				}, nil
 			}
 		}),
