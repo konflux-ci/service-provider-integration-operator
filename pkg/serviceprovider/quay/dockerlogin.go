@@ -97,16 +97,22 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 	return token, nil
 }
 
+// LoginTokenInfo is the output of the AnalyzeLoginToken function describing the information extracted from the JWT
+// token obtained after a successful docker login from the DockerLogin function.
 type LoginTokenInfo struct {
 	Username     string
 	Repositories map[string]LoginTokenRepositoryInfo
 }
 
+// LoginTokenRepositoryInfo represents the capabilities mentioned in the JWT docker login token for a certain
+// repository.
 type LoginTokenRepositoryInfo struct {
 	Pushable bool
 	Pullable bool
 }
 
+// quayClaims is the representation of the JWT docker login token returned from the docker login to Quay. This is only
+// used internally by AnalyzeLoginToken to deserialize the token.
 type quayClaims struct {
 	jwt.RegisteredClaims
 	Access []struct {
@@ -126,6 +132,8 @@ type quayClaims struct {
 	} `json:"context"`
 }
 
+// AnalyzeLoginToken analyzes the JWT token obtained from the DockerLogin function to figure out the capabilities of
+// token obtained for some repository.
 func AnalyzeLoginToken(token string) (LoginTokenInfo, error) {
 	tkn, _, err := jwt.NewParser().ParseUnverified(token, &quayClaims{})
 	if err != nil {

@@ -85,6 +85,8 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	return metadata, nil
 }
 
+// RepositoryMetadata is the return value of the FetchRepo method. It represents the scopes that are granted for some
+// token on a given repository and organization it belongs to.
 type RepositoryMetadata struct {
 	Repository   EntityRecord
 	Organization EntityRecord
@@ -188,6 +190,10 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 type loginInfoFn func() (LoginTokenInfo, error)
 type fetchEntityRecordFn func(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error)
 
+// getEntityRecord is a method for getting the different types of repository scopes in a uniform fashion. If needed,
+// it updates the provided cache with the new data and uses the loginInfoFn to fetch the docker login info and fetchFn
+// for actually fetching the EntityRecord (only when needed - i.e. if the data for given key is not in the cache or
+// is expired).
 func (p metadataProvider) getEntityRecord(ctx context.Context, tokenData *api.Token, key string, cache map[string]EntityRecord, loginInfoFn loginInfoFn, fetchFn fetchEntityRecordFn) (rec EntityRecord, changed bool, err error) {
 	rec, present := cache[key]
 
@@ -228,6 +234,7 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, tokenData *api.To
 	return
 }
 
+// persistTokenState persists the provided tokenState in the token object's status and saves it to the cluster.
 func (p metadataProvider) persistTokenState(ctx context.Context, token *api.SPIAccessToken, tokenState *TokenState) error {
 	lg := log.FromContext(ctx)
 

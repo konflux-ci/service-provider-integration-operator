@@ -27,16 +27,22 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
+// EntityRecord stores the scopes possessed by some token for given "entity" (either repository or organization).
 type EntityRecord struct {
+	// LastRefreshTime is used to determine whether this record should be refreshed or not
 	LastRefreshTime int64
+	// PossessedScopes is the list of scopes possessed by the token on a given entity
 	PossessedScopes []Scope
 }
 
+// TokenState represents the all the known scopes for all repositories for some token. This is persisted in the status
+// of the SPIAccessToken object.
 type TokenState struct {
 	Repositories  map[string]EntityRecord
 	Organizations map[string]EntityRecord
 }
 
+// Scope represents a Quay OAuth scope
 type Scope string
 
 const (
@@ -52,6 +58,7 @@ const (
 	ScopePull Scope = "pull"
 )
 
+// Implies returns true if the scope implies the other scope. A scope implies itself.
 func (s Scope) Implies(other Scope) bool {
 	if s == other {
 		return true
@@ -71,6 +78,7 @@ func (s Scope) Implies(other Scope) bool {
 	return false
 }
 
+// IsIncluded determines if a scope is included (either directly or through implication) in the provided list of scopes.
 func (s Scope) IsIncluded(scopes []Scope) bool {
 	for _, sc := range scopes {
 		if sc.Implies(s) {
@@ -81,7 +89,7 @@ func (s Scope) IsIncluded(scopes []Scope) bool {
 	return false
 }
 
-// fetchRepositoryRecord fetches the metadat about what access does the token have on the provided repository.
+// fetchRepositoryRecord fetches the metadata about what access does the token have on the provided repository.
 func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error) {
 	username, password := getUsernameAndPasswordFromTokenData(tokenData)
 
