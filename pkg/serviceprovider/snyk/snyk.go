@@ -40,6 +40,9 @@ func newSnyk(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 				tokenStorage: factory.TokenStorage,
 			},
 			MetadataCache: &cache,
+			RepoHostParser: serviceprovider.RepoHostParserFunc(func(repoUrl string) (string, error) {
+				return repoUrl, nil
+			}),
 		},
 		httpClient: factory.HttpClient,
 	}, nil
