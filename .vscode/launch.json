@@ -13,7 +13,6 @@
             "args": ["-metrics-bind-address", "0"],
             "env": {
                 "KUBECONFIG": "${workspaceFolder}/.tmp/test-kubeconfig",
-                "SPI_URL": "http://localhost:8080",
                 "SPI_BEARER_TOKEN_FILE": "${workspaceFolder}/.token"
             },
             "preLaunchTask": "prepare",
