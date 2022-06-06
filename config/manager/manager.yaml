@@ -23,9 +23,6 @@ spec:
         - /manager
         args:
         - --leader-elect
-        env:
-        - name: SPI_URL
-          value: http://service-provider-integration-api
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         securityContext:

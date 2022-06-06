@@ -24,7 +24,7 @@ import (
 )
 
 func TestExaminingRoundTripper_RoundTrip(t *testing.T) {
-	req, err := http.NewRequest("GET", "http://over.the.rainbow", strings.NewReader(""))
+	req, err := http.NewRequest("GET", "https://over.the.rainbow", strings.NewReader(""))
 	assert.NoError(t, err)
 
 	examinerCalled := false
