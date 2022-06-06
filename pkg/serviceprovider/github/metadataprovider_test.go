@@ -80,7 +80,10 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 
 	tokenState := &TokenState{}
 	assert.NoError(t, json.Unmarshal(data.ServiceProviderState, tokenState))
-	assert.Equal(t, 3, len(tokenState.AccessibleRepos))
+	assert.Equal(t, 4, len(tokenState.AccessibleRepos))
+	val, ok := tokenState.AccessibleRepos["https://github.com/eclipse/manifest"]
+	assert.True(t, ok)
+	assert.Equal(t, RepositoryRecord{ViewerPermission: "READ"}, val)
 }
 
 func TestMetadataProvider_Fetch_fail(t *testing.T) {
