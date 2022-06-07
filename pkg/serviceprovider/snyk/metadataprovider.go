@@ -3,6 +3,7 @@ package snyk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -62,6 +63,13 @@ func (s metadataProvider) fetchUser(accessToken string) (userId string, userName
 		},
 	})
 	if err != nil {
+		return
+	}
+
+	if res.StatusCode != 200 {
+		// this should never happen because our http client should already handle the errors so we return a hard
+		// error that will cause the whole fetch to fail
+		err = fmt.Errorf("unexpected response from the snyk api. status code: %d", res.StatusCode)
 		return
 	}
 

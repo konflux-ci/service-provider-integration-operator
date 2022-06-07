@@ -230,3 +230,22 @@ This concludes the flow and you should be able to see the secret configured in t
 ```
 kubectl get secret token-secret -o yaml
 ```
+
+
+## Supported providers and token kinds
+
+The currently supported list of providers and token kinds is following:
+
+### Github
+
+ - OAuth token via user authentication flow
+ - Personal access token via manual upload
+
+### Quay
+
+  - OAuth token via user authentication flow
+  - Robot account credentials via manual upload
+
+### Snyk
+
+ - Manual token upload only

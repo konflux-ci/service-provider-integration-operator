@@ -40,7 +40,7 @@ var ts = tokenstorage.TestTokenStorage{
 	},
 }
 
-func TestMetadataProvider_FetchUserName(t *testing.T) {
+func TestMetadataProvider_FetchUserIdAndName(t *testing.T) {
 
 	mp := metadataProvider{
 		httpClient:   httpCl,

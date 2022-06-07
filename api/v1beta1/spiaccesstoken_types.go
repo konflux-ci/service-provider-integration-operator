@@ -29,7 +29,7 @@ const (
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
-	Permissions Permissions `json:"permissions"`
+	Permissions Permissions `json:"permissions,omitempty"`
 	//+kubebuilder:validation:Required
 	ServiceProviderUrl string `json:"serviceProviderUrl"`
 }
