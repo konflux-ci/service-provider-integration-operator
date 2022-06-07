@@ -16,9 +16,8 @@ package github
 
 import (
 	"context"
-	"strconv"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -89,7 +88,8 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 	if err := _fetchAll(r, ctx, client, allAccessibleOwnerAffiliationsReposQuery, state); err != nil {
 		return err
 	}
-
+	lg := log.FromContext(ctx)
+	lg.Info("_fetchAll state.AccessibleRepos.len=" + strconv.Itoa(len(state.AccessibleRepos)))
 	return nil
 }
 
@@ -109,8 +109,6 @@ func _fetchAll(r *AllAccessibleRepos, ctx context.Context, client *graphql.Clien
 			state.AccessibleRepos[RepositoryUrl(node.Url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.ViewerPermission)}
 		}
 	})
-	//TODO how to do lg.Debug ?
-	lg.Info("_fetchAll state.AccessibleRepos.len=" + strconv.Itoa(len(state.AccessibleRepos)))
 	if err != nil {
 
 		lg.Error(err, "Error in FetchAll", "request", request)
