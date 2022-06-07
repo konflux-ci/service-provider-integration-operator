@@ -16,8 +16,9 @@ package github
 
 import (
 	"context"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
