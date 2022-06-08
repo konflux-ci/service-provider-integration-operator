@@ -346,6 +346,9 @@ func doQuayRequest(ctx context.Context, cl *http.Client, url string, token strin
 		return nil, err
 	}
 
+	if body != nil {
+		req.Header.Add("Content-Type", "application/json")
+	}
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
 	if err != nil {
