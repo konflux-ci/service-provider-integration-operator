@@ -77,8 +77,8 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 	t.Run("dockerconfigjson-urlWithScheme", func(t *testing.T) {
 		newAt := at // copy to not affect other tests
 		newAt.ServiceProviderUrl = "http://quay.io/somepath"
-		converted := newAt.toSecretType(corev1.SecretTypeDockerConfigJson)
-		assert.Equal(t, `{"auths":{"quay.io/somepath":{"username":"spusername","password":"token"}}}`, converted[corev1.DockerConfigJsonKey])
+		converted := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson)
+		assert.Equal(t, `{"auths":{"quay.io":{"username":"spusername","password":"token"}}}`, converted[corev1.DockerConfigJsonKey])
 	})
 
 	t.Run("ssh-privatekey", func(t *testing.T) {
