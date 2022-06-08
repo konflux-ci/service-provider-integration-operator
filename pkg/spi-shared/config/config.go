@@ -27,7 +27,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
-	ServiceProviderTypeSnyk   ServiceProviderType = "Snyk"
+	ServiceProviderTypeCommon ServiceProviderType = "Common"
 	DefaultVaultHost          string              = "http://spi-vault:8200"
 )
 
@@ -198,8 +198,4 @@ func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 	}
 
 	return conf, err
-}
-
-func (c ServiceProviderConfiguration) OAuthConfigured() bool {
-	return c.ClientId != "" && c.ClientSecret != ""
 }
