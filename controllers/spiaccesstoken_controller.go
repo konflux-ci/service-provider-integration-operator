@@ -249,7 +249,7 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		at.Status.OAuthUrl = ""
 		if changed {
 			lg := log.FromContext(ctx)
-			lg.V(1).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+			lg.Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
 	}
 
