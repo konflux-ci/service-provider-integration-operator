@@ -327,36 +327,37 @@ var _ = Describe("Phase", func() {
 		})
 	})
 
-	//Context("with invalid SP url", func() {
-	//	BeforeEach(func() {
-	//		ITest.TestServiceProvider.Reset()
-	//
-	//		createdToken = &api.SPIAccessToken{
-	//			ObjectMeta: metav1.ObjectMeta{
-	//				GenerateName: "phase-test-token",
-	//				Namespace:    "default",
-	//			},
-	//			Spec: api.SPIAccessTokenSpec{
-	//				ServiceProviderUrl: "not-test-provider://",
-	//			},
-	//		}
-	//		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
-	//	})
-	//
-	//	AfterEach(func() {
-	//		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-	//	})
-	//
-	//	It("flips to Error due to invalid SP url", func() {
-	//		Eventually(func(g Gomega) {
-	//			token := &api.SPIAccessToken{}
-	//			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-	//			g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseError))
-	//			g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnknownServiceProvider))
-	//			g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
-	//		}).Should(Succeed())
-	//	})
-	//})
+	Context("returns common provider with random SP url", func() {
+		BeforeEach(func() {
+			ITest.TestServiceProvider.Reset()
+
+			createdToken = &api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "phase-test-token",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenSpec{
+					ServiceProviderUrl: "not-test-provider://",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		})
+
+		It("defaults to AwaitingTokenData with common type", func() {
+			Eventually(func(g Gomega) {
+				token := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+				g.Expect(token.Status.ErrorReason).To(BeEmpty())
+				g.Expect(token.Status.ErrorMessage).To(BeEmpty())
+				g.Expect(token.Labels[api.ServiceProviderTypeLabel]).To(Equal("CommonServiceProvider"))
+			}).Should(Succeed())
+		})
+	})
 })
 
 func getLinkedToken(g Gomega, binding *api.SPIAccessTokenBinding) *api.SPIAccessToken {

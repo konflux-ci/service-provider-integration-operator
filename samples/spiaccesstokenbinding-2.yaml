@@ -4,6 +4,6 @@ metadata:
   name: test-access-token-binding-2
   namespace: default
 spec:
-  repoUrl: https://snyk.io/
+  repoUrl: https://snygg.io/
   secret:
     type: kubernetes.io/basic-auth

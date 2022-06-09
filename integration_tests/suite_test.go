@@ -60,6 +60,7 @@ type IntegrationTest struct {
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
 	TestServiceProvider      TestServiceProvider
+	CommonServiceProvider    CommonServiceProvider
 	VaultTestCluster         *vault.TestCluster
 }
 
@@ -190,6 +191,14 @@ var _ = BeforeSuite(func() {
 				}),
 				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 					return ITest.TestServiceProvider, nil
+				}),
+			},
+			"Common": {
+				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+				}),
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+					return ITest.CommonServiceProvider, nil
 				}),
 			},
 		},
