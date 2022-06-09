@@ -1,0 +1,12 @@
+# This file is generated from CRDs by ./hack/generate-kcp-api.sh script.
+# Please do not modify!
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: spi
+spec:
+  latestResourceSchemas:
+    - 2022-06-09-17-22.spiaccesschecks.appstudio.redhat.com
+    - 2022-06-09-17-22.spiaccesstokenbindings.appstudio.redhat.com
+    - 2022-06-09-17-22.spiaccesstokendataupdates.appstudio.redhat.com
+    - 2022-06-09-17-22.spiaccesstokens.appstudio.redhat.com
