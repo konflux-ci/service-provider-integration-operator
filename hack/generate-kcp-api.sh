@@ -59,12 +59,9 @@ metadata:
 spec:
   latestResourceSchemas:
 EOF
-
+set -x
 I=0
-for SCHEMA in $( yq -r '.metadata.name' ${KCP_API_SCHEMA_FILE_CURRENT} ); do
-  if [ "${SCHEMA}" == "null" ]; then
-    continue
-  fi
+for SCHEMA in $( yq -y '.metadata.name' ${KCP_API_SCHEMA_FILE_CURRENT} | yq -r 'select (.!=null)' ); do
   QUERY=".spec.latestResourceSchemas[${I}]=env.SCHEMA"
   SCHEMA=${SCHEMA} yq -i -y ${QUERY} ${KCP_API_EXPORT_FILE}
   I=$((I + 1))
