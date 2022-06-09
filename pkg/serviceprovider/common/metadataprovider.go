@@ -47,5 +47,9 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		metadata = &api.TokenMetadata{}
 		token.Status.TokenMetadata = metadata
 	}
+
+	if len(data.Username) > 0 {
+		metadata.Username = data.Username
+	}
 	return metadata, nil
 }
