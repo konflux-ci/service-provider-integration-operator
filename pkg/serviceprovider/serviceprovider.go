@@ -111,7 +111,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
-	commonInitializer, _ := f.Initializers[config.ServiceProviderTypeCommon]
+	commonInitializer := f.Initializers[config.ServiceProviderTypeCommon]
 	commonConstructor := commonInitializer.Constructor
 	return commonConstructor.Construct(f, repoUrl)
 }
