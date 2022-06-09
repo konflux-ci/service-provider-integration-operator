@@ -18,53 +18,19 @@ import (
 	"context"
 	"strconv"
 
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
-
+	"github.com/google/go-github/v45/github"
 	"github.com/machinebox/graphql"
-)
-
-const (
-	allAccessibleAffiliationsReposQuery = `
-		query($after: String) {
-			viewer {
-				repositories(first: 100, after: $after, affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
-					pageInfo {
-						hasNextPage
-						endCursor
-					}
-					nodes {
-						viewerPermission
-						url
-					}
-				}
-			}
-		}`
-	allAccessibleOwnerAffiliationsReposQuery = `
-		query($after: String) {
-			viewer {
-				repositories(first: 100, after: $after, ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
-					pageInfo {
-						hasNextPage
-						endCursor
-					}
-					nodes {
-						viewerPermission
-						url
-					}
-				}
-			}
-		}`
+	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
+	"golang.org/x/oauth2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // AllAccessibleRepos lists all the repositories accessible by the current user
 type AllAccessibleRepos struct {
 	Viewer struct {
 		Repositories struct {
-			PageInfo PageInfo `json:"pageInfo"`
-			Nodes    []struct {
+			//PageInfo PageInfo `json:"pageInfo"`
+			Nodes []struct {
 				ViewerPermission string `json:"viewerPermission"`
 				Url              string `json:"url"`
 			} `json:"nodes"`
@@ -73,66 +39,55 @@ type AllAccessibleRepos struct {
 }
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
+	lg := log.FromContext(ctx)
 	if accessToken == "" {
 		return sperrors.ServiceProviderError{
 			StatusCode: 401,
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
 	}
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: accessToken},
+	)
+	tc := oauth2.NewClient(ctx, ts)
 
-	ctx = httptransport.WithBearerToken(ctx, accessToken)
+	githubClient := github.NewClient(tc)
 
-	if err := _fetchAll(r, ctx, client, allAccessibleAffiliationsReposQuery, state); err != nil {
-		return err
-	}
-
-	if err := _fetchAll(r, ctx, client, allAccessibleOwnerAffiliationsReposQuery, state); err != nil {
-		return err
-	}
-	lg := log.FromContext(ctx)
-	lg.Info("_fetchAll state.AccessibleRepos.len=" + strconv.Itoa(len(state.AccessibleRepos)))
-	return nil
-}
-
-// PageInfo should be reused in all the queries that need to be paged
-type PageInfo struct {
-	HasNextPage bool   `json:"hasNextPage"`
-	EndCursor   string `json:"endCursor"`
-}
-
-func _fetchAll(r *AllAccessibleRepos, ctx context.Context, client *graphql.Client, request string, state *TokenState) error {
-
-	lg := log.FromContext(ctx)
-	err := _fetchAllWithPages(ctx, client, graphql.NewRequest(request), r, func() PageInfo {
-		return r.Viewer.Repositories.PageInfo
-	}, func() {
-		for _, node := range r.Viewer.Repositories.Nodes {
-			state.AccessibleRepos[RepositoryUrl(node.Url)] = RepositoryRecord{ViewerPermission: ViewerPermission(node.ViewerPermission)}
-		}
-	})
-	if err != nil {
-
-		lg.Error(err, "Error in FetchAll", "request", request)
-		return err
-	}
-	return nil
-}
-
-func _fetchAllWithPages(ctx context.Context, client *graphql.Client, req *graphql.Request, self interface{}, pageInfoFromSelf func() PageInfo, processSelf func()) error {
-	req.Var("after", nil)
+	// list all repositories for the authenticated user
+	opt := &github.RepositoryListOptions{}
+	opt.ListOptions.Page = 0
+	opt.ListOptions.PerPage = 100
 	for {
-		if err := client.Run(ctx, req, self); err != nil {
+		lg.Info("1")
+
+		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
+		lg.Info("2")
+		if err != nil {
+			lg.Info("3")
+
+			lg.Error(err, "Error during fetching Github repositories list")
 			return err
 		}
+		lg.Info("4", "resp.NextPage", resp.NextPage)
+		lg.Info("5", "resp.len", len(repos))
+		for _, k := range repos {
+			if k.Permissions["admin"] {
+				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionAdmin}
+			} else if k.Permissions["push"] {
+				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionWrite}
+			} else if k.Permissions["pull"] {
+				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionRead}
+			} else {
+				lg.Info("Unknown permission", "permission", k.Permissions)
+			}
 
-		processSelf()
-
-		page := pageInfoFromSelf()
-
-		if !page.HasNextPage {
-			return nil
 		}
-
-		req.Var("after", page.EndCursor)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.ListOptions.Page = resp.NextPage
 	}
+	lg.Info("_fetchAll 2", "state.AccessibleRepos.len", strconv.Itoa(len(state.AccessibleRepos)))
+	lg.Info("state", "AccessibleRepos", state.AccessibleRepos)
+	return nil
 }

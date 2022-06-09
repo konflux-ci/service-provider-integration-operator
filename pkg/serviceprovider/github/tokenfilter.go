@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
@@ -26,20 +28,26 @@ type tokenFilter struct{}
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-func (t *tokenFilter) Matches(_ context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	if token.Status.TokenMetadata == nil {
 		return false, nil
 	}
-
+	lg := log.FromContext(ctx)
 	githubState := TokenState{}
 	if err := json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &githubState); err != nil {
 		return false, err
 	}
-
+	lg.V(1).Info("Matches=", "repos", githubState.AccessibleRepos)
 	for repoUrl, rec := range githubState.AccessibleRepos {
-		if string(repoUrl) == matchable.RepoUrl() && permsMatch(matchable.Permissions(), rec, token.Status.TokenMetadata.Scopes) {
-			return true, nil
+		if string(repoUrl) == matchable.RepoUrl() {
+			lg.Info("Matches2=", "repoUrl", repoUrl, "rec", rec, "scopes", token.Status.TokenMetadata.Scopes)
+			if string(repoUrl) == matchable.RepoUrl() && permsMatch(matchable.Permissions(), rec, token.Status.TokenMetadata.Scopes) {
+				lg.Info("ok")
+				return true, nil
+			}
+			lg.Info("not ok")
 		}
+
 	}
 
 	return false, nil
