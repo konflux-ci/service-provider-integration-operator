@@ -17,62 +17,11 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
-
-	"github.com/google/go-github/v45/github"
-	"golang.org/x/oauth2"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestTokenFilter_Matches1(t *testing.T) {
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: "x"},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-
-	client := github.NewClient(tc)
-
-	// list all repositories for the authenticated user
-	opt := &github.RepositoryListOptions{}
-
-	repos, _, err := client.Repositories.List(ctx, "", opt)
-	if err != nil {
-		fmt.Println(err)
-	}
-	for _, k := range repos {
-		fmt.Println("key:", *k.URL)
-	}
-
-	//opts := &github.RepositoryListOptions{}
-	//for {
-	//	ctx := context.Background()
-	//	repos, _, err := client.Repositories.List(ctx, "", opts)
-	//	if err != nil {
-	//		t.Fatalf("error listing repos: %v", err)
-	//	}
-	//
-	//	if len(repos) == 0 {
-	//		break
-	//	}
-	//	for _, k := range repos {
-	//		fmt.Println("key:", *k.URL)
-	//	}
-	//	opts.Since = *repos[len(repos)-1].ID
-	//	// Process users...
-	//}
-	////repos, _, err := client.Repositories.ListAll(ctx)
-	////if err != nil {
-	////	t.Fatal(err)
-	////}
-	////for _, k := range repos {
-	////	fmt.Println("key:", *k.URL)
-	////}
-
-}
 
 func TestTokenFilter_Matches(t *testing.T) {
 	tf := &tokenFilter{}
