@@ -29,7 +29,7 @@ EOF
 # APIResourceSchema is immutable so when we want to update something, we actually have to create new version.
 # Version is defined by this prefix, which is taken from date. This will allow us to do new version each minute, which
 # should be hopefully enough granularity :)
-PREFIX=$( date +%Y-%m-%d-%H-%M )
+PREFIX=$( TZ="Etc/UTC" date +%Y-%m-%d-%H-%M )
 
 I=0
 for CRD in $( ls ${CRD_DIR} ); do
