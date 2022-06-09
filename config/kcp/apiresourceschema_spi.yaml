@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: 202206091552.spiaccesschecks.appstudio.redhat.com
+  name: v202206091559.spiaccesschecks.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -104,7 +104,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: 202206091552.spiaccesstokenbindings.appstudio.redhat.com
+  name: v202206091559.spiaccesstokenbindings.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -295,7 +295,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: 202206091552.spiaccesstokendataupdates.appstudio.redhat.com
+  name: v202206091559.spiaccesstokendataupdates.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -350,7 +350,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: 202206091552.spiaccesstokens.appstudio.redhat.com
+  name: v202206091559.spiaccesstokens.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:

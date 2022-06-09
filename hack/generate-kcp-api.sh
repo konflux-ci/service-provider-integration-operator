@@ -33,14 +33,14 @@ PREFIX=$( TZ="Etc/UTC" date +%Y%m%d%H%M )
 
 I=0
 for CRD in $( ls ${CRD_DIR} ); do
-  kubectl-kcp crd snapshot -f "${CRD_DIR}/${CRD}" --prefix ${PREFIX} >> ${KCP_API_SCHEMA_FILE_NEW}
+  kubectl-kcp crd snapshot -f "${CRD_DIR}/${CRD}" --prefix v${PREFIX} >> ${KCP_API_SCHEMA_FILE_NEW}
 done
 
 # If there are some changes in new generated file, we replace old one. Otherwise just remove new file.
 # The regex is there to ignore name change, because we're updating date there so it is expected to change.
 # Ignored line looks like this:
 # '  name: 202206091540.spiaccesstokendataupdates.appstudio.redhat.com'
-if ! diff -I '^  name: [0-9]\{12\}\..*\.appstudio\.redhat\.com$' ${KCP_API_SCHEMA_FILE_CURRENT} ${KCP_API_SCHEMA_FILE_NEW} > /dev/null; then
+if ! diff -I '^  name: v[0-9]\{12\}\..*\.appstudio\.redhat\.com$' ${KCP_API_SCHEMA_FILE_CURRENT} ${KCP_API_SCHEMA_FILE_NEW} > /dev/null; then
   mv ${KCP_API_SCHEMA_FILE_NEW} ${KCP_API_SCHEMA_FILE_CURRENT}
   echo "updated KCP APIResourceSchema for SPI saved at '${KCP_API_SCHEMA_FILE_CURRENT}'"
 else
