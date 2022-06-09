@@ -23,16 +23,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/machinebox/graphql"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
+	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
 type metadataProvider struct {
-	graphqlClient *graphql.Client
-	httpClient    *http.Client
-	tokenStorage  tokenstorage.TokenStorage
+	httpClient   *http.Client
+	tokenStorage tokenstorage.TokenStorage
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
@@ -59,11 +60,12 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	state := &TokenState{
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
-	if err := (&AllAccessibleRepos{}).FetchAll(ctx, s.graphqlClient, data.AccessToken, state); err != nil {
+	authenticatedContext := httptransport.WithBearerToken(ctx, data.AccessToken)
+	if err := (&AllAccessibleRepos{}).FetchAll(authenticatedContext, github.NewClient(s.httpClient), data.AccessToken, state); err != nil {
 		return nil, err
 	}
 
-	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
+	username, userId, scopes, err := s.fetchUserAndScopes(authenticatedContext)
 	if err != nil {
 		return nil, err
 	}
@@ -83,16 +85,14 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	return metadata, nil
 }
 
-// fetchUserAndScopes fetches the scopes and the details of the user associated with the token
-func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName string, userId string, scopes []string, err error) {
+// fetchUserAndScopes fetches the scopes and the details of the user associated with the context
+func (s metadataProvider) fetchUserAndScopes(ctx context.Context) (userName string, userId string, scopes []string, err error) {
 	var res *http.Response
-	res, err = s.httpClient.Do(&http.Request{
+	request := http.Request{
 		Method: "GET",
 		URL:    githubUserApiEndpoint,
-		Header: map[string][]string{
-			"Authorization": {"Bearer " + accessToken},
-		},
-	})
+	}
+	res, err = s.httpClient.Do(request.WithContext(ctx))
 	if err != nil {
 		return
 	}

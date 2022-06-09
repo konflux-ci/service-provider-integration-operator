@@ -29,7 +29,6 @@ import (
 	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/machinebox/graphql"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -63,9 +62,8 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
 			TokenFilter:         &tokenFilter{},
 			MetadataProvider: &metadataProvider{
-				graphqlClient: graphql.NewClient("https://api.github.com/graphql", graphql.WithHTTPClient(httpClient)),
-				httpClient:    httpClient,
-				tokenStorage:  factory.TokenStorage,
+				httpClient:   httpClient,
+				tokenStorage: factory.TokenStorage,
 			},
 			MetadataCache:  &cache,
 			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),

@@ -16,12 +16,11 @@ package github
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/google/go-github/v45/github"
-	"github.com/machinebox/graphql"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,7 +37,7 @@ type AllAccessibleRepos struct {
 	} `json:"viewer"`
 }
 
-func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
+func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.Client, accessToken string, state *TokenState) error {
 	lg := log.FromContext(ctx)
 	if accessToken == "" {
 		return sperrors.ServiceProviderError{
@@ -46,25 +45,14 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
 	}
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-
-	githubClient := github.NewClient(tc)
 
 	// list all repositories for the authenticated user
 	opt := &github.RepositoryListOptions{}
-	opt.ListOptions.Page = 0
 	opt.ListOptions.PerPage = 100
 	for {
-		lg.Info("1")
 
 		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
-		lg.Info("2")
 		if err != nil {
-			lg.Info("3")
-
 			lg.Error(err, "Error during fetching Github repositories list")
 			return err
 		}
@@ -78,7 +66,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 			} else if k.Permissions["pull"] {
 				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionRead}
 			} else {
-				lg.Info("Unknown permission", "permission", k.Permissions)
+				lg.Error(errors.New("unknown permission"), "permission", k.Permissions)
 			}
 
 		}
@@ -87,7 +75,6 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Clien
 		}
 		opt.ListOptions.Page = resp.NextPage
 	}
-	lg.Info("_fetchAll 2", "state.AccessibleRepos.len", strconv.Itoa(len(state.AccessibleRepos)))
-	lg.Info("state", "AccessibleRepos", state.AccessibleRepos)
+	lg.Info("fetch complete", "state.AccessibleRepos.len", strconv.Itoa(len(state.AccessibleRepos)))
 	return nil
 }
