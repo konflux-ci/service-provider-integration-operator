@@ -6,7 +6,7 @@ metadata:
   name: spi
 spec:
   latestResourceSchemas:
-    - 2022-06-09-15-50.spiaccesschecks.appstudio.redhat.com
-    - 2022-06-09-15-50.spiaccesstokenbindings.appstudio.redhat.com
-    - 2022-06-09-15-50.spiaccesstokendataupdates.appstudio.redhat.com
-    - 2022-06-09-15-50.spiaccesstokens.appstudio.redhat.com
+    - 202206091552.spiaccesschecks.appstudio.redhat.com
+    - 202206091552.spiaccesstokenbindings.appstudio.redhat.com
+    - 202206091552.spiaccesstokendataupdates.appstudio.redhat.com
+    - 202206091552.spiaccesstokens.appstudio.redhat.com

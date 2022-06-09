@@ -29,7 +29,7 @@ EOF
 # APIResourceSchema is immutable so when we want to update something, we actually have to create new version.
 # Version is defined by this prefix, which is taken from date. This will allow us to do new version each minute, which
 # should be hopefully enough granularity :)
-PREFIX=$( TZ="Etc/UTC" date +%Y-%m-%d-%H-%M )
+PREFIX=$( TZ="Etc/UTC" date +%Y%m%d%H%M )
 
 I=0
 for CRD in $( ls ${CRD_DIR} ); do
@@ -39,8 +39,8 @@ done
 # If there are some changes in new generated file, we replace old one. Otherwise just remove new file.
 # The regex is there to ignore name change, because we're updating date there so it is expected to change.
 # Ignored line looks like this:
-# '  name: 2022-06-09-15-40.spiaccesstokendataupdates.appstudio.redhat.com'
-if ! diff -I '^  name: [0-9]\{4\}\(-[0-9][0-9]\)\{4\}\..*\.appstudio\.redhat\.com$' ${KCP_API_SCHEMA_FILE_CURRENT} ${KCP_API_SCHEMA_FILE_NEW} > /dev/null; then
+# '  name: 202206091540.spiaccesstokendataupdates.appstudio.redhat.com'
+if ! diff -I '^  name: [0-9]\{12\}\..*\.appstudio\.redhat\.com$' ${KCP_API_SCHEMA_FILE_CURRENT} ${KCP_API_SCHEMA_FILE_NEW} > /dev/null; then
   mv ${KCP_API_SCHEMA_FILE_NEW} ${KCP_API_SCHEMA_FILE_CURRENT}
   echo "updated KCP APIResourceSchema for SPI saved at '${KCP_API_SCHEMA_FILE_CURRENT}'"
 else
