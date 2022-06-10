@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"k8s.io/client-go/rest"
@@ -224,7 +225,18 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 }
 
 func (q *Quay) parseQuayRepoUrl(repoUrl string) (string, string, error) {
-	splittedPath := strings.Split(repoUrl, "/")
+	if !strings.HasPrefix(repoUrl, "http") {
+		repoUrl = "https://" + repoUrl
+	}
+	parsedUrl, parseErr := url.Parse(repoUrl)
+	if parseErr != nil {
+		return "", "", parseErr
+	}
+
+	splittedPath := strings.Split(parsedUrl.Path, "/")
+	if len(splittedPath) < 2 {
+		return "", "", fmt.Errorf("unexpected quay url")
+	}
 	return splittedPath[len(splittedPath)-2], splittedPath[len(splittedPath)-1], nil
 }
 
@@ -232,6 +244,7 @@ func (q *Quay) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck, 
 	lg := log.FromContext(ctx)
 
 	requestUrl := fmt.Sprintf("https://quay.io/api/v1/repository/%s/%s?includeTags=false", owner, repository)
+	lg.Info("GET Request", "url", requestUrl)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", requestUrl, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to prepare request")
