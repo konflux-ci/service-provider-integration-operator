@@ -2,11 +2,6 @@
 
 set -e
 
-if ! which yq; then
-  echo "yq required"
-  exit 1
-fi
-
 if ! which kubectl-kcp; then
   echo "kubectl-kcp required on path"
   echo "you can install it with running:"
@@ -60,11 +55,9 @@ spec:
   latestResourceSchemas:
 EOF
 
-I=0
-for SCHEMA in $( yq -y '.metadata.name' ${KCP_API_SCHEMA_FILE_CURRENT} | yq -r 'select (.!=null)' ); do
-  QUERY=".spec.latestResourceSchemas[${I}]=env.SCHEMA"
-  SCHEMA=${SCHEMA} yq -i -y ${QUERY} ${KCP_API_EXPORT_FILE}
-  I=$((I + 1))
+# match APIResourceSchema name pattern with date prefix
+for SCHEMA in $( cat ${KCP_API_SCHEMA_FILE_CURRENT} | grep -o "v[0-9]\{12\}\..*\.appstudio\.redhat\.com" ); do
+  echo "    - ${SCHEMA}" >> ${KCP_API_EXPORT_FILE}
 done
 
 cat << EOF > ${KCP_API_EXPORT_FILE}
