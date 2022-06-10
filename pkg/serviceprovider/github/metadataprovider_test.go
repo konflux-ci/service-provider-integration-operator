@@ -17,22 +17,22 @@ package github
 import (
 	"context"
 	"flag"
-	"net/http"
-	"os"
-	"testing"
-
-	"github.com/go-logr/zapr"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	ctrl "sigs.k8s.io/controller-runtime"
-	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"net/http"
+	"os"
+	"testing"
 )
 
+func TestMain(m *testing.M) {
+	logs.InitLoggers(true, flag.CommandLine)
+	os.Exit(m.Run())
+}
+
 func TestMetadataProvider_Fetch(t *testing.T) {
-	T()
 	httpClient := serviceprovider.AuthenticatingHttpClient(http.DefaultClient)
 	ts := tokenstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
@@ -44,29 +44,21 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 			}, nil
 		},
 	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   httpClient,
+		tokenStorage: ts,
+	}
 
 	mp := metadataProvider{
-		httpClient:   httpClient,
-		tokenStorage: &ts,
+		httpClient:      httpClient,
+		tokenStorage:    &ts,
+		ghClientBuilder: githubClientBuilder,
 	}
 
 	tkn := api.SPIAccessToken{}
 	data, err := mp.Fetch(context.TODO(), &tkn)
 	assert.NoError(t, err)
 	assert.NotNil(t, data)
-}
-func T() {
-	opts := crzap.Options{}
-	opts.BindFlags(flag.CommandLine)
-	opts.Development = true
-
-	// set everything up such that we can use the same logger in controller runtime zap.L().*
-	logger := crzap.NewRaw(crzap.UseFlagOptions(&opts))
-	_ = zap.ReplaceGlobals(logger)
-	ctrl.SetLogger(zapr.NewLogger(logger))
-
-	setupLog := ctrl.Log.WithName("setup")
-	setupLog.Info("starting manager")
 }
 
 //func TestMetadataProvider_Fetch(t *testing.T) {

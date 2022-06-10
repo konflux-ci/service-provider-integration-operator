@@ -16,11 +16,11 @@ package github
 
 import (
 	"context"
-	"errors"
-	"strconv"
+	"time"
 
 	"github.com/google/go-github/v45/github"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,26 +38,26 @@ type AllAccessibleRepos struct {
 }
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.Client, accessToken string, state *TokenState) error {
+
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
 	if accessToken == "" {
 		return sperrors.ServiceProviderError{
 			StatusCode: 401,
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
 	}
-
+	lg.V(1).Info("Fetching metadata request")
 	// list all repositories for the authenticated user
 	opt := &github.RepositoryListOptions{}
 	opt.ListOptions.PerPage = 100
 	for {
-
 		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
 		if err != nil {
 			lg.Error(err, "Error during fetching Github repositories list")
 			return err
 		}
-		lg.Info("4", "resp.NextPage", resp.NextPage)
-		lg.Info("5", "resp.len", len(repos))
+		lg.V(1).Info("Received a list of available repositories from Github", "len", len(repos), "nextPage", resp.NextPage, "lastPage", resp.LastPage, "rate", resp.Rate)
 		for _, k := range repos {
 			if k.Permissions["admin"] {
 				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionAdmin}
@@ -65,8 +65,6 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionWrite}
 			} else if k.Permissions["pull"] {
 				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionRead}
-			} else {
-				lg.Error(errors.New("unknown permission"), "permission", k.Permissions)
 			}
 
 		}
@@ -75,6 +73,6 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 		}
 		opt.ListOptions.Page = resp.NextPage
 	}
-	lg.Info("fetch complete", "state.AccessibleRepos.len", strconv.Itoa(len(state.AccessibleRepos)))
+	lg.V(1).Info("Fetching metadata complete", "len", len(state.AccessibleRepos), "took", "")
 	return nil
 }
