@@ -198,12 +198,57 @@ func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.
 }
 
 func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	log.FromContext(ctx).Info("trying SPIAccessCheck on quay.io. This is not supported yet.")
-	return &api.SPIAccessCheckStatus{
-		Accessibility: api.SPIAccessCheckAccessibilityUnknown,
-		ErrorReason:   api.SPIAccessCheckErrorNotImplemented,
-		ErrorMessage:  "Access check for quay.io is not implemented.",
-	}, nil
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeContainer,
+		ServiceProvider: api.ServiceProviderTypeQuay,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
+
+	owner, repo, err := q.parseQuayRepoUrl(accessCheck.Spec.RepoUrl)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorBadURL
+		status.ErrorMessage = err.Error()
+		return status, nil
+	}
+
+	publicRepo, err := q.publicRepo(ctx, accessCheck, owner, repo)
+	if err != nil {
+		return nil, err
+	}
+	status.Accessible = publicRepo
+	if publicRepo {
+		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
+	}
+
+	return status, nil
+}
+
+func (q *Quay) parseQuayRepoUrl(repoUrl string) (string, string, error) {
+	splittedPath := strings.Split(repoUrl, "/")
+	return splittedPath[len(splittedPath)-2], splittedPath[len(splittedPath)-1], nil
+}
+
+func (q *Quay) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck, owner string, repository string) (bool, error) {
+	lg := log.FromContext(ctx)
+
+	requestUrl := fmt.Sprintf("https://quay.io/api/v1/repository/%s/%s?includeTags=false", owner, repository)
+	req, reqErr := http.NewRequestWithContext(ctx, "GET", requestUrl, nil)
+	if reqErr != nil {
+		lg.Error(reqErr, "failed to prepare request")
+		return false, reqErr
+	}
+
+	if resp, err := q.httpClient.Do(req); err != nil {
+		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
+		return false, err
+	} else if resp.StatusCode == http.StatusOK {
+		return true, nil
+	} else if resp.StatusCode == http.StatusUnauthorized {
+		return false, nil
+	} else {
+		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
+		return false, nil
+	}
 }
 
 func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
