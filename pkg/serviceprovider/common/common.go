@@ -70,7 +70,10 @@ func (g *Common) GetOAuthEndpoint() string {
 }
 
 func (g *Common) GetBaseUrl() string {
-	base, _ := serviceprovider.GetHostWithScheme(g.repoUrl)
+	base, err := serviceprovider.GetHostWithScheme(g.repoUrl)
+	if err != nil {
+		return ""
+	}
 	return base
 }
 
@@ -103,7 +106,7 @@ func (g *Common) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (g *Common) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+func (g *Common) CheckRepositoryAccess(ctx context.Context, _ client.Client, _ *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	log.FromContext(ctx).Info("trying SPIAccessCheck on common.io. This is not supported yet.")
 	return &api.SPIAccessCheckStatus{
 		Accessibility: api.SPIAccessCheckAccessibilityUnknown,
@@ -116,6 +119,6 @@ func (g *Common) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token
 	return serviceprovider.DefaultMapToken(token, tokenData)
 }
 
-func (g *Common) Validate(ctx context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+func (g *Common) Validate(_ context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 	return serviceprovider.ValidationResult{}, nil
 }

@@ -246,6 +246,7 @@ The currently supported list of providers and token kinds is following:
   - OAuth token via user authentication flow
   - Robot account credentials via manual upload
 
-### Snyk & other providers not supporting OAUth
+### Snyk & other providers not supporting OAuth
 
- - Manual credentials upload only with both username and token required
+ - Manual credentials upload only with both username and token required.
+   Single token per namespace per host is stored.
