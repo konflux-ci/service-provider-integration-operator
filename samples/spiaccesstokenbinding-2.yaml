@@ -4,6 +4,10 @@ metadata:
   name: test-access-token-binding-2
   namespace: default
 spec:
-  repoUrl: https://snygg.io/
+  permissions:
+    required:
+      - type: rw
+        area: repository
+  repoUrl: https://quay.io/repository/redhat_emp1/spi-test
   secret:
     type: kubernetes.io/basic-auth
