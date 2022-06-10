@@ -14,7 +14,7 @@ import (
 // InitLoggers Configure zap backend for controller-runtime logger.
 func InitLoggers(development bool, fs *flag.FlagSet) {
 
-	opts := crzap.Options{ZapOpts: []zap.Option{zap.WithCaller(true), zap.AddCallerSkip(-1)}}
+	opts := crzap.Options{ZapOpts: []zap.Option{zap.WithCaller(true), zap.AddCallerSkip(-2)}}
 	opts.BindFlags(fs)
 	opts.Development = development
 
