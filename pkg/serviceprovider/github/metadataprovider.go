@@ -18,22 +18,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
-
-	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
 type metadataProvider struct {
-	httpClient   *http.Client
-	tokenStorage tokenstorage.TokenStorage
+	httpClient      *http.Client
+	tokenStorage    tokenstorage.TokenStorage
+	ghClientBuilder githubClientBuilder
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
@@ -46,7 +45,6 @@ func init() {
 	}
 	githubUserApiEndpoint = url
 }
-
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
@@ -61,7 +59,12 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	authenticatedContext := httptransport.WithBearerToken(ctx, data.AccessToken)
-	if err := (&AllAccessibleRepos{}).FetchAll(authenticatedContext, github.NewClient(s.httpClient), data.AccessToken, state); err != nil {
+	ghClient, err := s.ghClientBuilder.createAuthenticatedGhClient(authenticatedContext, token)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := (&AllAccessibleRepos{}).FetchAll(authenticatedContext, ghClient, data.AccessToken, state); err != nil {
 		return nil, err
 	}
 

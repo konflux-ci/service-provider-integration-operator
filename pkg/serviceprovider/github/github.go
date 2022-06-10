@@ -24,9 +24,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"github.com/google/go-github/v45/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -39,10 +37,11 @@ import (
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 type Github struct {
-	Configuration config.Configuration
-	lookup        serviceprovider.GenericLookup
-	httpClient    rest.HTTPClient
-	tokenStorage  tokenstorage.TokenStorage
+	Configuration   config.Configuration
+	lookup          serviceprovider.GenericLookup
+	httpClient      rest.HTTPClient
+	tokenStorage    tokenstorage.TokenStorage
+	ghClientBuilder githubClientBuilder
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -54,22 +53,28 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
-
-	return &Github{
+	ghClientBuilder := githubClientBuilder{
+		tokenStorage: factory.TokenStorage,
+		httpClient:   factory.HttpClient,
+	}
+	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
 			TokenFilter:         &tokenFilter{},
 			MetadataProvider: &metadataProvider{
-				httpClient:   httpClient,
-				tokenStorage: factory.TokenStorage,
+				httpClient:      httpClient,
+				tokenStorage:    factory.TokenStorage,
+				ghClientBuilder: ghClientBuilder,
 			},
 			MetadataCache:  &cache,
 			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
-		httpClient: factory.HttpClient,
-	}, nil
+		httpClient:      factory.HttpClient,
+		ghClientBuilder: ghClientBuilder,
+	}
+	return github, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newGithub
@@ -167,7 +172,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 
 	if len(tokens) > 0 {
 		token := &tokens[0]
-		ghClient, err := g.createAuthenticatedGhClient(ctx, token)
+		ghClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
@@ -205,17 +210,18 @@ func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validat
 	return ret, nil
 }
 
-func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
-	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
-	if tsErr != nil {
-		lg := log.FromContext(ctx)
-		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
-		return nil, tsErr
-	}
-	ctx = context.WithValue(context.TODO(), oauth2.HTTPClient, g.httpClient)
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
-	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
-}
+//
+//func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
+//	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
+//	if tsErr != nil {
+//		lg := log.FromContext(ctx)
+//		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
+//		return nil, tsErr
+//	}
+//	ctx = context.WithValue(context.TODO(), oauth2.HTTPClient, g.httpClient)
+//	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
+//	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
+//}
 
 func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
