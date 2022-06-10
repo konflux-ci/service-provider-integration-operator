@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -56,18 +57,43 @@ func TestQuayProbe_Examine(t *testing.T) {
 	test(t, "github.com/name/repo", false)
 }
 
-func TestCheckAccessNotImplementedYetError(t *testing.T) {
-	cl := mockK8sClient()
-	quay := mockQuay(cl, http.StatusNotFound, nil)
-	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+func TestCheckPublicRepo(t *testing.T) {
+	test := func(statusCode int, expected bool) {
+		t.Run(fmt.Sprintf("code %d => %t", statusCode, expected), func(t *testing.T) {
+			quay := Quay{httpClient: httpClientMock{
+				doFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: statusCode}, nil
+				},
+			}}
+			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
+
+			publicRepo, err := quay.publicRepo(context.TODO(), spiAccessCheck, "test-org", "test-repo")
+
+			assert.NoError(t, err)
+			assert.Equal(t, expected, publicRepo)
+		})
 	}
 
-	status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &ac)
+	test(200, true)
+	test(401, false)
+	test(403, false)
+	test(404, false)
+	test(500, false)
+	test(666, false)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, status)
-	assert.Equal(t, api.SPIAccessCheckErrorNotImplemented, status.ErrorReason)
+	t.Run("fail", func(t *testing.T) {
+		quay := Quay{httpClient: httpClientMock{
+			doFunc: func(req *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("error")
+			},
+		}}
+		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
+
+		publicRepo, err := quay.publicRepo(context.TODO(), spiAccessCheck, "test-org", "test-repo")
+
+		assert.Error(t, err)
+		assert.Equal(t, false, publicRepo)
+	})
 }
 
 func TestMapToken(t *testing.T) {
@@ -223,34 +249,6 @@ type httpClientMock struct {
 
 func (h httpClientMock) Do(req *http.Request) (*http.Response, error) {
 	return h.doFunc(req)
-}
-
-type tokenFilterMock struct {
-	matchesFunc func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error)
-}
-
-func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-	return t.matchesFunc(ctx, matchable, token)
-}
-
-func mockQuay(cl client.Client, returnCode int, httpErr error) *Quay {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
-	return &Quay{
-		httpClient: httpClientMock{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: returnCode}, httpErr
-			},
-		},
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			MetadataCache:       &metadataCache,
-			TokenFilter: tokenFilterMock{
-				matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-					return true, nil
-				},
-			},
-		},
-	}
 }
 
 func mockK8sClient(objects ...client.Object) client.WithWatch {
