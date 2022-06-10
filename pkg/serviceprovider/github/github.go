@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"github.com/google/go-github/v43/github"
+	"github.com/google/go-github/v45/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
