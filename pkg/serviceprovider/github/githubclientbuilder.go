@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,7 +32,7 @@ type githubClientBuilder struct {
 }
 
 func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
-	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
+	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	lg := log.FromContext(ctx)
 	if tsErr != nil {
 
@@ -39,7 +40,7 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 		return nil, tsErr
 	}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
-	lg.V(1).Info("Created new github client", "SPIAccessToken", spiToken)
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
+	lg.V(logs.DebugLvl).Info("Created new github client", "SPIAccessToken", spiToken)
 	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
 }

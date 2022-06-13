@@ -41,6 +41,7 @@ func TestAllAccessibleRepos(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.GetUsersByUsername,
 			github.User{
+
 				Name: github.String("foobar"),
 			},
 		),
@@ -87,13 +88,13 @@ func TestAllAccessibleRepos(t *testing.T) {
 			},
 		),
 	)
-	githubClient := github.NewClient(serviceprovider.AuthenticatingHttpClient(mockedHTTPClient))
+	githubClient := github.NewClient(mockedHTTPClient)
 	err := aar.FetchAll(httptransport.WithBearerToken(context.TODO(), "access token"), githubClient, "access token", ts)
 	assert.NoError(t, err)
 	assert.Equal(t, 5, len(ts.AccessibleRepos))
 }
 
-func TestAllAccessibleRepos_fail(t *testing.T) {
+func TestAllAccessibleRepos_failFetchAll(t *testing.T) {
 	aar := &AllAccessibleRepos{}
 
 	ts := &TokenState{
@@ -111,9 +112,54 @@ func TestAllAccessibleRepos_fail(t *testing.T) {
 		}),
 	})
 
-	githubClient := github.NewClient(serviceprovider.AuthenticatingHttpClient(cl))
+	githubClient := github.NewClient(cl)
 	err := aar.FetchAll(httptransport.WithBearerToken(context.TODO(), "access token"), githubClient, "access token", ts)
 
 	assert.Error(t, err)
 	assert.True(t, sperrors.IsInvalidAccessToken(err.(*url.Error).Err))
+}
+
+func reposWithPages() mock.MockBackendOption {
+	return mock.WithRequestMatchPages(
+		mock.GetUserRepos,
+		[]github.Repository{
+			{
+				Name:    github.String("RHQ-old"),
+				HTMLURL: github.String("https://github.com/jdoe/RHQ-old"),
+				Permissions: map[string]bool{
+					"admin": true,
+				},
+			},
+			{
+				Name:    github.String("openshift.io"),
+				HTMLURL: github.String("https://github.com/openshiftio/openshift.io"),
+				Permissions: map[string]bool{
+					"push": true,
+				},
+			},
+			{
+				Name:    github.String("booster-parent"),
+				HTMLURL: github.String("https://github.com/openshiftio/booster-parent"),
+				Permissions: map[string]bool{
+					"pull": true,
+				},
+			},
+		},
+		[]github.Repository{
+			{
+				Name:    github.String("opencompose-old"),
+				HTMLURL: github.String("https://github.com/redhat-developer/opencompose-old"),
+				Permissions: map[string]bool{
+					"pull": true,
+				},
+			},
+			{
+				Name:    github.String("far2go"),
+				HTMLURL: github.String("https://github.com/jdoe/far2go"),
+				Permissions: map[string]bool{
+					"admin": true,
+				},
+			},
+		},
+	)
 }

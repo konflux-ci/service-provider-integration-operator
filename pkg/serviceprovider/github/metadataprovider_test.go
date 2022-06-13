@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -432,14 +433,12 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 	assert.Equal(t, RepositoryRecord{ViewerPermission: "READ"}, val)
 }
 
-func TestMetadataProvider_Fetch_fail(t *testing.T) {
+func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
+	expectedError := errors.New("math: square root of negative number")
 	httpCl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL.String() == githubUserApiEndpoint.String() {
-				return &http.Response{
-					StatusCode: 401,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "Bad credentials"}`))),
-				}, nil
+				return nil, expectedError
 			} else {
 				return &http.Response{
 					StatusCode: 200,
@@ -472,6 +471,52 @@ func TestMetadataProvider_Fetch_fail(t *testing.T) {
 
 	tkn := api.SPIAccessToken{}
 	data, err := mp.Fetch(context.TODO(), &tkn)
-	assert.Error(t, err)
+	assert.Error(t, err, expectedError)
+	assert.Nil(t, data)
+}
+
+func TestMetadataProvider_FetchAll_fail(t *testing.T) {
+	expectedError := errors.New("math: square root of negative number")
+	httpCl := &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			if r.URL.String() == githubUserApiEndpoint.String() {
+				return &http.Response{
+					StatusCode: 200,
+					Header: map[string][]string{
+						// the letter case is important here, http client is sensitive to this
+						"X-Oauth-Scopes": {"a, b, c, d"},
+					},
+					Body: ioutil.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
+				}, nil
+			} else {
+				return nil, expectedError
+			}
+		}),
+	}
+
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   httpCl,
+		tokenStorage: ts,
+	}
+
+	mp := metadataProvider{
+		ghClientBuilder: githubClientBuilder,
+		httpClient:      httpCl,
+		tokenStorage:    &ts,
+	}
+
+	tkn := api.SPIAccessToken{}
+	data, err := mp.Fetch(context.TODO(), &tkn)
+	assert.Error(t, err, expectedError)
 	assert.Nil(t, data)
 }
