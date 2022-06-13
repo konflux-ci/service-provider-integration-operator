@@ -17,10 +17,13 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
@@ -36,6 +39,11 @@ import (
 )
 
 const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
+
+func TestMain(m *testing.M) {
+	logs.InitLoggers(true, flag.CommandLine)
+	os.Exit(m.Run())
+}
 
 func TestQuayProbe_Examine(t *testing.T) {
 	probe := quayProbe{}

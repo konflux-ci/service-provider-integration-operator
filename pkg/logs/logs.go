@@ -25,6 +25,10 @@ import (
 	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const (
+	DebugLvl = 1
+)
+
 // InitLoggers Configure zap backend for controller-runtime logger.
 func InitLoggers(development bool, fs *flag.FlagSet) {
 
@@ -45,5 +49,5 @@ func InitLoggers(development bool, fs *flag.FlagSet) {
 //  }
 func TimeTrack(log logr.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
-	log.V(1).Info("Time took", "name", name, "time", elapsed)
+	log.V(DebugLvl).Info("Time took", "name", name, "time", elapsed)
 }

@@ -17,12 +17,15 @@ package github
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"
@@ -70,6 +73,10 @@ func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken)
 	return nil
 }
 
+func TestMain(m *testing.M) {
+	logs.InitLoggers(true, flag.CommandLine)
+	os.Exit(m.Run())
+}
 func TestCheckPublicRepo(t *testing.T) {
 	test := func(statusCode int, expected bool) {
 		t.Run(fmt.Sprintf("code %d => %t", statusCode, expected), func(t *testing.T) {
