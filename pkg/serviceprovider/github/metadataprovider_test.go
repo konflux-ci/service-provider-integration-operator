@@ -18,14 +18,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
@@ -373,11 +370,6 @@ const githubRepoListResponse = `[
   }
 ]
 `
-
-func TestMain(m *testing.M) {
-	logs.InitLoggers(true, flag.CommandLine)
-	os.Exit(m.Run())
-}
 
 func TestMetadataProvider_Fetch(t *testing.T) {
 	httpCl := &http.Client{
