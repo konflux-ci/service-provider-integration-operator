@@ -1,0 +1,482 @@
+# This file is generated from CRDs by ./hack/generate-kcp-api.sh script.
+# Please do not modify!
+
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206100727.spiaccesschecks.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessCheck
+    listKind: SPIAccessCheckList
+    plural: spiaccesschecks
+    singular: spiaccesscheck
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      description: SPIAccessCheck is the Schema for the spiaccesschecks API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: SPIAccessCheckSpec defines the desired state of SPIAccessCheck
+          properties:
+            permissions:
+              description: Permissions is a collection of operator-defined permissions
+                (which are translated to service-provider-specific scopes) and potentially
+                additional service-provider-specific scopes that are not covered by
+                the operator defined abstraction. The permissions are used in SPIAccessTokenBinding
+                objects to express the requirements on the tokens as well as in the
+                SPIAccessToken objects to express the "capabilities" of the token.
+              properties:
+                additionalScopes:
+                  items:
+                    type: string
+                  type: array
+                required:
+                  items:
+                    description: Permission is an element of Permissions and express
+                      a requirement on the service provider scopes in an agnostic
+                      manner.
+                    properties:
+                      area:
+                        description: Area express the "area" in the service provider
+                          scopes to which the permission is required.
+                        type: string
+                      type:
+                        description: Type is the type of the permission required
+                        type: string
+                    required:
+                    - area
+                    - type
+                    type: object
+                  type: array
+              type: object
+            repoUrl:
+              type: string
+          required:
+          - repoUrl
+          type: object
+        status:
+          description: SPIAccessCheckStatus defines the observed state of SPIAccessCheck
+          properties:
+            accessibility:
+              type: string
+            accessible:
+              type: boolean
+            errorMessage:
+              type: string
+            errorReason:
+              type: string
+            repoType:
+              type: string
+            serviceProvider:
+              description: ServiceProviderType defines the set of supported service
+                providers
+              type: string
+          required:
+          - accessibility
+          - accessible
+          - repoType
+          - serviceProvider
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206100727.spiaccesstokenbindings.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessTokenBinding
+    listKind: SPIAccessTokenBindingList
+    plural: spiaccesstokenbindings
+    singular: spiaccesstokenbinding
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      description: SPIAccessTokenBinding is the Schema for the spiaccesstokenbindings
+        API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
+          properties:
+            permissions:
+              description: Permissions is a collection of operator-defined permissions
+                (which are translated to service-provider-specific scopes) and potentially
+                additional service-provider-specific scopes that are not covered by
+                the operator defined abstraction. The permissions are used in SPIAccessTokenBinding
+                objects to express the requirements on the tokens as well as in the
+                SPIAccessToken objects to express the "capabilities" of the token.
+              properties:
+                additionalScopes:
+                  items:
+                    type: string
+                  type: array
+                required:
+                  items:
+                    description: Permission is an element of Permissions and express
+                      a requirement on the service provider scopes in an agnostic
+                      manner.
+                    properties:
+                      area:
+                        description: Area express the "area" in the service provider
+                          scopes to which the permission is required.
+                        type: string
+                      type:
+                        description: Type is the type of the permission required
+                        type: string
+                    required:
+                    - area
+                    - type
+                    type: object
+                  type: array
+              type: object
+            repoUrl:
+              type: string
+            secret:
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  description: Annotations is the keys and values that the create
+                    secret should be annotated with.
+                  type: object
+                fields:
+                  description: Fields specifies the mapping from the token record
+                    fields to the keys in the secret data.
+                  properties:
+                    expiredAfter:
+                      description: ExpiredAfter specifies the data key in which the
+                        expiry date of the token should be stored.
+                      type: string
+                    name:
+                      description: Name specifies the data key in which the name of
+                        the token record should be stored.
+                      type: string
+                    scopes:
+                      description: Scopes specifies the data key in which the comma-separated
+                        list of token scopes should be stored.
+                      type: string
+                    serviceProviderUrl:
+                      description: ServiceProviderUrl specifies the data key in which
+                        the url of the service provider should be stored.
+                      type: string
+                    serviceProviderUserId:
+                      description: ServiceProviderUserId specifies the data key in
+                        which the url of the user id used in the service provider
+                        should be stored.
+                      type: string
+                    serviceProviderUserName:
+                      description: ServiceProviderUserName specifies the data key
+                        in which the url of the user name used in the service provider
+                        should be stored.
+                      type: string
+                    token:
+                      description: Token specifies the data key in which the token
+                        should be stored.
+                      type: string
+                    userId:
+                      description: UserId specifies the data key in which the user
+                        id as known to the SPI should be stored (note that this is
+                        usually different from ServiceProviderUserId, because the
+                        former is usually a kubernetes user, while the latter is some
+                        arbitrary ID used by the service provider which might or might
+                        not correspond to the Kubernetes user id).
+                      type: string
+                  type: object
+                labels:
+                  additionalProperties:
+                    type: string
+                  description: Labels contains the labels that the created secret
+                    should be labeled with.
+                  type: object
+                name:
+                  description: Name is the name of the secret to be created. If it
+                    is not defined a random name based on the name of the binding
+                    is used.
+                  type: string
+                type:
+                  description: Type is the type of the secret to be created. If left
+                    empty, the default type used in the cluster is assumed (typically
+                    Opaque). The type of the secret defines the automatic mapping
+                    of the token record fields to keys in the secret data according
+                    to the documentation https://kubernetes.io/docs/concepts/configuration/secret/#secret-types.
+                    Only kubernetes.io/service-account-token, kubernetes.io/dockercfg,
+                    kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth are
+                    supported. All other secret types need to have their mapping specified
+                    manually using the Fields.
+                  type: string
+              type: object
+          required:
+          - permissions
+          - repoUrl
+          - secret
+          type: object
+        status:
+          description: SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding
+          properties:
+            errorMessage:
+              type: string
+            errorReason:
+              type: string
+            linkedAccessTokenName:
+              type: string
+            oAuthUrl:
+              type: string
+            phase:
+              type: string
+            syncedObjectRef:
+              properties:
+                apiVersion:
+                  description: ApiVersion is the api version of the object with the
+                    injected data.
+                  type: string
+                kind:
+                  description: Kind is the kind of the object with the injected data.
+                  type: string
+                name:
+                  description: Name is the name of the object with the injected data.
+                    This always lives in the same namespace as the AccessTokenSecret
+                    object.
+                  type: string
+              required:
+              - apiVersion
+              - kind
+              - name
+              type: object
+          required:
+          - linkedAccessTokenName
+          - oAuthUrl
+          - phase
+          - syncedObjectRef
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206100727.spiaccesstokendataupdates.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessTokenDataUpdate
+    listKind: SPIAccessTokenDataUpdateList
+    plural: spiaccesstokendataupdates
+    singular: spiaccesstokendataupdate
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      description: SPIAccessTokenDataUpdate is a special CRD that advertises to the
+        controller in the Kubernetes cluster that there has been an update of the
+        data in the token storage. Because token storage is out-of-cluster, updates
+        to it are not registered by the controllers. This CRD serves as a "trigger"
+        for reconciliation of the SPIAccessToken after the data has been updated in
+        the token storage. The caller that updates the data in the token storage is
+        responsible for creating an object pointing to the SPIAccessToken that should
+        have been affected.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: SPIAccessTokenDataUpdateSpec defines the desired state of SPIAccessTokenDataUpdate
+          properties:
+            tokenName:
+              description: TokenName is the name of the SPIAccessToken object in the
+                same namespace as the update object
+              type: string
+          required:
+          - tokenName
+          type: object
+      required:
+      - spec
+      type: object
+    served: true
+    storage: true
+    subresources: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206100727.spiaccesstokens.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIAccessToken
+    listKind: SPIAccessTokenList
+    plural: spiaccesstokens
+    singular: spiaccesstoken
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      description: SPIAccessToken is the Schema for the spiaccesstokens API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: SPIAccessTokenSpec defines the desired state of SPIAccessToken
+          properties:
+            permissions:
+              description: Permissions is a collection of operator-defined permissions
+                (which are translated to service-provider-specific scopes) and potentially
+                additional service-provider-specific scopes that are not covered by
+                the operator defined abstraction. The permissions are used in SPIAccessTokenBinding
+                objects to express the requirements on the tokens as well as in the
+                SPIAccessToken objects to express the "capabilities" of the token.
+              properties:
+                additionalScopes:
+                  items:
+                    type: string
+                  type: array
+                required:
+                  items:
+                    description: Permission is an element of Permissions and express
+                      a requirement on the service provider scopes in an agnostic
+                      manner.
+                    properties:
+                      area:
+                        description: Area express the "area" in the service provider
+                          scopes to which the permission is required.
+                        type: string
+                      type:
+                        description: Type is the type of the permission required
+                        type: string
+                    required:
+                    - area
+                    - type
+                    type: object
+                  type: array
+              type: object
+            serviceProviderUrl:
+              type: string
+          required:
+          - permissions
+          - serviceProviderUrl
+          type: object
+        status:
+          description: SPIAccessTokenStatus defines the observed state of SPIAccessToken
+          properties:
+            errorMessage:
+              type: string
+            errorReason:
+              description: SPIAccessTokenErrorReason is the enumeration of reasons
+                for the token being invalid
+              type: string
+            oAuthUrl:
+              type: string
+            phase:
+              description: SPIAccessTokenPhase is the reconciliation phase of the
+                SPIAccessToken object
+              type: string
+            tokenMetadata:
+              description: TokenMetadata is data about the token retrieved from the
+                service provider. This data can be used for matching the tokens with
+                the token bindings.
+              properties:
+                lastRefreshTime:
+                  description: LastRefreshTime is the Unix-epoch timestamp of the
+                    last time the metadata has been refreshed from the service provider.
+                    The operator is configured with a TTL for this information and
+                    automatically refreshes the metadata when it is needed but is
+                    found stale.
+                  format: int64
+                  type: integer
+                scopes:
+                  description: Scopes is the list of OAuth scopes that this token
+                    possesses
+                  items:
+                    type: string
+                  type: array
+                serviceProviderState:
+                  description: ServiceProviderState is an opaque state specific to
+                    the service provider. This includes data that the operator uses
+                    during token matching, etc.
+                  format: byte
+                  type: string
+                userId:
+                  description: UserId is the user id in the service provider that
+                    this token impersonates as
+                  type: string
+                username:
+                  description: Username is the username in the service provider that
+                    this token impersonates as
+                  type: string
+              required:
+              - lastRefreshTime
+              type: object
+          required:
+          - errorMessage
+          - errorReason
+          - oAuthUrl
+          - phase
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
