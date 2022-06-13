@@ -214,7 +214,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
 	url := "https://quay.io/api/v1/repository/" + repository
 
-	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil)
+	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
 		return false, nil, err
 	}
@@ -268,7 +268,7 @@ func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token
 	}
 	data := strings.NewReader(`{"description": ` + val + `}`)
 
-	resp, err := doQuayRequest(ctx, cl, url, token, "PUT", data)
+	resp, err := doQuayRequest(ctx, cl, url, token, "PUT", data, "application/json")
 	if err != nil {
 		return false, err
 	}
@@ -300,7 +300,7 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 
 	lg.Info("asking quay API")
 
-	resp, err := doQuayRequest(ctx, cl, url, token, "POST", data)
+	resp, err := doQuayRequest(ctx, cl, url, token, "POST", data, "application/json")
 	if err != nil {
 		return false, err
 	}
@@ -324,7 +324,7 @@ func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, toke
 }
 
 func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token string) (bool, error) {
-	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil)
+	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
 		return false, err
 	}
@@ -335,7 +335,7 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	return resp.StatusCode == 200, nil
 }
 
-func doQuayRequest(ctx context.Context, cl *http.Client, url string, token string, method string, body io.Reader) (*http.Response, error) {
+func doQuayRequest(ctx context.Context, cl *http.Client, url string, token string, method string, body io.Reader, contentHeader string) (*http.Response, error) {
 	lg := log.FromContext(ctx, "url", url)
 
 	lg.Info("asking quay API")
@@ -346,8 +346,8 @@ func doQuayRequest(ctx context.Context, cl *http.Client, url string, token strin
 		return nil, err
 	}
 
-	if body != nil {
-		req.Header.Add("Content-Type", "application/json")
+	if contentHeader != "" {
+		req.Header.Set("Content-Type", contentHeader)
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
