@@ -178,7 +178,7 @@ func TestValidate(t *testing.T) {
 	assert.NotNil(t, res.ScopeValidation[1])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
 	assert.NotNil(t, res.ScopeValidation[2])
-	assert.Equal(t, "scope 'user:read' is not supported", res.ScopeValidation[2].Error())
+	assert.Equal(t, "unsupported scope 'user:read'", res.ScopeValidation[2].Error())
 }
 
 func TestQuay_TranslateToScopes(t *testing.T) {

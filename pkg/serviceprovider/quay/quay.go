@@ -35,6 +35,12 @@ import (
 
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
+var (
+	userRelatedPermissionsNotSupportedError = errors.New("user-related permissions are not supported for Quay")
+	unsupportedScopeError                   = errors.New("unsupported scope")
+	unknownScopeError                       = errors.New("unknown scope")
+)
+
 type Quay struct {
 	Configuration    config.Configuration
 	lookup           serviceprovider.GenericLookup
@@ -74,7 +80,11 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 					repoUrl = "https://" + repoUrl
 				}
 
-				return serviceprovider.RepoHostFromUrl(repoUrl)
+				host, err := serviceprovider.RepoHostFromUrl(repoUrl)
+				if err != nil {
+					return "", fmt.Errorf("failed to parse quay repo as URL: %w", err)
+				}
+				return host, nil
 			}),
 		},
 		httpClient:       factory.HttpClient,
@@ -183,7 +193,7 @@ func translateToQuayScopes(permission api.Permission) []string {
 func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
 
 	if len(tokens) == 0 {
@@ -194,7 +204,10 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 }
 
 func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	return g.lookup.PersistMetadata(ctx, token)
+	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
+		return fmt.Errorf("failed to persiste quay metadata: %w", err)
+	}
+	return nil
 }
 
 func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -210,11 +223,7 @@ func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 	lg := log.FromContext(ctx, "bindingName", binding.Name, "bindingNamespace", binding.Namespace)
 	lg.Info("mapping quay token")
 
-	mapper, err := serviceprovider.DefaultMapToken(token, tokenData)
-	if err != nil {
-		lg.Error(err, "default mapping failed")
-		return serviceprovider.AccessTokenMapper{}, err
-	}
+	mapper := serviceprovider.DefaultMapToken(token, tokenData)
 
 	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
@@ -242,7 +251,7 @@ func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated
 	userPermissionAreaRequested := false
 	for _, p := range validated.Permissions().Required {
 		if p.Area == api.PermissionAreaUser && !userPermissionAreaRequested {
-			ret.ScopeValidation = append(ret.ScopeValidation, errors.New("user-related permissions are not supported for Quay"))
+			ret.ScopeValidation = append(ret.ScopeValidation, userRelatedPermissionsNotSupportedError)
 			userPermissionAreaRequested = true
 		}
 	}
@@ -250,12 +259,12 @@ func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated
 	for _, s := range validated.Permissions().AdditionalScopes {
 		switch Scope(s) {
 		case ScopeUserRead, ScopeUserAdmin:
-			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("scope '%s' is not supported", s))
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w '%s'", unsupportedScopeError, s))
 		case ScopeRepoRead, ScopeRepoWrite, ScopeRepoCreate, ScopeRepoAdmin, ScopeOrgAdmin, ScopePull, ScopePush:
 			{
 			}
 		default:
-			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("unknown scope: '%s'", s))
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unknownScopeError, s))
 		}
 	}
 

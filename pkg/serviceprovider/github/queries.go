@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -74,7 +75,7 @@ type AllAccessibleRepos struct {
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, client *graphql.Client, accessToken string, state *TokenState) error {
 	if accessToken == "" {
-		return sperrors.ServiceProviderError{
+		return sperrors.ServiceProviderHttpError{
 			StatusCode: 401,
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
@@ -111,7 +112,6 @@ func _fetchAll(r *AllAccessibleRepos, ctx context.Context, client *graphql.Clien
 		}
 	})
 	if err != nil {
-
 		lg.Error(err, "Error in FetchAll", "request", request)
 		return err
 	}
@@ -122,7 +122,7 @@ func _fetchAllWithPages(ctx context.Context, client *graphql.Client, req *graphq
 	req.Var("after", nil)
 	for {
 		if err := client.Run(ctx, req, self); err != nil {
-			return err
+			return fmt.Errorf("query failure: %w", err)
 		}
 
 		processSelf()

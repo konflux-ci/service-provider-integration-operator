@@ -17,11 +17,14 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/machinebox/graphql"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -37,6 +40,7 @@ type metadataProvider struct {
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 var githubUserApiEndpoint *url.URL
+var unhandledStatusCode = errors.New("unhandled response from the service provider with status code")
 
 func init() {
 	url, err := url.Parse("https://api.github.com/user")
@@ -49,7 +53,7 @@ func init() {
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while getting token data: %w", err)
 	}
 
 	if data == nil {
@@ -60,7 +64,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 	if err := (&AllAccessibleRepos{}).FetchAll(ctx, s.graphqlClient, data.AccessToken, state); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching repo metadata: %w", err)
 	}
 
 	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
@@ -70,7 +74,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	js, err := json.Marshal(state)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marshalling the state: %w", err)
 	}
 
 	metadata := &api.TokenMetadata{}
@@ -94,13 +98,21 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		},
 	})
 	if err != nil {
+		err = fmt.Errorf("error fetching user and scope info: %w", err)
 		return
 	}
+
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			ctrl.Log.Error(err, "failed to close the response")
+		}
+	}()
 
 	if res.StatusCode != 200 {
 		// this should never happen because our http client should already handle the errors so we return a hard
 		// error that will cause the whole fetch to fail
-		err = fmt.Errorf("unhandled response from the service provider. status code: %d", res.StatusCode)
+		err = fmt.Errorf("%w: %d", unhandledStatusCode, res.StatusCode)
 		return
 	}
 
@@ -115,6 +127,7 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 
 	content := map[string]interface{}{}
 	if err = json.NewDecoder(res.Body).Decode(&content); err != nil {
+		err = fmt.Errorf("error parsing the response from github: %w", err)
 		return
 	}
 

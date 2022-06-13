@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,6 +58,8 @@ const (
 	ScopePush Scope = "push"
 	ScopePull Scope = "pull"
 )
+
+var descriptionNotStringError = errors.New("the repository data 'description' is not a string")
 
 // Implies returns true if the scope implies the other scope. A scope implies itself.
 func (s Scope) Implies(other Scope) bool {
@@ -211,6 +214,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 
 	return rr, nil
 }
+
 func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
 	url := "https://quay.io/api/v1/repository/" + repository
 
@@ -221,6 +225,7 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 	if resp == nil {
 		return false, nil, nil
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		return false, nil, nil
@@ -231,12 +236,12 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		lg.Error(err, "read the response")
-		return false, nil, err
+		return false, nil, fmt.Errorf("failed to read the response from %s: %w", url, err)
 	}
 	data := map[string]interface{}{}
 	if err = json.Unmarshal(bytes, &data); err != nil {
 		lg.Error(err, "failed to read the response as JSON")
-		return false, nil, err
+		return false, nil, fmt.Errorf("failed to unmarshal repo read scope check response: %w", err)
 	}
 
 	descriptionObj, ok := data["description"]
@@ -248,8 +253,8 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 	if descriptionObj != nil {
 		str, ok := descriptionObj.(string)
 		if !ok {
-			lg.Info("the repository data 'description' is not a string")
-			return false, nil, fmt.Errorf("the repository data 'description' is not a string: %v", descriptionObj)
+			lg.Info("the repository data 'description' is not a string", "description", descriptionObj)
+			return false, nil, fmt.Errorf("%w: %v", descriptionNotStringError, descriptionObj)
 		}
 		description = &str
 	}
@@ -275,6 +280,7 @@ func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token
 	if resp == nil {
 		return false, nil
 	}
+	defer resp.Body.Close()
 
 	return resp.StatusCode == 200, nil
 }
@@ -307,6 +313,7 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 	if resp == nil {
 		return false, nil
 	}
+	defer resp.Body.Close()
 
 	// here, we exploit the order of input validation in Quay. The ability to write to a certain namespace is checked
 	// before the validity of the repository name.
@@ -331,6 +338,7 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	if resp == nil {
 		return false, nil
 	}
+	defer resp.Body.Close()
 
 	return resp.StatusCode == 200, nil
 }
@@ -343,14 +351,14 @@ func doQuayRequest(ctx context.Context, cl *http.Client, url string, token strin
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		lg.Error(err, "failed to compose the request")
-		return nil, err
+		return nil, fmt.Errorf("failed to build a request to quay URL %s: %w", url, err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	resp, err := cl.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to perform the request")
-		return nil, err
+		return nil, fmt.Errorf("failed to perform the quay URL request to %s: %w", url, err)
 	}
 
 	return resp, nil

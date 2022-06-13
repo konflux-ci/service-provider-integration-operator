@@ -1,0 +1,23 @@
+# Configuration file for golangci-lint
+
+run:
+  tests: false # don't include test files in the analysis
+  skip-dirs:
+  - integration_tests # don't include the integration tests in the analysis
+
+linters:
+  # this should enable the following linters in addition to the default ones
+  enable:
+    - gosec
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - errchkjson
+    - exportloopref
+    - goerr113
+    - makezero
+    - nilerr
+    - noctx
+    - prealloc
+    - wrapcheck
+    - nolintlint

@@ -17,7 +17,9 @@ package github
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,7 +74,7 @@ func TestCheckPublicRepo(t *testing.T) {
 		t.Run(fmt.Sprintf("code %d => %t", statusCode, expected), func(t *testing.T) {
 			gh := Github{httpClient: httpClientMock{
 				doFunc: func(req *http.Request) (*http.Response, error) {
-					return &http.Response{StatusCode: statusCode}, nil
+					return &http.Response{StatusCode: statusCode, Body: io.NopCloser(strings.NewReader(""))}, nil
 				},
 			}}
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
@@ -261,7 +263,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 	return &Github{
 		httpClient: httpClientMock{
 			doFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: returnCode}, httpErr
+				return &http.Response{StatusCode: returnCode, Body: io.NopCloser(strings.NewReader(""))}, httpErr
 			},
 		},
 		lookup: serviceprovider.GenericLookup{

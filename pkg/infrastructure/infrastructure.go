@@ -15,6 +15,7 @@
 package infrastructure
 
 import (
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,8 +35,9 @@ const (
 
 var (
 	// current is the infrastructure that we're currently running on.
-	current     Type
-	initialized = false
+	current                 Type
+	initialized             = false
+	UnsupportedClusterError = errors.New("running on unsupported cluster")
 )
 
 // Initialize attempts to determine the type of cluster its currently running on (OpenShift or Kubernetes). This function
@@ -47,7 +49,7 @@ func Initialize() error {
 		return err
 	}
 	if current == Unsupported {
-		return fmt.Errorf("running on unsupported cluster")
+		return UnsupportedClusterError
 	}
 	initialized = true
 	return nil

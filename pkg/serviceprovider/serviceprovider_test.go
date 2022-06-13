@@ -53,8 +53,7 @@ func TestGetAllScopesUniqueValues(t *testing.T) {
 
 func TestDefaultMapToken(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		m, err := DefaultMapToken(&api.SPIAccessToken{}, &api.Token{})
-		assert.NoError(t, err)
+		m := DefaultMapToken(&api.SPIAccessToken{}, &api.Token{})
 		assert.Empty(t, m.Token)
 		assert.Empty(t, m.Name)
 		assert.Empty(t, m.Scopes)
@@ -68,7 +67,7 @@ func TestDefaultMapToken(t *testing.T) {
 	})
 
 	t.Run("with data", func(t *testing.T) {
-		m, err := DefaultMapToken(&api.SPIAccessToken{
+		m := DefaultMapToken(&api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "objectname",
 			},
@@ -87,7 +86,6 @@ func TestDefaultMapToken(t *testing.T) {
 			AccessToken: "access token",
 			Expiry:      15,
 		})
-		assert.NoError(t, err)
 		assert.Equal(t, "access token", m.Token)
 		assert.Equal(t, "objectname", m.Name)
 		assert.Equal(t, []string{"a", "b", "c"}, m.Scopes)

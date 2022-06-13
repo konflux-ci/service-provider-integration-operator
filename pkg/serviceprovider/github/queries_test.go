@@ -19,7 +19,6 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -164,5 +163,5 @@ func TestAllAccessibleRepos_fail(t *testing.T) {
 	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(cl)), "access token", ts)
 
 	assert.Error(t, err)
-	assert.True(t, sperrors.IsInvalidAccessToken(err.(*url.Error).Err))
+	assert.True(t, sperrors.IsServiceProviderHttpInvalidAccessToken(err))
 }

@@ -14,6 +14,8 @@
 package oauthstate
 
 import (
+	"fmt"
+
 	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/jwt"
 )
@@ -34,7 +36,7 @@ func NewCodec(signingSecret []byte) (Codec, error) {
 		Key:       signingSecret,
 	}, (&jose.SignerOptions{}).WithType("SPI"))
 	if err != nil {
-		return Codec{}, err
+		return Codec{}, fmt.Errorf("failed to create JWT signer: %w", err)
 	}
 
 	return Codec{
@@ -48,13 +50,20 @@ func NewCodec(signingSecret []byte) (Codec, error) {
 func (s *Codec) ParseInto(state string, dest interface{}) error {
 	token, err := jwt.ParseSigned(state)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse the signed JWT token: %w", err)
 	}
 
-	return token.Claims(s.SigningSecret, dest)
+	if err = token.Claims(s.SigningSecret, dest); err != nil {
+		return fmt.Errorf("failed to extract claims from the token: %w", err)
+	}
+
+	return nil
 }
 
 // Encode encodes the provided state as a signed JWT token
-func (s *Codec) Encode(state interface{}) (string, error) {
-	return jwt.Signed(s.Signer).Claims(state).CompactSerialize()
+func (s *Codec) Encode(state interface{}) (token string, err error) {
+	if token, err = jwt.Signed(s.Signer).Claims(state).CompactSerialize(); err != nil {
+		err = fmt.Errorf("failed to encode signed JWT token: %w", err)
+	}
+	return
 }

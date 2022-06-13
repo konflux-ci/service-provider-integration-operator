@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -54,13 +55,13 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			lg.Info("SPIAccessCheck not found on cluster")
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, NewReconcileError(err, "failed to load the SPIAccessCheck from the cluster")
+		return ctrl.Result{}, fmt.Errorf("failed to load the SPIAccessCheck from the cluster: %w", err)
 	}
 
 	if time.Now().After(ac.ObjectMeta.CreationTimestamp.Add(r.Configuration.AccessCheckTtl)) {
 		lg.Info("SPIAccessCheck is after ttl, deleting ...")
 		if deleteError := r.Delete(ctx, &ac); deleteError != nil {
-			return ctrl.Result{Requeue: true}, deleteError
+			return ctrl.Result{Requeue: true}, fmt.Errorf("error while deleting accesscheck: %w", deleteError)
 		} else {
 			lg.Info("SPIAccessCheck deleted")
 			return ctrl.Result{}, nil
@@ -72,7 +73,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			ac.Status = *status
 		} else {
 			lg.Error(repoCheckErr, "failed to check repository access")
-			return ctrl.Result{}, repoCheckErr
+			return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", repoCheckErr)
 		}
 	} else {
 		lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
@@ -82,7 +83,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if updateErr := r.Client.Status().Update(ctx, &ac); updateErr != nil {
 		lg.Error(updateErr, "Failed to update status")
-		return ctrl.Result{}, updateErr
+		return ctrl.Result{}, fmt.Errorf("failed to update status: %w", updateErr)
 	} else {
 		return ctrl.Result{RequeueAfter: r.Configuration.AccessCheckTtl}, nil
 	}
@@ -90,7 +91,12 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessCheck{}).
 		Complete(r)
+	if err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+	}
+
+	return err
 }

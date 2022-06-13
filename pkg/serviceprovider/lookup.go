@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"sync"
 
@@ -57,7 +58,7 @@ func (f RepoHostParserFunc) Host(url string) (string, error) {
 func RepoHostFromUrl(repoUrl string) (string, error) {
 	parsed, err := url.Parse(repoUrl)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid url: %w", err)
 	}
 
 	return parsed.Host, nil
@@ -72,14 +73,14 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 
 	repoHost, err := l.RepoHostParser.Host(matchable.RepoUrl())
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
 	}
 
 	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
 		api.ServiceProviderTypeLabel: string(l.ServiceProviderType),
 		api.ServiceProviderHostLabel: repoHost,
 	}); err != nil {
-		return result, err
+		return result, fmt.Errorf("failed to list the potentially matching tokens: %w", err)
 	}
 
 	lg.Info("lookup", "potential_matches", len(potentialMatches.Items))
@@ -125,7 +126,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	wg.Wait()
 
 	if len(errs) > 0 {
-		return nil, errors.NewAggregate(errs)
+		return nil, fmt.Errorf("errors while examining the potential matches: %w", errors.NewAggregate(errs))
 	}
 
 	lg.Info("lookup finished", "matching_tokens", len(result))
