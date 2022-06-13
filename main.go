@@ -21,9 +21,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -38,15 +36,13 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	//+kubebuilder:scaffold:imports
 
@@ -80,15 +76,7 @@ func main() {
 
 	flag.Parse()
 
-	opts := crzap.Options{}
-	opts.BindFlags(flag.CommandLine)
-	opts.Development = devmode
-
-	// set everything up such that we can use the same logger in controller runtime zap.L().*
-	logger := crzap.NewRaw(crzap.UseFlagOptions(&opts))
-	_ = zap.ReplaceGlobals(logger)
-	ctrl.SetLogger(zapr.NewLogger(logger))
-
+	logs.InitLoggers(devmode, flag.CommandLine)
 	setupLog := ctrl.Log.WithName("setup")
 
 	if err := config.ValidateEnv(); err != nil {
