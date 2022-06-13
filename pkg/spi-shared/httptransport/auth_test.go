@@ -27,7 +27,7 @@ import (
 func TestAuthenticatingRoundTripper_RoundTrip(t *testing.T) {
 	ctx := WithBearerToken(context.TODO(), "token")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://over.the.rainbow", strings.NewReader(""))
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://over.the.rainbow", strings.NewReader(""))
 	assert.NoError(t, err)
 
 	roundtripProcessed := false

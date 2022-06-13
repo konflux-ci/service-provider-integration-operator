@@ -42,6 +42,11 @@ The image being pushed can again be modified using the environment variable:
 SPIO_IMG=quay.io/acme/spio:42 make docker-push
 ```
 
+### KCP
+We generate `APIResourceSchema`s and `APIExport` for KCP from our CRDs using `./hack/generate-kcp-api.sh` script or `make manifests-kcp`.
+These have to be updated on every CRD change and committed. `APIResourceSchema` is immutable in KCP, so we version it by putting datetime as a name prefix.
+
+
 ## Configuration
 
 It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
