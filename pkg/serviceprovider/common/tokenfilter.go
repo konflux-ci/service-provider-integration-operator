@@ -26,6 +26,6 @@ type tokenFilter struct{}
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
 func (t *tokenFilter) Matches(_ context.Context, _ serviceprovider.Matchable, _ *api.SPIAccessToken) (bool, error) {
-	// Matching is done via hostname in token, so does not need additional matching gere.
+	// Matching is done via hostname in token, so does not need additional matching here.
 	return true, nil
 }

@@ -16,6 +16,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -26,6 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// Common is a unified provider implementation for any URL-based tokens and only supports
+// manual upload of token data. Matching is done only by URL of the provider, so it is possible to have
+// only one token for particular URL in the given namespace.
 type Common struct {
 	Configuration config.Configuration
 	lookup        serviceprovider.GenericLookup
@@ -106,12 +110,13 @@ func (g *Common) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (g *Common) CheckRepositoryAccess(ctx context.Context, _ client.Client, _ *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	log.FromContext(ctx).Info("trying SPIAccessCheck on common.io. This is not supported yet.")
+func (g *Common) CheckRepositoryAccess(ctx context.Context, _ client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	repoUrl := accessCheck.Spec.RepoUrl
+	log.FromContext(ctx).Info(fmt.Sprintf("%s is a generic service provider. Access check for generic service providers is not supported.", repoUrl))
 	return &api.SPIAccessCheckStatus{
 		Accessibility: api.SPIAccessCheckAccessibilityUnknown,
 		ErrorReason:   api.SPIAccessCheckErrorNotImplemented,
-		ErrorMessage:  "Access check for common.io is not implemented.",
+		ErrorMessage:  "Access check for generic provider is not implemented.",
 	}, nil
 }
 
