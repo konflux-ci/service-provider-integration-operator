@@ -210,19 +210,6 @@ func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validat
 	return ret, nil
 }
 
-//
-//func (g *Github) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
-//	token, tsErr := g.tokenStorage.Get(ctx, spiToken)
-//	if tsErr != nil {
-//		lg := log.FromContext(ctx)
-//		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
-//		return nil, tsErr
-//	}
-//	ctx = context.WithValue(context.TODO(), oauth2.HTTPClient, g.httpClient)
-//	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
-//	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
-//}
-
 func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)

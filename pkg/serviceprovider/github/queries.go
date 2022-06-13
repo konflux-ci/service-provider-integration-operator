@@ -28,7 +28,6 @@ import (
 type AllAccessibleRepos struct {
 	Viewer struct {
 		Repositories struct {
-			//PageInfo PageInfo `json:"pageInfo"`
 			Nodes []struct {
 				ViewerPermission string `json:"viewerPermission"`
 				Url              string `json:"url"`
