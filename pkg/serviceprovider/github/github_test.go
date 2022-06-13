@@ -15,13 +15,16 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -258,12 +261,23 @@ func TestValidate(t *testing.T) {
 
 func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
-	return &Github{
-		httpClient: httpClientMock{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: returnCode}, httpErr
-			},
-		},
+	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
+		return &api.Token{AccessToken: "blabol"}
+	}}
+
+	mockedHTTPClient := &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: returnCode,
+				Header:     http.Header{},
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "error"}`))),
+				Request:    r,
+			}, httpErr
+		}),
+	}
+
+	return &Github{httpClient: mockedHTTPClient,
+
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
 			MetadataCache:       &metadataCache,
@@ -274,9 +288,11 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 			},
 			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
 		},
-		tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
-			return &api.Token{AccessToken: "blabol"}
-		}},
+		tokenStorage: ts,
+		ghClientBuilder: githubClientBuilder{
+			httpClient:   mockedHTTPClient,
+			tokenStorage: ts,
+		},
 	}
 }
 
