@@ -60,7 +60,7 @@ type IntegrationTest struct {
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
 	TestServiceProvider      TestServiceProvider
-	CommonServiceProvider    CommonServiceProvider
+	CommonServiceProvider    TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
 }
 
@@ -146,6 +146,11 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
+	ITest.CommonServiceProvider = TestServiceProvider{
+		GetTypeImpl: func() api.ServiceProviderType {
+			return "CommonServiceProvider"
+		},
+	}
 
 	operatorCfg := config.Configuration{
 		ServiceProviders: []config.ServiceProviderConfiguration{
