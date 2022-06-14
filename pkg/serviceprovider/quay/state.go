@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/rest"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -335,7 +337,7 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	return resp.StatusCode == 200, nil
 }
 
-func doQuayRequest(ctx context.Context, cl *http.Client, url string, token string, method string, body io.Reader, contentHeader string) (*http.Response, error) {
+func doQuayRequest(ctx context.Context, cl rest.HTTPClient, url string, token string, method string, body io.Reader, contentHeader string) (*http.Response, error) {
 	lg := log.FromContext(ctx, "url", url)
 
 	lg.Info("asking quay API")
@@ -349,7 +351,9 @@ func doQuayRequest(ctx context.Context, cl *http.Client, url string, token strin
 	if contentHeader != "" {
 		req.Header.Set("Content-Type", contentHeader)
 	}
-	req.Header.Add("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
+	}
 	resp, err := cl.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to perform the request")
