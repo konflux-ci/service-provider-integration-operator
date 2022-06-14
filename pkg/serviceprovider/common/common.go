@@ -17,8 +17,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -49,15 +47,8 @@ func newCommon(factory *serviceprovider.Factory, repoUrl string) (serviceprovide
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeCommon,
 			TokenFilter:         &tokenFilter{},
-			RepoHostParser: serviceprovider.RepoHostParserFunc(func(repoUrl string) (string, error) {
-				schemeIndex := strings.Index(repoUrl, "://")
-				if schemeIndex == -1 {
-					repoUrl = "https://" + repoUrl
-				}
-
-				return serviceprovider.RepoHostFromUrl(repoUrl)
-			}),
-			MetadataCache: &cache,
+			RepoHostParser:      serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromSchemelessUrl),
+			MetadataCache:       &cache,
 			MetadataProvider: &metadataProvider{
 				tokenStorage: factory.TokenStorage,
 			},

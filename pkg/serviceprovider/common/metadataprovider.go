@@ -40,7 +40,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	}
 
 	if data == nil {
-		return nil, err
+		return nil, nil
 	}
 	metadata := token.Status.TokenMetadata
 	if metadata == nil {
