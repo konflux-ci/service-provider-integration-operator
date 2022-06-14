@@ -22,12 +22,9 @@ import (
 	"os"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
