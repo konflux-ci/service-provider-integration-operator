@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package hostcredentials
 
 import (
 	"context"
@@ -26,10 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Common is a unified provider implementation for any URL-based tokens and only supports
+// HostCredentialsProvider is a unified provider implementation for any URL-based tokens and only supports
 // manual upload of token data. Matching is done only by URL of the provider, so it is possible to have
 // only one token for particular URL in the given namespace.
-type Common struct {
+type HostCredentialsProvider struct {
 	Configuration config.Configuration
 	lookup        serviceprovider.GenericLookup
 	httpClient    rest.HTTPClient
@@ -37,13 +37,13 @@ type Common struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Constructor: serviceprovider.ConstructorFunc(newCommon),
+	Constructor: serviceprovider.ConstructorFunc(newHostCredentialsProvider),
 }
 
-func newCommon(factory *serviceprovider.Factory, repoUrl string) (serviceprovider.ServiceProvider, error) {
+func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string) (serviceprovider.ServiceProvider, error) {
 
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
-	return &Common{
+	return &HostCredentialsProvider{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeCommon,
@@ -59,13 +59,13 @@ func newCommon(factory *serviceprovider.Factory, repoUrl string) (serviceprovide
 	}, nil
 }
 
-var _ serviceprovider.ConstructorFunc = newCommon
+var _ serviceprovider.ConstructorFunc = newHostCredentialsProvider
 
-func (g *Common) GetOAuthEndpoint() string {
+func (g *HostCredentialsProvider) GetOAuthEndpoint() string {
 	return ""
 }
 
-func (g *Common) GetBaseUrl() string {
+func (g *HostCredentialsProvider) GetBaseUrl() string {
 	base, err := serviceprovider.GetHostWithScheme(g.repoUrl)
 	if err != nil {
 		return ""
@@ -73,15 +73,15 @@ func (g *Common) GetBaseUrl() string {
 	return base
 }
 
-func (g *Common) GetType() api.ServiceProviderType {
+func (g *HostCredentialsProvider) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeCommon
 }
 
-func (g *Common) TranslateToScopes(_ api.Permission) []string {
+func (g *HostCredentialsProvider) TranslateToScopes(_ api.Permission) []string {
 	return []string{}
 }
 
-func (g *Common) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+func (g *HostCredentialsProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, err
@@ -94,15 +94,15 @@ func (g *Common) LookupToken(ctx context.Context, cl client.Client, binding *api
 	return &tokens[0], nil
 }
 
-func (g *Common) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
+func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	return g.lookup.PersistMetadata(ctx, token)
 }
 
-func (g *Common) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
+func (g *HostCredentialsProvider) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
 	return serviceprovider.GetHostWithScheme(repoUrl)
 }
 
-func (g *Common) CheckRepositoryAccess(ctx context.Context, _ client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+func (g *HostCredentialsProvider) CheckRepositoryAccess(ctx context.Context, _ client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	repoUrl := accessCheck.Spec.RepoUrl
 	log.FromContext(ctx).Info(fmt.Sprintf("%s is a generic service provider. Access check for generic service providers is not supported.", repoUrl))
 	return &api.SPIAccessCheckStatus{
@@ -112,10 +112,10 @@ func (g *Common) CheckRepositoryAccess(ctx context.Context, _ client.Client, acc
 	}, nil
 }
 
-func (g *Common) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+func (g *HostCredentialsProvider) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	return serviceprovider.DefaultMapToken(token, tokenData)
 }
 
-func (g *Common) Validate(_ context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+func (g *HostCredentialsProvider) Validate(_ context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 	return serviceprovider.ValidationResult{}, nil
 }

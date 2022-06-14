@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package hostcredentials
 
 import (
 	"context"
@@ -26,13 +26,13 @@ import (
 func TestGetBaseUrl(t *testing.T) {
 	repoURLs := map[string]string{"https://snyk.io/": "https://snyk.io", "https://testing.io/foo/bar?a=b": "https://testing.io"}
 	for input, expected := range repoURLs {
-		common := &Common{repoUrl: input}
+		common := &HostCredentialsProvider{repoUrl: input}
 		assert.Equal(t, expected, common.GetBaseUrl())
 	}
 }
 
 func TestMapToken(t *testing.T) {
-	common := &Common{}
+	common := &HostCredentialsProvider{}
 	mapper, err := common.MapToken(context.TODO(), &api.SPIAccessTokenBinding{},
 		&api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{

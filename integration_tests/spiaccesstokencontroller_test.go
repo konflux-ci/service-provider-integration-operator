@@ -354,7 +354,7 @@ var _ = Describe("Phase", func() {
 				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 				g.Expect(token.Status.ErrorReason).To(BeEmpty())
 				g.Expect(token.Status.ErrorMessage).To(BeEmpty())
-				g.Expect(token.Labels[api.ServiceProviderTypeLabel]).To(Equal("CommonServiceProvider"))
+				g.Expect(token.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
 			}).Should(Succeed())
 		})
 	})

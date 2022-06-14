@@ -111,9 +111,9 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
-	commonInitializer := f.Initializers[config.ServiceProviderTypeCommon]
-	commonConstructor := commonInitializer.Constructor
-	return commonConstructor.Construct(f, repoUrl)
+	hostCredentialsInitializer := f.Initializers[config.ServiceProviderTypeHostCredentials]
+	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
+	return hostCredentialsConstructor.Construct(f, repoUrl)
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
