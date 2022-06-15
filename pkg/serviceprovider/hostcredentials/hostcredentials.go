@@ -46,7 +46,7 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string
 	return &HostCredentialsProvider{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeCommon,
+			ServiceProviderType: api.ServiceProviderTypeHostCredentials,
 			TokenFilter:         &tokenFilter{},
 			RepoHostParser:      serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromSchemelessUrl),
 			MetadataCache:       &cache,
@@ -74,7 +74,7 @@ func (g *HostCredentialsProvider) GetBaseUrl() string {
 }
 
 func (g *HostCredentialsProvider) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeCommon
+	return api.ServiceProviderTypeHostCredentials
 }
 
 func (g *HostCredentialsProvider) TranslateToScopes(_ api.Permission) []string {

@@ -251,7 +251,45 @@ The currently supported list of providers and token kinds is following:
   - OAuth token via user authentication flow
   - Robot account credentials via manual upload
 
-### Snyk & other providers not supporting OAuth
+### Snyk & other providers that not supporting OAuth
 
  - Manual credentials upload only with both username and token required.
    Single token per namespace per host is stored.
+   See details below.
+
+
+## Storing username and password credentials for any provider by it's URL
+
+  It is now possible to store username + token/password credentials for nearly any
+  provider that may offer them (like Snyk.io etc). It is can be done in a few steps:
+  
+ - Create simple SPIAccessTokenBinging, indicating provider-s URL only:
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+ name: test-access-token-binding
+ namespace: default
+spec:
+ repoUrl: https://snyk.io/
+ secret:
+   type: kubernetes.io/basic-auth
+```
+and push it into namespace:
+```
+kubectl apply -f samples/spiaccesstokenbinding.yaml --as system:serviceaccount:default:default
+```
+
+ - Determine the SPIAccessTokenName:
+ ```
+SPI_ACCESS_TOKEN=$(kubectl get spiaccesstokenbindings test-access-token-binding -o=jsonpath='{.status.linkedAccessTokenName}')
+```
+
+
+ - Perform manual push of the credential data: 
+```
+curl -k -v -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(hack/get-default-sa-token.sh)" -d'{"username": "userfoo", "access_token": "4R28N79MT"}' "http://<cluster-host-or-ip>/token/default/$SPI_ACCESS_TOKEN"
+```
+
+Note that both `username` and `access_token` fields are mandatory. 
+`204` response indicates that credentials succesfully uploaded and stored.

@@ -80,9 +80,9 @@ type Permissions struct {
 type ServiceProviderType string
 
 const (
-	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
-	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
-	ServiceProviderTypeCommon ServiceProviderType = "Common"
+	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
+	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
+	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
 
 // Permission is an element of Permissions and express a requirement on the service provider scopes in an agnostic
