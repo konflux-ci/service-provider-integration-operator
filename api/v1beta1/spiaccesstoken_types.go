@@ -29,7 +29,7 @@ const (
 
 // SPIAccessTokenSpec defines the desired state of SPIAccessToken
 type SPIAccessTokenSpec struct {
-	Permissions Permissions `json:"permissions"`
+	Permissions Permissions `json:"permissions,omitempty"`
 	//+kubebuilder:validation:Required
 	ServiceProviderUrl string `json:"serviceProviderUrl"`
 }
@@ -80,8 +80,9 @@ type Permissions struct {
 type ServiceProviderType string
 
 const (
-	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
-	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
+	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
+	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
+	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
 
 // Permission is an element of Permissions and express a requirement on the service provider scopes in an agnostic

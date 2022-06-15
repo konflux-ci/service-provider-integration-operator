@@ -262,6 +262,10 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 	if err != nil {
 		return "", err
 	}
+	oauthBaseUrl := sp.GetOAuthEndpoint()
+	if len(oauthBaseUrl) == 0 {
+		return "", nil
+	}
 
 	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
 	if err != nil {
@@ -280,7 +284,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		return "", NewReconcileError(err, "failed to encode the OAuth state")
 	}
 
-	return sp.GetOAuthEndpoint() + "?state=" + state, nil
+	return oauthBaseUrl + "?state=" + state, nil
 }
 
 type linkedBindingsFinalizer struct {

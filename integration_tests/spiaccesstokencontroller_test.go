@@ -19,6 +19,8 @@ import (
 	stderrors "errors"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -28,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -326,7 +327,7 @@ var _ = Describe("Phase", func() {
 		})
 	})
 
-	Context("with invalid SP url", func() {
+	Context("returns common provider with random SP url", func() {
 		BeforeEach(func() {
 			ITest.TestServiceProvider.Reset()
 
@@ -346,13 +347,14 @@ var _ = Describe("Phase", func() {
 			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
 		})
 
-		It("flips to Error due to invalid SP url", func() {
+		It("defaults to AwaitingTokenData with common type", func() {
 			Eventually(func(g Gomega) {
 				token := &api.SPIAccessToken{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseError))
-				g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnknownServiceProvider))
-				g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
+				g.Expect(token.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+				g.Expect(token.Status.ErrorReason).To(BeEmpty())
+				g.Expect(token.Status.ErrorMessage).To(BeEmpty())
+				g.Expect(token.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
 			}).Should(Succeed())
 		})
 	})
