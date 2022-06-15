@@ -16,11 +16,9 @@ package quay
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -214,79 +212,85 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		Accessible:      false,
 	}
 
-	owner, repo, err := q.parseQuayRepoUrl(accessCheck.Spec.RepoUrl)
-	if err != nil {
+	lg := log.FromContext(ctx)
+
+	owner, repository, _ := splitToOrganizationAndRepositoryAndVersion(accessCheck.Spec.RepoUrl)
+	if owner == "" || repository == "" {
+		err := fmt.Errorf("parsing quay.io url failed")
+		lg.Error(err, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = err.Error()
 		return status, nil
 	}
 
-	lg := log.FromContext(ctx)
-
 	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
+		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorMessage = lookupErr.Error()
 		return status, lookupErr
 	}
 
 	token := ""
 	if len(tokens) > 0 {
-		lg.Info("found tokens", "cnt", len(tokens), "1st token", tokens[0])
+		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
 		if apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0]); getTokenErr == nil {
 			token = apiToken.AccessToken
 		} else {
-			return nil, getTokenErr
+			return status, getTokenErr
 		}
 	} else {
-		lg.Info("we have no tokens for repository", "repo", accessCheck.Spec.RepoUrl)
+		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
 	}
 
-	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiUrlBase, owner, repo)
-	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, ""); err != nil {
-		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
-		return nil, err
-	} else if resp.StatusCode == http.StatusOK {
-		status.Accessible = true
-
-		defer resp.Body.Close()
-
-		var j map[string]interface{}
-		err = json.NewDecoder(resp.Body).Decode(&j)
-		if err != nil {
-			return nil, err
-		}
-		if j["is_public"].(bool) {
-			status.Accessibility = api.SPIAccessCheckAccessibilityPublic
-		} else {
-			status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
-		}
-		lg.Info("received ok response for quay repo", "body", j)
-	} else if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
-	} else if resp.StatusCode == http.StatusNotFound {
-		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
-		status.ErrorMessage = "repository does not exist"
+	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {
+		return status, err
 	} else {
-		return nil, fmt.Errorf("unexpected return code '%d' for quay.io repository request '%s'", resp.StatusCode, accessCheck.Spec.RepoUrl)
+		switch responseCode {
+		case http.StatusOK:
+			status.Accessible = true
+			if repoInfo["is_public"].(bool) {
+				status.Accessibility = api.SPIAccessCheckAccessibilityPublic
+			} else {
+				status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+			}
+		case http.StatusUnauthorized | http.StatusForbidden:
+			lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
+		case http.StatusNotFound:
+			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+			status.ErrorMessage = "repository does not exist"
+		default:
+			return status, fmt.Errorf("unexpected return code '%d' for quay.io repository request '%s'", responseCode, accessCheck.Spec.RepoUrl)
+		}
 	}
 
 	return status, nil
 }
 
-func (q *Quay) parseQuayRepoUrl(repoUrl string) (string, string, error) {
-	if !strings.HasPrefix(repoUrl, "http") {
-		repoUrl = "https://" + repoUrl
-	}
-	parsedUrl, parseErr := url.Parse(repoUrl)
-	if parseErr != nil {
-		return "", "", parseErr
-	}
+func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
+	lg := log.FromContext(ctx)
 
-	splittedPath := strings.Split(parsedUrl.Path, "/")
-	if len(splittedPath) < 2 {
-		return "", "", fmt.Errorf("unexpected quay url")
+	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiUrlBase, owner, repository)
+	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, ""); err != nil {
+		lg.Error(err, "failed to request quay.io api for repository info", "url", requestUrl)
+		code := 0
+		if resp != nil {
+			code = resp.StatusCode
+		}
+		return code, nil, err
+	} else if resp != nil && resp.StatusCode == http.StatusOK {
+		jsonResponse, jsonErr := readResponseBodyToJsonMap(resp)
+		if jsonErr != nil {
+			return resp.StatusCode, nil, jsonErr
+		}
+		return resp.StatusCode, jsonResponse, nil
+	} else {
+		if resp != nil {
+			return resp.StatusCode, nil, nil
+		} else {
+			return 0, nil, fmt.Errorf("no response for request '%s'", requestUrl)
+		}
 	}
-	return splittedPath[len(splittedPath)-2], splittedPath[len(splittedPath)-1], nil
 }
 
 func (q *Quay) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck, owner string, repository string) (bool, error) {

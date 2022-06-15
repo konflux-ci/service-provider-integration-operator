@@ -19,8 +19,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -249,6 +251,52 @@ func TestQuay_TranslateToScopes(t *testing.T) {
 	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoMR))
 	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoMW))
 	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoMRW))
+}
+
+func TestRequestRepoInfo(t *testing.T) {
+	test := func(name string, responseFn func(req *http.Request) (*http.Response, error), expectedCode int, expectedJson map[string]interface{}, expectedError bool) {
+		q := &Quay{
+			httpClient: httpClientMock{doFunc: responseFn},
+		}
+		t.Run(name, func(t *testing.T) {
+			responseCode, responseJson, err := q.requestRepoInfo(context.TODO(), "redhat-appstudio", "service-provider-integration-operator", "")
+			assert.Equal(t, expectedCode, responseCode)
+			assert.Equal(t, expectedJson, responseJson)
+			if expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
+	test("forbidden access", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusForbidden, Body: nil}, nil
+	}, http.StatusForbidden, nil, false)
+
+	test("ok response but empty body", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: nil}, nil
+	}, http.StatusOK, nil, true)
+
+	test("response body is not valid json", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("this does not look like json"))}, nil
+	}, http.StatusOK, nil, true)
+
+	test("ok response with json", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{\"blabol\": \"ano prosim\"}"))}, nil
+	}, http.StatusOK, map[string]interface{}{"blabol": "ano prosim"}, false)
+
+	test("error response", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusInternalServerError}, fmt.Errorf("fatal failure")
+	}, http.StatusInternalServerError, nil, true)
+
+	test("no response no error", func(req *http.Request) (*http.Response, error) {
+		return nil, nil
+	}, 0, nil, true)
+
+	test("no response yes error", func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("fatal failure")
+	}, 0, nil, true)
 }
 
 type httpClientMock struct {
