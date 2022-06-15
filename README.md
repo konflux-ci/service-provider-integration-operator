@@ -293,3 +293,5 @@ curl -k -v -X POST -H "Content-Type: application/json" -H "Authorization: Bearer
 
 Note that both `username` and `access_token` fields are mandatory. 
 `204` response indicates that credentials successfully uploaded and stored.
+Please note that SPI service didn't perform any specific validity checks 
+for the user provided credentials, so it's assumed user provides a correct data.  
