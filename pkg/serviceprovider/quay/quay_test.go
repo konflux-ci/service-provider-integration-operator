@@ -41,8 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
-
 func TestMain(m *testing.M) {
 	logs.InitLoggers(true, flag.CommandLine)
 	os.Exit(m.Run())
