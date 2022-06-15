@@ -36,6 +36,9 @@ type HostCredentialsProvider struct {
 	repoUrl       string
 }
 
+// Note that given provider doesn't have any kind of probes, since it is used
+// as a fallback solution when no other specific providers matches by their known URL.
+
 var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newHostCredentialsProvider),
 }
