@@ -251,7 +251,7 @@ The currently supported list of providers and token kinds is following:
   - OAuth token via user authentication flow
   - Robot account credentials via manual upload
 
-### Snyk & other providers that not supporting OAuth
+### Snyk & other providers that do not support OAuth
 
  - Manual credentials upload only with both username and token required.
    Single token per namespace per host is stored.
@@ -288,8 +288,8 @@ SPI_ACCESS_TOKEN=$(kubectl get spiaccesstokenbindings test-access-token-binding 
 
  - Perform manual push of the credential data: 
 ```
-curl -k -v -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(hack/get-default-sa-token.sh)" -d'{"username": "userfoo", "access_token": "4R28N79MT"}' "http://<cluster-host-or-ip>/token/default/$SPI_ACCESS_TOKEN"
+curl -k -v -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(hack/get-default-sa-token.sh)" -d'{"username": "userfoo", "access_token": "4R28N79MT"}' "https://<cluster-host-or-ip>/token/default/$SPI_ACCESS_TOKEN"
 ```
 
 Note that both `username` and `access_token` fields are mandatory. 
-`204` response indicates that credentials succesfully uploaded and stored.
+`204` response indicates that credentials successfully uploaded and stored.
