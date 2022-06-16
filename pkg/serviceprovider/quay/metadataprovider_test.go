@@ -317,6 +317,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T) {
 
 	t.Run("fetch from cache", func(t *testing.T) {
+		//ServiceProviderState in an old format that doesn't contain TokenState.Repositories or TokenState.Organizations maps
 		rawDecodedText, err := base64.StdEncoding.DecodeString("eyJBY2Nlc3NpYmxlUmVwb3MiOnt9LCJSZW1vdGVVc2VybmFtZSI6InNidWRod2FyIn0=")
 		assert.NoError(t, err)
 
