@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -111,9 +112,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
-	hostCredentialsInitializer := f.Initializers[config.ServiceProviderTypeHostCredentials]
-	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	return hostCredentialsConstructor.Construct(f, repoUrl)
+	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {

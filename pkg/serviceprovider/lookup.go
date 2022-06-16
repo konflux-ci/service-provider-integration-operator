@@ -17,7 +17,6 @@ package serviceprovider
 import (
 	"context"
 	"net/url"
-	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -53,14 +52,6 @@ type RepoHostParserFunc func(repoUrl string) (string, error)
 
 func (f RepoHostParserFunc) Host(url string) (string, error) {
 	return f(url)
-}
-
-func RepoHostFromSchemelessUrl(repoUrl string) (string, error) {
-	schemeIndex := strings.Index(repoUrl, "://")
-	if schemeIndex == -1 {
-		repoUrl = "https://" + repoUrl
-	}
-	return RepoHostFromUrl(repoUrl)
 }
 
 func RepoHostFromUrl(repoUrl string) (string, error) {
