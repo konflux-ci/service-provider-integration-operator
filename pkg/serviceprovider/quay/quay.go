@@ -68,7 +68,14 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 			},
 			MetadataProvider: mp,
 			MetadataCache:    &cache,
-			RepoHostParser:   serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromSchemelessUrl),
+			RepoHostParser: serviceprovider.RepoHostParserFunc(func(repoUrl string) (string, error) {
+				schemeIndex := strings.Index(repoUrl, "://")
+				if schemeIndex == -1 {
+					repoUrl = "https://" + repoUrl
+				}
+
+				return serviceprovider.RepoHostFromUrl(repoUrl)
+			}),
 		},
 		httpClient:       factory.HttpClient,
 		metadataProvider: mp,
