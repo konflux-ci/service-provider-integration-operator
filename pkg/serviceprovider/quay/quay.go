@@ -89,7 +89,7 @@ func (g *Quay) GetOAuthEndpoint() string {
 }
 
 func (g *Quay) GetBaseUrl() string {
-	return "https://quay.io"
+	return quayUrlBase
 }
 
 func (g *Quay) GetType() api.ServiceProviderType {
@@ -210,7 +210,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	owner, repository, _ := splitToOrganizationAndRepositoryAndVersion(accessCheck.Spec.RepoUrl)
 	if owner == "" || repository == "" {
 		err := fmt.Errorf("parsing quay.io url failed")
-		lg.Error(err, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", accessCheck.Spec.RepoUrl)
+		lg.Error(err, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = err.Error()
 		return status, nil
@@ -237,6 +237,8 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	}
 
 	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorMessage = "failed request to Quay API"
 		return status, err
 	} else {
 		switch responseCode {
@@ -247,12 +249,14 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 			} else {
 				status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 			}
-		case http.StatusUnauthorized | http.StatusForbidden:
+		case http.StatusUnauthorized, http.StatusForbidden:
 			lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
 		case http.StatusNotFound:
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = "repository does not exist"
 		default:
+			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+			status.ErrorMessage = "unexpected response from Quay API"
 			return status, fmt.Errorf("unexpected return code '%d' for quay.io repository request '%s'", responseCode, accessCheck.Spec.RepoUrl)
 		}
 	}
@@ -364,8 +368,8 @@ type quayProbe struct{}
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
 func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, "https://quay.io") || strings.HasPrefix(url, "quay.io") {
-		return "https://quay.io", nil
+	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, "quay.io") {
+		return quayUrlBase, nil
 	} else {
 		return "", nil
 	}
