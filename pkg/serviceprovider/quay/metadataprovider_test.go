@@ -399,7 +399,7 @@ func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T)
 
 		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
 		assert.NoError(t, err)
-		
+
 		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
 		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
 	})
