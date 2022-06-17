@@ -292,30 +292,3 @@ func TestSplitToOrganizationAndRepositoryAndVersion(t *testing.T) {
 		})
 	}
 }
-
-func TestDoQuayRequest(t *testing.T) {
-	test := func(url, token, method, body, header string) {
-		httpClient := http.Client{
-			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.String() == url {
-					assert.Equal(t, "Bearer "+token, r.Header.Get("Authorization"))
-					assert.Equal(t, header, r.Header.Get("Content-Type"))
-					assert.Equal(t, method, r.Method)
-					return &http.Response{StatusCode: 200}, nil
-				}
-				assert.Fail(t, "unexpected request", "url", r.URL)
-				return nil, nil
-			}),
-		}
-		resp, err := doQuayRequest(context.TODO(), &httpClient, url, token, method, strings.NewReader(body), header)
-		assert.NoError(t, err)
-		assert.Equal(t, 200, resp.StatusCode)
-	}
-
-	t.Run("empty header", func(t *testing.T) {
-		test("http://test.com", "token", "GET", "body", "")
-	})
-	t.Run("application/json header", func(t *testing.T) {
-		test("http://test.com/123", "token123", "POST", "body123", "application/json ")
-	})
-}

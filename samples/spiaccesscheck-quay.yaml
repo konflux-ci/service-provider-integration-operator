@@ -1,0 +1,20 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessCheck
+metadata:
+  name: spiaccesscheck-sample-public
+spec:
+  repoUrl: "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
+---
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessCheck
+metadata:
+  name: spiaccesscheck-sample-private
+spec:
+  repoUrl: "https://quay.io/repository/redhat_emp1/spi-test"
+---
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessCheck
+metadata:
+  name: spiaccesscheck-sample-bad
+spec:
+  repoUrl: "quay.io"

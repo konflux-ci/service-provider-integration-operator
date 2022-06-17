@@ -293,7 +293,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 					return true, nil
 				},
 			},
-			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
+			RepoHostParser: serviceprovider.RepoHostFromUrl,
 		},
 		tokenStorage: ts,
 		ghClientBuilder: githubClientBuilder{

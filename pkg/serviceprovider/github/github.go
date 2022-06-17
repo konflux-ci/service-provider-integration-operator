@@ -69,7 +69,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 				ghClientBuilder: ghClientBuilder,
 			},
 			MetadataCache:  &cache,
-			RepoHostParser: serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromUrl),
+			RepoHostParser: serviceprovider.RepoHostFromUrl,
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,

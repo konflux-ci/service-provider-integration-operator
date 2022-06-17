@@ -44,15 +44,7 @@ type GenericLookup struct {
 	RepoHostParser RepoHostParser
 }
 
-type RepoHostParser interface {
-	Host(url string) (string, error)
-}
-
-type RepoHostParserFunc func(repoUrl string) (string, error)
-
-func (f RepoHostParserFunc) Host(url string) (string, error) {
-	return f(url)
-}
+type RepoHostParser func(url string) (string, error)
 
 func RepoHostFromUrl(repoUrl string) (string, error) {
 	parsed, err := url.Parse(repoUrl)
@@ -70,7 +62,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 
 	potentialMatches := &api.SPIAccessTokenList{}
 
-	repoHost, err := l.RepoHostParser.Host(matchable.RepoUrl())
+	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
 	if err != nil {
 		return result, err
 	}
