@@ -91,7 +91,7 @@ func TestGenericLookup_Lookup(t *testing.T) {
 			}, nil
 		}),
 		MetadataCache:  &cache,
-		RepoHostParser: RepoHostParserFunc(RepoHostFromUrl),
+		RepoHostParser: RepoHostFromUrl,
 	}
 
 	tkns, err := gl.Lookup(context.TODO(), cl, &api.SPIAccessTokenBinding{
@@ -130,7 +130,7 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 			}, nil
 		}),
 		MetadataCache:  &cache,
-		RepoHostParser: RepoHostParserFunc(RepoHostFromUrl),
+		RepoHostParser: RepoHostFromUrl,
 	}
 
 	assert.NoError(t, gl.PersistMetadata(context.TODO(), token))

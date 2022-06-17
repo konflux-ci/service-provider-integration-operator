@@ -305,17 +305,13 @@ func TestRequestRepoInfo(t *testing.T) {
 const publicRepoResponseJson = "{\"is_public\": true}"
 const privateRepoResponseJson = "{\"is_public\": false}"
 
-func RepoHostFromSchemelessUrl(repoUrl string) (string, error) {
-	return serviceprovider.RepoHostFromSchemelessUrl(repoUrl)
-}
-
 func TestCheckRepositoryAccessPublic(t *testing.T) {
 	quay := &Quay{
 		httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
 		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: serviceprovider.RepoHostParserFunc(RepoHostFromSchemelessUrl),
+			RepoHostParser: serviceprovider.RepoHostFromSchemelessUrl,
 		},
 	}
 	k8sClient := mockK8sClient()
@@ -365,7 +361,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      serviceprovider.RepoHostParserFunc(RepoHostFromSchemelessUrl),
+		RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		ServiceProviderType: api.ServiceProviderTypeQuay,
 		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{

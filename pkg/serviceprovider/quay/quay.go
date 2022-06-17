@@ -74,7 +74,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 			},
 			MetadataProvider: mp,
 			MetadataCache:    &cache,
-			RepoHostParser:   serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromSchemelessUrl),
+			RepoHostParser:   serviceprovider.RepoHostFromSchemelessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,

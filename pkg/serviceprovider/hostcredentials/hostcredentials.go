@@ -51,7 +51,7 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeHostCredentials,
 			TokenFilter:         &tokenFilter{},
-			RepoHostParser:      serviceprovider.RepoHostParserFunc(serviceprovider.RepoHostFromSchemelessUrl),
+			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 			MetadataCache:       &cache,
 			MetadataProvider: &metadataProvider{
 				tokenStorage: factory.TokenStorage,
