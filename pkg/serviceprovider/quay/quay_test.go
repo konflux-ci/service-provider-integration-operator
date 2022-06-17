@@ -311,7 +311,7 @@ func TestCheckRepositoryAccessPublic(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
 		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: RepoHostFromSchemelessUrl,
+			RepoHostParser: repoHostFromSchemelessUrl,
 		},
 	}
 	k8sClient := mockK8sClient()
@@ -361,7 +361,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      RepoHostFromSchemelessUrl,
+		RepoHostParser:      repoHostFromSchemelessUrl,
 		ServiceProviderType: api.ServiceProviderTypeQuay,
 		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{

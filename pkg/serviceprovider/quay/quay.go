@@ -74,7 +74,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 			},
 			MetadataProvider: mp,
 			MetadataCache:    &cache,
-			RepoHostParser:   RepoHostFromSchemelessUrl,
+			RepoHostParser:   repoHostFromSchemelessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
@@ -82,7 +82,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 	}, nil
 }
 
-func RepoHostFromSchemelessUrl(repoUrl string) (string, error) {
+func repoHostFromSchemelessUrl(repoUrl string) (string, error) {
 	schemeIndex := strings.Index(repoUrl, "://")
 	if schemeIndex == -1 {
 		repoUrl = "https://" + repoUrl
