@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -34,7 +36,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
