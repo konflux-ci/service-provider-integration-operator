@@ -17,16 +17,25 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +45,11 @@ import (
 )
 
 const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
+
+func TestMain(m *testing.M) {
+	logs.InitLoggers(true, flag.CommandLine)
+	os.Exit(m.Run())
+}
 
 func TestQuayProbe_Examine(t *testing.T) {
 	probe := quayProbe{}
@@ -54,20 +68,6 @@ func TestQuayProbe_Examine(t *testing.T) {
 	test(t, "https://quay.io/name/repo", true)
 	test(t, "https://github.com/name/repo", false)
 	test(t, "github.com/name/repo", false)
-}
-
-func TestCheckAccessNotImplementedYetError(t *testing.T) {
-	cl := mockK8sClient()
-	quay := mockQuay(cl, http.StatusNotFound, nil)
-	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
-	}
-
-	status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &ac)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, status)
-	assert.Equal(t, api.SPIAccessCheckErrorNotImplemented, status.ErrorReason)
 }
 
 func TestMapToken(t *testing.T) {
@@ -217,12 +217,295 @@ func TestQuay_TranslateToScopes(t *testing.T) {
 	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoMRW))
 }
 
+func TestRequestRepoInfo(t *testing.T) {
+	test := func(name string, responseFn func(req *http.Request) (*http.Response, error), expectedCode int, expectedJson map[string]interface{}, expectedError bool) {
+		q := &Quay{
+			httpClient: httpClientMock{doFunc: responseFn},
+		}
+		t.Run(name, func(t *testing.T) {
+			responseCode, responseJson, err := q.requestRepoInfo(context.TODO(), "redhat-appstudio", "service-provider-integration-operator", "")
+			assert.Equal(t, expectedCode, responseCode)
+			assert.Equal(t, expectedJson, responseJson)
+			if expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
+	test("forbidden access", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusForbidden, Body: nil}, nil
+	}, http.StatusForbidden, nil, false)
+
+	test("ok response but empty body", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: nil}, nil
+	}, http.StatusOK, nil, true)
+
+	test("response body is not valid json", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("this does not look like json"))}, nil
+	}, http.StatusOK, nil, true)
+
+	test("ok response with json", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{\"blabol\": \"ano prosim\"}"))}, nil
+	}, http.StatusOK, map[string]interface{}{"blabol": "ano prosim"}, false)
+
+	test("error response", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusInternalServerError}, fmt.Errorf("fatal failure")
+	}, http.StatusInternalServerError, nil, true)
+
+	test("no response no error", func(req *http.Request) (*http.Response, error) {
+		return nil, nil
+	}, 0, nil, true)
+
+	test("no response yes error", func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("fatal failure")
+	}, 0, nil, true)
+}
+
+const publicRepoResponseJson = "{\"is_public\": true}"
+const privateRepoResponseJson = "{\"is_public\": false}"
+
+func TestCheckRepositoryAccessPublic(t *testing.T) {
+	quay := &Quay{
+		httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+		}},
+		lookup: serviceprovider.GenericLookup{
+			RepoHostParser: repoHostFromSchemelessUrl,
+		},
+	}
+	k8sClient := mockK8sClient()
+
+	accessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl}}
+
+	status, err := quay.CheckRepositoryAccess(context.TODO(), k8sClient, accessCheck)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.True(t, status.Accessible)
+	assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+}
+
+func TestCheckRepositoryAccess(t *testing.T) {
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeQuay),
+				api.ServiceProviderHostLabel: "quay.io",
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: quayUrlBase,
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+
+	accessCheck := &api.SPIAccessCheck{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ac",
+			Namespace: "ac-namespace",
+		},
+		Spec: api.SPIAccessCheckSpec{
+			RepoUrl: testValidRepoUrl,
+		},
+	}
+
+	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
+	lookupMock := serviceprovider.GenericLookup{
+		RepoHostParser:      repoHostFromSchemelessUrl,
+		ServiceProviderType: api.ServiceProviderTypeQuay,
+		MetadataCache:       &metadataCache,
+		TokenFilter: tokenFilterMock{
+			matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+				return true, nil
+			},
+		},
+	}
+	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
+		return &api.Token{AccessToken: "blabol"}
+	}}
+
+	t.Run("public repository", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup:       lookupMock,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+	})
+
+	t.Run("private repository with access", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(privateRepoResponseJson))}, nil
+			}},
+			lookup:       lookupMock,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
+	})
+
+	t.Run("non existing or private without access", func(t *testing.T) {
+		check := func(status *api.SPIAccessCheckStatus, err error) {
+			assert.NoError(t, err)
+			assert.NotNil(t, status)
+			assert.False(t, status.Accessible)
+			assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+			assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+			assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		}
+
+		t.Run("401 unauthorized", func(t *testing.T) {
+			quay := &Quay{
+				httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: http.StatusUnauthorized}, nil
+				}},
+				lookup:       lookupMock,
+				tokenStorage: ts,
+			}
+
+			status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+			check(status, err)
+		})
+
+		t.Run("403 StatusForbidden", func(t *testing.T) {
+			quay := &Quay{
+				httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: http.StatusForbidden}, nil
+				}},
+				lookup:       lookupMock,
+				tokenStorage: ts,
+			}
+
+			status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+			check(status, err)
+		})
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusNotFound}, nil
+			}},
+			lookup:       lookupMock,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorRepoNotFound, status.ErrorReason)
+		assert.NotEmpty(t, status.ErrorMessage)
+	})
+
+	t.Run("error code from quay", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusInternalServerError}, nil
+			}},
+			lookup:       lookupMock,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.Error(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorUnknownError, status.ErrorReason)
+		assert.NotEmpty(t, status.ErrorMessage)
+	})
+
+	t.Run("error on quay api request", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("some error")
+			}},
+			lookup:       lookupMock,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.Error(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorUnknownError, status.ErrorReason)
+		assert.NotEmpty(t, status.ErrorMessage)
+	})
+
+	t.Run("bad repo url", func(t *testing.T) {
+		quay := &Quay{}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "https://quay.io"}})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorBadURL, status.ErrorReason)
+		assert.NotEmpty(t, status.ErrorMessage)
+	})
+
+	t.Run("lookup failed", func(t *testing.T) {
+
+	})
+}
+
 type httpClientMock struct {
 	doFunc func(req *http.Request) (*http.Response, error)
 }
 
 func (h httpClientMock) Do(req *http.Request) (*http.Response, error) {
 	return h.doFunc(req)
+}
+
+func mockK8sClient(objects ...client.Object) client.WithWatch {
+	sch := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(sch))
+	utilruntime.Must(api.AddToScheme(sch))
+	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }
 
 type tokenFilterMock struct {
@@ -233,29 +516,18 @@ func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.
 	return t.matchesFunc(ctx, matchable, token)
 }
 
-func mockQuay(cl client.Client, returnCode int, httpErr error) *Quay {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
-	return &Quay{
-		httpClient: httpClientMock{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: returnCode}, httpErr
-			},
-		},
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			MetadataCache:       &metadataCache,
-			TokenFilter: tokenFilterMock{
-				matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-					return true, nil
-				},
-			},
-		},
-	}
+type tokenStorageMock struct {
+	getFunc func(ctx context.Context, owner *api.SPIAccessToken) *api.Token
 }
 
-func mockK8sClient(objects ...client.Object) client.WithWatch {
-	sch := runtime.NewScheme()
-	utilruntime.Must(corev1.AddToScheme(sch))
-	utilruntime.Must(api.AddToScheme(sch))
-	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
+func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
+	return nil
+}
+
+func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	return t.getFunc(ctx, owner), nil
+}
+
+func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
+	return nil
 }

@@ -17,38 +17,27 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/machinebox/graphql"
+	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type metadataProvider struct {
-	graphqlClient *graphql.Client
-	httpClient    *http.Client
-	tokenStorage  tokenstorage.TokenStorage
+	httpClient      *http.Client
+	tokenStorage    tokenstorage.TokenStorage
+	ghClientBuilder githubClientBuilder
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
-var githubUserApiEndpoint *url.URL
-var unhandledStatusCode = errors.New("unhandled response from the service provider with status code")
-
-func init() {
-	url, err := url.Parse("https://api.github.com/user")
-	if err != nil {
-		panic(err)
-	}
-	githubUserApiEndpoint = url
-}
 
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
@@ -63,11 +52,17 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	state := &TokenState{
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
-	if err := (&AllAccessibleRepos{}).FetchAll(ctx, s.graphqlClient, data.AccessToken, state); err != nil {
-		return nil, fmt.Errorf("error fetching repo metadata: %w", err)
+
+	ghClient, err := s.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
 
-	username, userId, scopes, err := s.fetchUserAndScopes(data.AccessToken)
+	if err := (&AllAccessibleRepos{}).FetchAll(ctx, ghClient, data.AccessToken, state); err != nil {
+		return nil, err
+	}
+
+	username, userId, scopes, err := s.fetchUserAndScopes(ctx, ghClient)
 	if err != nil {
 		return nil, err
 	}
@@ -87,37 +82,23 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	return metadata, nil
 }
 
-// fetchUserAndScopes fetches the scopes and the details of the user associated with the token
-func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName string, userId string, scopes []string, err error) {
-	var res *http.Response
-	res, err = s.httpClient.Do(&http.Request{
-		Method: "GET",
-		URL:    githubUserApiEndpoint,
-		Header: map[string][]string{
-			"Authorization": {"Bearer " + accessToken},
-		},
-	})
+// fetchUserAndScopes fetches the scopes and the details of the user associated with the context
+func (s metadataProvider) fetchUserAndScopes(ctx context.Context, githubClient *github.Client) (userName string, userId string, scopes []string, err error) {
+	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "fetch user and scopes")
+	usr, resp, err := githubClient.Users.Get(ctx, "")
 	if err != nil {
-		err = fmt.Errorf("error fetching user and scope info: %w", err)
+		lg.Error(err, "Error during fetching user metadata from Github")
+		err = fmt.Errorf("failed to fetch user info: %w", err)
 		return
 	}
-
-	defer func() {
-		err := res.Body.Close()
-		if err != nil {
-			ctrl.Log.Error(err, "failed to close the response")
-		}
-	}()
-
-	if res.StatusCode != 200 {
-		// this should never happen because our http client should already handle the errors so we return a hard
-		// error that will cause the whole fetch to fail
-		err = fmt.Errorf("%w: %d", unhandledStatusCode, res.StatusCode)
-		return
+	if resp.StatusCode != 200 {
+		lg.Error(err, "Error during fetching user metadata from Github", "status", resp.StatusCode)
+		return "", "", nil, nil
 	}
 
 	// https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps
-	scopesString := res.Header.Get("x-oauth-scopes")
+	scopesString := resp.Header.Get("x-oauth-scopes")
 
 	untrimmedScopes := strings.Split(scopesString, ",")
 
@@ -125,14 +106,8 @@ func (s metadataProvider) fetchUserAndScopes(accessToken string) (userName strin
 		scopes = append(scopes, strings.TrimSpace(s))
 	}
 
-	content := map[string]interface{}{}
-	if err = json.NewDecoder(res.Body).Decode(&content); err != nil {
-		err = fmt.Errorf("error parsing the response from github: %w", err)
-		return
-	}
-
-	userId = strconv.FormatFloat(content["id"].(float64), 'f', -1, 64)
-	userName = content["login"].(string)
-
+	userId = strconv.FormatInt(*usr.ID, 10)
+	userName = *usr.Login
+	lg.V(logs.DebugLvl).Info("Fetched user metadata from Github", "login", userName, "userid", userId, "scopes", scopes)
 	return
 }

@@ -19,94 +19,16 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
-
+	"github.com/google/go-github/v45/github"
+	"github.com/migueleliasweb/go-github-mock/src/mock"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-
-	"github.com/machinebox/graphql"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
 )
-
-const repositoriesAffiliationsFakeResponse = `
-{
-  "data": {
-    "viewer": {
-      "repositories": {
-        "pageInfo": {
-          "hasNextPage": false,
-          "endCursor": ""
-        },
-        "nodes": [
-          {
-            "viewerPermission": "ADMIN",
-            "url": "https://github.com/jdoe/RHQ-old"
-          },
-          {
-            "viewerPermission": "WRITE",
-            "url": "https://github.com/openshiftio/openshift.io"
-          },
-          {
-            "viewerPermission": "READ",
-            "url": "https://github.com/openshiftio/booster-parent"
-          },
-          {
-            "viewerPermission": "READ",
-            "url": "https://github.com/redhat-developer/opencompose-old"
-          },
-          {
-            "viewerPermission": "ADMIN",
-            "url": "https://github.com/jdoe/emonTH"
-          },
-          {
-            "viewerPermission": "WRITE",
-            "url": "https://github.com/redhat-developer/rh-che"
-          },
-          {
-            "viewerPermission": "ADMIN",
-            "url": "https://github.com/jdoe/far2go"
-          }
-        ]
-      }
-    }
-  }
-}
-`
-const repositoriesOwnerAffiliationsFakeResponse = `
-{
-  "data": {
-    "viewer": {
-      "repositories": {
-        "pageInfo": {
-          "hasNextPage": false,
-          "endCursor": ""
-        },
-        "nodes": [
-         {
-            "viewerPermission": "READ",
-            "url": "https://github.com/eclipse/jdtc"
-          },
-          {
-            "viewerPermission": "READ",
-            "url": "https://github.com/eclipse/manifest"
-          },
-          {
-            "viewerPermission": "ADMIN",
-            "url": "https://github.com/jdoe/mockitong"
-          },
-          {
-            "viewerPermission": "ADMIN",
-            "url": "https://github.com/jdoe/everrest-assured"
-          }
-        ]
-      }
-    }
-  }
-}
-`
 
 func TestAllAccessibleRepos(t *testing.T) {
 	aar := &AllAccessibleRepos{}
@@ -114,35 +36,64 @@ func TestAllAccessibleRepos(t *testing.T) {
 	ts := &TokenState{
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
-	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(&http.Client{
-		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			requestBody, err := ioutil.ReadAll(r.Body)
-			if err != nil {
-				panic(err)
-			}
-			if strings.Contains(string(requestBody), "ownerAffiliations") {
-				return &http.Response{
-					StatusCode: 200,
-					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesOwnerAffiliationsFakeResponse))),
-					Request:    r,
-				}, nil
-			}
-			return &http.Response{
-				StatusCode: 200,
-				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(repositoriesAffiliationsFakeResponse))),
-				Request:    r,
-			}, nil
-		}),
-	})), "access token", ts)
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetUsersByUsername,
+			github.User{
 
+				Name: github.String("foobar"),
+			},
+		),
+		mock.WithRequestMatchPages(
+			mock.GetUserRepos,
+			[]github.Repository{
+				{
+					Name:    github.String("RHQ-old"),
+					HTMLURL: github.String("https://github.com/jdoe/RHQ-old"),
+					Permissions: map[string]bool{
+						"admin": true,
+					},
+				},
+				{
+					Name:    github.String("openshift.io"),
+					HTMLURL: github.String("https://github.com/openshiftio/openshift.io"),
+					Permissions: map[string]bool{
+						"push": true,
+					},
+				},
+				{
+					Name:    github.String("booster-parent"),
+					HTMLURL: github.String("https://github.com/openshiftio/booster-parent"),
+					Permissions: map[string]bool{
+						"pull": true,
+					},
+				},
+			},
+			[]github.Repository{
+				{
+					Name:    github.String("opencompose-old"),
+					HTMLURL: github.String("https://github.com/redhat-developer/opencompose-old"),
+					Permissions: map[string]bool{
+						"pull": true,
+					},
+				},
+				{
+					Name:    github.String("far2go"),
+					HTMLURL: github.String("https://github.com/jdoe/far2go"),
+					Permissions: map[string]bool{
+						"admin": true,
+					},
+				},
+			},
+		),
+	)
+	githubClient := github.NewClient(mockedHTTPClient)
+	err := aar.FetchAll(httptransport.WithBearerToken(context.TODO(), "access token"), githubClient, "access token", ts)
 	assert.NoError(t, err)
-
-	assert.Equal(t, 11, len(ts.AccessibleRepos))
+	assert.Equal(t, 5, len(ts.AccessibleRepos))
 }
 
-func TestAllAccessibleRepos_fail(t *testing.T) {
+func TestAllAccessibleRepos_failFetchAll(t *testing.T) {
 	aar := &AllAccessibleRepos{}
 
 	ts := &TokenState{
@@ -160,7 +111,8 @@ func TestAllAccessibleRepos_fail(t *testing.T) {
 		}),
 	})
 
-	err := aar.FetchAll(context.TODO(), graphql.NewClient("https://fake.github", graphql.WithHTTPClient(cl)), "access token", ts)
+	githubClient := github.NewClient(cl)
+	err := aar.FetchAll(httptransport.WithBearerToken(context.TODO(), "access token"), githubClient, "access token", ts)
 
 	assert.Error(t, err)
 	assert.True(t, sperrors.IsServiceProviderHttpInvalidAccessToken(err))

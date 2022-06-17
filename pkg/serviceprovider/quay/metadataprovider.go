@@ -112,6 +112,16 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		err = fmt.Errorf("failed to unmarshal the token state: %w", err)
 		return
 	}
+	if quayState.Repositories == nil || quayState.Organizations == nil {
+		lg.Info("Detected quay token state with empty Repositories or Organizations")
+		if quayState.Repositories == nil {
+			quayState.Repositories = make(map[string]EntityRecord)
+		}
+
+		if quayState.Organizations == nil {
+			quayState.Organizations = make(map[string]EntityRecord)
+		}
+	}
 
 	var tokenData *api.Token
 

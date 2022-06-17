@@ -16,6 +16,7 @@ package quay
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -311,4 +312,96 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
 		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
 	})
+}
+
+func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T) {
+
+	t.Run("fetch from cache", func(t *testing.T) {
+		//ServiceProviderState in an old format that doesn't contain TokenState.Repositories or TokenState.Organizations maps
+		rawDecodedText, err := base64.StdEncoding.DecodeString("eyJBY2Nlc3NpYmxlUmVwb3MiOnt9LCJSZW1vdGVVc2VybmFtZSI6InNidWRod2FyIn0=")
+		assert.NoError(t, err)
+
+		token := &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "token",
+				Namespace: "default",
+			},
+			Status: api.SPIAccessTokenStatus{
+				TokenMetadata: &api.TokenMetadata{
+					ServiceProviderState: rawDecodedText,
+				},
+			},
+		}
+
+		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
+		httpClient := &http.Client{
+			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Host != "quay.io" {
+					assert.Fail(t, "only traffic to quay.io should happen")
+					return nil, nil
+				}
+
+				auth := r.Header.Get("Authorization")
+
+				var bearerAuthExpected, basicAuthExpected bool
+				var res *http.Response
+
+				switch r.URL.Path {
+				case "/api/v1/organization/org/robots", "/api/v1/user/robots", "/api/v1/user/",
+					"/api/v1/repository/org/repo/notification/":
+					res = &http.Response{StatusCode: 200}
+					bearerAuthExpected = true
+				case "/api/v1/repository":
+					res = &http.Response{StatusCode: 400}
+					bearerAuthExpected = true
+				case "/api/v1/repository/org/repo":
+					bearerAuthExpected = true
+					if r.Method == "PUT" {
+						res = &http.Response{StatusCode: 200}
+					} else if r.Method == "GET" {
+						res = &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"description": "asdf"}`))}
+					} else {
+						assert.Fail(t, "unexpected method in %s", r.URL.String())
+					}
+				case "/v2/auth":
+					assert.Equal(t, "repository:org/repo:push,pull", r.URL.Query().Get("scope"))
+					// this returns a fake JWT token giving push and pull access to "org/repo" repository to a test+test user
+					res = &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJxdWF5IiwiYXVkIjoicXVheS5pbyIsIm5iZiI6MTY1MjEwNTQ1OCwiaWF0IjoxNjUyMTA1NDU4LCJleHAiOjE2NTIxMDkwNTgsInN1YiI6InRlc3QrdGVzdCIsImFjY2VzcyI6W3sidHlwZSI6InJlcG9zaXRvcnkiLCJuYW1lIjoib3JnL3JlcG8iLCJhY3Rpb25zIjpbInB1c2giLCJwdWxsIl19XSwiY29udGV4dCI6eyJ2ZXJzaW9uIjoyLCJlbnRpdHlfa2luZCI6InJvYm90IiwiZW50aXR5X3JlZmVyZW5jZSI6InRlc3QrdGVzdCIsImtpbmQiOiJ1c2VyIiwidXNlciI6InRlc3QrdGVzdCIsImNvbS5hcG9zdGlsbGUucm9vdHMiOnsidW5ob29rL3VuaG9vay10dW5uZWwiOiIkZGlzYWJsZWQifSwiY29tLmFwb3N0aWxsZS5yb290IjoiJGRpc2FibGVkIn19.6bdjhEosHqNjlsvyiaKUxqWm6mF98EPLs08jJBtXcNA"}`))}
+					basicAuthExpected = true
+				default:
+					assert.Fail(t, "unexpected quay request", "url: %s", r.URL.String())
+				}
+
+				if bearerAuthExpected && auth != "Bearer token" {
+					assert.Fail(t, "unexpected bearer token", "auth header: `%s`, url: %s", auth, r.URL)
+				}
+
+				// Base64 encoded "$oauthtoken:token" is what docker login expects in this case
+				if basicAuthExpected && auth != "Basic JG9hdXRodG9rZW46dG9rZW4=" {
+					assert.Fail(t, "unexpected basic auth", "auth header: `%s`, url: %s", auth, r.URL)
+				}
+
+				return res, nil
+			}),
+		}
+		mp := metadataProvider{
+			tokenStorage: tokenstorage.TestTokenStorage{
+				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+					return &api.Token{
+						AccessToken: "token",
+					}, nil
+				},
+			},
+			httpClient:       httpClient,
+			kubernetesClient: k8sClient,
+			ttl:              10 * time.Hour,
+		}
+
+		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
+		assert.NoError(t, err)
+
+		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
+		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
+	})
+
 }
