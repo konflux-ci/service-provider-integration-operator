@@ -146,6 +146,7 @@ spec:
                     type: string
                 type: object
             required:
+            - permissions
             - repoUrl
             - secret
             type: object
@@ -185,6 +186,7 @@ spec:
                 type: object
             required:
             - linkedAccessTokenName
+            - oAuthUrl
             - phase
             - syncedObjectRef
             type: object
