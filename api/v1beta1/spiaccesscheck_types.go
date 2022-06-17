@@ -42,7 +42,8 @@ type SPIAccessCheckStatus struct {
 type SPIRepoType string
 
 const (
-	SPIRepoTypeGit SPIRepoType = "git"
+	SPIRepoTypeGit               SPIRepoType = "git"
+	SPIRepoTypeContainerRegistry SPIRepoType = "containerRegistry"
 )
 
 type SPIAccessCheckErrorReason string
