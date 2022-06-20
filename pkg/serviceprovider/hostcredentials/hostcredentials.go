@@ -116,7 +116,7 @@ func (g *HostCredentialsProvider) CheckRepositoryAccess(ctx context.Context, _ c
 }
 
 func (g *HostCredentialsProvider) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
-	return serviceprovider.DefaultMapToken(token, tokenData)
+	return serviceprovider.DefaultMapToken(token, tokenData), nil
 }
 
 func (g *HostCredentialsProvider) Validate(_ context.Context, _ serviceprovider.Validated) (serviceprovider.ValidationResult, error) {

@@ -70,45 +70,6 @@ func TestQuayProbe_Examine(t *testing.T) {
 	test(t, "github.com/name/repo", false)
 }
 
-func TestCheckPublicRepo(t *testing.T) {
-	test := func(statusCode int, expected bool) {
-		t.Run(fmt.Sprintf("code %d => %t", statusCode, expected), func(t *testing.T) {
-			quay := Quay{httpClient: httpClientMock{
-				doFunc: func(req *http.Request) (*http.Response, error) {
-					return &http.Response{StatusCode: statusCode}, nil
-				},
-			}}
-			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
-
-			publicRepo, err := quay.publicRepo(context.TODO(), spiAccessCheck, "test-org", "test-repo")
-
-			assert.NoError(t, err)
-			assert.Equal(t, expected, publicRepo)
-		})
-	}
-
-	test(200, true)
-	test(401, false)
-	test(403, false)
-	test(404, false)
-	test(500, false)
-	test(666, false)
-
-	t.Run("fail", func(t *testing.T) {
-		quay := Quay{httpClient: httpClientMock{
-			doFunc: func(req *http.Request) (*http.Response, error) {
-				return nil, fmt.Errorf("error")
-			},
-		}}
-		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
-
-		publicRepo, err := quay.publicRepo(context.TODO(), spiAccessCheck, "test-org", "test-repo")
-
-		assert.Error(t, err)
-		assert.Equal(t, false, publicRepo)
-	})
-}
-
 func TestMapToken(t *testing.T) {
 	k8sClient := mockK8sClient()
 	httpClient := &http.Client{
@@ -217,7 +178,7 @@ func TestValidate(t *testing.T) {
 	assert.NotNil(t, res.ScopeValidation[1])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
 	assert.NotNil(t, res.ScopeValidation[2])
-	assert.Equal(t, "scope 'user:read' is not supported", res.ScopeValidation[2].Error())
+	assert.Equal(t, "unsupported scope 'user:read'", res.ScopeValidation[2].Error())
 }
 
 func TestQuay_TranslateToScopes(t *testing.T) {

@@ -16,6 +16,7 @@ package tokenstorage
 
 import (
 	"context"
+	"fmt"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,19 +35,22 @@ type NotifyingTokenStorage struct {
 
 func (n NotifyingTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	if err := n.TokenStorage.Store(ctx, owner, token); err != nil {
-		return err
+		return fmt.Errorf("wrapped storage error: %w", err)
 	}
 
 	return n.createDataUpdate(ctx, owner)
 }
 
-func (n NotifyingTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	return n.TokenStorage.Get(ctx, owner)
+func (n NotifyingTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (token *api.Token, err error) {
+	if token, err = n.TokenStorage.Get(ctx, owner); err != nil {
+		err = fmt.Errorf("wrapped storage error: %w", err)
+	}
+	return
 }
 
 func (n NotifyingTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	if err := n.TokenStorage.Delete(ctx, owner); err != nil {
-		return err
+		return fmt.Errorf("wrapped storage error: %w", err)
 	}
 
 	return n.createDataUpdate(ctx, owner)
@@ -63,7 +67,11 @@ func (n NotifyingTokenStorage) createDataUpdate(ctx context.Context, owner *api.
 		},
 	}
 
-	return n.Client.Create(ctx, update)
+	err := n.Client.Create(ctx, update)
+	if err != nil {
+		return fmt.Errorf("error creating data update: %w", err)
+	}
+	return nil
 }
 
 var _ TokenStorage = (*NotifyingTokenStorage)(nil)

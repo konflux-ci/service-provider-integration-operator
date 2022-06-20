@@ -38,12 +38,12 @@ func (e *nestingError) Unwrap() error {
 }
 
 func TestChecks(t *testing.T) {
-	invalidAccessToken := &ServiceProviderError{
+	invalidAccessToken := &ServiceProviderHttpError{
 		StatusCode: 401,
 		Response:   "",
 	}
 
-	internalServerError := &ServiceProviderError{
+	internalServerError := &ServiceProviderHttpError{
 		StatusCode: 501,
 		Response:   "",
 	}
@@ -55,32 +55,32 @@ func TestChecks(t *testing.T) {
 	assert.True(t, errors.Is(nestedInvalidAccessToken, invalidAccessToken))
 	assert.False(t, errors.Is(invalidAccessToken, internalServerError))
 	assert.False(t, errors.Is(invalidAccessToken, fmt.Errorf("huh")))
-	assert.True(t, IsServiceProviderError(invalidAccessToken))
-	assert.True(t, IsServiceProviderError(internalServerError))
-	assert.True(t, IsServiceProviderError(nestedInvalidAccessToken))
-	assert.False(t, IsServiceProviderError(fmt.Errorf("huh")))
-	assert.False(t, IsServiceProviderError(nil))
+	assert.True(t, IsServiceProviderHttpError(invalidAccessToken))
+	assert.True(t, IsServiceProviderHttpError(internalServerError))
+	assert.True(t, IsServiceProviderHttpError(nestedInvalidAccessToken))
+	assert.False(t, IsServiceProviderHttpError(fmt.Errorf("huh")))
+	assert.False(t, IsServiceProviderHttpError(nil))
 
-	assert.True(t, IsInvalidAccessToken(invalidAccessToken))
-	assert.True(t, IsInvalidAccessToken(nestedInvalidAccessToken))
-	assert.False(t, IsInvalidAccessToken(internalServerError))
-	assert.False(t, IsInvalidAccessToken(nestedInternalServerError))
-	assert.False(t, IsInvalidAccessToken(fmt.Errorf("huh")))
+	assert.True(t, IsServiceProviderHttpInvalidAccessToken(invalidAccessToken))
+	assert.True(t, IsServiceProviderHttpInvalidAccessToken(nestedInvalidAccessToken))
+	assert.False(t, IsServiceProviderHttpInvalidAccessToken(internalServerError))
+	assert.False(t, IsServiceProviderHttpInvalidAccessToken(nestedInternalServerError))
+	assert.False(t, IsServiceProviderHttpInvalidAccessToken(fmt.Errorf("huh")))
 
-	assert.True(t, IsInternalServerError(internalServerError))
-	assert.True(t, IsInternalServerError(nestedInternalServerError))
-	assert.False(t, IsInternalServerError(invalidAccessToken))
-	assert.False(t, IsInternalServerError(nestedInvalidAccessToken))
-	assert.False(t, IsInternalServerError(fmt.Errorf("huh")))
+	assert.True(t, IsServiceProviderHttpInternalServerError(internalServerError))
+	assert.True(t, IsServiceProviderHttpInternalServerError(nestedInternalServerError))
+	assert.False(t, IsServiceProviderHttpInternalServerError(invalidAccessToken))
+	assert.False(t, IsServiceProviderHttpInternalServerError(nestedInvalidAccessToken))
+	assert.False(t, IsServiceProviderHttpInternalServerError(fmt.Errorf("huh")))
 }
 
 func TestConversion(t *testing.T) {
-	invalidAccessToken := &ServiceProviderError{
+	invalidAccessToken := &ServiceProviderHttpError{
 		StatusCode: 401,
 		Response:   "an error",
 	}
 
-	test := func(t *testing.T, err *ServiceProviderError) {
+	test := func(t *testing.T, err *ServiceProviderHttpError) {
 		assert.Equal(t, invalidAccessToken.StatusCode, err.StatusCode)
 		assert.Equal(t, invalidAccessToken.Response, err.Response)
 	}
@@ -91,7 +91,7 @@ func TestConversion(t *testing.T) {
 
 	t.Run("nested", func(t *testing.T) {
 		nesting := &nestingError{invalidAccessToken}
-		extracted := &ServiceProviderError{}
+		extracted := &ServiceProviderHttpError{}
 
 		assert.True(t, errors.As(nesting, &extracted))
 		test(t, extracted)

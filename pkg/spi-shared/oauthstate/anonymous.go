@@ -14,10 +14,15 @@
 package oauthstate
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+)
+
+var (
+	requestFromFutureError = errors.New("request from the future")
 )
 
 // AnonymousOAuthState is the state that is initially put to the OAuth URL by the operator. It does not hold
@@ -53,7 +58,7 @@ func (s *Codec) ParseAnonymous(state string) (AnonymousOAuthState, error) {
 	parsedState := AnonymousOAuthState{}
 	err := s.ParseInto(state, &parsedState)
 	if err != nil {
-		return parsedState, err
+		return parsedState, fmt.Errorf("error parsing OAuth state %w", err)
 	}
 
 	return parsedState, parsedState.Validate()
@@ -62,7 +67,7 @@ func (s *Codec) ParseAnonymous(state string) (AnonymousOAuthState, error) {
 // Validate validates that IssuedAt is in the past.
 func (s AnonymousOAuthState) Validate() error {
 	if time.Now().Unix() < s.IssuedAt {
-		return fmt.Errorf("request from the future")
+		return requestFromFutureError
 	}
 	return nil
 }

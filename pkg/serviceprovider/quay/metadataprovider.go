@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -38,6 +39,7 @@ type metadataProvider struct {
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
+var invalidRepoUrl = errors.New("invalid repository URL")
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
@@ -45,11 +47,11 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
 		lg.Error(err, "failed to get the token metadata")
-		return nil, err
+		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
 	}
 
 	if data == nil {
-		return nil, err
+		return nil, nil
 	}
 
 	// This method is called when we need to refresh (or obtain anew, after cache expiry) the metadata of the token.
@@ -63,7 +65,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	js, err := json.Marshal(state)
 	if err != nil {
 		lg.Error(err, "failed to serialize the token metadata, this should not happen")
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal the state to JSON: %w", err)
 	}
 
 	metadata := token.Status.TokenMetadata
@@ -107,6 +109,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	quayState := TokenState{}
 	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
 		lg.Error(err, "failed to unmarshal quay token state")
+		err = fmt.Errorf("failed to unmarshal the token state: %w", err)
 		return
 	}
 	if quayState.Repositories == nil || quayState.Organizations == nil {
@@ -125,6 +128,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	tokenData, err = p.tokenStorage.Get(ctx, token)
 	if err != nil {
 		lg.Error(err, "failed to get token data")
+		err = fmt.Errorf("failed to get the token data from storage: %w", err)
 		return
 	}
 	if tokenData == nil {
@@ -134,8 +138,8 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
 	if orgOrUser == "" || repo == "" {
-		err = fmt.Errorf("repository URL invalid: %s", repoUrl)
 		lg.Error(err, "failed to parse the repository URL")
+		err = fmt.Errorf("%w %s", invalidRepoUrl, repoUrl)
 		return
 	}
 
@@ -151,13 +155,13 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		tkn, err = DockerLogin(log.IntoContext(ctx, lg), p.httpClient, orgOrUser+"/"+repo, username, password)
 		if err != nil {
 			lg.Error(err, "failed to perform docker login")
-			return LoginTokenInfo{}, err
+			return LoginTokenInfo{}, fmt.Errorf("fetch failed due to docker login error: %w", err)
 		}
 
 		info, err := AnalyzeLoginToken(tkn)
 		if err != nil {
 			lg.Error(err, "failed to analyze the docker login token")
-			return LoginTokenInfo{}, err
+			return LoginTokenInfo{}, fmt.Errorf("failed to analyze the docker login token: %w", err)
 		}
 
 		lg.Info("used docker login to detect rw perms successfully", "repo:read",
@@ -174,12 +178,14 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the organization metadata")
+		err = fmt.Errorf("failed to read organization metadata: %w", err)
 		return
 	}
 
 	repoRecord, repoChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "repository")), tokenData, orgOrUser+"/"+repo, quayState.Repositories, getLoginTokenInfo, fetchRepositoryRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the repository metadata")
+		err = fmt.Errorf("failed to read repository metadata: %w", err)
 		return
 	}
 
@@ -251,10 +257,15 @@ func (p metadataProvider) persistTokenState(ctx context.Context, token *api.SPIA
 	data, err := json.Marshal(tokenState)
 	if err != nil {
 		lg.Error(err, "failed to serialize the metadata")
+		err = fmt.Errorf("failed to serialize the metadata: %w", err)
 		return err
 	}
 
 	token.Status.TokenMetadata.ServiceProviderState = data
 
-	return p.kubernetesClient.Status().Update(ctx, token)
+	if err = p.kubernetesClient.Status().Update(ctx, token); err != nil {
+		return fmt.Errorf("failed to persist the token metadata: %w", err)
+	}
+
+	return nil
 }

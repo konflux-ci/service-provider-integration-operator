@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,16 +27,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var emptyBodyError = errors.New("response body is empty")
+
 func readResponseBodyToJsonMap(resp *http.Response) (map[string]interface{}, error) {
 	if resp.Body == nil {
-		return nil, fmt.Errorf("response body is empty")
+		return nil, emptyBodyError
 	}
 	defer resp.Body.Close()
 
 	var jsonMap map[string]interface{}
 	err := json.NewDecoder(resp.Body).Decode(&jsonMap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode response body as JSON: %w", err)
 	}
 
 	return jsonMap, nil
@@ -49,7 +52,7 @@ func doQuayRequest(ctx context.Context, cl rest.HTTPClient, url string, token st
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		lg.Error(err, "failed to compose the request")
-		return nil, err
+		return nil, fmt.Errorf("failed to compose the request to %s: %w", url, err)
 	}
 
 	if contentHeader != "" {
@@ -61,7 +64,7 @@ func doQuayRequest(ctx context.Context, cl rest.HTTPClient, url string, token st
 	resp, err := cl.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to perform the request")
-		return resp, err
+		return resp, fmt.Errorf("failed to execute a request to %s: %w", url, err)
 	}
 
 	return resp, nil
@@ -75,6 +78,7 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	if resp == nil {
 		return false, nil
 	}
+	defer resp.Body.Close()
 
 	return resp.StatusCode == 200, nil
 }

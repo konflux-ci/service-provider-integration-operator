@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/go-github/v45/github"
@@ -37,7 +38,7 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 	if tsErr != nil {
 
 		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
-		return nil, tsErr
+		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiToken.Namespace, spiToken.Name, tsErr)
 	}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})

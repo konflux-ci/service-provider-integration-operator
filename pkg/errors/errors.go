@@ -21,12 +21,12 @@ import (
 	"net/http"
 )
 
-type ServiceProviderError struct {
+type ServiceProviderHttpError struct {
 	StatusCode int
 	Response   string
 }
 
-func (e ServiceProviderError) Error() string {
+func (e ServiceProviderHttpError) Error() string {
 	var identification string
 	if e.StatusCode >= 400 && e.StatusCode < 500 {
 		identification = "invalid access token"
@@ -39,13 +39,13 @@ func (e ServiceProviderError) Error() string {
 	return fmt.Sprintf("%s (http status %d): %s", identification, e.StatusCode, e.Response)
 }
 
-func IsServiceProviderError(err error) bool {
-	spe := &ServiceProviderError{}
+func IsServiceProviderHttpError(err error) bool {
+	spe := &ServiceProviderHttpError{}
 	return errors.As(err, &spe)
 }
 
-func IsInvalidAccessToken(err error) bool {
-	spe := &ServiceProviderError{}
+func IsServiceProviderHttpInvalidAccessToken(err error) bool {
+	spe := &ServiceProviderHttpError{}
 	if !errors.As(err, &spe) {
 		return false
 	}
@@ -53,8 +53,8 @@ func IsInvalidAccessToken(err error) bool {
 	return spe.StatusCode >= 400 && spe.StatusCode < 500
 }
 
-func IsInternalServerError(err error) bool {
-	spe := &ServiceProviderError{}
+func IsServiceProviderHttpInternalServerError(err error) bool {
+	spe := &ServiceProviderHttpError{}
 	if !errors.As(err, &spe) {
 		return false
 	}
@@ -75,7 +75,7 @@ func FromHttpResponse(response *http.Response) error {
 			body = string(bytes)
 		}
 
-		return &ServiceProviderError{
+		return &ServiceProviderHttpError{
 			StatusCode: response.StatusCode,
 			Response:   body,
 		}

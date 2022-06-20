@@ -17,6 +17,7 @@ package tokenstorage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -32,6 +33,15 @@ type vaultTokenStorage struct {
 	*vault.Client
 }
 
+var (
+	VaultError             = errors.New("error in Vault")
+	corruptedDataError     = errors.New("corrupted data in Vault")
+	invalidDataError       = errors.New("invalid data")
+	noAuthInfoInVaultError = errors.New("no auth info returned from Vault")
+	unexpectedDataError    = errors.New("unexpected data")
+	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
+)
+
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
 func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
 	config := vault.DefaultConfig()
@@ -41,13 +51,13 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 		if err := config.ConfigureTLS(&vault.TLSConfig{
 			Insecure: true,
 		}); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error configuring insecure TLS: %w", err)
 		}
 	}
 
 	vaultClient, err := vault.NewClient(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
 	var k8sAuth *auth.KubernetesAuth
 	if serviceAccountToken == "" {
@@ -56,15 +66,15 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
 	}
 
 	authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}
 	if authInfo == nil {
-		return nil, fmt.Errorf("no auth info was returned after login to vault")
+		return nil, noAuthInfoInVaultError
 	}
 	return &vaultTokenStorage{vaultClient}, nil
 }
@@ -76,10 +86,10 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	path := getVaultPath(owner)
 	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
-		return err
+		return fmt.Errorf("error writing the data to Vault: %w", err)
 	}
 	if s == nil {
-		return fmt.Errorf("failed to store the token, no error but returned nil")
+		return unspecifiedStoreError
 	}
 	for _, w := range s.Warnings {
 		logf.FromContext(ctx).Info(w)
@@ -93,7 +103,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 
 	secret, err := v.Client.Logical().Read(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading the data: %w", err)
 	}
 	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
 		logf.FromContext(ctx).Info("no data found in vault at", "path", path)
@@ -104,7 +114,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 	}
 	data, dataOk := secret.Data["data"]
 	if !dataOk {
-		return nil, fmt.Errorf("corrupted data in Vault at '%s'", path)
+		return nil, fmt.Errorf("%w at '%s'", corruptedDataError, path)
 	}
 
 	return parseToken(data)
@@ -113,7 +123,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 func parseToken(data interface{}) (*api.Token, error) {
 	dataMap, ok := data.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected data")
+		return nil, unexpectedDataError
 	}
 
 	token := &api.Token{}
@@ -138,7 +148,7 @@ func ifaceMapFieldToUint64(source map[string]interface{}, fieldName string) (uin
 			if val, err := strconv.ParseUint(numberVal.String(), 10, 64); err == nil {
 				return val, nil
 			} else {
-				return 0, fmt.Errorf("invalid '%s' value. '%s' can't be parsed to uint64", fieldName, numberVal.String())
+				return 0, fmt.Errorf("%w: invalid '%s' value. '%s' can't be parsed to uint64", invalidDataError, fieldName, numberVal.String())
 			}
 		}
 	}
@@ -159,7 +169,7 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	s, err := v.Client.Logical().Delete(getVaultPath(owner))
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting the data: %w", err)
 	}
 	logf.FromContext(ctx).Info("deleted", "secret", s)
 	return nil

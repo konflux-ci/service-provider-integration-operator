@@ -126,7 +126,7 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Transport: httptransport.ExaminingRoundTripper{
 			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
 			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
-				return sperrors.FromHttpResponse(response)
+				return sperrors.FromHttpResponse(response) //nolint:wrapcheck // the users of the HTTP client are supposed to handle this error
 			}),
 		},
 		CheckRedirect: cl.CheckRedirect,
@@ -148,7 +148,7 @@ type Matchable interface {
 var _ Matchable = (*api.SPIAccessCheck)(nil)
 var _ Matchable = (*api.SPIAccessTokenBinding)(nil)
 
-func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error) {
+func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) AccessTokenMapper {
 	var userId, userName string
 	var scopes []string
 
@@ -167,5 +167,5 @@ func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (Acc
 		UserId:                  "",
 		ExpiredAfter:            &tokenData.Expiry,
 		Scopes:                  scopes,
-	}, nil
+	}
 }

@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/go-github/v45/github"
@@ -41,7 +42,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
 	if accessToken == "" {
-		return sperrors.ServiceProviderError{
+		return sperrors.ServiceProviderHttpError{
 			StatusCode: 401,
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
@@ -54,7 +55,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
 		if err != nil {
 			lg.Error(err, "Error during fetching Github repositories list")
-			return err
+			return fmt.Errorf("failed to list github repositories: %w", err)
 		}
 
 		lg.V(logs.DebugLvl).Info("Received a list of available repositories from Github", "len", len(repos), "nextPage", resp.NextPage, "lastPage", resp.LastPage, "rate", resp.Rate)

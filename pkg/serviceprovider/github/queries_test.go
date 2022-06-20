@@ -19,7 +19,6 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/google/go-github/v45/github"
@@ -116,5 +115,5 @@ func TestAllAccessibleRepos_failFetchAll(t *testing.T) {
 	err := aar.FetchAll(httptransport.WithBearerToken(context.TODO(), "access token"), githubClient, "access token", ts)
 
 	assert.Error(t, err)
-	assert.True(t, sperrors.IsInvalidAccessToken(err.(*url.Error).Err))
+	assert.True(t, sperrors.IsServiceProviderHttpInvalidAccessToken(err))
 }

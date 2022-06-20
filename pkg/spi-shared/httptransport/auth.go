@@ -45,5 +45,5 @@ func (r AuthenticatingRoundTripper) RoundTrip(req *http.Request) (*http.Response
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	return r.RoundTripper.RoundTrip(req)
+	return r.RoundTripper.RoundTrip(req) //nolint:wrapcheck // the errors should be handled by the users of the HTTP client configured with this roundtripper
 }

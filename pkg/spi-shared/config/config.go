@@ -14,6 +14,7 @@
 package config
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -153,7 +154,13 @@ func parseDuration(timeString string, defaultValue string) (time.Duration, error
 	if timeString == "" {
 		timeString = defaultValue
 	}
-	return time.ParseDuration(timeString)
+
+	dur, err := time.ParseDuration(timeString)
+	if err != nil {
+		err = fmt.Errorf("error parsing duration in config file: %w", err)
+	}
+
+	return dur, err
 }
 
 func LoadFrom(configFile string) (Configuration, error) {
@@ -176,7 +183,7 @@ func LoadFrom(configFile string) (Configuration, error) {
 func loadFrom(path string) (PersistedConfiguration, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return PersistedConfiguration{}, err
+		return PersistedConfiguration{}, fmt.Errorf("error opening the config file from %s: %w", path, err)
 	}
 	defer file.Close()
 
@@ -190,12 +197,12 @@ func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 
 	bytes, err := ioutil.ReadAll(rdr)
 	if err != nil {
-		return conf, err
+		return conf, fmt.Errorf("error reading the config file: %w", err)
 	}
 
 	if err := yaml.Unmarshal(bytes, &conf); err != nil {
-		return conf, err
+		return conf, fmt.Errorf("error parsing the config file as YAML: %w", err)
 	}
 
-	return conf, err
+	return conf, nil
 }
