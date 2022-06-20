@@ -145,7 +145,7 @@ check_fmt:
 
 lint: ## Run the linter on the codebase
   ifeq ($(shell command -v golangci-lint 2> /dev/null),)
-  	$(error "golangci-lint must be installed for this rule" && exit 1)
+	  $(error "golangci-lint must be installed for this rule" && exit 1)
   endif
 	golangci-lint run
 
