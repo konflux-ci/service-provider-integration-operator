@@ -1,0 +1,10 @@
+sharedSecret: ${SHARED_SECRET}
+serviceProviders:
+- type: GitHub
+  clientId: "123"
+  clientSecret: "42"
+- type: Quay
+  clientId: "456"
+  clientSecret: "54"
+baseUrl: https://${OAUTH_HOST}
+vaultHost: http://127.0.0.1:8200
