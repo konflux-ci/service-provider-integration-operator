@@ -15,42 +15,8 @@
 package controllers
 
 import (
-	"fmt"
 	"strings"
 )
-
-var (
-	_ error = (*ReconcileError)(nil)
-)
-
-// ReconcileError is just a common error type for reconciliation errors that contains a cause and can be unwrapped so
-// that a full stacktrace is produced in the logs.
-type ReconcileError struct {
-	message string
-	cause   error
-}
-
-func NewReconcileError(err error, format string, args ...interface{}) *ReconcileError {
-	if format == "" {
-		format = "reconciliation failed"
-	}
-	return &ReconcileError{
-		message: fmt.Sprintf(format, args...),
-		cause:   err,
-	}
-}
-
-func (e *ReconcileError) Error() string {
-	if e.cause == nil {
-		return e.message
-	}
-
-	return e.message + ": " + e.cause.Error()
-}
-
-func (e *ReconcileError) Unwrap() error {
-	return e.cause
-}
 
 type AggregatedError struct {
 	errors []error

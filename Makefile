@@ -136,13 +136,20 @@ check_fmt:
   ifeq ($(shell command -v addlicense 2> /dev/null),)
 	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
   endif
-
 	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
 	  fi ;\
 	  if ! addlicense -check -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go'); then \
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
-	  fi \
+	  fi
+
+lint: ## Run the linter on the codebase
+  ifeq ($(shell command -v golangci-lint 2> /dev/null),)
+	  $(error "golangci-lint must be installed for this rule" && exit 1)
+  endif
+	golangci-lint run
+
+check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
 
 vet: ## Run go vet against code.
 	go vet ./...

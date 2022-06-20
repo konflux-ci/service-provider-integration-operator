@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -26,6 +27,10 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	unknownServiceProviderForUrlError = errors.New("could not determine service provider from url")
 )
 
 // ServiceProvider abstracts the interaction with some service provider
@@ -112,7 +117,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("could not determine service provider for url: %s", repoUrl)
+	return nil, fmt.Errorf("%w: %s", unknownServiceProviderForUrlError, repoUrl)
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
@@ -125,7 +130,7 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		Transport: httptransport.ExaminingRoundTripper{
 			RoundTripper: httptransport.AuthenticatingRoundTripper{RoundTripper: transport},
 			Examiner: httptransport.RoundTripExaminerFunc(func(request *http.Request, response *http.Response) error {
-				return sperrors.FromHttpResponse(response)
+				return sperrors.FromHttpResponse(response) //nolint:wrapcheck // the users of the HTTP client are supposed to handle this error
 			}),
 		},
 		CheckRedirect: cl.CheckRedirect,
@@ -147,7 +152,7 @@ type Matchable interface {
 var _ Matchable = (*api.SPIAccessCheck)(nil)
 var _ Matchable = (*api.SPIAccessTokenBinding)(nil)
 
-func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error) {
+func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) AccessTokenMapper {
 	var userId, userName string
 	var scopes []string
 
@@ -166,5 +171,5 @@ func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) (Acc
 		UserId:                  "",
 		ExpiredAfter:            &tokenData.Expiry,
 		Scopes:                  scopes,
-	}, nil
+	}
 }

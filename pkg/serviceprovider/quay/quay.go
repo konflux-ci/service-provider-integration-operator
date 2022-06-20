@@ -37,6 +37,15 @@ import (
 
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
+var (
+	userRelatedPermissionsNotSupportedError = errors.New("user-related permissions are not supported for Quay")
+	unsupportedScopeError                   = errors.New("unsupported scope")
+	unknownScopeError                       = errors.New("unknown scope")
+	failedToParseRepoUrlError               = errors.New("failed to parse repository URL")
+	unexpectedStatusCodeError               = errors.New("unexpected status code")
+	noResponseError                         = errors.New("no response")
+)
+
 type Quay struct {
 	Configuration    config.Configuration
 	lookup           serviceprovider.GenericLookup
@@ -88,7 +97,11 @@ func repoHostFromSchemelessUrl(repoUrl string) (string, error) {
 		repoUrl = "https://" + repoUrl
 	}
 
-	return serviceprovider.RepoHostFromUrl(repoUrl)
+	host, err := serviceprovider.RepoHostFromUrl(repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse quay repo as URL: %w", err)
+	}
+	return host, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newQuay
@@ -192,7 +205,7 @@ func translateToQuayScopes(permission api.Permission) []string {
 func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
 
 	if len(tokens) == 0 {
@@ -203,7 +216,10 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 }
 
 func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	return g.lookup.PersistMetadata(ctx, token)
+	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
+		return fmt.Errorf("failed to persiste quay metadata: %w", err)
+	}
+	return nil
 }
 
 func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -218,10 +234,9 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 
 	owner, repository, _ := splitToOrganizationAndRepositoryAndVersion(accessCheck.Spec.RepoUrl)
 	if owner == "" || repository == "" {
-		err := fmt.Errorf("parsing quay.io url failed")
-		lg.Error(err, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
+		lg.Error(failedToParseRepoUrlError, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
-		status.ErrorMessage = err.Error()
+		status.ErrorMessage = failedToParseRepoUrlError.Error()
 		return status, nil
 	}
 
@@ -230,7 +245,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = lookupErr.Error()
-		return status, lookupErr
+		return status, fmt.Errorf("failed lookup: %w", lookupErr)
 	}
 
 	token := ""
@@ -239,7 +254,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		if apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0]); getTokenErr == nil {
 			token = apiToken.AccessToken
 		} else {
-			return status, getTokenErr
+			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
@@ -266,7 +281,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		default:
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = "unexpected response from Quay API"
-			return status, fmt.Errorf("unexpected return code '%d' for quay.io repository request '%s'", responseCode, accessCheck.Spec.RepoUrl)
+			return status, fmt.Errorf("%w '%d' for quay.io repository request '%s'", unexpectedStatusCodeError, responseCode, accessCheck.Spec.RepoUrl)
 		}
 	}
 
@@ -283,7 +298,7 @@ func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token str
 		if resp != nil {
 			code = resp.StatusCode
 		}
-		return code, nil, err
+		return code, nil, fmt.Errorf("failed to request quay on %s: %w", requestUrl, err)
 	} else if resp != nil && resp.StatusCode == http.StatusOK {
 		jsonResponse, jsonErr := readResponseBodyToJsonMap(resp)
 		if jsonErr != nil {
@@ -294,25 +309,8 @@ func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token str
 		if resp != nil {
 			return resp.StatusCode, nil, nil
 		} else {
-			return 0, nil, fmt.Errorf("no response for request '%s'", requestUrl)
+			return 0, nil, fmt.Errorf("%w for request '%s'", noResponseError, requestUrl)
 		}
-	}
-}
-
-func (q *Quay) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck, owner string, repository string) (bool, error) {
-	lg := log.FromContext(ctx)
-
-	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiUrlBase, owner, repository)
-	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, "", "GET", nil, ""); err != nil {
-		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
-		return false, err
-	} else if resp.StatusCode == http.StatusOK {
-		return true, nil
-	} else if resp.StatusCode == http.StatusUnauthorized {
-		return false, nil
-	} else {
-		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
-		return false, nil
 	}
 }
 
@@ -320,11 +318,7 @@ func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 	lg := log.FromContext(ctx, "bindingName", binding.Name, "bindingNamespace", binding.Namespace)
 	lg.Info("mapping quay token")
 
-	mapper, err := serviceprovider.DefaultMapToken(token, tokenData)
-	if err != nil {
-		lg.Error(err, "default mapping failed")
-		return serviceprovider.AccessTokenMapper{}, err
-	}
+	mapper := serviceprovider.DefaultMapToken(token, tokenData)
 
 	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
@@ -352,7 +346,7 @@ func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated
 	userPermissionAreaRequested := false
 	for _, p := range validated.Permissions().Required {
 		if p.Area == api.PermissionAreaUser && !userPermissionAreaRequested {
-			ret.ScopeValidation = append(ret.ScopeValidation, errors.New("user-related permissions are not supported for Quay"))
+			ret.ScopeValidation = append(ret.ScopeValidation, userRelatedPermissionsNotSupportedError)
 			userPermissionAreaRequested = true
 		}
 	}
@@ -360,12 +354,12 @@ func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated
 	for _, s := range validated.Permissions().AdditionalScopes {
 		switch Scope(s) {
 		case ScopeUserRead, ScopeUserAdmin:
-			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("scope '%s' is not supported", s))
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w '%s'", unsupportedScopeError, s))
 		case ScopeRepoRead, ScopeRepoWrite, ScopeRepoCreate, ScopeRepoAdmin, ScopeOrgAdmin, ScopePull, ScopePush:
 			{
 			}
 		default:
-			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("unknown scope: '%s'", s))
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unknownScopeError, s))
 		}
 	}
 

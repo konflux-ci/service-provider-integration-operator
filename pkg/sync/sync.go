@@ -14,6 +14,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,10 +42,11 @@ func (s *Syncer) Sync(ctx context.Context, owner client.Object, blueprint client
 		return false, nil, err
 	}
 
-	if err = s.client.Get(context.TODO(), client.ObjectKeyFromObject(blueprint), actual); err != nil {
+	key := client.ObjectKeyFromObject(blueprint)
+	if err = s.client.Get(ctx, key, actual); err != nil {
 		if !errors.IsNotFound(err) {
-			lg.Error(err, "failed to read object to be synced", "ObjectKey", client.ObjectKeyFromObject(blueprint))
-			return false, nil, err
+			lg.Error(err, "failed to read object to be synced", "ObjectKey", key)
+			return false, nil, fmt.Errorf("error getting the object %+v: %w", key, err)
 		}
 		actual = nil
 	}
@@ -66,30 +68,30 @@ func (s *Syncer) Delete(ctx context.Context, object client.Object) error {
 	lg := log.FromContext(ctx)
 	var err error
 
-	o, err := s.client.Scheme().New(object.GetObjectKind().GroupVersionKind())
+	actual, err := s.newWithSameKind(object)
 	if err != nil {
 		lg.Error(err, "failed to create an empty object with GVK", "GVK", object.GetObjectKind().GroupVersionKind())
 		return err
 	}
 
-	actual := o.(client.Object)
-
-	if err = s.client.Get(ctx, client.ObjectKeyFromObject(object), actual); err == nil {
+	key := client.ObjectKeyFromObject(object)
+	if err = s.client.Get(ctx, key, actual); err == nil {
 		err = s.client.Delete(ctx, actual)
 	}
 
 	if err != nil && !errors.IsNotFound(err) {
 		lg.Error(err, "failed to delete object", "ObjectKey", client.ObjectKeyFromObject(object))
-		return err
+		return fmt.Errorf("error deleting the object %+v: %w", key, err)
 	}
 
 	return nil
 }
 
 func (s *Syncer) newWithSameKind(blueprint client.Object) (client.Object, error) {
-	o, err := s.client.Scheme().New(blueprint.GetObjectKind().GroupVersionKind())
+	gvk := blueprint.GetObjectKind().GroupVersionKind()
+	o, err := s.client.Scheme().New(gvk)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error constructing new object with GVK %+v: %w", gvk, err)
 	}
 
 	o.(client.Object).GetObjectKind().SetGroupVersionKind(blueprint.GetObjectKind().GroupVersionKind())
@@ -101,28 +103,30 @@ func (s *Syncer) create(ctx context.Context, owner client.Object, blueprint clie
 
 	actual := blueprint.DeepCopyObject().(client.Object)
 
+	objectKey := client.ObjectKeyFromObject(blueprint)
+
 	var err error
 	if owner != nil {
 		err = controllerutil.SetControllerReference(owner, actual, s.client.Scheme())
 		if err != nil {
-			lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
-			return nil, err
+			lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", objectKey)
+			return nil, fmt.Errorf("error while setting the owner reference to %+v: %w", objectKey, err)
 		}
 	}
 
 	err = s.client.Create(ctx, actual)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
-			lg.Error(err, "failed to create object", "Object", client.ObjectKeyFromObject(blueprint))
-			return nil, err
+			lg.Error(err, "failed to create object", "Object", objectKey)
+			return nil, fmt.Errorf("error while creating new object %+v with GVK %+v: %w", objectKey, blueprint.GetObjectKind().GroupVersionKind(), err)
 		}
 
 		// ok, we got an already-exists error. So let's try to load the object into "actual".
 		// if we fail this retry for whatever reason, just give up rather than retrying this in a loop...
 		// the reconciliation loop will lead us here again in the next round.
 		if err = s.client.Get(ctx, client.ObjectKeyFromObject(actual), actual); err != nil {
-			lg.Error(err, "failed to read object that we failed to create", "Object", client.ObjectKeyFromObject(blueprint))
-			return nil, err
+			lg.Error(err, "failed to read object that we failed to create", "Object", objectKey)
+			return nil, fmt.Errorf("error while reading the current state of the object %+v: %w", objectKey, err)
 		}
 	}
 
@@ -159,11 +163,13 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 		blueprint.SetAnnotations(targetAnnos)
 		blueprint.SetLabels(targetLabels)
 
+		actualKey := client.ObjectKeyFromObject(actual)
+
 		if isUpdateUsingDeleteCreate(actual.GetObjectKind().GroupVersionKind().Kind) {
 			err := s.client.Delete(ctx, actual)
 			if err != nil {
-				lg.Error(err, "failed to delete object before re-creating it", "Object", client.ObjectKeyFromObject(actual))
-				return false, actual, err
+				lg.Error(err, "failed to delete object before re-creating it", "Object", actualKey)
+				return false, actual, fmt.Errorf("error while deleting the object %+v to recreate it: %w", actualKey, err)
 			}
 
 			obj, err := s.create(ctx, owner, blueprint)
@@ -172,10 +178,11 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 			}
 			return false, obj, err
 		} else {
+			blueprintKey := client.ObjectKeyFromObject(blueprint)
 			err := controllerutil.SetControllerReference(owner, blueprint, s.client.Scheme())
 			if err != nil {
-				lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", client.ObjectKeyFromObject(blueprint))
-				return false, actual, err
+				lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", blueprintKey)
+				return false, actual, fmt.Errorf("error while setting controller reference of %+v before update: %w", blueprintKey, err)
 			}
 
 			// to be able to update, we need to set the resource version of the object that we know of
@@ -183,8 +190,8 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 
 			err = s.client.Update(ctx, blueprint)
 			if err != nil {
-				lg.Error(err, "failed to update object", "Object", client.ObjectKeyFromObject(blueprint))
-				return false, actual, err
+				lg.Error(err, "failed to update object", "Object", blueprintKey)
+				return false, actual, fmt.Errorf("error while updating the object %+v: %w", blueprintKey, err)
 			}
 
 			return true, blueprint, nil

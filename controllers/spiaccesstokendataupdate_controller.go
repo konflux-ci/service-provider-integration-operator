@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,9 +34,14 @@ type SPIAccessTokenDataUpdateReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenDataUpdate{}).
 		Complete(r)
+	if err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+	}
+
+	return err
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -53,7 +59,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, NewReconcileError(err, "failed to load the token data update from the cluster")
+		return ctrl.Result{}, fmt.Errorf("failed to load the token data update from the cluster: %w", err)
 	}
 
 	if update.DeletionTimestamp != nil {
@@ -64,5 +70,9 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token
 	// The SPIAccessTokenReconciler is set up to watch the update objects and translate those to reconciliation requests
 	// of the tokens themselves.
-	return ctrl.Result{}, r.Delete(ctx, &update)
+	if err := r.Delete(ctx, &update); err != nil {
+		lg.Error(err, "failed to delete the processed data token update")
+		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
+	}
+	return ctrl.Result{}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -371,6 +372,16 @@ const githubRepoListResponse = `[
   }
 ]
 `
+
+var githubUserApiEndpoint *url.URL
+
+func init() {
+	githubUrl, err := url.Parse("https://api.github.com/user")
+	if err != nil {
+		panic(err)
+	}
+	githubUserApiEndpoint = githubUrl
+}
 
 func TestMetadataProvider_Fetch(t *testing.T) {
 	httpCl := &http.Client{

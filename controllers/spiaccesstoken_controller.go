@@ -46,7 +46,7 @@ import (
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
-const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage"
+const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -66,13 +66,13 @@ type SPIAccessTokenReconciler struct {
 func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()
 	if err := r.finalizers.Register(linkedBindingsFinalizerName, &linkedBindingsFinalizer{client: r.Client}); err != nil {
-		return err
+		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
 	}
 	if err := r.finalizers.Register(tokenStorageFinalizerName, &tokenStorageFinalizer{storage: r.TokenStorage}); err != nil {
-		return err
+		return fmt.Errorf("failed to register the token storage finalizer: %w", err)
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, func() string {
@@ -90,6 +90,12 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			})
 		})).
 		Complete(r)
+
+	if err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+	}
+
+	return err
 }
 
 func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor func() string) []reconcile.Request {
@@ -123,7 +129,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, NewReconcileError(err, "failed to load the token from the cluster")
+		return ctrl.Result{}, fmt.Errorf("failed to load the token from the cluster: %w", err)
 	}
 
 	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase)
@@ -133,16 +139,16 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
 		// we get another reconciliation due to cluster state change
-		return ctrl.Result{Requeue: false}, NewReconcileError(err, "failed to finalize")
+		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
 	}
 	if finalizationResult.Updated {
 		if err = r.Client.Update(ctx, &at); err != nil {
-			return ctrl.Result{}, NewReconcileError(err, "failed to update based on finalization result")
+			return ctrl.Result{}, fmt.Errorf("failed to update based on finalization result: %w", err)
 		}
 	}
 	if finalizationResult.StatusUpdated {
 		if err = r.Client.Status().Update(ctx, &at); err != nil {
-			return ctrl.Result{}, NewReconcileError(err, "failed to update the status based on finalization result")
+			return ctrl.Result{}, fmt.Errorf("failed to update the status based on finalization result: %w", err)
 		}
 	}
 
@@ -155,7 +161,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
 	if err != nil {
 		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
-			return ctrl.Result{}, NewReconcileError(uerr, "failed update the status")
+			return ctrl.Result{}, fmt.Errorf("failed update the status: %w", uerr)
 		}
 		// we flipped the token to the invalid phase, which is valid phase to be in. All we can do is to wait for the
 		// next update of the token, so no need to repeat the reconciliation
@@ -165,42 +171,42 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	validation, err := sp.Validate(ctx, &at)
 	if err != nil {
 		lg.Error(err, "failed to validate the object")
-		return ctrl.Result{}, NewReconcileError(err, "failed to validate the object")
+		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
 		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
-			return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", uerr)
 		}
 		return ctrl.Result{}, nil
 	}
 
 	if err := sp.PersistMetadata(ctx, r.Client, &at); err != nil {
-		if sperrors.IsInvalidAccessToken(err) {
+		if sperrors.IsServiceProviderHttpInvalidAccessToken(err) {
 			if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonMetadataFailure, err); uerr != nil {
-				return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
+				return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", uerr)
 			}
 			// the token is invalid, there's no point in repeated reconciliation
 			lg.Info("access token determined invalid when trying to persist the metadata")
 			return ctrl.Result{}, nil
 		} else {
 			if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonMetadataFailure, err); uerr != nil {
-				return ctrl.Result{}, NewReconcileError(uerr, "failed to update the status")
+				return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", uerr)
 			}
 			// there is some other kind of error in the service provider or environment. Let's retry...
 			lg.Error(err, "failed to persist metadata")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to persist the metadata: %w", err)
 		}
 	}
 
 	if at.EnsureLabels(sp.GetType()) {
 		if err := r.Update(ctx, &at); err != nil {
 			lg.Error(err, "failed to update the object with the changes")
-			return ctrl.Result{}, NewReconcileError(err, "failed to update the object with the changes")
+			return ctrl.Result{}, fmt.Errorf("failed to update the object with the changes: %w", err)
 		}
 	}
 
 	if err := r.updateTokenStatusSuccess(ctx, &at); err != nil {
-		return ctrl.Result{}, NewReconcileError(err, "failed to update the status")
+		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
@@ -215,7 +221,7 @@ func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, a
 	at.Status.ErrorReason = reason
 	if uerr := r.Client.Status().Update(ctx, at); uerr != nil {
 		log.FromContext(ctx).Error(uerr, "failed to update the status with error", "reason", reason, "token_error", err)
-		return uerr
+		return fmt.Errorf("failed to update the status with error: %w", uerr)
 	}
 
 	return nil
@@ -228,7 +234,7 @@ func (r *SPIAccessTokenReconciler) updateTokenStatusSuccess(ctx context.Context,
 	at.Status.ErrorMessage = ""
 	at.Status.ErrorReason = ""
 	if err := r.Client.Status().Update(ctx, at); err != nil {
-		return NewReconcileError(err, "failed to update status")
+		return fmt.Errorf("failed to update status: %w", err)
 	}
 	return nil
 }
@@ -260,12 +266,12 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, error) {
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 	}
 
 	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
 	if err != nil {
-		return "", NewReconcileError(err, "failed to instantiate OAuth state codec")
+		return "", fmt.Errorf("failed to instantiate OAuth state codec: %w", err)
 	}
 
 	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
@@ -277,7 +283,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
 	if err != nil {
-		return "", NewReconcileError(err, "failed to encode the OAuth state")
+		return "", fmt.Errorf("failed to encode the OAuth state: %w", err)
 	}
 
 	return sp.GetOAuthEndpoint() + "?state=" + state, nil
@@ -298,7 +304,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	res := finalizer.Result{}
 	token, ok := obj.(*api.SPIAccessToken)
 	if !ok {
-		return res, fmt.Errorf("unexpected object type")
+		return res, fmt.Errorf("unexpected object type: %w", nil)
 	}
 
 	hasBindings, err := f.hasLinkedBindings(ctx, token)
@@ -307,7 +313,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	}
 
 	if hasBindings {
-		return res, fmt.Errorf("linked bindings present")
+		return res, fmt.Errorf("linked bindings present: %w", nil)
 	} else {
 		return res, nil
 	}
@@ -318,12 +324,16 @@ func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *
 	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
 		opconfig.SPIAccessTokenLinkLabel: token.Name,
 	}); err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
 	}
 
 	return len(list.Items) > 0, nil
 }
 
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
-	return finalizer.Result{}, f.storage.Delete(ctx, obj.(*api.SPIAccessToken))
+	err := f.storage.Delete(ctx, obj.(*api.SPIAccessToken))
+	if err != nil {
+		err = fmt.Errorf("failed to delete the linked token during finalization of %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+	return finalizer.Result{}, err
 }

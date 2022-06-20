@@ -15,6 +15,7 @@
 package serviceprovider
 
 import (
+	"fmt"
 	"net/url"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -24,7 +25,7 @@ import (
 func GetHostWithScheme(repoUrl string) (string, error) {
 	u, err := url.Parse(repoUrl)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse %s as URL: %w", repoUrl, err)
 	}
 	return u.Scheme + "://" + u.Host, nil
 }

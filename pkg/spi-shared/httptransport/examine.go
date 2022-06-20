@@ -41,8 +41,8 @@ var _ http.RoundTripper = (*ExaminingRoundTripper)(nil)
 func (r ExaminingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	res, err := r.RoundTripper.RoundTrip(req)
 	if err != nil {
-		return res, err
+		return res, err //nolint:wrapcheck // the errors should be handled by the users of the HTTP client configured with this roundtripper
 	}
 
-	return res, r.Examiner.Examine(req, res)
+	return res, r.Examiner.Examine(req, res) //nolint:wrapcheck // the errors should be handled by the users of the HTTP client configured with this roundtripper
 }

@@ -19,9 +19,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,7 +84,7 @@ func TestCheckPublicRepo(t *testing.T) {
 		t.Run(fmt.Sprintf("code %d => %t", statusCode, expected), func(t *testing.T) {
 			gh := Github{httpClient: httpClientMock{
 				doFunc: func(req *http.Request) (*http.Response, error) {
-					return &http.Response{StatusCode: statusCode}, nil
+					return &http.Response{StatusCode: statusCode, Body: io.NopCloser(strings.NewReader(""))}, nil
 				},
 			}}
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}

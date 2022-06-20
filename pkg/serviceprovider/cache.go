@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -82,7 +83,11 @@ func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) 
 		token.Status.TokenMetadata.LastRefreshTime = time.Now().Unix()
 	}
 
-	return c.client.Status().Update(ctx, token)
+	if err := c.client.Status().Update(ctx, token); err != nil {
+		return fmt.Errorf("metadata cache error: updating the status of token %s/%s: %w", token.Namespace, token.Name, err)
+	}
+
+	return nil
 }
 
 // refresh checks if the token's metadata is still valid. If it is stale, the metadata is cleared
@@ -107,7 +112,7 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 	if token.Status.TokenMetadata == nil {
 		data, err := ser.Fetch(ctx, token)
 		if err != nil {
-			return err
+			return fmt.Errorf("metadata cache error: fetching token data: %w", err)
 		}
 
 		// we persist in 3 cases:

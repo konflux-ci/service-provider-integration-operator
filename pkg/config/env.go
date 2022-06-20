@@ -22,7 +22,7 @@ const (
 	runControllersEnv     = "RUN_CONTROLLERS"
 	runControllersDefault = true
 
-	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token"
+	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //nolint:gosec // false positive, this is no private data
 )
 
 func RunControllers() bool {

@@ -17,8 +17,8 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -38,19 +38,11 @@ type metadataProvider struct {
 }
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
-var githubUserApiEndpoint *url.URL
 
-func init() {
-	url, err := url.Parse("https://api.github.com/user")
-	if err != nil {
-		panic(err)
-	}
-	githubUserApiEndpoint = url
-}
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while getting token data: %w", err)
 	}
 
 	if data == nil {
@@ -63,7 +55,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	ghClient, err := s.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
 
 	if err := (&AllAccessibleRepos{}).FetchAll(ctx, ghClient, data.AccessToken, state); err != nil {
@@ -77,7 +69,7 @@ func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	js, err := json.Marshal(state)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marshalling the state: %w", err)
 	}
 
 	metadata := &api.TokenMetadata{}
@@ -97,11 +89,12 @@ func (s metadataProvider) fetchUserAndScopes(ctx context.Context, githubClient *
 	usr, resp, err := githubClient.Users.Get(ctx, "")
 	if err != nil {
 		lg.Error(err, "Error during fetching user metadata from Github")
+		err = fmt.Errorf("failed to fetch user info: %w", err)
 		return
 	}
 	if resp.StatusCode != 200 {
 		lg.Error(err, "Error during fetching user metadata from Github", "status", resp.StatusCode)
-		return "", "", nil, err
+		return "", "", nil, nil
 	}
 
 	// https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps

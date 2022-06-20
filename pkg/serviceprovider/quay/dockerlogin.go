@@ -27,6 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var unsuccessfulLoginError = errors.New("login did not succeed")
+var loginResponseWithoutTokenError = errors.New("quay login response doesn't contain a token")
+var unexpectedTokenFormatError = errors.New("unexpected token format in quay login response")
+
 // DockerLogin performs docker login to quay using the provided username and password (that might be a robot account creds) and returns
 // a JWT token that can be used as a bearer token in the subsequent requests to the docker API in quay.
 // `repository` is in the form of `org/name`.
@@ -37,7 +41,7 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://quay.io/v2/auth?service=quay.io&scope=repository:"+repository+":push,pull", nil)
 	if err != nil {
 		lg.Error(err, "failed to compose the quay login request")
-		return "", err
+		return "", fmt.Errorf("failed to compose the quay login request: %w", err)
 	}
 
 	userPass := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
@@ -46,7 +50,7 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 	res, err := cl.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to perform the quay login request")
-		return "", err
+		return "", fmt.Errorf("failed to perform the quay login request: %w", err)
 	}
 
 	if res.StatusCode != 200 {
@@ -65,31 +69,31 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 		msg := string(bytes)
 
 		lg.Info("quay docker login attempt unsuccessful (without error)", "response", msg)
-		return "", fmt.Errorf("login did not succeed (status %d): %s", res.StatusCode, msg)
+		return "", fmt.Errorf("%w (status %d): %s", unsuccessfulLoginError, res.StatusCode, msg)
 	}
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		lg.Error(err, "failed to read the quay login response body")
-		return "", err
+		return "", fmt.Errorf("failed to read the quay login response body: %w", err)
 	}
 
 	resp := map[string]interface{}{}
 	if err := json.Unmarshal(bytes, &resp); err != nil {
 		lg.Error(err, "failed to unmarshal quay login response to JSON")
-		return "", err
+		return "", fmt.Errorf("failed to unmarshal quay login response to JSON: %w", err)
 	}
 
 	tokenObj, ok := resp["token"]
 	if !ok {
 		lg.Info("quay login response did not contain the expected 'token' field")
-		return "", errors.New("quay login response doesn't contain token")
+		return "", loginResponseWithoutTokenError
 	}
 
 	token, ok := tokenObj.(string)
 	if !ok {
 		lg.Info("quay login response 'token' field is expected to be a string")
-		return "", errors.New("unexpected token format in quay login response")
+		return "", unexpectedTokenFormatError
 	}
 
 	lg.Info("quay docker login attempt successful")
@@ -137,7 +141,7 @@ type quayClaims struct {
 func AnalyzeLoginToken(token string) (LoginTokenInfo, error) {
 	tkn, _, err := jwt.NewParser().ParseUnverified(token, &quayClaims{})
 	if err != nil {
-		return LoginTokenInfo{}, err
+		return LoginTokenInfo{}, fmt.Errorf("failed to parse Quay JWT token: %w", err)
 	}
 
 	claims := tkn.Claims.(*quayClaims)
