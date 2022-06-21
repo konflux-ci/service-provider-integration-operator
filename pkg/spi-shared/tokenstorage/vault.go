@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/vault/api/auth/userpass"
 	"strconv"
 
 	vault "github.com/hashicorp/vault/api"
@@ -59,6 +60,10 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
 	vaultClient.SetToken("s.qq94ZQZVeImhPROei5ExHUpB")
+	userpassAuth, err := userpass.NewUserpassAuth("spi", &userpass.Password{FromString: "spi"})
+	if err != nil {
+		return nil, fmt.Errorf("error creating userpass authenticator: %w", err)
+	}
 
 	//var k8sAuth *auth.KubernetesAuth
 	//if serviceAccountToken == "" {
@@ -70,13 +75,13 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 	//	return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
 	//}
 
-	//authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
-	//if err != nil {
-	//	return nil, fmt.Errorf("error while authenticating: %w", err)
-	//}
-	//if authInfo == nil {
-	//	return nil, noAuthInfoInVaultError
-	//}
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), userpassAuth)
+	if err != nil {
+		return nil, fmt.Errorf("error while authenticating: %w", err)
+	}
+	if authInfo == nil {
+		return nil, noAuthInfoInVaultError
+	}
 	return &vaultTokenStorage{vaultClient}, nil
 }
 
