@@ -235,3 +235,66 @@ This concludes the flow and you should be able to see the secret configured in t
 ```
 kubectl get secret token-secret -o yaml
 ```
+
+
+### SPI Logging concept.
+
+It is important to keep consistency between components in terms of the ways and form of how
+the events are logged. It makes the development and support of these components much easier.
+
+Since SPI is OpenShift/Kubernetes oriented framework we are inspired by [Operator SDK Logging](
+https://sdk.operatorframework.io/docs/building-operators/golang/references/logging/) and [structured logging](
+https://www.client9.com/structured-logging-in-golang/) methods. That means usage of [logr](https://pkg.go.dev/github.com/go-logr/logr) interface
+to log and [zap](https://pkg.go.dev/github.com/go-logr/zapr) as a backend.
+
+
+#### How to use
+```
+func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+....
+	lg := log.FromContext(ctx)
+	lg.Info("Reconciling")
+....
+}	
+```
+```
+func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
+	lg := log.FromContext(r.Context())
+	lg.Info("CallbackErrorHandler")
+	....
+}
+```
+#### Log levels
+INFO inclide
+- outgoing network connections
+- security-related events
+  
+DEBUG include
+  - level 1
+    - TODO
+      - level 2
+    - TODO
+
+#### Structural messages
+As described here [structured logging](
+https://www.client9.com/structured-logging-in-golang/) methods it is recommended to use structural logs like 
+```
+// vargargs style
+lg.Info("user not found", "userid", 1234)
+```
+The output is a list of key-value pairs followed by the static message: `userid=1234 msg="user not found"`
+
+Instead of
+```
+lg.Info(fmt.Sprintf("user %d wasn't found", 1234))
+// user 1234 wasn't found
+```
+
+#### How to configure in local tests
+TODO
+#### How to configure in IDE test
+TODO
+#### How to configure on test cluster
+TODO
+#### How to configure on staging.
+TODO
