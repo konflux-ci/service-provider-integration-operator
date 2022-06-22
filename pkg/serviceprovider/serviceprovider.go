@@ -18,6 +18,8 @@ import (
 	"context"
 	"net/http"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
@@ -81,7 +83,8 @@ type Factory struct {
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
-func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
+func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvider, error) {
+	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 	for _, spc := range f.Configuration.ServiceProviders {
@@ -111,6 +114,7 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
+	lg.Info("Specific provided is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
 	hostCredentialsInitializer := f.Initializers[config.ServiceProviderTypeHostCredentials]
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
 	return hostCredentialsConstructor.Construct(f, repoUrl)

@@ -158,7 +158,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
-	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
 		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed update the status: %w", uerr)
@@ -242,7 +242,7 @@ func (r *SPIAccessTokenReconciler) updateTokenStatusSuccess(ctx context.Context,
 // fillInStatus examines the provided token object and updates its status to match the state of the object.
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	if at.Status.TokenMetadata == nil || at.Status.TokenMetadata.Username == "" {
-		oauthUrl, err := r.oAuthUrlFor(at)
+		oauthUrl, err := r.oAuthUrlFor(ctx, at)
 		if err != nil {
 			return err
 		}
@@ -263,8 +263,8 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 }
 
 // oAuthUrlFor determines the OAuth flow initiation URL for given token.
-func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, error) {
-	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIAccessToken) (string, error) {
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 	}
