@@ -310,7 +310,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
 			err := r.Client.Delete(ctx, token)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "failed to delete the unlinked token during binding reconcilation cleanup", "namespace", token.GetNamespace(), "token", token.GetName())
+				log.FromContext(ctx).Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
 			}
 		}
 		return nil, err
