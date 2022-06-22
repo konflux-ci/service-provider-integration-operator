@@ -273,6 +273,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 		return nil, fmt.Errorf("failed to lookup the token in the service provider: %w", err)
 	}
 
+	newTokenCreated := false
 	if token == nil {
 		log.FromContext(ctx).Info("creating a new token because none found for binding")
 
@@ -298,11 +299,17 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return nil, fmt.Errorf("failed to create the token: %w", err)
 		}
+		newTokenCreated = true
 	}
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
 	// up the watch to use the label to limit the scope...
 	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
+		// linking newly created token failed, lets cleanup it
+		if newTokenCreated {
+			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token %s/%s, error: %w", token.GetNamespace(), token.GetName(), err)
+			r.cleanupUnlinkedToken(ctx, token)
+		}
 		return nil, err
 	}
 
@@ -310,6 +317,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
+	originalBinding := binding.DeepCopy()
 	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
@@ -317,7 +325,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			r.updateBindingStatusError(ctx, originalBinding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding with the token link: %w", err)
 		}
 	}
@@ -326,7 +334,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 		binding.Status.LinkedAccessTokenName = token.Name
 		binding.Status.OAuthUrl = token.Status.OAuthUrl
 		if err := r.updateBindingStatusSuccess(ctx, binding); err != nil {
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			r.updateBindingStatusError(ctx, originalBinding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding status with the token link: %w", err)
 		}
 	}
@@ -351,6 +359,13 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 	return nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) cleanupUnlinkedToken(ctx context.Context, token *api.SPIAccessToken) {
+	err := r.Client.Delete(ctx, token)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to delete the unlinked token during binding reconcilation cleanup, token %s/%s, error: %w", token.GetNamespace(), token.GetName(), err)
+	}
 }
 
 // syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
