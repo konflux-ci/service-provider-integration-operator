@@ -16,6 +16,7 @@ package hostcredentials
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -36,7 +37,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
 		lg.Error(err, "failed to get the token metadata")
-		return nil, err
+		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
 	}
 
 	if data == nil {

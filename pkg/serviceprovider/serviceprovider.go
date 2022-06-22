@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -117,7 +118,11 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvi
 	lg.Info("Specific provided is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
 	hostCredentialsInitializer := f.Initializers[config.ServiceProviderTypeHostCredentials]
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	return hostCredentialsConstructor.Construct(f, repoUrl)
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
+	}
+	return hostCredentialProvider, nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {

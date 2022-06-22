@@ -87,7 +87,7 @@ func (g *HostCredentialsProvider) TranslateToScopes(_ api.Permission) []string {
 func (g *HostCredentialsProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("token lookup failed: %w", err)
 	}
 
 	if len(tokens) == 0 {
@@ -98,11 +98,19 @@ func (g *HostCredentialsProvider) LookupToken(ctx context.Context, cl client.Cli
 }
 
 func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	return g.lookup.PersistMetadata(ctx, token)
+	err := g.lookup.PersistMetadata(ctx, token)
+	if err != nil {
+		return fmt.Errorf("metadata persist failed: %w", err)
+	}
+	return nil
 }
 
 func (g *HostCredentialsProvider) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	return serviceprovider.GetHostWithScheme(repoUrl)
+	host, err := serviceprovider.GetHostWithScheme(repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("detecting host failed: %w", err)
+	}
+	return host, nil
 }
 
 func (g *HostCredentialsProvider) CheckRepositoryAccess(ctx context.Context, _ client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
