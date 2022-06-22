@@ -307,8 +307,11 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
 		// linking newly created token failed, lets cleanup it
 		if newTokenCreated {
-			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token %s/%s, error: %w", token.GetNamespace(), token.GetName(), err)
-			r.cleanupUnlinkedToken(ctx, token)
+			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
+			err := r.Client.Delete(ctx, token)
+			if err != nil {
+				log.FromContext(ctx).Error(err, "failed to delete the unlinked token during binding reconcilation cleanup", "namespace", token.GetNamespace(), "token", token.GetName())
+			}
 		}
 		return nil, err
 	}
@@ -359,13 +362,6 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 	return nil
-}
-
-func (r *SPIAccessTokenBindingReconciler) cleanupUnlinkedToken(ctx context.Context, token *api.SPIAccessToken) {
-	err := r.Client.Delete(ctx, token)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to delete the unlinked token during binding reconcilation cleanup, token %s/%s, error: %w", token.GetNamespace(), token.GetName(), err)
-	}
 }
 
 // syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
