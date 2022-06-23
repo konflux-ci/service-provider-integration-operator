@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"github.com/hashicorp/vault/vault"
 
 	config2 "github.com/onsi/ginkgo/config"
@@ -93,6 +95,7 @@ var _ = BeforeSuite(func() {
 	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		//UseExistingCluster: pointer.BoolPtr(true),
 	}
 	ITest.TestEnvironment = testEnv
 
@@ -103,7 +106,7 @@ var _ = BeforeSuite(func() {
 	noPrivsUser, err := testEnv.AddUser(envtest.User{
 		Name:   "test-user",
 		Groups: []string{},
-	}, nil)
+	}, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
 	scheme := runtime.NewScheme()
@@ -121,6 +124,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = rbac.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = apiexv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
