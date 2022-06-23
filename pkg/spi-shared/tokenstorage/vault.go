@@ -19,10 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/vault/api/auth/userpass"
 	"strconv"
 
 	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -59,23 +59,17 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 	if err != nil {
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
-	vaultClient.SetToken("s.qq94ZQZVeImhPROei5ExHUpB")
-	userpassAuth, err := userpass.NewUserpassAuth("spi", &userpass.Password{FromString: "spi"})
+	var k8sAuth *auth.KubernetesAuth
+	if serviceAccountToken == "" {
+		k8sAuth, err = auth.NewKubernetesAuth(role)
+	} else {
+		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
+	}
 	if err != nil {
-		return nil, fmt.Errorf("error creating userpass authenticator: %w", err)
+		return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
 	}
 
-	//var k8sAuth *auth.KubernetesAuth
-	//if serviceAccountToken == "" {
-	//	k8sAuth, err = auth.NewKubernetesAuth(role)
-	//} else {
-	//	k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
-	//}
-	//if err != nil {
-	//	return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
-	//}
-
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), userpassAuth)
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
 	if err != nil {
 		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}
