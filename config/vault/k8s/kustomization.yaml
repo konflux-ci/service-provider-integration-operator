@@ -3,6 +3,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 namespace: spi-system
 namePrefix: spi- # WARN: keep this in sync with the namespace defined in the prepare base
 resources:
-  - ../../namespace
   - ../base/
   - deployment.yaml

@@ -23,17 +23,6 @@ commonLabels:
 resources:
   - apiexport_spi.yaml
   - apiresourceschema_spi.yaml
-  # Common stuff with the prepare goal
   - ../namespace
   - ../crd
   - ../rbac
-  - ../oauth
-#  - ingress.yaml
-  # Additional stuff deployed by the default overlay
-  - ../manager
-#  - ../vault/k8s
-
-secretGenerator:
-  - name: oauth-config
-    files:
-      - config.yaml
