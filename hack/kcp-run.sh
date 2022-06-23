@@ -4,11 +4,15 @@
 
 if ! which kcp; then
   echo "kcp binary required on path"
+  echo "you can install it with running:"
+  echo "    $ git clone https://github.com/kcp-dev/kcp && cd kcp && make install"
   exit 1
 fi
 
 if ! which kubectl-kcp; then
   echo "kubectl-kcp binary required on path"
+  echo "you can install it with running:"
+  echo "    $ git clone https://github.com/kcp-dev/kcp && cd kcp && make install"
   exit 1
 fi
 
