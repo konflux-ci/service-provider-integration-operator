@@ -54,6 +54,7 @@ kubectl-kcp workspace create spi --enter
 
 
 CLUSTER=spi-workload-cluster
+# TODO: for openshift we need to add routes to --resources
 kubectl kcp workload sync ${CLUSTER} --syncer-image ghcr.io/kcp-dev/kcp/syncer:main --resources=services,ingresses.networking.k8s.io > cluster_${CLUSTER}_syncer.yaml
 echo "configuration for workload cluster was generated at cluster_${CLUSTER}_syncer.yaml"
 echo "now you need to apply it on your cluster directly with:"
