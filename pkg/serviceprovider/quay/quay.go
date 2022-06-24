@@ -83,25 +83,12 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 			},
 			MetadataProvider: mp,
 			MetadataCache:    &cache,
-			RepoHostParser:   repoHostFromSchemelessUrl,
+			RepoHostParser:   serviceprovider.RepoHostFromSchemelessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
 	}, nil
-}
-
-func repoHostFromSchemelessUrl(repoUrl string) (string, error) {
-	schemeIndex := strings.Index(repoUrl, "://")
-	if schemeIndex == -1 {
-		repoUrl = "https://" + repoUrl
-	}
-
-	host, err := serviceprovider.RepoHostFromUrl(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse quay repo as URL: %w", err)
-	}
-	return host, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newQuay

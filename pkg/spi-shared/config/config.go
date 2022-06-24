@@ -26,9 +26,10 @@ import (
 type ServiceProviderType string
 
 const (
-	ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
-	ServiceProviderTypeQuay   ServiceProviderType = "Quay"
-	DefaultVaultHost          string              = "http://spi-vault:8200"
+	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
+	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
+	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
+	DefaultVaultHost                   string              = "http://spi-vault:8200"
 )
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret

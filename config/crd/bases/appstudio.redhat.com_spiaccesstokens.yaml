@@ -71,7 +71,6 @@ spec:
               serviceProviderUrl:
                 type: string
             required:
-            - permissions
             - serviceProviderUrl
             type: object
           status:
