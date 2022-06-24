@@ -320,7 +320,6 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
-	originalBinding := binding.DeepCopy()
 	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
@@ -328,7 +327,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
-			r.updateBindingStatusError(ctx, originalBinding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding with the token link: %w", err)
 		}
 	}
@@ -337,7 +336,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 		binding.Status.LinkedAccessTokenName = token.Name
 		binding.Status.OAuthUrl = token.Status.OAuthUrl
 		if err := r.updateBindingStatusSuccess(ctx, binding); err != nil {
-			r.updateBindingStatusError(ctx, originalBinding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding status with the token link: %w", err)
 		}
 	}
