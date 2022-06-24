@@ -273,6 +273,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 		return nil, fmt.Errorf("failed to lookup the token in the service provider: %w", err)
 	}
 
+	newTokenCreated := false
 	if token == nil {
 		log.FromContext(ctx).Info("creating a new token because none found for binding")
 
@@ -298,11 +299,20 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return nil, fmt.Errorf("failed to create the token: %w", err)
 		}
+		newTokenCreated = true
 	}
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
 	// up the watch to use the label to limit the scope...
 	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
+		// linking newly created token failed, lets cleanup it
+		if newTokenCreated {
+			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
+			err := r.Client.Delete(ctx, token)
+			if err != nil {
+				log.FromContext(ctx).Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
+			}
+		}
 		return nil, err
 	}
 

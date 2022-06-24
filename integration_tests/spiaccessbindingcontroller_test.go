@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -639,6 +641,80 @@ var _ = Describe("Status updates", func() {
 				g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
 				g.Expect(currentBinding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions))
 			})
+		})
+	})
+
+	When("linking fails", func() {
+		// This simulates a situation where the CRDs and the code is out-of-sync and any updates to the binding status
+		// fail.
+		origCRD := &apiexv1.CustomResourceDefinition{}
+		testBinding := &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "link-failing-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				RepoUrl: "test-provider://acme/acme",
+				Secret: api.SecretSpec{
+					Type: corev1.SecretTypeBasicAuth,
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			// we need to modify the cluster somehow so that updating the object status fails
+			// we will add a required property to the status schema so that the status update fails
+			Eventually(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "spiaccesstokenbindings.appstudio.redhat.com"}, origCRD)).To(Succeed())
+				updatedCRD := origCRD.DeepCopy()
+				status := updatedCRD.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["status"]
+				status.Properties["__test"] = apiexv1.JSONSchemaProps{
+					Type: "string",
+				}
+				requiredStatusProps := status.Required
+				requiredStatusProps = append(requiredStatusProps, "__test")
+				status.Required = requiredStatusProps
+				updatedCRD.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["status"] = status
+
+				g.Expect(ITest.Client.Update(ITest.Context, updatedCRD)).To(Succeed())
+			}).Should(Succeed())
+
+			ITest.TestServiceProvider.LookupTokenImpl = nil
+			Expect(ITest.Client.Create(ITest.Context, testBinding)).Should(Succeed())
+		})
+
+		AfterEach(func() {
+			// restore the CRD into its original state
+			Eventually(func(g Gomega) {
+				currentCRD := &apiexv1.CustomResourceDefinition{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(origCRD), currentCRD)).To(Succeed())
+				currentCRD.Spec = origCRD.Spec
+				g.Expect(ITest.Client.Update(ITest.Context, currentCRD)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				currentBinding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(testBinding), currentBinding)).To(Succeed())
+				g.Expect(ITest.Client.Delete(ITest.Context, currentBinding)).To(Succeed())
+			}).Should(Succeed())
+		})
+
+		It("should not create a token", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.LinkedAccessTokenName).To(Equal(token.Name))
+			}).Should(Succeed())
+
+			Consistently(func(g Gomega) {
+				tokens := &api.SPIAccessTokenList{}
+				g.Expect(ITest.Client.List(ITest.Context, tokens)).Should(Succeed())
+				// there should only be 1 token (the one created in the outer level). The change to the CRD makes every
+				// attempt to create a new token and link it fail and clean up the freshly created token.
+				// Because of the errors, we clean up but are left in a perpetual cycle of trying to create the linked
+				// token and failing to link it and thus the new tokens are continuously appearing and disappearing.
+				// Let's just check here that their number is not growing too much too quickly by this crude measure.
+				g.Expect(len(tokens.Items)).To(BeNumerically("<", 5))
+			}, "10s").Should(Succeed())
 		})
 	})
 })
