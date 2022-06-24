@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206100727.spiaccesschecks.appstudio.redhat.com
+  name: v202206130940.spiaccesschecks.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -104,7 +104,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206100727.spiaccesstokenbindings.appstudio.redhat.com
+  name: v202206130940.spiaccesstokenbindings.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -242,7 +242,6 @@ spec:
                   type: string
               type: object
           required:
-          - permissions
           - repoUrl
           - secret
           type: object
@@ -280,7 +279,6 @@ spec:
               type: object
           required:
           - linkedAccessTokenName
-          - oAuthUrl
           - phase
           - syncedObjectRef
           type: object
@@ -295,7 +293,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206100727.spiaccesstokendataupdates.appstudio.redhat.com
+  name: v202206130940.spiaccesstokendataupdates.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -350,7 +348,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206100727.spiaccesstokens.appstudio.redhat.com
+  name: v202206130940.spiaccesstokens.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -413,7 +411,6 @@ spec:
             serviceProviderUrl:
               type: string
           required:
-          - permissions
           - serviceProviderUrl
           type: object
         status:

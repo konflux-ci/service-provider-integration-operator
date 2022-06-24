@@ -16,9 +16,10 @@ package serviceprovider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -27,10 +28,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	unknownServiceProviderForUrlError = errors.New("could not determine service provider from url")
 )
 
 // ServiceProvider abstracts the interaction with some service provider
@@ -87,7 +84,8 @@ type Factory struct {
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
-func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
+func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvider, error) {
+	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 	for _, spc := range f.Configuration.ServiceProviders {
@@ -117,7 +115,14 @@ func (f *Factory) FromRepoUrl(repoUrl string) (ServiceProvider, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("%w: %s", unknownServiceProviderForUrlError, repoUrl)
+	lg.Info("Specific provided is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
+	hostCredentialsInitializer := f.Initializers[config.ServiceProviderTypeHostCredentials]
+	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
+	}
+	return hostCredentialProvider, nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
