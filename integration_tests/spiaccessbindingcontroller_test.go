@@ -694,7 +694,7 @@ var _ = Describe("Status updates", func() {
 
 			Eventually(func(g Gomega) {
 				currentBinding := &api.SPIAccessTokenBinding{}
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(testBinding), testBinding)).To(Succeed())
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(testBinding), currentBinding)).To(Succeed())
 				g.Expect(ITest.Client.Delete(ITest.Context, currentBinding)).To(Succeed())
 			}).Should(Succeed())
 		})
