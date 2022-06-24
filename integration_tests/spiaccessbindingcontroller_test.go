@@ -705,12 +705,15 @@ var _ = Describe("Status updates", func() {
 				g.Expect(binding.Status.LinkedAccessTokenName).To(Equal(token.Name))
 			}).Should(Succeed())
 
-			Eventually(func(g Gomega) {
+			Consistently(func(g Gomega) {
 				tokens := &api.SPIAccessTokenList{}
 				g.Expect(ITest.Client.List(ITest.Context, tokens)).Should(Succeed())
 				// there should only be 1 token (the one created in the outer level). The change to the CRD makes every
 				// attempt to create a new token and link it fail and clean up the freshly created token.
-				g.Expect(tokens.Items).To(HaveLen(1))
+				// Because of the errors, we clean up but are left in a perpetual cycle of trying to create the linked
+				// token and failing to link it and thus the new tokens are continuously appearing and disappearing.
+				// Let's just check here that their number is not growing too much too quickly by this crude measure.
+				g.Expect(len(tokens.Items)).To(BeNumerically("<", 5))
 			}, "10s").Should(Succeed())
 		})
 	})
