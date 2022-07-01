@@ -282,7 +282,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		IssuedAt:            time.Now().Unix(),
-		Scopes:              serviceprovider.GetAllScopes(sp.TranslateToScopes, &at.Spec.Permissions),
+		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})

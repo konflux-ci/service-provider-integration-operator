@@ -48,8 +48,10 @@ type ServiceProvider interface {
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
 
-	// TranslateToScopes translates the provided permission object into (a set of) service-provider-specific scopes.
-	TranslateToScopes(permission api.Permission) []string
+	// OAuthScopesFor translates all the permissions into a list of service-provider-specific scopes. This method
+	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
+	// needed is just a translation of permissions into scopes.
+	OAuthScopesFor(permissions *api.Permissions) []string
 
 	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
