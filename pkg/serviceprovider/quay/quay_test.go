@@ -17,6 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -331,8 +332,8 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			},
 		},
 	}
-	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
-		return &api.Token{AccessToken: "blabol"}
+	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
 	t.Run("public repository", func(t *testing.T) {
@@ -489,7 +490,52 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("lookup failed", func(t *testing.T) {
+		failingLookup := lookupMock
+		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+			return false, errors.New("intentional failure")
+		}}
 
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup:       failingLookup,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.Error(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorUnknownError, status.ErrorReason)
+		assert.NotEmpty(t, status.ErrorMessage)
+	})
+
+	t.Run("no token data", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return nil, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
 	})
 }
 
@@ -517,7 +563,7 @@ func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.
 }
 
 type tokenStorageMock struct {
-	getFunc func(ctx context.Context, owner *api.SPIAccessToken) *api.Token
+	getFunc func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
 }
 
 func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
@@ -525,7 +571,7 @@ func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, 
 }
 
 func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	return t.getFunc(ctx, owner), nil
+	return t.getFunc(ctx, owner)
 }
 
 func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
