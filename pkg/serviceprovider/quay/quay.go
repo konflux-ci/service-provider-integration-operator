@@ -238,10 +238,12 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	token := ""
 	if len(tokens) > 0 {
 		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
-		if apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0]); getTokenErr == nil {
-			token = apiToken.AccessToken
-		} else {
+		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
+		if getTokenErr != nil {
 			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
+		}
+		if apiToken != nil {
+			token = apiToken.AccessToken
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
