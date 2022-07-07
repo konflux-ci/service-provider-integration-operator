@@ -30,7 +30,7 @@ type TestServiceProvider struct {
 	LookupTokenImpl           func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
-	TranslateToScopesImpl     func(permission api.Permission) []string
+	OAuthScopesForImpl        func(permissions *api.Permissions) []string
 	GetTypeImpl               func() api.ServiceProviderType
 	GetOauthEndpointImpl      func() string
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
@@ -67,11 +67,11 @@ func (t TestServiceProvider) GetBaseUrl() string {
 	return t.GetBaseUrlImpl()
 }
 
-func (t TestServiceProvider) TranslateToScopes(permission api.Permission) []string {
-	if t.TranslateToScopesImpl == nil {
+func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []string {
+	if t.OAuthScopesForImpl == nil {
 		return []string{}
 	}
-	return t.TranslateToScopesImpl(permission)
+	return t.OAuthScopesForImpl(permissions)
 }
 
 func (t TestServiceProvider) GetType() api.ServiceProviderType {
@@ -107,7 +107,7 @@ func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprov
 func (t *TestServiceProvider) Reset() {
 	t.LookupTokenImpl = nil
 	t.GetBaseUrlImpl = nil
-	t.TranslateToScopesImpl = nil
+	t.OAuthScopesForImpl = nil
 	t.GetTypeImpl = nil
 	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil

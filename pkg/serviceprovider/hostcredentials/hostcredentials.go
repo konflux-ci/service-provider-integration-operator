@@ -80,7 +80,7 @@ func (g *HostCredentialsProvider) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeHostCredentials
 }
 
-func (g *HostCredentialsProvider) TranslateToScopes(_ api.Permission) []string {
+func (g *HostCredentialsProvider) OAuthScopesFor(_ *api.Permissions) []string {
 	return []string{}
 }
 

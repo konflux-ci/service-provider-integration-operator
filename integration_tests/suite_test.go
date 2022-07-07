@@ -268,7 +268,9 @@ var _ = AfterSuite(func() {
 	}
 
 	By("tearing down the test environment")
-	ITest.VaultTestCluster.Cleanup()
+	if ITest.VaultTestCluster != nil {
+		ITest.VaultTestCluster.Cleanup()
+	}
 	if ITest.TestEnvironment != nil {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())

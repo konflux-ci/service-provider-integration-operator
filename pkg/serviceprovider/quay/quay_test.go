@@ -182,40 +182,65 @@ func TestValidate(t *testing.T) {
 	assert.Equal(t, "unsupported scope 'user:read'", res.ScopeValidation[2].Error())
 }
 
-func TestQuay_TranslateToScopes(t *testing.T) {
-	repoR := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeRead,
-	}
-	repoW := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeWrite,
-	}
-	repoRW := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeReadWrite,
-	}
-	repoMR := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeRead,
-	}
-	repoMW := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeWrite,
-	}
-	repoMRW := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeReadWrite,
-	}
+func TestQuay_OAuthScopesFor(t *testing.T) {
 
 	q := &Quay{}
+	fullScopes := []string{"repo:read", "repo:write", "repo:create", "repo:admin"}
 
-	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoR))
-	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoW))
-	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoRW))
-	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoMR))
-	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoMW))
-	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoMRW))
+	hasScopes := func(expectedScopes []string, ps api.Permissions) func(t *testing.T) {
+		return func(t *testing.T) {
+			actualScopes := q.OAuthScopesFor(&ps)
+			assert.Equal(t, len(expectedScopes), len(actualScopes))
+			for _, s := range expectedScopes {
+				assert.Contains(t, actualScopes, s)
+			}
+		}
+	}
+
+	hasDefault := func(ps api.Permissions) func(t *testing.T) {
+		return hasScopes(fullScopes, ps)
+	}
+
+	t.Run("empty", hasDefault(api.Permissions{}))
+	t.Run("read-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeRead,
+		},
+	}}))
+	t.Run("write-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeWrite,
+		},
+	}}))
+	t.Run("read-write-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeReadWrite,
+		},
+	}}))
+	t.Run("read-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeRead,
+		},
+	}}))
+	t.Run("write-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeWrite,
+		},
+	}}))
+	t.Run("read-write-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeReadWrite,
+		},
+	}}))
+	t.Run("additional-scopes", hasScopes(
+		[]string{"repo:read", "repo:write", "repo:create", "repo:admin", "org:admin"},
+		api.Permissions{AdditionalScopes: []string{"org:admin"}}))
 }
 
 func TestRequestRepoInfo(t *testing.T) {
