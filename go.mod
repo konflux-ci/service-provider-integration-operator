@@ -10,7 +10,7 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v45 v45.1.0
 	github.com/hashicorp/vault v1.9.4
-	github.com/hashicorp/vault-plugin-secrets-kv v0.10.1
+	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
 	github.com/hashicorp/vault/api v1.3.1
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
 	github.com/hashicorp/vault/sdk v0.3.1-0.20220224202448-00c495209246
