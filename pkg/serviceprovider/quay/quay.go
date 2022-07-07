@@ -224,15 +224,16 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		lg.Error(failedToParseRepoUrlError, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = failedToParseRepoUrlError.Error()
-		return status, nil
+		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
 	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
 		status.ErrorMessage = lookupErr.Error()
-		return status, fmt.Errorf("failed lookup: %w", lookupErr)
+		// not returning here. We're still able to detect public repository without the token.
+		// The error will still be reported in status.
 	}
 
 	token := ""

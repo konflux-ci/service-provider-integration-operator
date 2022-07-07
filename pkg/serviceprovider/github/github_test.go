@@ -17,6 +17,7 @@ package github
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -151,7 +152,7 @@ func TestParseGithubRepositoryUrl(t *testing.T) {
 
 func TestCheckAccess(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusOK, nil)
+	gh := mockGithub(cl, http.StatusOK, nil, nil)
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
@@ -169,7 +170,7 @@ func TestCheckAccess(t *testing.T) {
 
 func TestFailWithGithubHttp(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"))
+	gh := mockGithub(cl, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil)
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
@@ -183,7 +184,7 @@ func TestFailWithGithubHttp(t *testing.T) {
 
 func TestCheckAccessPrivate(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusNotFound, nil)
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
 	}
@@ -200,7 +201,7 @@ func TestCheckAccessPrivate(t *testing.T) {
 
 func TestCheckAccessBadUrl(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusNotFound, nil)
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: "blabol.this.is.not.github.url"},
 	}
@@ -214,6 +215,44 @@ func TestCheckAccessBadUrl(t *testing.T) {
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
 	assert.Equal(t, api.SPIAccessCheckErrorBadURL, status.ErrorReason)
+}
+
+func TestCheckAccessFailingLookup(t *testing.T) {
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: "github.com",
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: "https://github.com",
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusOK, nil, errors.New("intentional failure"))
+
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.True(t, status.Accessible)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+	assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
+	assert.NotEmpty(t, status.ErrorMessage)
 }
 
 func TestCheckAccessWithMatchingTokens(t *testing.T) {
@@ -236,7 +275,7 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 			},
 		},
 	})
-	gh := mockGithub(cl, http.StatusOK, nil)
+	gh := mockGithub(cl, http.StatusOK, nil, nil)
 	ac := api.SPIAccessCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "access-check",
@@ -268,7 +307,7 @@ func TestValidate(t *testing.T) {
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[0].Error())
 }
 
-func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
+func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
 		return &api.Token{AccessToken: "blabol"}
@@ -292,7 +331,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error) *Github {
 			MetadataCache:       &metadataCache,
 			TokenFilter: tokenFilterMock{
 				matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-					return true, nil
+					return true, lookupError
 				},
 			},
 			RepoHostParser: serviceprovider.RepoHostFromUrl,

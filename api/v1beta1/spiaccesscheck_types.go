@@ -54,6 +54,7 @@ const (
 	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepositoryNotFound"
 	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
 	SPIAccessCheckErrorNotImplemented         SPIAccessCheckErrorReason = "NotImplemented"
+	SPIAccessCheckErrorTokenLookupFailed      SPIAccessCheckErrorReason = "TokenLookupFailure"
 )
 
 type SPIAccessCheckAccessibility string

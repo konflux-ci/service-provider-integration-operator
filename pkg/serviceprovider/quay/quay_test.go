@@ -505,13 +505,13 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
 
-		assert.Error(t, err)
+		assert.NoError(t, err)
 		assert.NotNil(t, status)
-		assert.False(t, status.Accessible)
+		assert.True(t, status.Accessible)
 		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
-		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
-		assert.Equal(t, api.SPIAccessCheckErrorUnknownError, status.ErrorReason)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+		assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
 		assert.NotEmpty(t, status.ErrorMessage)
 	})
 
