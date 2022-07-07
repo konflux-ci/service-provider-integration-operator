@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
 	github.com/hashicorp/vault/sdk v0.5.2
-	github.com/migueleliasweb/go-github-mock v0.0.8
+	github.com/migueleliasweb/go-github-mock v0.0.10
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
