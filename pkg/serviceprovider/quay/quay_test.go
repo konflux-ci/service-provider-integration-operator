@@ -489,7 +489,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.NotEmpty(t, status.ErrorMessage)
 	})
 
-	t.Run("lookup failed", func(t *testing.T) {
+	t.Run("lookup failed public", func(t *testing.T) {
 		failingLookup := lookupMock
 		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 			return false, errors.New("intentional failure")
@@ -511,8 +511,34 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
-		assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+		assert.Empty(t, status.ErrorReason)
+	})
+
+	t.Run("lookup failed nonpublic", func(t *testing.T) {
+		failingLookup := lookupMock
+		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+			return false, errors.New("intentional failure")
+		}}
+
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup:       failingLookup,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
 		assert.NotEmpty(t, status.ErrorMessage)
+		assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
 	})
 
 	t.Run("no token data", func(t *testing.T) {

@@ -258,6 +258,8 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		switch responseCode {
 		case http.StatusOK:
 			status.Accessible = true
+			status.ErrorReason = ""
+			status.ErrorMessage = ""
 			if repoInfo["is_public"].(bool) {
 				status.Accessibility = api.SPIAccessCheckAccessibilityPublic
 			} else {
@@ -266,8 +268,10 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		case http.StatusUnauthorized, http.StatusForbidden:
 			lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
 		case http.StatusNotFound:
-			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
-			status.ErrorMessage = "repository does not exist"
+			if status.ErrorReason == "" && status.ErrorMessage == "" {
+				status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+				status.ErrorMessage = "repository does not exist"
+			}
 		default:
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = "unexpected response from Quay API"

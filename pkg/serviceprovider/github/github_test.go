@@ -217,7 +217,7 @@ func TestCheckAccessBadUrl(t *testing.T) {
 	assert.Equal(t, api.SPIAccessCheckErrorBadURL, status.ErrorReason)
 }
 
-func TestCheckAccessFailingLookup(t *testing.T) {
+func TestCheckAccessFailingLookupPublicRepo(t *testing.T) {
 	cl := mockK8sClient(&api.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "token",
@@ -251,6 +251,44 @@ func TestCheckAccessFailingLookup(t *testing.T) {
 	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+	assert.Empty(t, status.ErrorReason)
+	assert.Empty(t, status.ErrorMessage)
+}
+
+func TestCheckAccessFailingLookupNonPublicRepo(t *testing.T) {
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: "github.com",
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: "https://github.com",
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusNotFound, nil, errors.New("intentional failure"))
+
+	ac := api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
+	}
+
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, &ac)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.False(t, status.Accessible)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
 	assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
 	assert.NotEmpty(t, status.ErrorMessage)
 }

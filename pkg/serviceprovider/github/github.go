@@ -182,8 +182,10 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = lookupErr.Error()
+		if !publicRepo {
+			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+			status.ErrorMessage = lookupErr.Error()
+		}
 		return status, nil
 	}
 
