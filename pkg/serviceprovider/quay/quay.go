@@ -105,53 +105,28 @@ func (g *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }
 
-func (g *Quay) TranslateToScopes(permission api.Permission) []string {
+func (g *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
-	// We represent the ability to pull/push images using fake scopes that don't exist in the Quay model and are used
-	// only to represent the permissions of the robot accounts. Since this is an OAuth URL, we need to replace those
-	// scopes with their "real" equivalents in the OAuth APIs - i.e. pull == repo:read and push == repo:write
+	// We basically disregard any request for specific permissions and always require the max usable set of permissions
+	// because we cannot change that set later due to a bug in Quay OAuth impl:
+	// https://issues.redhat.com/browse/PROJQUAY-3908
 
-	fullScopes := translateToQuayScopes(permission)
+	// Note that we don't require org:admin, because that is a super strong permission for which we currently don't
+	// have usecase. Users can still require it using the spec.permissions.additionalScopes if needed.
+	scopes := map[string]bool{}
+	scopes[string(ScopeRepoRead)] = true
+	scopes[string(ScopeRepoWrite)] = true
+	scopes[string(ScopeRepoCreate)] = true
+	scopes[string(ScopeRepoAdmin)] = true
 
-	replace := func(str *string) {
-		if *str == string(ScopePull) {
-			*str = string(ScopeRepoRead)
-		} else if *str == string(ScopePush) {
-			*str = string(ScopeRepoWrite)
-		}
+	for _, s := range ps.AdditionalScopes {
+		scopes[s] = true
 	}
 
-	// we only return 0, 1 or 2 elements in the arrays, so let's be very concrete here
-	if len(fullScopes) == 0 {
-		return fullScopes
-	} else if len(fullScopes) == 1 {
-		replace(&fullScopes[0])
-		return fullScopes
-	} else if len(fullScopes) == 2 {
-		replace(&fullScopes[0])
-		replace(&fullScopes[1])
-		return fullScopes
-	}
-
-	// the generic case in case translateToQuayScopes() returns something longer than 0, 1 or 2 elements
-
-	scopeMap := map[string]bool{}
-
-	for _, s := range fullScopes {
-		if s == string(ScopePull) {
-			s = string(ScopeRepoRead)
-		} else if s == string(ScopePush) {
-			s = string(ScopeRepoWrite)
-		}
-
-		scopeMap[s] = true
-	}
-
-	ret := make([]string, 0, len(scopeMap))
-	for s := range scopeMap {
+	ret := make([]string, 0, len(scopes))
+	for s := range scopes {
 		ret = append(ret, s)
 	}
-
 	return ret
 }
 

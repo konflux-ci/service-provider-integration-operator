@@ -98,8 +98,8 @@ func (g *Github) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeGitHub
 }
 
-func (g *Github) TranslateToScopes(permission api.Permission) []string {
-	return translateToScopes(permission)
+func (g *Github) OAuthScopesFor(permissions *api.Permissions) []string {
+	return serviceprovider.GetAllScopes(translateToScopes, permissions)
 }
 
 func translateToScopes(permission api.Permission) []string {
