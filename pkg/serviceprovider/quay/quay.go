@@ -241,7 +241,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 				status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 			}
 		case http.StatusUnauthorized, http.StatusForbidden:
-			lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
+			lg.Info("quay.io request unauthorized. Probably a private repository for which we don't have a token.")
 		case http.StatusNotFound:
 			if status.ErrorReason == "" && status.ErrorMessage == "" {
 				status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound

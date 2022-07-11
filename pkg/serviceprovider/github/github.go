@@ -175,6 +175,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	status.Accessible = publicRepo
 	if publicRepo {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
+		return status, nil
 	}
 
 	lg := log.FromContext(ctx)
