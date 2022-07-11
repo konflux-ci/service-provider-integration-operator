@@ -20,6 +20,15 @@ server:
   service:
     enabled: true
 
+  ingress:
+    enabled: true
+    hosts:
+    - host: ${VAULT_HOST}
+      paths: []
+
+  route:
+    enabled: true
+
   standalone:
     config: |
       ui = false

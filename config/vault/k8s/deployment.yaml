@@ -311,6 +311,35 @@ spec:
           requests:
             storage: 1Gi
 ---
+# Source: vault/templates/server-ingress.yaml
+apiVersion: networking.k8s.io/v1
+
+kind: Ingress
+metadata:
+  name: vault
+  namespace: system
+  labels:
+    helm.sh/chart: vault-0.19.0
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/managed-by: Helm
+spec:
+  rules:
+    - host: "${VAULT_HOST}"
+      http:
+        paths:
+
+          - path: /
+            
+            pathType: Prefix
+            
+            backend:
+              
+              service:
+                name: vault
+                port:
+                  number: 8200
+---
 # Source: vault/templates/tests/server-test.yaml
 apiVersion: v1
 kind: Pod

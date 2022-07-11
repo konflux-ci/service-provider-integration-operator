@@ -304,6 +304,28 @@ spec:
           requests:
             storage: 1Gi
 ---
+# Source: vault/templates/server-route.yaml
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: vault
+  namespace: system
+  labels:
+    helm.sh/chart: vault-0.19.0
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/managed-by: Helm
+spec:
+  host: chart-example.local
+  to:
+    kind: Service
+    name: vault
+    weight: 100
+  port:
+    targetPort: 8200
+  tls:
+    termination: passthrough
+---
 # Source: vault/templates/tests/server-test.yaml
 apiVersion: v1
 kind: Pod
