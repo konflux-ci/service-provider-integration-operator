@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -119,13 +121,13 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 
-	lg.Info("Reconciling")
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
 
 	at := api.SPIAccessToken{}
 
 	if err := r.Get(ctx, req.NamespacedName, &at); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("token already gone from the cluster. skipping reconciliation")
+			lg.V(logs.DebugLvl).Info("token already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
@@ -153,7 +155,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.DeletionTimestamp != nil {
-		lg.Info("token being deleted, no other changes required after completed finalization")
+		lg.V(logs.DebugLvl).Info("token being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
 	}
 
@@ -208,9 +210,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.updateTokenStatusSuccess(ctx, &at); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
-
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
-		Info("reconciliation finished successfully")
+		V(logs.DebugLvl).Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -254,8 +255,7 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
 		at.Status.OAuthUrl = ""
 		if changed {
-			lg := log.FromContext(ctx)
-			lg.Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+			log.FromContext(ctx).V(logs.DebugLvl).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
 	}
 

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -48,7 +47,7 @@ import (
 const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
 
 func TestMain(m *testing.M) {
-	logs.InitLoggers(true, flag.CommandLine)
+	logs.InitDevelLoggers()
 	os.Exit(m.Run())
 }
 

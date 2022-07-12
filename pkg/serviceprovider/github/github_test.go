@@ -17,7 +17,6 @@ package github
 import (
 	"bytes"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -76,7 +75,7 @@ func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken)
 }
 
 func TestMain(m *testing.M) {
-	logs.InitLoggers(true, flag.CommandLine)
+	logs.InitDevelLoggers()
 	os.Exit(m.Run())
 }
 func TestCheckPublicRepo(t *testing.T) {

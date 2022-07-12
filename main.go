@@ -17,10 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"net/http"
 	"os"
 
+	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
@@ -57,25 +57,25 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+type cliArgs struct {
+	MetricsAddr          string `arg:"-m, --metrics-bind-address, env" default:":8080" help:"The address the metric endpoint binds to."`
+	ProbeAddr            string `arg:"-h, --health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
+	EnableLeaderElection bool   `arg:"-l, --leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	ConfigFile           string `arg:"-c, --config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
+	ZapDevel             bool   `arg:"-d, --zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
+	ZapEncoder           string `arg:"-e, --zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
+	ZapLogLevel          string `arg:"-v, --zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
+	ZapStackTraceLevel   string `arg:"-s, --zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
+	ZapTimeEncoding      string `arg:"-t, --zap-time-encoding, env" default:"rfc3339" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
+}
+
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var configFile string
-	var devmode bool
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
-	flag.BoolVar(&devmode, "dev-mode", false, "Enable debug logging and insecure communication with vault")
 
-	flag.Parse()
-
-	logs.InitLoggers(devmode, flag.CommandLine)
+	args := cliArgs{}
+	arg.MustParse(&args)
+	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 	setupLog := ctrl.Log.WithName("setup")
-
+	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 	if err := config.ValidateEnv(); err != nil {
 		setupLog.Error(err, "invalid configuration")
 		os.Exit(1)
@@ -83,10 +83,10 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     args.MetricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: args.ProbeAddr,
+		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
 	})
@@ -95,13 +95,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := sharedConfig.LoadFrom(configFile)
+	cfg, err := sharedConfig.LoadFrom(args.ConfigFile)
 	if err != nil {
 		setupLog.Error(err, "Failed to load the configuration")
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath, devmode)
+	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath, false)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

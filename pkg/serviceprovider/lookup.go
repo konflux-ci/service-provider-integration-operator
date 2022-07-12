@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -84,7 +86,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 		return result, fmt.Errorf("failed to list the potentially matching tokens: %w", err)
 	}
 
-	lg.Info("lookup", "potential_matches", len(potentialMatches.Items))
+	lg.V(logs.DebugLvl).Info("lookup", "potential_matches", len(potentialMatches.Items))
 
 	errs := make([]error, 0)
 
@@ -92,13 +94,13 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	wg := sync.WaitGroup{}
 	for _, t := range potentialMatches.Items {
 		if t.Status.Phase != api.SPIAccessTokenPhaseReady {
-			lg.Info("skipping lookup, token not ready", "token", t.Name)
+			lg.V(logs.DebugLvl).Info("skipping lookup, token not ready", "token", t.Name)
 			continue
 		}
 
 		wg.Add(1)
 		go func(tkn api.SPIAccessToken) {
-			lg.Info("matching", "token", tkn.Name)
+			lg.V(logs.DebugLvl).Info("matching", "token", tkn.Name)
 			defer wg.Done()
 			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
 				mutex.Lock()
@@ -130,7 +132,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 		return nil, fmt.Errorf("errors while examining the potential matches: %w", errors.NewAggregate(errs))
 	}
 
-	lg.Info("lookup finished", "matching_tokens", len(result))
+	lg.V(logs.DebugLvl).Info("lookup finished", "matching_tokens", len(result))
 
 	return result, nil
 }
