@@ -26,9 +26,6 @@ server:
     - host: ${VAULT_HOST}
       paths: []
 
-  route:
-    enabled: true
-
   standalone:
     config: |
       ui = false
