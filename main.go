@@ -101,7 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath, devmode)
+	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultConfiguration.Host, cfg.VaultConfiguration.KubernetesAuthentication.ServiceAccountTokenFilePath, devmode)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

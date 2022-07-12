@@ -58,7 +58,10 @@ serviceProviders:
   clientId: "456"
   clientSecret: "54"
 baseUrl: blabol
-vaultHost: vaultTestHost
+vault:
+  host: vaultTestHost
+  kubernetes:
+    serviceAccountTokenFilePath: "/over/the/rainbow"
 accessCheckTtl: 37m
 tokenLookupCacheTtl: 62m
 `
@@ -70,7 +73,8 @@ tokenLookupCacheTtl: 62m
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
-	assert.Equal(t, "vaultTestHost", cfg.VaultHost)
+	assert.Equal(t, "vaultTestHost", cfg.VaultConfiguration.Host)
+	assert.Equal(t, "/over/the/rainbow", cfg.VaultConfiguration.KubernetesAuthentication.ServiceAccountTokenFilePath)
 	assert.Equal(t, time.Minute*37, cfg.AccessCheckTtl)
 	assert.Equal(t, time.Minute*62, cfg.TokenLookupCacheTtl)
 	assert.Len(t, cfg.ServiceProviders, 2)
@@ -85,9 +89,77 @@ func TestDefaults(t *testing.T) {
 	cfg, err := LoadFrom(cfgFilePath)
 	assert.NoError(t, err)
 
-	assert.Equal(t, DefaultVaultHost, cfg.VaultHost)
+	assert.Equal(t, "http://spi-vault:8200", cfg.VaultConfiguration.Host)
 	assert.Equal(t, time.Minute*30, cfg.AccessCheckTtl)
 	assert.Equal(t, time.Hour, cfg.TokenLookupCacheTtl)
+}
+
+func TestEnvOverrides(t *testing.T) {
+	configFileContent := `
+sharedSecret: yaddayadda123$@#**
+serviceProviders:
+- type: GitHub
+  clientId: "123"
+  clientSecret: "42"
+- type: Quay
+  clientId: "456"
+  clientSecret: "54"
+baseUrl: blabol
+vault:
+  host: vaultTestHost
+  kubernetes:
+    serviceAccountTokenFilePath: "/over/the/rainbow"
+accessCheckTtl: 37m
+tokenLookupCacheTtl: 62m
+`
+	cfgFilePath := createFile(t, "config", configFileContent)
+	defer os.Remove(cfgFilePath)
+
+	testWithEnv := func(name, value string, test func(*testing.T, Configuration)) {
+		t.Run(name, func(t *testing.T) {
+			origVal, existed := os.LookupEnv(name)
+			assert.NoError(t, os.Setenv(name, value))
+
+			cfg, err := LoadFrom(cfgFilePath)
+			assert.NoError(t, err)
+
+			test(t, cfg)
+
+			if existed {
+				assert.NoError(t, os.Setenv(name, origVal))
+			} else {
+				assert.NoError(t, os.Unsetenv(name))
+			}
+		})
+	}
+
+	testWithEnv("KUBERNETES_AUDIENCES", "a,b,c", func(t *testing.T, c Configuration) {
+		assert.Equal(t, []string{"a", "b", "c"}, c.KubernetesAuthAudiences)
+	})
+
+	testWithEnv("JWT_SHARED_SECRET", "secret", func(t *testing.T, c Configuration) {
+		assert.Equal(t, []byte("secret"), c.SharedSecret)
+	})
+
+	testWithEnv("BASE_URL", "https://base.url", func(t *testing.T, c Configuration) {
+		assert.Equal(t, "https://base.url", c.BaseUrl)
+	})
+
+	testWithEnv("TOKEN_LOOKUP_CACHE_TTL", "2m", func(t *testing.T, c Configuration) {
+		assert.Equal(t, 2*time.Minute, c.TokenLookupCacheTtl)
+	})
+
+	testWithEnv("ACCESS_CHECK_TTL", "3s", func(t *testing.T, c Configuration) {
+		assert.Equal(t, 3*time.Second, c.AccessCheckTtl)
+	})
+
+	testWithEnv("VAULT_HOST", "https://vault.remote", func(t *testing.T, c Configuration) {
+		assert.Equal(t, "https://vault.remote", c.VaultConfiguration.Host)
+	})
+
+	testWithEnv("SA_TOKEN_PATH", "/the/path", func(t *testing.T, c Configuration) {
+		assert.Equal(t, "/the/path", c.VaultConfiguration.KubernetesAuthentication.ServiceAccountTokenFilePath)
+	})
 }
 
 func TestTtlParseFail(t *testing.T) {
