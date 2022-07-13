@@ -157,6 +157,14 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+		//if we passed finalizers, and token is in Awaiting, it means that it have no bindings referring to it and can be cleaned up
+		if err := r.Delete(ctx, &at); err != nil {
+			lg.Error(err, "failed to cleanup the processed token")
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+		}
+	}
+
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
