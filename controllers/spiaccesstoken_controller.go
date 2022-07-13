@@ -168,10 +168,6 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				return
 			}
 			//if we passed finalizers, and token is in Awaiting, it means that it have no bindings referring to it and can be cleaned up
-			if err := r.TokenStorage.Delete(ctx, &at); err != nil {
-				lg.Error(err, "failed to cleanup the processed token data")
-				return
-			}
 			if err := r.Delete(ctx, &at); err != nil {
 				lg.Error(err, "failed to cleanup the processed token")
 				return
