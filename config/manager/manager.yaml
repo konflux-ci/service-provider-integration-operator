@@ -24,6 +24,7 @@ spec:
         args:
         - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
+        imagePullPolicy: Always
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -50,6 +51,9 @@ spec:
           - mountPath: /etc/spi/
             name: oauth-config
             readOnly: true
+          - mountPath: /etc/vault-approle/
+            name: vault-approle
+            readOnly: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
@@ -59,3 +63,6 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
+        - name: vault-approle
+          secret:
+            secretName: vault-approle-spi-operator

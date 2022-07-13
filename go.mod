@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/vault v1.11.0
 	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
 	github.com/hashicorp/vault/api v1.7.2
-	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
+	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/sdk v0.5.2
 	github.com/migueleliasweb/go-github-mock v0.0.8
 	github.com/mitchellh/go-testing-interface v1.14.1

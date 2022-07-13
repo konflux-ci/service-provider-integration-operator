@@ -19,10 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 
 	vault "github.com/hashicorp/vault/api"
-	auth "github.com/hashicorp/vault/api/auth/kubernetes"
+	"github.com/hashicorp/vault/api/auth/approle"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -59,17 +60,19 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 	if err != nil {
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
-	var k8sAuth *auth.KubernetesAuth
-	if serviceAccountToken == "" {
-		k8sAuth, err = auth.NewKubernetesAuth(role)
-	} else {
-		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
-	}
+
+	roleId, err := ioutil.ReadFile("/etc/vault-approle/role_id")
 	if err != nil {
-		return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
+		return nil, fmt.Errorf("unable to read vault role id: %w", err)
+	}
+	secretId := &approle.SecretID{FromFile: "/etc/vault-approle/secret_id"}
+
+	appRoleAuth, err := approle.NewAppRoleAuth(string(roleId), secretId)
+	if err != nil {
+		return nil, fmt.Errorf("error creating approle authenticator: %w", err)
 	}
 
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), appRoleAuth)
 	if err != nil {
 		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}

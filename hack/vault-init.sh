@@ -121,12 +121,15 @@ function audit() {
   fi
 }
 
+function auth() {
+  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
+}
+
 function k8sAuth() {
   if ! vaultExec "vault auth list | grep -q kubernetes" ; then
     echo "setup kubernetes authentication ..."
     vaultExec "vault auth enable kubernetes"
   fi
-  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
   vaultExec "vault write auth/kubernetes/role/spi-controller-manager \
         bound_service_account_names=spi-controller-manager \
         bound_service_account_namespaces=spi-system \
@@ -138,6 +141,25 @@ function k8sAuth() {
   # shellcheck disable=SC2016
   vaultExec 'vault write auth/kubernetes/config \
         kubernetes_host=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT'
+}
+
+function approleAuth() {
+  if ! vaultExec "vault auth list | grep -q approle" ; then
+    echo "setup approle authentication ..."
+    vaultExec "vault auth enable approle"
+  fi
+
+  function approleSet() {
+    vaultExec "vault write auth/approle/role/${1} token_policies=spi"
+    ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
+    SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
+    kubectl create secret generic vault-approle-${1} -n ${NAMESPACE} \
+      --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
+      --save-config --dry-run=client -o yaml | kubectl apply -f -
+  }
+
+  approleSet spi-operator
+  approleSet spi-oauth
 }
 
 function spiSecretEngine() {
@@ -166,5 +188,7 @@ ensureRootToken
 login
 audit
 spiSecretEngine
-k8sAuth
+auth
+#k8sAuth
+approleAuth
 restart

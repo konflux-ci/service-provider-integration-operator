@@ -21,6 +21,7 @@ spec:
         - command:
           - /spi-oauth
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
+          imagePullPolicy: Always
           name: oauth
           securityContext:
             allowPrivilegeEscalation: false
@@ -47,6 +48,9 @@ spec:
           - mountPath: /etc/spi/
             name: oauth-config
             readOnly: true
+          - mountPath: /etc/vault-approle/
+            name: vault-approle
+            readOnly: true
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
@@ -56,3 +60,6 @@ spec:
           items:
             - key: config.yaml
               path: config.yaml
+      - name: vault-approle
+        secret:
+          secretName: vault-approle-spi-oauth
