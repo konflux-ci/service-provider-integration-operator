@@ -47,7 +47,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 			Response:   "the access token is empty, service provider not contacted at all",
 		}
 	}
-	lg.V(logs.DebugLvl).Info("Fetching metadata request")
+	lg.V(logs.DebugLevel).Info("Fetching metadata request")
 	// list all repositories for the authenticated user
 	opt := &github.RepositoryListOptions{}
 	opt.ListOptions.PerPage = 100
@@ -58,7 +58,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 			return fmt.Errorf("failed to list github repositories: %w", err)
 		}
 
-		lg.V(logs.DebugLvl).Info("Received a list of available repositories from Github", "len", len(repos), "nextPage", resp.NextPage, "lastPage", resp.LastPage, "rate", resp.Rate)
+		lg.V(logs.DebugLevel).Info("Received a list of available repositories from Github", "len", len(repos), "nextPage", resp.NextPage, "lastPage", resp.LastPage, "rate", resp.Rate)
 		for _, k := range repos {
 			if k.Permissions["admin"] {
 				state.AccessibleRepos[RepositoryUrl(*k.HTMLURL)] = RepositoryRecord{ViewerPermission: ViewerPermissionAdmin}
@@ -74,6 +74,6 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 		}
 		opt.ListOptions.Page = resp.NextPage
 	}
-	lg.V(logs.DebugLvl).Info("Fetching metadata complete", "len", len(state.AccessibleRepos))
+	lg.V(logs.DebugLevel).Info("Fetching metadata complete", "len", len(state.AccessibleRepos))
 	return nil
 }
