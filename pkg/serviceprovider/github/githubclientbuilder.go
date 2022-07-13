@@ -42,6 +42,6 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 	}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
-	lg.V(logs.DebugLvl).Info("Created new github client", "SPIAccessToken", spiToken)
+	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
 	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
 }

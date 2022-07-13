@@ -15,13 +15,21 @@
 package serviceprovider
 
 import (
+	"os"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
+}
 
 func TestGetAllScopesUniqueValues(t *testing.T) {
 	translateToScopes := func(permission api.Permission) []string {

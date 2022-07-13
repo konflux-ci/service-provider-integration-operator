@@ -17,7 +17,10 @@ package tokenstorage
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
@@ -37,6 +40,11 @@ var testSpiAccessToken = &v1beta1.SPIAccessToken{
 		Name:      "testSpiAccessToken",
 		Namespace: "testNamespace",
 	},
+}
+
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
 }
 
 func TestStorage(t *testing.T) {
