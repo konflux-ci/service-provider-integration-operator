@@ -6,10 +6,7 @@ injector:
   enabled: false
 
 server:
-  logLevel: "trace"
-
-  image:
-    tag: "1.9.4"
+  logLevel: "info"
 
   dataStorage:
     enabled: true

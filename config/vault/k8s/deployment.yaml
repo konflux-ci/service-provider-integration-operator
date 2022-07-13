@@ -7,7 +7,7 @@ metadata:
   name: vault
   namespace: system
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -19,7 +19,7 @@ metadata:
   name: vault-config
   namespace: system
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -43,7 +43,7 @@ kind: ClusterRoleBinding
 metadata:
   name: vault-server-binding
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -64,7 +64,7 @@ metadata:
   name: vault-internal
   namespace: system
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -93,7 +93,7 @@ metadata:
   name: vault
   namespace: system
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -140,7 +140,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: vault-0.19.0
+        helm.sh/chart: vault-0.20.1
         app.kubernetes.io/name: vault
         app.kubernetes.io/instance: vault
         component: server
@@ -156,6 +156,7 @@ spec:
                   component: server
               topologyKey: kubernetes.io/hostname
   
+      
       
       
       terminationGracePeriodSeconds: 10
@@ -185,7 +186,7 @@ spec:
       containers:
         - name: vault
           
-          image: hashicorp/vault:1.9.4
+          image: hashicorp/vault:1.10.3
           imagePullPolicy: IfNotPresent
           command:
           - "/bin/sh"
@@ -237,7 +238,7 @@ spec:
             - name: HOME
               value: "/home/vault"
             - name: VAULT_LOG_LEVEL
-              value: "trace"
+              value: "info"
             
             
             
@@ -319,7 +320,7 @@ metadata:
   name: vault
   namespace: system
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -352,7 +353,7 @@ spec:
   
   containers:
     - name: vault-server-test
-      image: hashicorp/vault:1.9.4
+      image: hashicorp/vault:1.10.3
       imagePullPolicy: IfNotPresent
       env:
         - name: VAULT_ADDR
