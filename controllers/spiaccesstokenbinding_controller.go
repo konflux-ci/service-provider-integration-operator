@@ -277,7 +277,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 	newTokenCreated := false
 	if token == nil {
-		lg.V(logs.DebugLvl).Info("creating a new token because none found for binding")
+		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 		serviceProviderUrl := sp.GetBaseUrl()
 		if err != nil {

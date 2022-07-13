@@ -108,6 +108,6 @@ func (s metadataProvider) fetchUserAndScopes(ctx context.Context, githubClient *
 
 	userId = strconv.FormatInt(*usr.ID, 10)
 	userName = *usr.Login
-	lg.V(logs.DebugLvl).Info("Fetched user metadata from Github", "login", userName, "userid", userId, "scopes", scopes)
+	lg.V(logs.DebugLevel).Info("Fetched user metadata from Github", "login", userName, "userid", userId, "scopes", scopes)
 	return
 }

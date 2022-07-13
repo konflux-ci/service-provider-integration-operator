@@ -127,7 +127,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.Get(ctx, req.NamespacedName, &at); err != nil {
 		if errors.IsNotFound(err) {
-			lg.V(logs.DebugLvl).Info("token already gone from the cluster. skipping reconciliation")
+			lg.V(logs.DebugLevel).Info("token already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
@@ -155,7 +155,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.DeletionTimestamp != nil {
-		lg.V(logs.DebugLvl).Info("token being deleted, no other changes required after completed finalization")
+		lg.V(logs.DebugLevel).Info("token being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
 	}
 
@@ -211,7 +211,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
-		V(logs.DebugLvl).Info("reconciliation finished successfully")
+		V(logs.DebugLevel).Info("reconciliation finished successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -255,7 +255,7 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
 		at.Status.OAuthUrl = ""
 		if changed {
-			log.FromContext(ctx).V(logs.DebugLvl).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
 	}
 

@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DebugLvl = 1
+	DebugLevel = 1
 )
 
 // InitDevelLoggers Configure zap backend development logger
@@ -79,5 +79,5 @@ func setFlagIfNotEmptyOrPanic(fs *flag.FlagSet, name, value string) {
 //  }
 func TimeTrack(log logr.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
-	log.V(DebugLvl).Info(fmt.Sprintf("Time took to %s", name), "time", elapsed)
+	log.V(DebugLevel).Info(fmt.Sprintf("Time took to %s", name), "time", elapsed)
 }

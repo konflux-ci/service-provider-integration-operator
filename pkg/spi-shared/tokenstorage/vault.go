@@ -112,7 +112,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 		return nil, fmt.Errorf("error reading the data: %w", err)
 	}
 	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
-		lg.V(logs.DebugLvl).Info("no data found in vault at", "path", path)
+		lg.V(logs.DebugLevel).Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
 	for _, w := range secret.Warnings {
@@ -177,7 +177,7 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
-	log.FromContext(ctx).V(logs.DebugLvl).Info("deleted", "secret", s)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted", "secret", s)
 	return nil
 }
 
