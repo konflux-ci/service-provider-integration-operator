@@ -47,13 +47,14 @@ func TestTimeTrack(t *testing.T) {
 	fac, logs := observer.New(zap.DebugLevel)
 	logger := zapr.NewLogger(zap.New(fac))
 	//when
-	TimeTrack(logger, time.Now(), "MSG")
+	TimeTrack(logger, time.Now().Add(time.Duration(-5)*time.Second), "MSG")
 	//then
 	output := logs.AllUntimed()
 	assert.Equal(t, 1, len(output), "Unexpected number of logs.")
 	assert.Equal(t, 1, len(output[0].Context), "Unexpected context on first log.")
 	assert.Equal(t, zapcore.DurationType, output[0].Context[0].Type, "Unexpected context type")
 	assert.Equal(t, "time", output[0].Context[0].Key, "Unexpected context key")
+	assert.True(t, output[0].Context[0].Integer > 0, "Unexpected context value %n", output[0].Context[0].Integer)
 
 	assert.Equal(
 		t,
