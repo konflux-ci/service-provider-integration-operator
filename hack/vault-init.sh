@@ -189,6 +189,6 @@ login
 audit
 spiSecretEngine
 auth
-#k8sAuth
+k8sAuth
 approleAuth
 restart
