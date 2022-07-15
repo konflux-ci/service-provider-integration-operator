@@ -6,10 +6,7 @@ injector:
   enabled: false
 
 server:
-  logLevel: "trace"
-
-  image:
-    tag: "1.9.4"
+  logLevel: "info"
 
   dataStorage:
     enabled: true
@@ -19,6 +16,12 @@ server:
 
   service:
     enabled: true
+
+  ingress:
+    enabled: true
+    hosts:
+    - host: ${VAULT_HOST}
+      paths: []
 
   standalone:
     config: |
