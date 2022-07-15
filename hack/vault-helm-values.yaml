@@ -6,7 +6,7 @@ injector:
   enabled: false
 
 server:
-  logLevel: "trace"
+  logLevel: "info"
 
   dataStorage:
     enabled: true

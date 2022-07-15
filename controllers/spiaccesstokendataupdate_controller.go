@@ -17,6 +17,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +52,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 
-	lg.Info("Reconciling")
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
 
 	update := api.SPIAccessTokenDataUpdate{}
 

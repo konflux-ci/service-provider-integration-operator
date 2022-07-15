@@ -205,8 +205,9 @@ deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s clust
 	hack/vault-init.sh
 
 deploy_minikube: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
-	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=vault.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "k8s"
-	hack/vault-init.sh
+	VAULT_HOST=vault.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "vault/k8s"
+	hack/vault-init.sh spi-vault
+	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=vault.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "minikube"
 
 deploy_openshift: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config using the example OpenShift kustomization
 	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift-example" "openshift-example"
@@ -219,6 +220,7 @@ undeploy_k8s: ## Undeploy controller from the K8s cluster specified in ~/.kube/c
 undeploy_minikube: ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/vault/k8s | kubectl delete -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -

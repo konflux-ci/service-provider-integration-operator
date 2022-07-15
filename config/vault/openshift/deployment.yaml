@@ -231,7 +231,7 @@ spec:
             - name: HOME
               value: "/home/vault"
             - name: VAULT_LOG_LEVEL
-              value: "trace"
+              value: "info"
             
             
             

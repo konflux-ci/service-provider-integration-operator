@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -48,7 +50,7 @@ type SPIAccessCheckReconciler struct {
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
 		if errors.IsNotFound(err) {

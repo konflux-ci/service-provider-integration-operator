@@ -29,7 +29,6 @@ resources:
 - ingress.yaml
 # Additional stuff deployed by the default overlay
 - ../manager
-- ../vault/k8s
 
 secretGenerator:
   - name: oauth-config

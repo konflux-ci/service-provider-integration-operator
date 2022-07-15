@@ -22,10 +22,14 @@ import (
 	"io/ioutil"
 	"strconv"
 
+	"github.com/hashicorp/go-hclog"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	vault "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const vaultDataPathFormat = "spi/data/%s/%s"
@@ -47,7 +51,7 @@ var (
 func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultHost
-
+	config.Logger = hclog.Default()
 	if insecure {
 		if err := config.ConfigureTLS(&vault.TLSConfig{
 			Insecure: true,
@@ -86,6 +90,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	data := map[string]interface{}{
 		"data": token,
 	}
+	lg := log.FromContext(ctx)
 	path := getVaultPath(owner)
 	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
@@ -95,13 +100,14 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		return unspecifiedStoreError
 	}
 	for _, w := range s.Warnings {
-		logf.FromContext(ctx).Info(w)
+		lg.Info(w)
 	}
 
 	return nil
 }
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	lg := log.FromContext(ctx)
 	path := getVaultPath(owner)
 
 	secret, err := v.Client.Logical().Read(path)
@@ -109,11 +115,11 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 		return nil, fmt.Errorf("error reading the data: %w", err)
 	}
 	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
-		logf.FromContext(ctx).Info("no data found in vault at", "path", path)
+		lg.V(logs.DebugLevel).Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
 	for _, w := range secret.Warnings {
-		logf.FromContext(ctx).Info(w)
+		lg.Info(w)
 	}
 	data, dataOk := secret.Data["data"]
 	if !dataOk {
@@ -174,7 +180,7 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
-	logf.FromContext(ctx).Info("deleted", "secret", s)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted", "secret", s)
 	return nil
 }
 

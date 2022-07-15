@@ -1,13 +1,11 @@
-kind: Route
 apiVersion: route.openshift.io/v1
+kind: Route
 metadata:
   name: vault
-  namespace: system
 spec:
   to:
     kind: Service
     name: spi-vault
-    weight: 100
   port:
     targetPort: 8200
   tls:
