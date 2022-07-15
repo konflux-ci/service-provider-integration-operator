@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/zapr v1.2.0
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.8
-	github.com/google/go-github/v45 v45.1.0
+	github.com/google/go-github/v45 v45.2.0
 	github.com/hashicorp/go-hclog v1.1.0
 	github.com/hashicorp/vault v1.11.0
 	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
