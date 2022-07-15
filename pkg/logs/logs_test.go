@@ -47,7 +47,7 @@ func TestTimeTrack(t *testing.T) {
 	fac, logs := observer.New(zap.DebugLevel)
 	logger := zapr.NewLogger(zap.New(fac))
 	//when
-	TimeTrack(logger, time.Now(), "MSG")
+	TimeTrack(logger, time.Now().Add(time.Duration(-5)*time.Second), "MSG")
 	//then
 	output := logs.AllUntimed()
 	assert.Equal(t, 1, len(output), "Unexpected number of logs.")
