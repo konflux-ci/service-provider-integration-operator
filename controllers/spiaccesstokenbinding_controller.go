@@ -121,7 +121,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
-		"phase_at_reconcile_start", binding.Status.Phase)
+		"phase_at_reconcile_start", binding.Status.Phase, "RepoUrl", binding.Spec.RepoUrl)
 
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
@@ -171,29 +171,38 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			lg.Error(err, "failed to fetch the linked token")
 			return ctrl.Result{}, fmt.Errorf("failed to fetch the linked token: %w", err)
 		}
-		lg = lg.WithValues("token_phase", token.Status.Phase)
+		lg = lg.WithValues("token_phase", token.Status.Phase, "linked_to", binding.Status.LinkedAccessTokenName)
 
 		if token.Status.Phase == api.SPIAccessTokenPhaseReady && binding.Status.SyncedObjectRef.Name == "" {
-			// we've not yet synced the token... let's check that it fulfills the reqs
-			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
+			check, err := sp.CheckRepositoryAccess(ctx, r.Client, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: binding.Spec.RepoUrl}})
 			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to lookup token before definitely assigning it to the binding: %w", err)
+				return ctrl.Result{}, fmt.Errorf("failed to check repository visibility: %w", err)
 			}
-			if newToken == nil {
-				// the token that we are linked to is ready but doesn't match the criteria of the binding.
-				// We can't do much here - the user granted the token the access we requested, but we still don't match
-				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-				binding.Status.OAuthUrl = ""
-				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
-				return ctrl.Result{}, nil
-			}
-
-			if newToken.UID != token.UID {
-				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
-					return ctrl.Result{}, fmt.Errorf("failed to persist the newly matching token: %w", err)
+			if check.Accessibility != api.SPIAccessCheckAccessibilityPublic {
+				lg.V(logs.DebugLevel).Info("Repository is not public. Looking for available tokens", "accessibility", check.Accessibility, "accessible", check.Accessible)
+				// we've not yet synced the token... let's check that it fulfills the reqs
+				newToken, err := sp.LookupToken(ctx, r.Client, &binding)
+				if err != nil {
+					return ctrl.Result{}, fmt.Errorf("failed to lookup token before definitely assigning it to the binding: %w", err)
 				}
-				token = newToken
-				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
+				if newToken == nil {
+					// the token that we are linked to is ready but doesn't match the criteria of the binding.
+					// We can't do much here - the user granted the token the access we requested, but we still don't match
+					binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+					binding.Status.OAuthUrl = ""
+					r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
+					return ctrl.Result{}, nil
+				}
+
+				if newToken.UID != token.UID {
+					if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
+						return ctrl.Result{}, fmt.Errorf("failed to persist the newly matching token: %w", err)
+					}
+					token = newToken
+					lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
+				}
+			} else {
+				lg.V(logs.DebugLevel).Info("Using linked token because repository is public and token is ready")
 			}
 		} else if token.Status.Phase != api.SPIAccessTokenPhaseReady {
 			// let's try to do a lookup in case another token started matching our reqs
