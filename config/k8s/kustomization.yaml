@@ -34,3 +34,25 @@ secretGenerator:
   - name: oauth-config
     files:
       - config.yaml
+
+patches:
+  - target:
+      namespace: system
+      kind: Deployment
+      version: v1
+      group: apps
+      name: controller-manager
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --vault-host=https://${VAULT_HOST}
+  - target:
+      namespace: system
+      kind: Deployment
+      version: v1
+      group: apps
+      name: oauth-service
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --vault-host=https://${VAULT_HOST}

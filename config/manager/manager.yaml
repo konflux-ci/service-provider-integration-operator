@@ -23,8 +23,6 @@ spec:
         - /manager
         args:
         - --leader-elect
-        - --vault-host=https://${VAULT_HOST}
-        - --vault-auth-method=approle
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         imagePullPolicy: Always
         name: manager
