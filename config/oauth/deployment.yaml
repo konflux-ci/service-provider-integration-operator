@@ -22,7 +22,6 @@ spec:
           - /spi-oauth
           args: []
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
-          imagePullPolicy: Always
           name: oauth
           securityContext:
             allowPrivilegeEscalation: false

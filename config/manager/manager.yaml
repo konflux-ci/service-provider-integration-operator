@@ -24,7 +24,6 @@ spec:
         args:
         - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
-        imagePullPolicy: Always
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
