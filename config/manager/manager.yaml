@@ -52,14 +52,6 @@ spec:
             name: oauth-config
             readOnly: true
             subPath: config.yaml
-          - mountPath: /etc/spi/role_id
-            name: vault-approle
-            readOnly: true
-            subPath: role_id
-          - mountPath: /etc/spi/secret_id
-            name: vault-approle
-            readOnly: true
-            subPath: secret_id
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
@@ -69,6 +61,3 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
-        - name: vault-approle
-          secret:
-            secretName: vault-approle-spi-operator
