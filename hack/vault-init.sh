@@ -124,7 +124,7 @@ function audit() {
 function auth() {
   vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
   k8sAuth
-  approleAuth
+#  approleAuth  # not ready yet
 }
 
 function k8sAuth() {
