@@ -58,7 +58,6 @@ serviceProviders:
   clientId: "456"
   clientSecret: "54"
 baseUrl: blabol
-vaultHost: vaultTestHost
 accessCheckTtl: 37m
 tokenLookupCacheTtl: 62m
 `
@@ -70,7 +69,6 @@ tokenLookupCacheTtl: 62m
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
-	assert.Equal(t, "vaultTestHost", cfg.VaultHost)
 	assert.Equal(t, time.Minute*37, cfg.AccessCheckTtl)
 	assert.Equal(t, time.Minute*62, cfg.TokenLookupCacheTtl)
 	assert.Len(t, cfg.ServiceProviders, 2)
@@ -85,7 +83,6 @@ func TestDefaults(t *testing.T) {
 	cfg, err := LoadFrom(cfgFilePath)
 	assert.NoError(t, err)
 
-	assert.Equal(t, DefaultVaultHost, cfg.VaultHost)
 	assert.Equal(t, time.Minute*30, cfg.AccessCheckTtl)
 	assert.Equal(t, time.Hour, cfg.TokenLookupCacheTtl)
 }

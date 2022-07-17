@@ -153,7 +153,7 @@ function approleAuth() {
     vaultExec "vault write auth/approle/role/${1} token_policies=spi"
     ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
     SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
-    kubectl create secret generic vault-approle-${1} -n ${NAMESPACE} \
+    kubectl create secret generic vault-approle-${1} -n spi-system \
       --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
       --save-config --dry-run=client -o yaml | kubectl apply -f -
   }

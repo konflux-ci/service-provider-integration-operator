@@ -28,6 +28,7 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/kubernetes"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -47,12 +48,49 @@ var (
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
 )
 
+type VaultAuthMethod string
+
+var VaultAuthMethodKubernetes VaultAuthMethod = "kubernetes"
+var VaultAuthMethodApprole VaultAuthMethod = "approle"
+
+type VaultStorageConfig struct {
+	Host     string
+	AuthType VaultAuthMethod
+	Insecure bool
+
+	Role                        string
+	ServiceAccountTokenFilePath string
+
+	RoleIdFilePath   string
+	SecretIdFilePath string
+}
+
+func KubernetesAuthConfig(host string, role string, saTokenFilePath string, insecure bool) *VaultStorageConfig {
+	return &VaultStorageConfig{
+		Host:                        host,
+		AuthType:                    VaultAuthMethodKubernetes,
+		Insecure:                    insecure,
+		Role:                        role,
+		ServiceAccountTokenFilePath: saTokenFilePath,
+	}
+}
+
+func ApproleAuthConfig(host string, roleIdFilePath string, secretIdFilePath string, insecure bool) *VaultStorageConfig {
+	return &VaultStorageConfig{
+		Host:             host,
+		AuthType:         VaultAuthMethodApprole,
+		Insecure:         insecure,
+		RoleIdFilePath:   roleIdFilePath,
+		SecretIdFilePath: secretIdFilePath,
+	}
+}
+
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
+func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage, error) {
 	config := vault.DefaultConfig()
-	config.Address = vaultHost
+	config.Address = vaultTokenStorageConfig.Host
 	config.Logger = hclog.Default()
-	if insecure {
+	if vaultTokenStorageConfig.Insecure {
 		if err := config.ConfigureTLS(&vault.TLSConfig{
 			Insecure: true,
 		}); err != nil {
@@ -65,18 +103,12 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
 
-	roleId, err := ioutil.ReadFile("/etc/vault-approle/role_id")
-	if err != nil {
-		return nil, fmt.Errorf("unable to read vault role id: %w", err)
-	}
-	secretId := &approle.SecretID{FromFile: "/etc/vault-approle/secret_id"}
-
-	appRoleAuth, err := approle.NewAppRoleAuth(string(roleId), secretId)
-	if err != nil {
-		return nil, fmt.Errorf("error creating approle authenticator: %w", err)
+	authMethod, authErr := prepareAuthMethod(vaultTokenStorageConfig)
+	if authErr != nil {
+		return nil, fmt.Errorf("error preparing vault authentication: %w", authErr)
 	}
 
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), appRoleAuth)
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), authMethod)
 	if err != nil {
 		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}
@@ -84,6 +116,40 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 		return nil, noAuthInfoInVaultError
 	}
 	return &vaultTokenStorage{vaultClient}, nil
+}
+
+func prepareAuthMethod(cfg *VaultStorageConfig) (vault.AuthMethod, error) {
+	if cfg.AuthType == VaultAuthMethodKubernetes {
+		var k8sAuth *kubernetes.KubernetesAuth
+		var k8sAuthErr error
+
+		if cfg.ServiceAccountTokenFilePath == "" {
+			k8sAuth, k8sAuthErr = kubernetes.NewKubernetesAuth(cfg.Role)
+		} else {
+			k8sAuth, k8sAuthErr = kubernetes.NewKubernetesAuth(cfg.Role, kubernetes.WithServiceAccountTokenPath(cfg.ServiceAccountTokenFilePath))
+		}
+
+		if k8sAuthErr != nil {
+			return nil, fmt.Errorf("error creating kubernetes authenticator: %w", k8sAuthErr)
+		}
+
+		return k8sAuth, nil
+
+	} else if cfg.AuthType == VaultAuthMethodApprole {
+		roleId, err := ioutil.ReadFile(cfg.RoleIdFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read vault role id: %w", err)
+		}
+		secretId := &approle.SecretID{FromFile: cfg.SecretIdFilePath}
+
+		approleAuth, err := approle.NewAppRoleAuth(string(roleId), secretId)
+		if err != nil {
+			return nil, fmt.Errorf("error creating approle authenticator: %w", err)
+		}
+		return approleAuth, nil
+	} else {
+		return nil, fmt.Errorf("unknown vault authentication method '%s'", cfg.AuthType)
+	}
 }
 
 func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {

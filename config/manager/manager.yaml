@@ -23,6 +23,8 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --vault-host=https://${VAULT_HOST}
+        - --vault-auth-method=approle
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         imagePullPolicy: Always
         name: manager
@@ -48,12 +50,18 @@ spec:
             cpu: 100m
             memory: 20Mi
         volumeMounts:
-          - mountPath: /etc/spi/
+          - mountPath: /etc/spi/config.yaml
             name: oauth-config
             readOnly: true
-          - mountPath: /etc/vault-approle/
+            subPath: config.yaml
+          - mountPath: /etc/spi/role_id
             name: vault-approle
             readOnly: true
+            subPath: role_id
+          - mountPath: /etc/spi/secret_id
+            name: vault-approle
+            readOnly: true
+            subPath: secret_id
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
