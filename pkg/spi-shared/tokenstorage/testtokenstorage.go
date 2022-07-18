@@ -21,7 +21,6 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-hclog"
-
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	vaultapi "github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"

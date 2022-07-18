@@ -17,15 +17,15 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"net/http"
 	"os"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
@@ -109,16 +109,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	var vaultTokenStorageConfig *tokenstorage.VaultStorageConfig
-	if args.VaultAuthMethod == tokenstorage.VaultAuthMethodKubernetes {
-		vaultTokenStorageConfig = tokenstorage.KubernetesAuthConfig(args.VaultHost, args.VaultKubernetesRole, args.VaultKubernetesSATokenFilePath, args.VaultInsecureTLS)
-	} else if args.VaultAuthMethod == tokenstorage.VaultAuthMethodApprole {
-		vaultTokenStorageConfig = tokenstorage.ApproleAuthConfig(args.VaultHost, args.VaultApproleRoleIdFilePath, args.VaultApproleSecretIdFilePath, args.VaultInsecureTLS)
-	} else {
-		setupLog.Error(errors.New("failed to initialize the token storage"), "unknown vault auth type", "auth type", args.VaultAuthMethod)
-		os.Exit(1)
-	}
-	strg, err := tokenstorage.NewVaultStorage(vaultTokenStorageConfig)
+	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
+		Host:                        args.VaultHost,
+		AuthType:                    args.VaultAuthMethod,
+		Insecure:                    args.VaultInsecureTLS,
+		Role:                        args.VaultKubernetesRole,
+		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
+		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
+		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
+	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
