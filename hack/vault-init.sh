@@ -2,7 +2,7 @@
 
 set -x
 
-NAMESPACE=spi-system
+NAMESPACE=${1:-spi-system}
 SECRET_NAME=spi-vault-keys
 POD_NAME=spi-vault-0
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}

@@ -16,12 +16,20 @@ package hostcredentials
 
 import (
 	"context"
+	"os"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
+}
 
 func TestGetBaseUrl(t *testing.T) {
 	repoURLs := map[string]string{"https://snyk.io/": "https://snyk.io", "https://testing.io/foo/bar?a=b": "https://testing.io"}

@@ -20,6 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -103,7 +106,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 
-	lg.Info("Reconciling")
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 
 	binding := api.SPIAccessTokenBinding{}
 
@@ -246,8 +249,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	lg.Info("reconciliation complete")
-
 	return ctrl.Result{}, nil
 }
 
@@ -267,6 +268,7 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 // linkToken updates the binding with a link to an SPIAccessToken object that should hold the token data. If no
 // suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
 func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	lg := log.FromContext(ctx)
 	token, err := sp.LookupToken(ctx, r.Client, binding)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
@@ -275,7 +277,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 	newTokenCreated := false
 	if token == nil {
-		log.FromContext(ctx).Info("creating a new token because none found for binding")
+		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 		serviceProviderUrl := sp.GetBaseUrl()
 		if err != nil {
@@ -307,10 +309,10 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
 		// linking newly created token failed, lets cleanup it
 		if newTokenCreated {
-			log.FromContext(ctx).Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
+			lg.Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
 			err := r.Client.Delete(ctx, token)
 			if err != nil {
-				log.FromContext(ctx).Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
+				lg.Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
 			}
 		}
 		return nil, err
