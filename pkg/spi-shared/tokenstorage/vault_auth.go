@@ -15,6 +15,7 @@
 package tokenstorage
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -22,6 +23,8 @@ import (
 	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/api/auth/kubernetes"
 )
+
+var VaultUnknownAuthMethodError = errors.New("unknown Vault authentication method")
 
 type VaultAuthMethod string
 
@@ -42,10 +45,14 @@ func prepareAuth(config *VaultStorageConfig) (api.AuthMethod, error) {
 	} else if config.AuthType == VaultAuthMethodApprole {
 		authMethod = &approleAuth{}
 	} else {
-		return nil, fmt.Errorf("unknown Vault authentication method '%s'", config.AuthType)
+		return nil, VaultUnknownAuthMethodError
 	}
 
-	return authMethod.prepare(config)
+	vaultAuth, err := authMethod.prepare(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare auth method '%w'", err)
+	}
+	return vaultAuth, nil
 }
 
 func (a *kubernetesAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, error) {
