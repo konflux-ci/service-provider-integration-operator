@@ -158,21 +158,19 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
-		func() {
-			hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
-			if err != nil {
-				lg.Error(err, "failed to validate the object")
-				return
-			}
-			if hasLinkedBindings {
-				return
-			}
+		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
+		if err != nil {
+			lg.Error(err, "failed to validate the object")
+			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
+		}
+		if !hasLinkedBindings {
 			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
 			if err := r.Delete(ctx, &at); err != nil {
 				lg.Error(err, "failed to cleanup the processed token")
-				return
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
 			}
-		}()
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.

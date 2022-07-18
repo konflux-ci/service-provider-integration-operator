@@ -21,9 +21,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -31,7 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -57,6 +57,17 @@ var _ = Describe("Create binding", func() {
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
 
+		createdBinding = &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "create-test-binding",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				RepoUrl: "test-provider://acme/acme",
+			},
+		}
+		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:    "default",
@@ -72,21 +83,16 @@ var _ = Describe("Create binding", func() {
 			return "test-provider://acme"
 		}
 
-		createdBinding = &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "create-test-binding",
-				Namespace:    "default",
-			},
-			Spec: api.SPIAccessTokenBindingSpec{
-				RepoUrl: "test-provider://acme/acme",
-			},
-		}
-		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
 	})
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
+
 	})
 
 	It("should link the token to the binding", func() {
@@ -126,15 +132,6 @@ var _ = Describe("Update binding", func() {
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
 
-		createdToken = &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "update-test-token",
-				Namespace:    "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl: "test-provider://test",
-			},
-		}
 		createdBinding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "update-test-binding",
@@ -144,15 +141,29 @@ var _ = Describe("Update binding", func() {
 				RepoUrl: "test-provider://test",
 			},
 		}
+		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
+		createdToken = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "update-test-token",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "test-provider://test",
+			},
+		}
 		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
 
-		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
 	})
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	It("reverts updates to the linked token label", func() {
@@ -216,9 +227,10 @@ var _ = Describe("Update binding", func() {
 				g.Expect(ITest.Client.Update(ITest.Context, createdBinding)).To(Succeed())
 			}).Should(Succeed())
 
+			_ = ITest.Client.Delete(ITest.Context, otherToken)
 			Eventually(func(g Gomega) {
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), otherToken)).To(Succeed())
-				g.Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
+				err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), &api.SPIAccessToken{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
 			}).Should(Succeed())
 
 			ITest.TestServiceProvider.Reset()
@@ -301,7 +313,11 @@ var _ = Describe("Delete binding", func() {
 		if !bindingDeleted {
 			Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
 		}
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	It("should delete the synced secret", func() {
@@ -356,7 +372,11 @@ var _ = Describe("Syncing", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	When("token is ready", func() {
@@ -400,16 +420,6 @@ var _ = Describe("Status updates", func() {
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
 
-		token = &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "status-updates-",
-				Namespace:    "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl: "test-provider://",
-			},
-		}
-
 		binding = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "status-updates-",
@@ -422,10 +432,19 @@ var _ = Describe("Status updates", func() {
 				},
 			},
 		}
+		Expect(ITest.Client.Create(ITest.Context, binding)).To(Succeed())
 
+		token = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "status-updates-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "test-provider://",
+			},
+		}
 		Expect(ITest.Client.Create(ITest.Context, token)).To(Succeed())
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
-		Expect(ITest.Client.Create(ITest.Context, binding)).To(Succeed())
 
 		Eventually(func(g Gomega) {
 			currentBinding := &api.SPIAccessTokenBinding{}
@@ -436,7 +455,14 @@ var _ = Describe("Status updates", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, binding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
+		err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), &api.SPIAccessToken{})
+		if err == nil {
+			Eventually(func() error {
+				return ITest.Client.Delete(ITest.Context, token)
+			}).Should(Succeed())
+		} else {
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		}
 	})
 
 	When("linked token is ready and secret not injected", func() {
@@ -490,18 +516,6 @@ var _ = Describe("Status updates", func() {
 		var betterToken *api.SPIAccessToken
 
 		BeforeEach(func() {
-			betterToken = &api.SPIAccessToken{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "status-updates-better-",
-					Namespace:    "default",
-					Annotations: map[string]string{
-						"dummy": "true",
-					},
-				},
-				Spec: api.SPIAccessTokenSpec{
-					ServiceProviderUrl: "test-provider://",
-				},
-			}
 
 			testBinding = &api.SPIAccessTokenBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -515,6 +529,23 @@ var _ = Describe("Status updates", func() {
 					},
 				},
 			}
+			Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
+
+			betterToken = &api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "status-updates-better-",
+					Namespace:    "default",
+					Annotations: map[string]string{
+						"dummy": "true",
+					},
+				},
+				Spec: api.SPIAccessTokenSpec{
+					ServiceProviderUrl: "test-provider://",
+				},
+				Status: api.SPIAccessTokenStatus{
+					Phase: api.SPIAccessTokenPhaseReady,
+				},
+			}
 
 			Expect(ITest.Client.Create(ITest.Context, betterToken)).To(Succeed())
 
@@ -522,12 +553,20 @@ var _ = Describe("Status updates", func() {
 			// This token is not ready, so we should be in a situation that should
 			// still enable swapping the token for a better fitting one.
 			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
-			Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
+
 		})
 
 		AfterEach(func() {
 			Expect(ITest.Client.Delete(ITest.Context, testBinding)).To(Succeed())
-			Expect(ITest.Client.Delete(ITest.Context, betterToken)).To(Succeed())
+			_ = ITest.Client.Delete(ITest.Context, betterToken)
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(betterToken), &api.SPIAccessToken{})
+			if err == nil {
+				Eventually(func() error {
+					return ITest.Client.Delete(ITest.Context, betterToken)
+				}).Should(Succeed())
+			} else {
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			}
 		})
 
 		It("replaces the linked token with a more precise lookup if available", func() {
