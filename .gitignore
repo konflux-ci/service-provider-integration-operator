@@ -1,6 +1,7 @@
 # Generated files
 .tmp/
 .kcp/
+approle_secret.yaml
 
 # Binaries for programs and plugins
 *.exe

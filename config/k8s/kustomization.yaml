@@ -46,6 +46,34 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --vault-host=https://${VAULT_HOST}
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --vault-auth-method=approle
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: vault-approle
+          secret:
+            secretName: vault-approle-spi-operator
+            items:
+              - key: role_id
+                path: role_id
+              - key: secret_id
+                path: secret_id
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          mountPath: /etc/spi/role_id
+          name: vault-approle
+          readOnly: true
+          subPath: role_id
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          mountPath: /etc/spi/secret_id
+          name: vault-approle
+          readOnly: true
+          subPath: secret_id
   - target:
       namespace: system
       kind: Deployment
@@ -56,3 +84,31 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: --vault-host=https://${VAULT_HOST}
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --vault-auth-method=approle
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: vault-approle
+          secret:
+            secretName: vault-approle-spi-oauth
+            items:
+              - key: role_id
+                path: role_id
+              - key: secret_id
+                path: secret_id
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          mountPath: /etc/spi/role_id
+          name: vault-approle
+          readOnly: true
+          subPath: role_id
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          mountPath: /etc/spi/secret_id
+          name: vault-approle
+          readOnly: true
+          subPath: secret_id
