@@ -381,6 +381,14 @@ var _ = Describe("Status updates", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
+			//force reconciliation
+			Eventually(func(g Gomega) {
+				token := &api.SPIAccessToken{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+				token.Annotations = map[string]string{"foo": "bar"}
+				g.Expect(ITest.Client.Update(ITest.Context, token)).To(Succeed())
+			}).Should(Succeed())
+
 			Eventually(func(g Gomega) {
 				currentToken := &api.SPIAccessToken{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())

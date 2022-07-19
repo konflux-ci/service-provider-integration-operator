@@ -200,6 +200,14 @@ var _ = Describe("Phase", func() {
 					AccessToken: "access_token",
 				})
 				Expect(err).NotTo(HaveOccurred())
+
+				//force reconciliation
+				Eventually(func(g Gomega) {
+					token := &api.SPIAccessToken{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+					token.Annotations = map[string]string{"foo": "bar"}
+					g.Expect(ITest.Client.Update(ITest.Context, token)).To(Succeed())
+				}).Should(Succeed())
 			})
 
 			It("flips to ready", func() {

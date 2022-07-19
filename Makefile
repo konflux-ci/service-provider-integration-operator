@@ -154,11 +154,11 @@ check: check_fmt lint test ## Check that the code conforms to all requirements f
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run unit tests
+test: GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=3s manifests generate fmt vet envtest ## Run unit tests
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate fmt vet envtest ## Run only integration tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./integration_tests/...
+	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=3s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./integration_tests/...
 
 
 itest_debug: manifests generate fmt vet envtest ## Start the integration tests in the debugger (suited for "remote debugging")
