@@ -16,7 +16,6 @@ package integrationtests
 
 import (
 	"context"
-	"encoding/json"
 	stderrors "errors"
 	"time"
 
@@ -58,11 +57,8 @@ var _ = Describe("Create without token data", func() {
 
 	var _ = AfterEach(func() {
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), createdToken)).To(Succeed())
-		_ = ITest.Client.Delete(ITest.Context, createdToken)
-		Eventually(func(g Gomega) {
-			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
-			g.Expect(errors.IsNotFound(err)).To(BeTrue())
-		}).Should(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
 	It("sets up the finalizers", func() {
@@ -141,12 +137,8 @@ var _ = Describe("Token data disappears", func() {
 	})
 
 	AfterEach(func() {
-		Expect(ITest.Client.Delete(ITest.Context, testBinding)).To(Succeed())
-		_ = ITest.Client.Delete(ITest.Context, token)
-		Eventually(func(g Gomega) {
-			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), &api.SPIAccessToken{})
-			g.Expect(errors.IsNotFound(err)).To(BeTrue())
-		}).Should(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
 	It("flips token back to awaiting phase when data disappears", func() {
@@ -193,8 +185,7 @@ var _ = Describe("Delete token", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			}
 		} else {
-			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-			Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
+			Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 		}
 	})
 
@@ -397,14 +388,6 @@ var _ = Describe("Phase", func() {
 			Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			_ = ITest.Client.Delete(ITest.Context, createdToken)
-			Eventually(func(g Gomega) {
-				err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
-				g.Expect(errors.IsNotFound(err)).To(BeTrue())
-			}).Should(Succeed())
-		})
-
 		It("defaults to AwaitingTokenData with common type", func() {
 			Eventually(func(g Gomega) {
 				token := &api.SPIAccessToken{}
@@ -429,9 +412,4 @@ func getLinkedToken(g Gomega, binding *api.SPIAccessTokenBinding) *api.SPIAccess
 	}).Should(Succeed())
 
 	return token
-}
-
-func prettyPrint(i interface{}) string {
-	s, _ := json.MarshalIndent(i, "", "\t")
-	return string(s)
 }
