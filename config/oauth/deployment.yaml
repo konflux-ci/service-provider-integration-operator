@@ -20,7 +20,7 @@ spec:
       containers:
         - command:
           - /spi-oauth
-          args: []
+          env: []
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:

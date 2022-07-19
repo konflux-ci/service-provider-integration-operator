@@ -44,11 +44,15 @@ patches:
       name: controller-manager
     patch: |-
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-host=https://${VAULT_HOST}
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTHOST
+          value: https://${VAULT_HOST}
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-auth-method=approle
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTAUTHMETHOD
+          value: approle
       - op: add
         path: /spec/template/spec/volumes/-
         value:
@@ -82,11 +86,15 @@ patches:
       name: oauth-service
     patch: |-
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-host=https://${VAULT_HOST}
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTHOST
+          value: https://${VAULT_HOST}
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-auth-method=approle
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTAUTHMETHOD
+          value: approle
       - op: add
         path: /spec/template/spec/volumes/-
         value:
