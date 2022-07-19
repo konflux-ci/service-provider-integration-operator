@@ -151,7 +151,8 @@ function approleAuth() {
     vaultExec "vault auth enable approle"
   fi
 
-  SECRET_FILE=$( realpath approle_secret.yaml )
+  if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
+  SECRET_FILE=$( realpath .tmp/approle_secret.yaml )
 
   function approleSet() {
     vaultExec "vault write auth/approle/role/${1} token_policies=spi"
@@ -163,7 +164,8 @@ function approleAuth() {
       --dry-run=client -o yaml >> ${SECRET_FILE}
   }
 
-  rm ${SECRET_FILE} && touch ${SECRET_FILE}
+  if [ -f ${SECRET_FILE} ]; then rm ${SECRET_FILE}; fi
+  touch ${SECRET_FILE}
   approleSet spi-operator
   approleSet spi-oauth
 
