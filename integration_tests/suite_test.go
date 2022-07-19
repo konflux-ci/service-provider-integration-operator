@@ -156,6 +156,10 @@ var _ = BeforeSuite(func() {
 		GetTypeImpl: func() api.ServiceProviderType {
 			return "HostCredsServiceProvider"
 		},
+
+		GetBaseUrlImpl: func() string {
+			return "not-test-provider://"
+		},
 	}
 
 	operatorCfg := config.Configuration{
