@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -309,30 +308,30 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	res := finalizer.Result{}
 	token, ok := obj.(*api.SPIAccessToken)
 	if !ok {
-		return res, fmt.Errorf("expected SPIAccessToken but got an object with type %s", reflect.TypeOf(obj))
+		return res, fmt.Errorf("unexpected object type")
 	}
 
-	bindings, err := f.linkedBindings(ctx, token)
+	hasBindings, err := f.hasLinkedBindings(ctx, token)
 	if err != nil {
 		return res, err
 	}
 
-	if len(bindings.Items) > 0 {
-		return res, fmt.Errorf("%d linked bindings present", len(bindings.Items))
+	if hasBindings {
+		return res, fmt.Errorf("linked bindings present")
 	} else {
 		return res, nil
 	}
 }
 
-func (f *linkedBindingsFinalizer) linkedBindings(ctx context.Context, token *api.SPIAccessToken) (*api.SPIAccessTokenBindingList, error) {
+func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
 	list := &api.SPIAccessTokenBindingList{}
 	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
 		opconfig.SPIAccessTokenLinkLabel: token.Name,
 	}); err != nil {
-		return list, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
+		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
 	}
 
-	return list, nil
+	return len(list.Items) > 0, nil
 }
 
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
