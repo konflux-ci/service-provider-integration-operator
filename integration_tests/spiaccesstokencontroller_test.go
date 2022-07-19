@@ -195,6 +195,11 @@ var _ = Describe("Phase", func() {
 					Scopes:               []string{},
 					ServiceProviderState: []byte("state"),
 				})
+
+				err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+					AccessToken: "access_token",
+				})
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("flips to ready", func() {

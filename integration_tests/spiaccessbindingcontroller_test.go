@@ -47,7 +47,7 @@ func testTokenNameInStatus(createdBinding *api.SPIAccessTokenBinding, linkMatche
 			g.Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).Should(linkMatcher)
 
 		return cond
-	}).WithTimeout(10 * time.Second).Should(BeTrue())
+	}).Should(BeTrue())
 }
 
 func createStandardPair(namePrefix string) (*api.SPIAccessTokenBinding, *api.SPIAccessToken) {
