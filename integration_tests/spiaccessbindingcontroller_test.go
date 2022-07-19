@@ -86,7 +86,11 @@ var _ = Describe("Create binding", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	It("should link the token to the binding", func() {
@@ -152,7 +156,11 @@ var _ = Describe("Update binding", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	It("reverts updates to the linked token label", func() {
@@ -217,8 +225,11 @@ var _ = Describe("Update binding", func() {
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), otherToken)).To(Succeed())
-				g.Expect(ITest.Client.Delete(ITest.Context, otherToken)).To(Succeed())
+				_ = ITest.Client.Delete(ITest.Context, otherToken)
+				Eventually(func(g Gomega) {
+					err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherToken), &api.SPIAccessToken{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			}).Should(Succeed())
 
 			ITest.TestServiceProvider.Reset()
@@ -356,7 +367,11 @@ var _ = Describe("Syncing", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, createdToken)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	When("token is ready", func() {
@@ -436,7 +451,11 @@ var _ = Describe("Status updates", func() {
 
 	AfterEach(func() {
 		Expect(ITest.Client.Delete(ITest.Context, binding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, token)).To(Succeed())
+		_ = ITest.Client.Delete(ITest.Context, token)
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
 	})
 
 	When("linked token is ready and secret not injected", func() {
@@ -517,6 +536,17 @@ var _ = Describe("Status updates", func() {
 			}
 
 			Expect(ITest.Client.Create(ITest.Context, betterToken)).To(Succeed())
+			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				Username:             "alois",
+				UserId:               "42",
+				Scopes:               []string{},
+				ServiceProviderState: []byte("state"),
+			})
+
+			err := ITest.TokenStorage.Store(ITest.Context, betterToken, &api.Token{
+				AccessToken: "access_token",
+			})
+			Expect(err).NotTo(HaveOccurred())
 
 			// we're trying to use the token defined by the outer layer first.
 			// This token is not ready, so we should be in a situation that should
@@ -526,8 +556,13 @@ var _ = Describe("Status updates", func() {
 		})
 
 		AfterEach(func() {
+			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
 			Expect(ITest.Client.Delete(ITest.Context, testBinding)).To(Succeed())
-			Expect(ITest.Client.Delete(ITest.Context, betterToken)).To(Succeed())
+			_ = ITest.Client.Delete(ITest.Context, betterToken)
+			Eventually(func(g Gomega) {
+				err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(betterToken), &api.SPIAccessToken{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
 		It("replaces the linked token with a more precise lookup if available", func() {
@@ -713,7 +748,7 @@ var _ = Describe("Status updates", func() {
 				// Because of the errors, we clean up but are left in a perpetual cycle of trying to create the linked
 				// token and failing to link it and thus the new tokens are continuously appearing and disappearing.
 				// Let's just check here that their number is not growing too much too quickly by this crude measure.
-				g.Expect(len(tokens.Items)).To(BeNumerically("<", 5))
+				g.Expect(len(tokens.Items)).To(BeNumerically("<", 6))
 			}, "10s").Should(Succeed())
 		})
 	})

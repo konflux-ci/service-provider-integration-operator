@@ -159,6 +159,23 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
+		if err != nil {
+			lg.V(logs.DebugLevel).Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
+		}
+		if !hasLinkedBindings {
+			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
+			if err := r.Delete(ctx, &at); err != nil {
+				lg.V(logs.DebugLevel).Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+			}
+			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+			return ctrl.Result{}, nil
+		}
+	}
+
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
@@ -340,4 +357,15 @@ func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object)
 		err = fmt.Errorf("failed to delete the linked token during finalization of %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return finalizer.Result{}, err
+}
+
+func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, client_ client.Client) (bool, error) {
+	list := &api.SPIAccessTokenBindingList{}
+	if err := client_.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
+		opconfig.SPIAccessTokenLinkLabel: token.Name,
+	}); err != nil {
+		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
+	}
+
+	return len(list.Items) > 0, nil
 }
