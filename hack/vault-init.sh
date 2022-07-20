@@ -117,7 +117,7 @@ function generateRootToken() {
 function audit() {
   if ! vaultExec "vault audit list | grep -q file"; then
     echo "enabling audit log ..."
-    vaultExec "vault audit enable file file_path=/vault/logs/audit.log"
+    vaultExec "vault audit enable file file_path=stdout"
   fi
 }
 
