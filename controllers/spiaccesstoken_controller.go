@@ -49,6 +49,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
+const NoLinkingBindingGracePeriodSeconds = 2
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -159,7 +160,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+	if time.Now().Sub(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)

@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -283,7 +284,9 @@ var _ = Describe("Delete binding", func() {
 	})
 
 	It("should delete the synced token in awaiting state", func() {
-
+		Eventually(func(g Gomega) bool {
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.NoLinkingBindingGracePeriodSeconds+1
+		}).Should(BeTrue())
 		//flip back to awaiting
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
 
