@@ -160,8 +160,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	//if time.Now().Sub(at.CreationTimestamp.Time).Seconds() > 5 && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
-	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+	if time.Now().Sub(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
@@ -169,17 +168,12 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		if !hasLinkedBindings {
 			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
-			seconds := time.Now().Sub(at.CreationTimestamp.Time).Seconds()
-			if seconds > NoLinkingBindingGracePeriodSeconds {
-				if err := r.Delete(ctx, &at); err != nil {
-					lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
-					return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
-				}
-				lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
-				return ctrl.Result{}, nil
-			} else {
-				lg.Info("deletion canceled because of short timeout", "diff seconds ", seconds)
+			if err := r.Delete(ctx, &at); err != nil {
+				lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
 			}
+			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+			return ctrl.Result{}, nil
 		}
 	}
 

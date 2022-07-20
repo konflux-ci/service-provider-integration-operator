@@ -22,8 +22,6 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -45,7 +43,7 @@ func testTokenNameInStatus(createdBinding *api.SPIAccessTokenBinding, linkMatche
 	Eventually(func(g Gomega) bool {
 		binding := &api.SPIAccessTokenBinding{}
 		g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
-		logf.Log.Info("testTokenNameInStatus", "SPIAccessTokenBinding", createdBinding.Name)
+
 		cond := g.Expect(binding.Status.LinkedAccessTokenName).Should(linkMatcher) &&
 			g.Expect(binding.Labels[config.SPIAccessTokenLinkLabel]).Should(linkMatcher)
 
@@ -297,13 +295,7 @@ var _ = Describe("Delete binding", func() {
 
 		// and check that token eventually disappeared
 		Eventually(func(g Gomega) {
-
 			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
-			if err != nil {
-				logf.Log.Info("testing error", "error", err.Error())
-			} else {
-				logf.Log.Info("token found", "token.name", createdToken.Name)
-			}
 			g.Expect(errors.IsNotFound(err)).To(BeTrue())
 		}).Should(Succeed())
 	})
