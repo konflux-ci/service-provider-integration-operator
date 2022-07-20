@@ -180,7 +180,14 @@ spec:
           emptyDir: {}
       containers:
         - name: vault
-          
+          resources:
+            limits:
+              cpu: 500m
+              memory: 500Mi
+            requests:
+              cpu: 50m
+              memory: 100Mi
+  
           image: hashicorp/vault:1.10.3
           imagePullPolicy: IfNotPresent
           command:

@@ -29,7 +29,6 @@ const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
-	DefaultVaultHost                   string              = "http://spi-vault:8200"
 )
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
@@ -53,10 +52,6 @@ type PersistedConfiguration struct {
 	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.). The default
 	// is 1h (1 hour).
 	TokenLookupCacheTtl string `yaml:"tokenLookupCacheTtl"`
-
-	// VaultHost is url to Vault storage. Default `http://spi-vault:8200` which is default spi Vault service name for
-	// kubernetes deployments.
-	VaultHost string `yaml:"vaultHost"`
 
 	// AccessCheckTtl is the time after that SPIAccessCheck CR will be deleted by operator. This string expresses the
 	// duration as string accepted by the time.ParseDuration function (e.g. "5m", "1h30m", "5s", etc.). The default
@@ -83,14 +78,6 @@ type Configuration struct {
 
 	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
 	TokenLookupCacheTtl time.Duration
-
-	// VaultHost url to vault storage.
-	VaultHost string
-
-	// ServiceAccountTokenFilePath file with service account token. It is used for Vault kubernetes auth.
-	// No need to set when running in pod, but can be useful when running outside, like local dev.
-	// It is set with `SA_TOKEN_PATH` environment variable.
-	ServiceAccountTokenFilePath string
 
 	// AccessCheckTtl is time after that SPIAccessCheck CR will be deleted.
 	AccessCheckTtl time.Duration
@@ -122,12 +109,6 @@ type ServiceProviderConfiguration struct {
 func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf := Configuration{}
 
-	if c.VaultHost == "" {
-		conf.VaultHost = DefaultVaultHost
-	} else {
-		conf.VaultHost = c.VaultHost
-	}
-
 	var parseErr error
 	conf.TokenLookupCacheTtl, parseErr = parseDuration(c.TokenLookupCacheTtl, "1h")
 	if parseErr != nil {
@@ -137,10 +118,6 @@ func (c PersistedConfiguration) inflate() (Configuration, error) {
 	conf.AccessCheckTtl, parseErr = parseDuration(c.AccessCheckTtl, "30m")
 	if parseErr != nil {
 		return conf, parseErr
-	}
-
-	if saTokenPath, ok := os.LookupEnv("SA_TOKEN_PATH"); ok {
-		conf.ServiceAccountTokenFilePath = saTokenPath
 	}
 
 	conf.KubernetesAuthAudiences = c.KubernetesAuthAudiences

@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	vault "github.com/hashicorp/vault/api"
-	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -46,12 +45,24 @@ var (
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
 )
 
+type VaultStorageConfig struct {
+	Host     string
+	AuthType VaultAuthMethod
+	Insecure bool
+
+	Role                        string
+	ServiceAccountTokenFilePath string
+
+	RoleIdFilePath   string
+	SecretIdFilePath string
+}
+
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
+func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage, error) {
 	config := vault.DefaultConfig()
-	config.Address = vaultHost
+	config.Address = vaultTokenStorageConfig.Host
 	config.Logger = hclog.Default()
-	if insecure {
+	if vaultTokenStorageConfig.Insecure {
 		if err := config.ConfigureTLS(&vault.TLSConfig{
 			Insecure: true,
 		}); err != nil {
@@ -63,17 +74,13 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 	if err != nil {
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
-	var k8sAuth *auth.KubernetesAuth
-	if serviceAccountToken == "" {
-		k8sAuth, err = auth.NewKubernetesAuth(role)
-	} else {
-		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
+
+	authMethod, authErr := prepareAuth(vaultTokenStorageConfig)
+	if authErr != nil {
+		return nil, fmt.Errorf("error preparing vault authentication: %w", authErr)
 	}
 
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), authMethod)
 	if err != nil {
 		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}

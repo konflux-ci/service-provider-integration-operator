@@ -25,6 +25,7 @@ spec:
         - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
+        env: []
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -47,9 +48,10 @@ spec:
             cpu: 100m
             memory: 20Mi
         volumeMounts:
-          - mountPath: /etc/spi/
+          - mountPath: /etc/spi/config.yaml
             name: oauth-config
             readOnly: true
+            subPath: config.yaml
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
