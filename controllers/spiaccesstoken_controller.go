@@ -49,6 +49,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
+const NoLinkingBindingGracePeriodSeconds = 2
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -159,6 +160,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	//if time.Now().Sub(at.CreationTimestamp.Time).Seconds() > 5 && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
 	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
@@ -167,12 +169,17 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		if !hasLinkedBindings {
 			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
-			if err := r.Delete(ctx, &at); err != nil {
-				lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+			seconds := time.Now().Sub(at.CreationTimestamp.Time).Seconds()
+			if seconds > NoLinkingBindingGracePeriodSeconds {
+				if err := r.Delete(ctx, &at); err != nil {
+					lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
+					return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+				}
+				lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+				return ctrl.Result{}, nil
+			} else {
+				lg.Info("deletion canceled because of short timeout", "diff seconds ", seconds)
 			}
-			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
-			return ctrl.Result{}, nil
 		}
 	}
 
