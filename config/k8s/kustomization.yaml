@@ -27,6 +27,7 @@ resources:
 - ../rbac
 - ../oauth
 - ingress.yaml
+- shared-config.yaml
 # Additional stuff deployed by the default overlay
 - ../manager
 
@@ -43,11 +44,6 @@ patches:
       group: apps
       name: controller-manager
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: VAULTHOST
-          value: https://${VAULT_HOST}
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:

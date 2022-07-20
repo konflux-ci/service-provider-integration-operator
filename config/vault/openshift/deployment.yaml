@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
     helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
@@ -17,7 +17,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vault-config
-  namespace: system
+  namespace: spi-vault
   labels:
     helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
@@ -54,7 +54,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: vault
-  namespace: system
+  namespace: spi-vault
 ---
 # Source: vault/templates/server-headless-service.yaml
 # Service for Vault cluster
@@ -62,7 +62,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: vault-internal
-  namespace: system
+  namespace: spi-vault
   labels:
     helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
@@ -91,7 +91,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
     helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
@@ -121,7 +121,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
@@ -312,12 +312,34 @@ spec:
           requests:
             storage: 1Gi
 ---
+# Source: vault/templates/server-route.yaml
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: vault
+  namespace: spi-vault
+  labels:
+    helm.sh/chart: vault-0.20.1
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/managed-by: Helm
+spec:
+  host: 
+  to:
+    kind: Service
+    name: vault
+    weight: 100
+  port:
+    targetPort: 8200
+  tls:
+    termination: edge
+---
 # Source: vault/templates/tests/server-test.yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: "vault-server-test"
-  namespace: system
+  namespace: spi-vault
   annotations:
     "helm.sh/hook": test
 spec:
@@ -328,7 +350,7 @@ spec:
       imagePullPolicy: IfNotPresent
       env:
         - name: VAULT_ADDR
-          value: http://vault.system.svc:8200
+          value: http://vault.spi-vault.svc:8200
         
       command:
         - /bin/sh

@@ -3,9 +3,9 @@
 #set -x
 set -e
 
-NAMESPACE=${1:-spi-system}
+NAMESPACE=${NAMESPACE:-spi-system}
 SECRET_NAME=spi-vault-keys
-POD_NAME=spi-vault-0
+POD_NAME=${POD_NAME:-spi-vault-0}
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 ROOT_TOKEN=""
 
@@ -117,7 +117,7 @@ function generateRootToken() {
 function audit() {
   if ! vaultExec "vault audit list | grep -q file"; then
     echo "enabling audit log ..."
-    vaultExec "vault audit enable file file_path=/vault/logs/audit.log"
+    vaultExec "vault audit enable file file_path=stdout"
   fi
 }
 

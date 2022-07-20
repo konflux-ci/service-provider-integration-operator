@@ -5,7 +5,7 @@ metadata:
 spec:
   to:
     kind: Service
-    name: spi-vault
+    name: vault
   port:
     targetPort: 8200
   tls:

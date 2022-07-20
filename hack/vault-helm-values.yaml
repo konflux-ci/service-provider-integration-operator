@@ -31,6 +31,12 @@ server:
     - host: ${VAULT_HOST}
       paths: []
 
+  route:
+    enabled: true
+    host: null
+    tls:
+      termination: edge
+
   standalone:
     config: |
       ui = false

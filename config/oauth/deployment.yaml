@@ -20,7 +20,12 @@ spec:
       containers:
         - command:
           - /spi-oauth
-          env: []
+          env:
+            - name: VAULTHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: vaultHost
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:
