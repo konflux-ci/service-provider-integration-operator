@@ -39,16 +39,20 @@ secretGenerator:
 patches:
   - target:
       namespace: system
+      kind: ConfigMap
+      version: v1
+      name: shared-config
+    patch: |-
+      - op: replace
+        path: /data/VAULTAUTHMETHOD
+        value: approle
+  - target:
+      namespace: system
       kind: Deployment
       version: v1
       group: apps
       name: controller-manager
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: VAULTAUTHMETHOD
-          value: approle
       - op: add
         path: /spec/template/spec/volumes/-
         value:
@@ -81,11 +85,6 @@ patches:
       group: apps
       name: oauth-service
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: VAULTAUTHMETHOD
-          value: approle
       - op: add
         path: /spec/template/spec/volumes/-
         value:

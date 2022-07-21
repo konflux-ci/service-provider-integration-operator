@@ -25,7 +25,12 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: shared-config
-                  key: vaultHost
+                  key: VAULTHOST
+            - name: VAULTAUTHMETHOD
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: VAULTAUTHMETHOD
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:

@@ -3,4 +3,5 @@ kind: ConfigMap
 metadata:
   name: shared-config
 data:
-  vaultHost: ${VAULT_HOST}
+  VAULTHOST: ${VAULT_HOST}
+  VAULTAUTHMETHOD: kubernetes

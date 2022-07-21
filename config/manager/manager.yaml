@@ -30,7 +30,12 @@ spec:
             valueFrom:
               configMapKeyRef:
                 name: shared-config
-                key: vaultHost
+                key: VAULTHOST
+          - name: VAULTAUTHMETHOD
+            valueFrom:
+              configMapKeyRef:
+                name: shared-config
+                key: VAULTAUTHMETHOD
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
