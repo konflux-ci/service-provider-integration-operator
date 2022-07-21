@@ -84,11 +84,6 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
-          name: VAULTHOST
-          value: https://${VAULT_HOST}
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
           name: VAULTAUTHMETHOD
           value: approle
       - op: add

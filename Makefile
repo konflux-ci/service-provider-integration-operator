@@ -204,7 +204,7 @@ deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s clust
 	hack/vault-init.sh
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_k8s ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=vault.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "minikube"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
@@ -232,7 +232,7 @@ undeploy_vault_openshift:
 
 deploy_vault_minikube:
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
-	hack/vault-init.sh spi-vault
+	NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
 undeploy_vault_k8s:
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f -
