@@ -197,7 +197,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 deploy: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "default" "default"
+	VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "default" "default"
 
 deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "k8s" "k8s"
@@ -212,6 +212,11 @@ deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deplo
 	VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift-example" "openshift-example"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
+deploy_kcp: ensure-tmp manifests kustomize
+	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
+	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp"
+	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+
 undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_k8s/k8s | kubectl delete -f -
@@ -219,6 +224,10 @@ undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster spe
 undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
+
+undeploy_kcp:
+	if [ ! -d ${TEMP_DIR}/deployment_kcp ]; then echo "No deployment files found in .tmp/deployment_kcp"; exit 1; fi
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_kcp/kcp | kubectl delete -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -

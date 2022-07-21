@@ -7,3 +7,8 @@ resources:
   - apiexport_spi.yaml
   - apiresourceschema_spi.yaml
   - ../default
+
+secretGenerator:
+  - name: oauth-config
+    files:
+      - config.yaml
