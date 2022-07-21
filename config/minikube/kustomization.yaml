@@ -13,8 +13,10 @@ patches:
       name: controller-manager
     patch: |-
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-insecure-tls
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTINSECURETLS
+          value: "true"
   - target:
       namespace: system
       kind: Deployment
@@ -23,5 +25,7 @@ patches:
       name: oauth-service
     patch: |-
       - op: add
-        path: /spec/template/spec/containers/0/args/-
-        value: --vault-insecure-tls
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: VAULTINSECURETLS
+          value: "true"

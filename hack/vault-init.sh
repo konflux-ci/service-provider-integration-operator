@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -x
+#set -x
+set -e
 
 NAMESPACE=${1:-spi-system}
 SECRET_NAME=spi-vault-keys
@@ -81,7 +82,6 @@ function ensureRootToken() {
     ROOT_TOKEN=$( grep "Root Token" "${KEYS_FILE}" | awk '{split($0,a,": "); print a[2]}' )
   else
     generateRootToken
-    echo "root token is ${ROOT_TOKEN}"
   fi
 }
 
@@ -117,8 +117,14 @@ function generateRootToken() {
 function audit() {
   if ! vaultExec "vault audit list | grep -q file"; then
     echo "enabling audit log ..."
-    vaultExec "vault audit enable file file_path=/vault/logs/audit.log"
+    vaultExec "vault audit enable file file_path=stdout"
   fi
+}
+
+function auth() {
+  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
+  k8sAuth
+  approleAuth
 }
 
 function k8sAuth() {
@@ -126,7 +132,6 @@ function k8sAuth() {
     echo "setup kubernetes authentication ..."
     vaultExec "vault auth enable kubernetes"
   fi
-  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
   vaultExec "vault write auth/kubernetes/role/spi-controller-manager \
         bound_service_account_names=spi-controller-manager \
         bound_service_account_namespaces=spi-system \
@@ -138,6 +143,40 @@ function k8sAuth() {
   # shellcheck disable=SC2016
   vaultExec 'vault write auth/kubernetes/config \
         kubernetes_host=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT'
+}
+
+function approleAuth() {
+  if ! vaultExec "vault auth list | grep -q approle" ; then
+    echo "setup approle authentication ..."
+    vaultExec "vault auth enable approle"
+  fi
+
+  if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
+  SECRET_FILE=$( realpath .tmp/approle_secret.yaml )
+
+  function approleSet() {
+    vaultExec "vault write auth/approle/role/${1} token_policies=spi"
+    ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
+    SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
+    echo "---" >> ${SECRET_FILE}
+    kubectl create secret generic vault-approle-${1} \
+      --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
+      --dry-run=client -o yaml >> ${SECRET_FILE}
+  }
+
+  if [ -f ${SECRET_FILE} ]; then rm ${SECRET_FILE}; fi
+  touch ${SECRET_FILE}
+  approleSet spi-operator
+  approleSet spi-oauth
+
+  cat << EOF
+
+secret yaml with Vault credentials prepared
+make sure your kubectl context targets cluster with SPI deployment and create the secret using (check spi namespace):
+
+  $ kubectl apply -f ${SECRET_FILE} -n spi-system
+
+EOF
 }
 
 function spiSecretEngine() {
@@ -166,5 +205,5 @@ ensureRootToken
 login
 audit
 spiSecretEngine
-k8sAuth
+auth
 restart

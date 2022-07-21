@@ -20,7 +20,7 @@ spec:
       containers:
         - command:
           - /spi-oauth
-          args: []
+          env: []
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:
@@ -45,9 +45,10 @@ spec:
               cpu: 100m
               memory: 100Mi
           volumeMounts:
-          - mountPath: /etc/spi/
+          - mountPath: /etc/spi/config.yaml
             name: oauth-config
             readOnly: true
+            subPath: config.yaml
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:

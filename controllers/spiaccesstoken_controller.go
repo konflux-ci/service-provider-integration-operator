@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -50,6 +51,11 @@ import (
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
 const NoLinkingBindingGracePeriodSeconds = 2
+
+var (
+	unexpectedObjectTypeError = stderrors.New("unexpected object type")
+	linkedBindingPresentError = stderrors.New("linked bindings present")
+)
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
@@ -328,7 +334,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	res := finalizer.Result{}
 	token, ok := obj.(*api.SPIAccessToken)
 	if !ok {
-		return res, fmt.Errorf("unexpected object type: %w", nil)
+		return res, unexpectedObjectTypeError
 	}
 
 	hasBindings, err := hasLinkedBindings(ctx, token, f.client)
@@ -337,7 +343,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	}
 
 	if hasBindings {
-		return res, fmt.Errorf("linked bindings present: %w", nil)
+		return res, linkedBindingPresentError
 	} else {
 		return res, nil
 	}
