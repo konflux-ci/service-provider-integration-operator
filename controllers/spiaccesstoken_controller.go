@@ -344,14 +344,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 }
 
 func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
-	list := &api.SPIAccessTokenBindingList{}
-	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
-		opconfig.SPIAccessTokenLinkLabel: token.Name,
-	}); err != nil {
-		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
-	}
-
-	return len(list.Items) > 0, nil
+	return hasLinkedBindings(ctx, token, f.client)
 }
 
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
