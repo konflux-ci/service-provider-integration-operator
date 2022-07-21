@@ -331,7 +331,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 		return res, fmt.Errorf("unexpected object type: %w", nil)
 	}
 
-	hasBindings, err := f.hasLinkedBindings(ctx, token)
+	hasBindings, err := hasLinkedBindings(ctx, token, f.client)
 	if err != nil {
 		return res, err
 	}
@@ -341,10 +341,6 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	} else {
 		return res, nil
 	}
-}
-
-func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
-	return hasLinkedBindings(ctx, token, f.client)
 }
 
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
