@@ -160,7 +160,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if time.Now().Sub(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+	// cleanup tokens which are in awaiting state and have their parent binging removed.
+	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
+	if time.Since(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
