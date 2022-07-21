@@ -4,4 +4,4 @@ metadata:
   name: shared-config
 data:
   VAULTHOST: ${VAULT_HOST}
-  VAULTAUTHMETHOD: kubernetes
+  VAULTAUTHMETHOD: approle

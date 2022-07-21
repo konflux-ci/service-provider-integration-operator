@@ -13,4 +13,6 @@ elif echo ${API_RESOURCES} | grep ingresses > /dev/null; then
   VAULT_HOST=$( kubectl get ingress -n ${NAMESPACE} vault -o json | jq -r '.spec.rules[0].host' )
 fi
 
-echo "https://${VAULT_HOST}"
+if [ ! -z ${VAULT_HOST} ]; then
+  echo "https://${VAULT_HOST}"
+fi
