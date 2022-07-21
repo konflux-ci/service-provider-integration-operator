@@ -73,7 +73,7 @@ type cliArgs struct {
 	ZapEncoder                     string                       `arg:"-e, --zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
 	ZapLogLevel                    string                       `arg:"-v, --zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
 	ZapStackTraceLevel             string                       `arg:"-s, --zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
-	ZapTimeEncoding                string                       `arg:"-t, --zap-time-encoding, env" default:"rfc3339" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
+	ZapTimeEncoding                string                       `arg:"-t, --zap-time-encoding, env" default:"iso8601" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
 }
 
 func main() {
