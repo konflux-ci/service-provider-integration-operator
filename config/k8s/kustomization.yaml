@@ -22,14 +22,8 @@ commonLabels:
 
 resources:
 # Common stuff with the prepare goal
-- ../namespace
-- ../crd
-- ../rbac
-- ../oauth
+- ../default
 - ingress.yaml
-- shared-config.yaml
-# Additional stuff deployed by the default overlay
-- ../manager
 
 secretGenerator:
   - name: oauth-config
