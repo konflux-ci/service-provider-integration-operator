@@ -1,17 +1,7 @@
-# Adds namespace to all resources.
-namespace: spi-system # WARN: keep this in sync with the namespace defined in the prepare base
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
 
-images:
-  - name: quay.io/redhat-appstudio/service-provider-integration-operator
-    newName: quay.io/redhat-appstudio/service-provider-integration-operator
-    newTag: next
-  - name: quay.io/redhat-appstudio/service-provider-integration-oauth
-    newName: quay.io/redhat-appstudio/service-provider-integration-oauth
-    newTag: next
-
-# Labels to add to all resources and selectors.
-commonLabels:
-  app.kubernetes.io/part-of: service-provider-integration-operator
+namespace: spi-system
 
 resources:
   - ../default
