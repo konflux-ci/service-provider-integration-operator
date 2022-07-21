@@ -78,7 +78,7 @@ spec:
               path: config.yaml
       - name: vault-approle
         secret:
-          secretName: vault-approle-spi-operator
+          secretName: vault-approle-spi-oauth
           items:
             - key: role_id
               path: role_id

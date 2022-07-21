@@ -6,4 +6,3 @@ namespace: spi-vault
 resources:
   - ../base/
   - deployment.yaml
-#  - route.yaml
