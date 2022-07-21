@@ -73,8 +73,6 @@ func createStandardPair(namePrefix string) (*api.SPIAccessTokenBinding, *api.SPI
 		g.Expect(binding.Status.LinkedAccessTokenName).NotTo(BeEmpty())
 
 		createdBinding = binding
-		//binding.Labels[config.SPIAccessTokenLinkLabel] = "my_random_link_name"
-		//return ITest.Client.Update(ITest.Context, binding)
 	}).Should(Succeed())
 	Eventually(func(g Gomega) {
 		createdToken = &api.SPIAccessToken{}
