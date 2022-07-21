@@ -3,4 +3,4 @@ kind: ConfigMap
 metadata:
   name: shared-config
 data:
-  vaultHost: https://${VAULT_HOST}
+  vaultHost: ${VAULT_HOST}
