@@ -168,7 +168,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// cleanup tokens which are in awaiting state and have their parent binging removed.
 	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
-	if time.Since(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds && at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData {
+	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && time.Since(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
@@ -357,9 +357,9 @@ func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object)
 	return finalizer.Result{}, err
 }
 
-func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, client_ client.Client) (bool, error) {
+func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient client.Client) (bool, error) {
 	list := &api.SPIAccessTokenBindingList{}
-	if err := client_.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
+	if err := k8sClient.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
 		opconfig.SPIAccessTokenLinkLabel: token.Name,
 	}); err != nil {
 		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
