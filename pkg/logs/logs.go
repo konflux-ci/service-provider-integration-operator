@@ -37,7 +37,7 @@ const (
 
 // InitDevelLoggers Configure zap backend development logger
 func InitDevelLoggers() {
-	InitLoggers(true, "", "", "", "rfc3339")
+	InitLoggers(true, "", "", "", "iso8601")
 }
 
 // InitLoggers Configure zap backend for controller-runtime logger.
@@ -57,7 +57,7 @@ func InitLoggers(development bool, encoder string, logLevel string, stackTraceLe
 	// set everything up such that we can use the same logger in controller runtime zap.L().*
 	logger := crzap.NewRaw(crzap.UseFlagOptions(&opts))
 	_ = zap.ReplaceGlobals(logger)
-	lg := zapr.NewLogger(logger)
+	lg := zapr.NewLogger(logger).WithCallDepth(1)
 	ctrl.SetLogger(lg)
 	klog.SetLoggerWithOptions(lg, klog.ContextualLogger(true))
 	hclog.SetDefault(NewHCLogAdapter(logger.WithOptions(zap.AddCallerSkip(1))))
