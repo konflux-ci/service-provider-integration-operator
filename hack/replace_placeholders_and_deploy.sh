@@ -31,8 +31,14 @@ done
 CURDIR=$(pwd)
 
 cd "${OVERLAY_DIR}" || exit
-${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-operator="${SPIO_IMG}"
-${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-oauth="${SPIS_IMG}"
+if [ ! -z ${SPIO_IMG} ]; then
+  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-operator="${SPIO_IMG}"
+fi
+
+if [ ! -z ${SPIS_IMG} ]; then
+  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-oauth="${SPIS_IMG}"
+fi
+
 ${KUSTOMIZE} build . | kubectl apply -f -
 
 cd "${CURDIR}" || exit

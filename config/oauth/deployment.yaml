@@ -20,7 +20,17 @@ spec:
       containers:
         - command:
           - /spi-oauth
-          env: []
+          env:
+            - name: VAULTHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: VAULTHOST
+            - name: VAULTAUTHMETHOD
+              valueFrom:
+                configMapKeyRef:
+                  name: shared-config
+                  key: VAULTAUTHMETHOD
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:
@@ -49,6 +59,14 @@ spec:
             name: oauth-config
             readOnly: true
             subPath: config.yaml
+          - mountPath: /etc/spi/secret_id
+            name: vault-approle
+            readOnly: true
+            subPath: secret_id
+          - mountPath: /etc/spi/role_id
+            name: vault-approle
+            readOnly: true
+            subPath: role_id
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
@@ -58,3 +76,11 @@ spec:
           items:
             - key: config.yaml
               path: config.yaml
+      - name: vault-approle
+        secret:
+          secretName: vault-approle-spi-oauth
+          items:
+            - key: role_id
+              path: role_id
+            - key: secret_id
+              path: secret_id

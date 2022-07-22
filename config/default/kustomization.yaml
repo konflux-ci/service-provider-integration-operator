@@ -26,6 +26,6 @@ resources:
 - ../crd
 - ../rbac
 - ../oauth
+- shared-config.yaml
 # Additional stuff deployed by the default overlay
 - ../manager
-- ../vault/openshift
