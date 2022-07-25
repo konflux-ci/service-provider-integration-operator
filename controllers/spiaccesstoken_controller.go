@@ -50,6 +50,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
+const NoLinkingBindingGracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -163,6 +164,25 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if at.DeletionTimestamp != nil {
 		lg.V(logs.DebugLevel).Info("token being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
+	}
+
+	// cleanup tokens which are in awaiting state and have their parent binging removed.
+	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
+	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && time.Since(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds {
+		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
+		if err != nil {
+			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
+		}
+		if !hasLinkedBindings {
+			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
+			if err := r.Delete(ctx, &at); err != nil {
+				lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+			}
+			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
@@ -317,7 +337,7 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 		return res, unexpectedObjectTypeError
 	}
 
-	hasBindings, err := f.hasLinkedBindings(ctx, token)
+	hasBindings, err := hasLinkedBindings(ctx, token, f.client)
 	if err != nil {
 		return res, err
 	}
@@ -329,21 +349,21 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	}
 }
 
-func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
-	list := &api.SPIAccessTokenBindingList{}
-	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
-		opconfig.SPIAccessTokenLinkLabel: token.Name,
-	}); err != nil {
-		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
-	}
-
-	return len(list.Items) > 0, nil
-}
-
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	err := f.storage.Delete(ctx, obj.(*api.SPIAccessToken))
 	if err != nil {
 		err = fmt.Errorf("failed to delete the linked token during finalization of %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return finalizer.Result{}, err
+}
+
+func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient client.Client) (bool, error) {
+	list := &api.SPIAccessTokenBindingList{}
+	if err := k8sClient.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
+		opconfig.SPIAccessTokenLinkLabel: token.Name,
+	}); err != nil {
+		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
+	}
+
+	return len(list.Items) > 0, nil
 }

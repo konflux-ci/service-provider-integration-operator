@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/hashicorp/vault/vault"
@@ -83,7 +85,7 @@ var _ = BeforeSuite(func() {
 		// service provider method implementation.
 		Fail("This testsuite cannot be run in parallel")
 	}
-
+	logs.InitDevelLoggers()
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ITest = IntegrationTest{}
@@ -155,6 +157,10 @@ var _ = BeforeSuite(func() {
 	ITest.HostCredsServiceProvider = TestServiceProvider{
 		GetTypeImpl: func() api.ServiceProviderType {
 			return "HostCredsServiceProvider"
+		},
+
+		GetBaseUrlImpl: func() string {
+			return "not-test-provider://"
 		},
 	}
 
