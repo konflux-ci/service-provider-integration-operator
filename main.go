@@ -19,6 +19,9 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -39,7 +42,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	//+kubebuilder:scaffold:imports
 
@@ -62,6 +64,8 @@ type cliArgs struct {
 	ProbeAddr                      string                       `arg:"-h, --health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
 	EnableLeaderElection           bool                         `arg:"-l, --leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
 	ConfigFile                     string                       `arg:"-c, --config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
+	TokenLifetimeDuration          string                       `arg:"--token-ttl, env" default:"5d" help:"Access token lifetime. Defaults to 5 days. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
+	BindingLifetimeDuration        string                       `arg:"--binding-ttl, env" default:"2h" help:"Access token binding lifetime. Defaults to 2 hours. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
 	VaultHost                      string                       `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
 	VaultInsecureTLS               bool                         `arg:"-i, --vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
 	VaultAuthMethod                tokenstorage.VaultAuthMethod `arg:"--vault-auth-method, env" default:"kubernetes" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`
@@ -122,6 +126,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg.AccessTokenTtl, err = time.ParseDuration(args.TokenLifetimeDuration)
+	if err != nil {
+		setupLog.Error(err, "failed to parse token lifetime duration parameter")
+		os.Exit(1)
+	}
+
+	cfg.AccessTokenBindingTtl, err = time.ParseDuration(args.BindingLifetimeDuration)
+	if err != nil {
+		setupLog.Error(err, "failed to parse binding lifetime duration parameter")
+		os.Exit(1)
+	}
+
 	if config.RunControllers() {
 		if err = (&controllers.SPIAccessTokenReconciler{
 			Client:       mgr.GetClient(),
@@ -150,6 +166,7 @@ func main() {
 				Initializers:     serviceproviders.KnownInitializers(),
 				TokenStorage:     strg,
 			},
+			Configuration: cfg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 			os.Exit(1)
