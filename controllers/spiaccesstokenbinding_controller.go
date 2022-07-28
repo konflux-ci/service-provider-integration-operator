@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"github.com/kcp-dev/logicalcluster"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -105,6 +106,10 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	if cluster, ok := logicalcluster.ClusterFromContext(ctx); ok {
+		ctx = logicalcluster.WithCluster(ctx, cluster)
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 

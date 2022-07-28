@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -50,6 +52,11 @@ type SPIAccessCheckReconciler struct {
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	if cluster, ok := logicalcluster.ClusterFromContext(ctx); ok {
+		ctx = logicalcluster.WithCluster(ctx, cluster)
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
+
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {

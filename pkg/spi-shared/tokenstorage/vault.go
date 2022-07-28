@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kcp-dev/logicalcluster"
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
@@ -30,7 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const vaultDataPathFormat = "spi/data/%s/%s"
+const vaultDataPathFormat = "spi/data/%s/%s/%s"
+const emptyWorkspace = "default"
 
 type vaultTokenStorage struct {
 	*vault.Client
@@ -95,7 +97,8 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		"data": token,
 	}
 	lg := log.FromContext(ctx)
-	path := getVaultPath(owner)
+	path := getVaultPath(ctx, owner)
+
 	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
 		return fmt.Errorf("error writing the data to Vault: %w", err)
@@ -112,8 +115,8 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 	lg := log.FromContext(ctx)
-	path := getVaultPath(owner)
 
+	path := getVaultPath(ctx, owner)
 	secret, err := v.Client.Logical().Read(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
@@ -180,7 +183,8 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	s, err := v.Client.Logical().Delete(getVaultPath(owner))
+	path := getVaultPath(ctx, owner)
+	s, err := v.Client.Logical().Delete(path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
@@ -188,6 +192,10 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	return nil
 }
 
-func getVaultPath(owner *api.SPIAccessToken) string {
-	return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+func getVaultPath(ctx context.Context, owner *api.SPIAccessToken) string {
+	workspace, ok := logicalcluster.ClusterFromContext(ctx)
+	if !ok {
+		workspace = logicalcluster.New(emptyWorkspace)
+	}
+	return fmt.Sprintf(vaultDataPathFormat, workspace, owner.Namespace, owner.Name)
 }
