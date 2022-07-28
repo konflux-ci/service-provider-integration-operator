@@ -64,8 +64,8 @@ type cliArgs struct {
 	ProbeAddr                      string                       `arg:"-h, --health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
 	EnableLeaderElection           bool                         `arg:"-l, --leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
 	ConfigFile                     string                       `arg:"-c, --config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
-	TokenLifetimeDuration          string                       `arg:"--token-ttl, env" default:"5d" help:"Access token lifetime. Defaults to 5 days. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
-	BindingLifetimeDuration        string                       `arg:"--binding-ttl, env" default:"2h" help:"Access token binding lifetime. Defaults to 2 hours. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
+	TokenLifetimeDuration          string                       `arg:"--token-ttl, env" default:"5d" help:"Access token lifetime. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
+	BindingLifetimeDuration        string                       `arg:"--binding-ttl, env" default:"2h" help:"Access token binding lifetime. Accepts standard Go duration string, such as: \"1d4h\", \"5h30m40s\" etc"`
 	VaultHost                      string                       `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
 	VaultInsecureTLS               bool                         `arg:"-i, --vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
 	VaultAuthMethod                tokenstorage.VaultAuthMethod `arg:"--vault-auth-method, env" default:"kubernetes" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`

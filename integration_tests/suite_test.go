@@ -173,9 +173,9 @@ var _ = BeforeSuite(func() {
 			},
 		},
 		SharedSecret:          []byte("secret"),
-		AccessCheckTtl:        5 * time.Second,
-		AccessTokenTtl:        5 * time.Second,
-		AccessTokenBindingTtl: 5 * time.Second,
+		AccessCheckTtl:        10 * time.Second,
+		AccessTokenTtl:        10 * time.Second,
+		AccessTokenBindingTtl: 10 * time.Second,
 	}
 
 	// start webhook server using Manager

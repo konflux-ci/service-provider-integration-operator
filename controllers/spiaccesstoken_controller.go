@@ -195,7 +195,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		hasBindings = &hasLinkedBindings
 	}
 
-	// cleanup tokens which are in awaiting state and have their parent binging removed.
+	// cleanup tokens which are in awaiting state and have their parent binding removed.
 	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
 	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > NoLinkingBindingGracePeriodSeconds {
 		var hasLinkedBindingsLocal bool
