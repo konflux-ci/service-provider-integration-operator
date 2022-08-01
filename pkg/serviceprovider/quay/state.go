@@ -101,7 +101,7 @@ func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string,
 		return robotAccountRepositoryRecord(ctx, repoUrl, info)
 	} else {
 		// we're dealing with an oauth token
-		return oauthRepositoryRecord(ctx, cl, repoUrl, password, info)
+		return oauthRepositoryRecord(ctx, cl, repoUrl, password)
 	}
 }
 
@@ -166,7 +166,7 @@ func robotAccountRepositoryRecord(ctx context.Context, repository string, info L
 	}, nil
 }
 
-func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string, info LoginTokenInfo) (*EntityRecord, error) {
+func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string) (*EntityRecord, error) {
 	lg := log.FromContext(ctx)
 
 	rr := &EntityRecord{}

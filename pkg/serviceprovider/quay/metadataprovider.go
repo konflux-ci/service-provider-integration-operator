@@ -158,6 +158,11 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 			return LoginTokenInfo{}, fmt.Errorf("fetch failed due to docker login error: %w", err)
 		}
 
+		// empty token means the credentials are no longer valid, which is not an error in and of itself
+		if tkn == "" {
+			return LoginTokenInfo{}, nil
+		}
+
 		info, err := AnalyzeLoginToken(tkn)
 		if err != nil {
 			lg.Error(err, "failed to analyze the docker login token")
