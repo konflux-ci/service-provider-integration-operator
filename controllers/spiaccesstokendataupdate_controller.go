@@ -17,8 +17,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/kcp-dev/logicalcluster"
 	"time"
+
+	"github.com/kcp-dev/logicalcluster"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 

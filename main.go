@@ -226,6 +226,16 @@ func main() {
 	}
 }
 
+var (
+	noApiExportFoundError    = fmt.Errorf("no APIExport found")
+	moreApiExportsFoundError = fmt.Errorf("more than one APIExport found")
+	noVirtualWorkspaceError  = fmt.Errorf("status.virtualWorkspaces is empty")
+)
+
+func NoVirtualWorkspaceError(apiExport string) error {
+	return fmt.Errorf("%w. APIExport '%s'", noVirtualWorkspaceError, apiExport)
+}
+
 // restConfigForAPIExport returns a *rest.Config properly configured to communicate with the endpoint for the
 // APIExport's virtual workspace.
 func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName string) (*rest.Config, error) {
@@ -252,16 +262,16 @@ func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName
 			return nil, fmt.Errorf("error listing APIExports: %w", err)
 		}
 		if len(exports.Items) == 0 {
-			return nil, fmt.Errorf("no APIExport found")
+			return nil, noApiExportFoundError
 		}
 		if len(exports.Items) > 1 {
-			return nil, fmt.Errorf("more than one APIExport found")
+			return nil, moreApiExportsFoundError
 		}
 		apiExport = exports.Items[0]
 	}
 
 	if len(apiExport.Status.VirtualWorkspaces) < 1 {
-		return nil, fmt.Errorf("APIExport %q status.virtualWorkspaces is empty", apiExportName)
+		return nil, NoVirtualWorkspaceError(apiExportName)
 	}
 
 	cfg = rest.CopyConfig(cfg)

@@ -19,8 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kcp-dev/logicalcluster"
 	"strconv"
+
+	"github.com/kcp-dev/logicalcluster"
 
 	"github.com/hashicorp/go-hclog"
 
