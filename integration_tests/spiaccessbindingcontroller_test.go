@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"bou.ke/monkey"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -282,15 +281,24 @@ var _ = Describe("Delete binding", func() {
 	})
 
 	It("should delete binding by timeout", func() {
-		// patch time.Since to return some more than real
-		monkey.Patch(time.Since, func(_ time.Time) time.Duration {
-			return 50 * time.Second
-		})
-		defer monkey.Unpatch(time.Since)
+		orig := ITest.OperatorConfiguration.AccessTokenBindingTtl
+		ITest.OperatorConfiguration.AccessTokenBindingTtl = 500 * time.Millisecond
+		defer func() {
+			ITest.OperatorConfiguration.AccessTokenBindingTtl = orig
+		}()
+
 		// and check that binding eventually disappeared
 		Eventually(func(g Gomega) {
 			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), &api.SPIAccessToken{})
-			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			if errors.IsNotFound(err) {
+				return
+			} else {
+				//force reconciliation timeout is passed
+				binding := &api.SPIAccessTokenBinding{}
+				ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)
+				binding.Annotations = map[string]string{"foo": "bar"}
+				ITest.Client.Update(ITest.Context, binding)
+			}
 		}).Should(Succeed())
 	})
 })

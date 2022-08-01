@@ -3,7 +3,6 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 go 1.17
 
 require (
-	bou.ke/monkey v1.0.2
 	github.com/alexflint/go-arg v1.4.3
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.2.3
