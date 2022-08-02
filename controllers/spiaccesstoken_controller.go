@@ -168,48 +168,20 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
 
-	// to avoid double computing as it is an expensive operation
-	var hasBindings *bool
-
-	// cleanup tokens by lifetime
-	if tokenLifetime > r.Configuration.AccessTokenTtl.Seconds() {
+	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > NoLinkingBindingGracePeriodSeconds) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
-			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
-			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
+			lg.Error(err, "failed to check linked bindings for token", "token", at.ObjectMeta.Name, "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to check linked bindings for token: %w", err)
 		}
 		if !hasLinkedBindings {
 			err = r.Delete(ctx, &at)
 			if err != nil {
-				lg.Error(err, "failed to cleanup token on reaching the max lifetime", "binding", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to cleanup token on reaching the max lifetime: %w", err)
+				lg.Error(err, "failed to cleanup obsolete token", "binding", at.ObjectMeta.Name, "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup token on reaching the lifetime or being unreferenced: %w", err)
 			}
-			lg.V(logs.DebugLevel).Info("token being cleaned up on reaching the max lifetime", "binding", at.ObjectMeta.Name)
-			return ctrl.Result{}, nil
-		}
-		hasBindings = &hasLinkedBindings
-	}
-
-	// cleanup tokens which are in awaiting state and have their parent binding removed.
-	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
-	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > NoLinkingBindingGracePeriodSeconds {
-		var hasLinkedBindingsLocal bool
-		if hasBindings != nil {
-			hasLinkedBindingsLocal = *hasBindings
-		} else {
-			hasLinkedBindingsLocal, err = hasLinkedBindings(ctx, &at, r.Client)
-			if err != nil {
-				lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
-			}
-		}
-		if !hasLinkedBindingsLocal {
-			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
-			if err := r.Delete(ctx, &at); err != nil {
-				lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
-			}
-			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+			lg.V(logs.DebugLevel).Info("token being deleted on reaching іts lifetime or being unreferenced with awaiting state", "token", at.ObjectMeta.Name, "tokenLifetime", tokenLifetime, "accesstokenttl", r.Configuration.AccessTokenTtl.Seconds())
 			return ctrl.Result{}, nil
 		}
 	}
