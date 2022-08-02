@@ -179,11 +179,6 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 		}
 		if !hasLinkedBindings {
-			err := r.TokenStorage.Delete(ctx, &at)
-			if err != nil {
-				lg.Error(err, "failed to cleanup token data on reaching the max lifetime", "binding", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to cleanup token data on reaching the max lifetime: %w", err)
-			}
 			err = r.Delete(ctx, &at)
 			if err != nil {
 				lg.Error(err, "failed to cleanup token on reaching the max lifetime", "binding", at.ObjectMeta.Name, "error", err)
