@@ -262,8 +262,11 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			// secret. The secret will get cleaned up once the binding is deleted because of the owner reference.
 		}
 	}
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+}
 
-	return ctrl.Result{}, nil
+func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
+	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.

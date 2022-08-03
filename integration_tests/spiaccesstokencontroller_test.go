@@ -167,7 +167,7 @@ var _ = Describe("Delete token", func() {
 
 	It("should delete the synced token in awaiting state", func() {
 		Eventually(func(g Gomega) bool {
-			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.NoLinkingBindingGracePeriodSeconds+1
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.GracePeriodSeconds+1
 		}).Should(BeTrue())
 		//flip back to awaiting
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)

@@ -50,7 +50,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
-const NoLinkingBindingGracePeriodSeconds = 2
+const GracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -169,7 +169,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
 
 	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
-	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > NoLinkingBindingGracePeriodSeconds) {
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to check linked bindings for token", "token", at.ObjectMeta.Name, "error", err)
@@ -240,7 +240,11 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
 		V(logs.DebugLevel).Info("reconciliation finished successfully")
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
+}
+
+func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
+	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(GracePeriodSeconds * time.Second))
 }
 
 func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {
