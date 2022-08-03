@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const vaultDataPathFormat = "spi/data/%s/%s/%s"
-const emptyWorkspace = "default"
+const vaultDataPathFormat = "spi/data/%s/%s"
+const vaultDataKcpPathFormat = "spi/data/%s/%s/%s"
 
 type vaultTokenStorage struct {
 	*vault.Client
@@ -194,9 +194,9 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 }
 
 func getVaultPath(ctx context.Context, owner *api.SPIAccessToken) string {
-	workspace, ok := logicalcluster.ClusterFromContext(ctx)
-	if !ok {
-		workspace = logicalcluster.New(emptyWorkspace)
+	if workspace, ok := logicalcluster.ClusterFromContext(ctx); ok {
+		return fmt.Sprintf(vaultDataKcpPathFormat, workspace, owner.Namespace, owner.Name)
+	} else {
+		return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
 	}
-	return fmt.Sprintf(vaultDataPathFormat, workspace, owner.Namespace, owner.Name)
 }
