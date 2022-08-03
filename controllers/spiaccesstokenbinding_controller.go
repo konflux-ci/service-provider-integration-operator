@@ -132,13 +132,14 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// cleanup bindings by lifetime
-	if time.Since(binding.CreationTimestamp.Time).Seconds() > r.Configuration.AccessTokenBindingTtl.Seconds() {
+	bindingLifetime := time.Since(binding.CreationTimestamp.Time).Seconds()
+	if bindingLifetime > r.Configuration.AccessTokenBindingTtl.Seconds() {
 		err := r.Client.Delete(ctx, &binding)
 		if err != nil {
 			lg.Error(err, "failed to cleanup binding on reaching the max lifetime", "binding", binding.ObjectMeta.Name, "error", err)
 			return ctrl.Result{}, fmt.Errorf("failed to cleanup binding on reaching the max lifetime: %w", err)
 		}
-		lg.V(logs.DebugLevel).Info("binding being cleaned up on reaching the max lifetime", "binding", binding.ObjectMeta.Name)
+		lg.V(logs.DebugLevel).Info("binding being cleaned up on reaching the max lifetime", "binding", binding.ObjectMeta.Name, "bindingLifetime", bindingLifetime, "bindingttl", r.Configuration.AccessTokenBindingTtl.Seconds())
 		return ctrl.Result{}, nil
 	}
 
