@@ -26,10 +26,6 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	gopkg.in/yaml.v3 v3.0.1
-)
-
-require (
-	github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
@@ -42,6 +38,7 @@ require (
 require (
 	github.com/kcp-dev/apimachinery v0.0.0-20220708220956-c302aeddfde7 // indirect
 	github.com/kcp-dev/kcp/pkg/apis v0.6.3
+	github.com/kcp-dev/logicalcluster v1.1.1-0.20220705215104-8e46328c24a5
 )
 
 replace sigs.k8s.io/controller-runtime => github.com/kcp-dev/controller-runtime v0.11.3-0.20220713175340-cbf0522c1b34
