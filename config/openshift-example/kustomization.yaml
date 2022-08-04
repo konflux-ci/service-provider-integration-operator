@@ -6,6 +6,7 @@ namespace: spi-system
 resources:
   - ../default
   - route.yaml
+  - ../prometheus
 
 secretGenerator:
   - name: oauth-config

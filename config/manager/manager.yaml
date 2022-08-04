@@ -22,9 +22,13 @@ spec:
       - command:
         - /manager
         args:
-        - --leader-elect
+          - --metrics-bind-address=0.0.0.0:8080
+          - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
+        ports:
+          - containerPort: 8080
+            name: http
         env:
           - name: VAULTHOST
             valueFrom:
