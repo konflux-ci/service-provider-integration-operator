@@ -172,13 +172,13 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
-			lg.Error(err, "failed to check linked bindings for token", "token", at.ObjectMeta.Name, "error", err)
+			lg.Error(err, "failed to check linked bindings for token", "error", err)
 			return ctrl.Result{}, fmt.Errorf("failed to check linked bindings for token: %w", err)
 		}
 		if !hasLinkedBindings {
 			err = r.Delete(ctx, &at)
 			if err != nil {
-				lg.Error(err, "failed to cleanup obsolete token", "binding", at.ObjectMeta.Name, "error", err)
+				lg.Error(err, "failed to cleanup obsolete token", "error", err)
 				return ctrl.Result{}, fmt.Errorf("failed to cleanup token on reaching the lifetime or being unreferenced: %w", err)
 			}
 			lg.V(logs.DebugLevel).Info("token being deleted on reaching іts lifetime or being unreferenced with awaiting state", "token", at.ObjectMeta.Name, "tokenLifetime", tokenLifetime, "accesstokenttl", r.Configuration.AccessTokenTtl.Seconds())
