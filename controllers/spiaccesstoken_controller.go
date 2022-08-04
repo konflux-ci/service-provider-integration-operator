@@ -50,7 +50,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
-const NoLinkingBindingGracePeriodSeconds = 2
+const GracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -166,21 +166,22 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	// cleanup tokens which are in awaiting state and have their parent binging removed.
-	// grace period taken in account to avoid race condition during the object creation process (i.e. when token is created but not yet linked)
-	if at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && time.Since(at.CreationTimestamp.Time).Seconds() > NoLinkingBindingGracePeriodSeconds {
+	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
+
+	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
-			lg.Error(err, "failed to validate the object", "token", at.ObjectMeta.Name, "error", err)
-			return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
+			lg.Error(err, "failed to check linked bindings for token", "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to check linked bindings for token: %w", err)
 		}
 		if !hasLinkedBindings {
-			//if token is in Awaiting, and no linked bindings present, it means that it have no bindings referring to it and can be cleaned up
-			if err := r.Delete(ctx, &at); err != nil {
-				lg.Error(err, "failed to cleanup the processed token", "token", at.ObjectMeta.Name, "error", err)
-				return ctrl.Result{}, fmt.Errorf("failed to cleanup the processed token: %w", err)
+			err = r.Delete(ctx, &at)
+			if err != nil {
+				lg.Error(err, "failed to cleanup obsolete token", "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup token on reaching the lifetime or being unreferenced: %w", err)
 			}
-			lg.V(logs.DebugLevel).Info("token being deleted, no linked bindings found", "token", at.ObjectMeta.Name)
+			lg.V(logs.DebugLevel).Info("token being deleted on reaching іts lifetime or being unreferenced with awaiting state", "token", at.ObjectMeta.Name, "tokenLifetime", tokenLifetime, "accesstokenttl", r.Configuration.AccessTokenTtl.Seconds())
 			return ctrl.Result{}, nil
 		}
 	}
@@ -239,7 +240,11 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
 		V(logs.DebugLevel).Info("reconciliation finished successfully")
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
+}
+
+func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
+	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(GracePeriodSeconds * time.Second))
 }
 
 func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {

@@ -81,6 +81,12 @@ type Configuration struct {
 
 	// AccessCheckTtl is time after that SPIAccessCheck CR will be deleted.
 	AccessCheckTtl time.Duration
+
+	// AccessTokenTtl is time after that AccessToken will be deleted.
+	AccessTokenTtl time.Duration
+
+	// AccessTokenBindingTtl is time after that AccessTokenBinding will be deleted.
+	AccessTokenBindingTtl time.Duration
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This

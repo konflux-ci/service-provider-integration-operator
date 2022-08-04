@@ -19,6 +19,9 @@ import (
 	stderrors "errors"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -108,11 +111,12 @@ var _ = Describe("Token data disappears", func() {
 })
 
 var _ = Describe("Delete token", func() {
+	var createdBinding *api.SPIAccessTokenBinding
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
-		_, createdToken = createStandardPair("delete-test")
+		createdBinding, createdToken = createStandardPair("delete-test")
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
 	})
 
@@ -158,6 +162,48 @@ var _ = Describe("Delete token", func() {
 			data, err := ITest.TokenStorage.Get(ITest.Context, createdToken)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(data).To(BeNil())
+		}).Should(Succeed())
+	})
+
+	It("should delete the synced token in awaiting state", func() {
+		Eventually(func(g Gomega) bool {
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.GracePeriodSeconds+1
+		}).Should(BeTrue())
+		//flip back to awaiting
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+
+		//delete binding
+		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
+
+		// and check that token eventually disappeared
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
+	})
+
+	It("should delete the token by timeout", func() {
+		orig := ITest.OperatorConfiguration.AccessTokenTtl
+		ITest.OperatorConfiguration.AccessTokenTtl = 500 * time.Millisecond
+		defer func() {
+			ITest.OperatorConfiguration.AccessTokenTtl = orig
+		}()
+
+		//delete binding
+		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
+
+		// and check that token eventually disappeared
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
+			if errors.IsNotFound(err) {
+				return
+			} else {
+				//force reconciliation until timeout is passed
+				token := &api.SPIAccessToken{}
+				ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)
+				token.Annotations = map[string]string{"foo": "bar"}
+				ITest.Client.Update(ITest.Context, token)
+			}
 		}).Should(Succeed())
 	})
 })

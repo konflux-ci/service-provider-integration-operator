@@ -66,6 +66,7 @@ type IntegrationTest struct {
 	TestServiceProvider      TestServiceProvider
 	HostCredsServiceProvider TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
+	OperatorConfiguration    config.Configuration
 }
 
 var ITest IntegrationTest
@@ -164,7 +165,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	operatorCfg := config.Configuration{
+	ITest.OperatorConfiguration = config.Configuration{
 		ServiceProviders: []config.ServiceProviderConfiguration{
 			{
 				ClientId:            "testClient",
@@ -172,8 +173,10 @@ var _ = BeforeSuite(func() {
 				ServiceProviderType: "TestServiceProvider",
 			},
 		},
-		SharedSecret:   []byte("secret"),
-		AccessCheckTtl: 10 * time.Second,
+		SharedSecret:          []byte("secret"),
+		AccessCheckTtl:        10 * time.Second,
+		AccessTokenTtl:        10 * time.Second,
+		AccessTokenBindingTtl: 10 * time.Second,
 	}
 
 	// start webhook server using Manager
@@ -198,7 +201,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	factory := serviceprovider.Factory{
-		Configuration:    operatorCfg,
+		Configuration:    ITest.OperatorConfiguration,
 		KubernetesClient: mgr.GetClient(),
 		HttpClient:       http.DefaultClient,
 		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
@@ -232,7 +235,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		TokenStorage:           strg,
-		Configuration:          operatorCfg,
+		Configuration:          ITest.OperatorConfiguration,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -241,6 +244,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		TokenStorage:           strg,
+		Configuration:          ITest.OperatorConfiguration,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -254,7 +258,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		ServiceProviderFactory: factory,
-		Configuration:          operatorCfg,
+		Configuration:          ITest.OperatorConfiguration,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 

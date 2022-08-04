@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -281,20 +280,25 @@ var _ = Describe("Delete binding", func() {
 		Expect(ITest.Client.Delete(ITest.Context, syncedSecret)).To(Succeed())
 	})
 
-	It("should delete the synced token in awaiting state", func() {
-		Eventually(func(g Gomega) bool {
-			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.NoLinkingBindingGracePeriodSeconds+1
-		}).Should(BeTrue())
-		//flip back to awaiting
-		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+	It("should delete binding by timeout", func() {
+		orig := ITest.OperatorConfiguration.AccessTokenBindingTtl
+		ITest.OperatorConfiguration.AccessTokenBindingTtl = 500 * time.Millisecond
+		defer func() {
+			ITest.OperatorConfiguration.AccessTokenBindingTtl = orig
+		}()
 
-		//delete binding
-		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-
-		// and check that token eventually disappeared
+		// and check that binding eventually disappeared
 		Eventually(func(g Gomega) {
-			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), &api.SPIAccessToken{})
-			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), &api.SPIAccessToken{})
+			if errors.IsNotFound(err) {
+				return
+			} else {
+				//force reconciliation timeout is passed
+				binding := &api.SPIAccessTokenBinding{}
+				ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)
+				binding.Annotations = map[string]string{"foo": "bar"}
+				ITest.Client.Update(ITest.Context, binding)
+			}
 		}).Should(Succeed())
 	})
 })
