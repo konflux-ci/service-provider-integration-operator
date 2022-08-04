@@ -77,7 +77,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	if len(data.Username) > 0 {
 		metadata.Username = data.Username
 	} else {
-		metadata.Username = "$oauthtoken"
+		metadata.Username = OAuthTokenUserName
 	}
 
 	metadata.ServiceProviderState = js
