@@ -211,7 +211,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		// The error will still be reported in status.
 	}
 
-	token := ""
+	var username, token string
 	if len(tokens) > 0 {
 		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
 		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
@@ -219,7 +219,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
 		}
 		if apiToken != nil {
-			token = apiToken.AccessToken
+			username, token = getUsernameAndPasswordFromTokenData(apiToken)
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
@@ -241,7 +241,24 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 				status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 			}
 		case http.StatusUnauthorized, http.StatusForbidden:
-			lg.Info("quay.io request unauthorized. Probably a private repository for which we don't have a token.")
+			// if we have no token, we cannot distinguish between non-existent and private repository, so in that case
+			// we can assign no new status here...
+			if token != "" {
+				// ok, we failed to authorize with a token. This means that we either are using a robot token on a
+				// private repo or token lookup didn't return a valid token (maybe an expired one or the perms changed
+				// in quay in the meantime).
+				if username != "" && username != OAuthTokenUserName {
+					// yes, a robot token. All we know is that the token lookup succeeded, so this must mean docker login
+					// must have succeeded (now or some time ago). So let's just assume here that the repo is accessible.
+					// For public repositories, the Quay API repository info query succeeds with any (or none) credentials.
+					// Since we're seeing a failure here, this means that this must be a private repo.
+					status.Accessible = true
+					status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+				} else {
+					// hmm.. so the token lookup was wrong about the repository. This is weird...
+					lg.Info("quay.io request unauthorized using a looked up token. Have permissions changed in the meantime?")
+				}
+			}
 		case http.StatusNotFound:
 			if status.ErrorReason == "" && status.ErrorMessage == "" {
 				status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound

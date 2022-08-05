@@ -565,7 +565,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
 	})
 
-	t.Run("no token data", func(t *testing.T) {
+	t.Run("no token data on private", func(t *testing.T) {
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
@@ -584,6 +584,52 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
 		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
+	t.Run("no token on public", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return nil, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
+	t.Run("robot token on private", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})
