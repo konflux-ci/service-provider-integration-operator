@@ -52,12 +52,13 @@ type SPIAccessCheckReconciler struct {
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-	if cluster, ok := logicalcluster.ClusterFromContext(ctx); ok {
-		ctx = logicalcluster.WithCluster(ctx, cluster)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
+
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
 		lg = lg.WithValues("clusterName", req.ClusterName)
 	}
 
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
 		if errors.IsNotFound(err) {

@@ -107,8 +107,9 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-	if cluster, ok := logicalcluster.ClusterFromContext(ctx); ok {
-		ctx = logicalcluster.WithCluster(ctx, cluster)
+
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
 		lg = lg.WithValues("clusterName", req.ClusterName)
 	}
 
