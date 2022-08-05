@@ -85,13 +85,27 @@ type Factory struct {
 	TokenStorage     tokenstorage.TokenStorage
 }
 
+func getOptionalServiceProviderTypes() []config.ServiceProviderType {
+	return []config.ServiceProviderType{config.ServiceProviderTypeGitHub, config.ServiceProviderTypeQuay}
+}
+
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
-	for _, spc := range f.Configuration.ServiceProviders {
-		initializer, ok := f.Initializers[spc.ServiceProviderType]
+
+	// using a map here to avoid wastefully trying to construct the same service provider twice
+	var spTypes = make(map[config.ServiceProviderType]bool)
+	for _, sp := range f.Configuration.ServiceProviders {
+		spTypes[sp.ServiceProviderType] = true
+	}
+	for _, sp := range getOptionalServiceProviderTypes() {
+		spTypes[sp] = true
+	}
+
+	for sp := range spTypes {
+		initializer, ok := f.Initializers[sp]
 		if !ok {
 			continue
 		}
