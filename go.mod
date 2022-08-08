@@ -11,12 +11,12 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-github/v45 v45.2.0
 	github.com/hashicorp/go-hclog v1.2.2
-	github.com/hashicorp/vault v1.11.1
+	github.com/hashicorp/vault v1.11.2
 	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
-	github.com/hashicorp/vault/sdk v0.5.3-0.20220621155127-c9ca5e0e239b
+	github.com/hashicorp/vault/sdk v0.5.3-0.20220721224827-e96a652fbfb0
 	github.com/migueleliasweb/go-github-mock v0.0.10
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
