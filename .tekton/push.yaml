@@ -21,7 +21,7 @@ spec:
       value: Dockerfile
     - name: infra-deployment-update-script
       value: |
-        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/default?ref=\)\(.*\)|\1{{ revision }}|' -e 's/\(newTag: \).*/\1{{ revision }}/' components/spi/kustomization.yaml
+        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/default?ref=\)\(.*\)|\1{{ revision }}|' components/spi/kustomization.yaml; awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/kustomization.yaml
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
