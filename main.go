@@ -18,15 +18,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"net/http"
 	"os"
-
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/kcp"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -48,9 +43,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	//+kubebuilder:scaffold:imports
-	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 
 	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
@@ -100,41 +92,10 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	var mgr ctrl.Manager
-	var err error
-	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     args.MetricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: args.ProbeAddr,
-		LeaderElection:         args.EnableLeaderElection,
-		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
-		Logger:                 ctrl.Log,
-	}
-	restConfig := ctrl.GetConfigOrDie()
-
-	if kcpAPIsGroupPresent(restConfig) {
-		setupLog.Info("Looking up virtual workspace URL")
-		cfg, err := restConfigForAPIExport(ctx, restConfig, args.ApiExportName)
-		if err != nil {
-			setupLog.Error(err, "error looking up virtual workspace URL")
-			os.Exit(1)
-		}
-
-		setupLog.Info("Using virtual workspace URL", "url", cfg.Host)
-
-		options.LeaderElectionConfig = restConfig
-		mgr, err = kcp.NewClusterAwareManager(cfg, options)
-		if err != nil {
-			setupLog.Error(err, "unable to start cluster aware manager")
-			os.Exit(1)
-		}
-	} else {
-		mgr, err = ctrl.NewManager(restConfig, options)
-		if err != nil {
-			setupLog.Error(err, "unable to start manager")
-			os.Exit(1)
-		}
+	mgr, mgrErr := createManager(ctx, args)
+	if mgrErr != nil {
+		setupLog.Error(mgrErr, "unable to start manager")
+		os.Exit(1)
 	}
 
 	cfg, err := sharedConfig.LoadFrom(args.ConfigFile)
@@ -226,80 +187,21 @@ func main() {
 	}
 }
 
-var (
-	noApiExportFoundError    = fmt.Errorf("no APIExport found")
-	moreApiExportsFoundError = fmt.Errorf("more than one APIExport found")
-	noVirtualWorkspaceError  = fmt.Errorf("status.virtualWorkspaces is empty")
-)
-
-func NoVirtualWorkspaceError(apiExport string) error {
-	return fmt.Errorf("%w. APIExport '%s'", noVirtualWorkspaceError, apiExport)
-}
-
-// restConfigForAPIExport returns a *rest.Config properly configured to communicate with the endpoint for the
-// APIExport's virtual workspace.
-func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName string) (*rest.Config, error) {
-	scheme := runtime.NewScheme()
-	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error adding apis.kcp.dev/v1alpha1 to scheme: %w", err)
+func createManager(ctx context.Context, args cliArgs) (manager.Manager, error) {
+	options := ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     args.MetricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: args.ProbeAddr,
+		LeaderElection:         args.EnableLeaderElection,
+		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
+		Logger:                 ctrl.Log,
 	}
+	restConfig := ctrl.GetConfigOrDie()
 
-	apiExportClient, err := client.New(cfg, client.Options{Scheme: scheme})
-	if err != nil {
-		return nil, fmt.Errorf("error creating APIExport client: %w", err)
-	}
-
-	var apiExport apisv1alpha1.APIExport
-
-	if apiExportName != "" {
-		if err := apiExportClient.Get(ctx, types.NamespacedName{Name: apiExportName}, &apiExport); err != nil {
-			return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
-		}
+	if infrastructure.IsKcp(ctx, restConfig) {
+		return infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
 	} else {
-		setupLog.Info("api-export-name is empty - listing")
-		exports := &apisv1alpha1.APIExportList{}
-		if err := apiExportClient.List(ctx, exports); err != nil {
-			return nil, fmt.Errorf("error listing APIExports: %w", err)
-		}
-		if len(exports.Items) == 0 {
-			return nil, noApiExportFoundError
-		}
-		if len(exports.Items) > 1 {
-			return nil, moreApiExportsFoundError
-		}
-		apiExport = exports.Items[0]
+		return ctrl.NewManager(restConfig, options)
 	}
-
-	if len(apiExport.Status.VirtualWorkspaces) < 1 {
-		return nil, NoVirtualWorkspaceError(apiExportName)
-	}
-
-	cfg = rest.CopyConfig(cfg)
-	cfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
-
-	return cfg, nil
-}
-
-func kcpAPIsGroupPresent(restConfig *rest.Config) bool {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		setupLog.Error(err, "failed to create discovery client")
-		os.Exit(1)
-	}
-	apiGroupList, err := discoveryClient.ServerGroups()
-	if err != nil {
-		setupLog.Error(err, "failed to get server groups")
-		os.Exit(1)
-	}
-
-	for _, group := range apiGroupList.Groups {
-		if group.Name == apisv1alpha1.SchemeGroupVersion.Group {
-			for _, version := range group.Versions {
-				if version.Version == apisv1alpha1.SchemeGroupVersion.Version {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
