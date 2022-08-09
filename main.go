@@ -18,10 +18,11 @@ package main
 
 import (
 	"context"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
