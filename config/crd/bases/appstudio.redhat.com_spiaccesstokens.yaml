@@ -124,11 +124,14 @@ spec:
                 required:
                 - lastRefreshTime
                 type: object
+              uploadUrl:
+                type: string
             required:
             - errorMessage
             - errorReason
             - oAuthUrl
             - phase
+            - uploadUrl
             type: object
         type: object
     served: true

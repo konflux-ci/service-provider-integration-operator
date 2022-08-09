@@ -64,6 +64,14 @@ var _ = Describe("Create without token data", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(tokenData).To(BeNil())
 	})
+
+	It("have the upload URL set", func() {
+		Eventually(func(g Gomega) {
+			token := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
+			g.Expect(token.Status.UploadUrl).ToNot(BeEmpty())
+		}).Should(Succeed())
+	})
 })
 
 var _ = Describe("Token data disappears", func() {
