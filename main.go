@@ -73,6 +73,7 @@ type cliArgs struct {
 	VaultApproleSecretIdFilePath   string                       `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`
 	VaultKubernetesSATokenFilePath string                       `arg:"--vault-k8s-sa-token-filepath, env" help:"Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development."`
 	VaultKubernetesRole            string                       `arg:"--vault-k8s-role, env" default:"spi-controller-manager" help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
+	MatchAllTokenAlgorithm         bool                         `arg:"--match-all-token-algorithm, env" default:"true" help:"An indicator that is telling to match all tokens of the given provider in the concrete namespace."`
 	ZapDevel                       bool                         `arg:"-d, --zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
 	ZapEncoder                     string                       `arg:"-e, --zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
 	ZapLogLevel                    string                       `arg:"-v, --zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
@@ -125,6 +126,7 @@ func main() {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
+	cfg.MatchAllTokenAlgorithm = args.MatchAllTokenAlgorithm
 
 	cfg.AccessTokenTtl, err = time.ParseDuration(args.TokenLifetimeDuration)
 	if err != nil {

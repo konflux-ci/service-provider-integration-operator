@@ -17,6 +17,9 @@ package serviceprovider
 import (
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
@@ -33,3 +36,28 @@ var _ TokenFilter = (TokenFilterFunc)(nil)
 func (f TokenFilterFunc) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
 	return f(ctx, matchable, token)
 }
+
+// MatchAllTokenFilter is a TokenFilter that match any token
+var MatchAllTokenFilter TokenFilter = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
+	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
+	debugLog.Info("Unconditional token match", "token", token)
+	return true, nil
+})
+
+// FallBackTokenFilter is a TokenFilter that filters token with MainTokenFilter if Condition returns true or FallBackFilter if
+// Condition returns false.
+type FallBackTokenFilter struct {
+	Condition       func() bool
+	MainTokenFilter TokenFilter
+	FallBackFilter  TokenFilter
+}
+
+func (f FallBackTokenFilter) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
+	if f.Condition() {
+		return f.MainTokenFilter.Matches(ctx, matchable, token)
+	} else {
+		return f.FallBackFilter.Matches(ctx, matchable, token)
+	}
+}
+
+var _ TokenFilter = FallBackTokenFilter{}

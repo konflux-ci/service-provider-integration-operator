@@ -87,6 +87,9 @@ type Configuration struct {
 
 	// AccessTokenBindingTtl is time after that AccessTokenBinding will be deleted.
 	AccessTokenBindingTtl time.Duration
+
+	// An indicator that is telling to match all tokens of the given provider in the concrete namespace
+	MatchAllTokenAlgorithm bool
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This

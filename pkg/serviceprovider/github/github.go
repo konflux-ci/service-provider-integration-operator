@@ -69,7 +69,12 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			TokenFilter:         &tokenFilter{},
+			TokenFilter: serviceprovider.FallBackTokenFilter{
+				Condition: func() bool {
+					return factory.Configuration.MatchAllTokenAlgorithm
+				},
+				MainTokenFilter: serviceprovider.MatchAllTokenFilter,
+				FallBackFilter:  &tokenFilter{}},
 			MetadataProvider: &metadataProvider{
 				httpClient:      httpClient,
 				tokenStorage:    factory.TokenStorage,
