@@ -22,25 +22,27 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var unsuccessfulLoginError = errors.New("login did not succeed")
 var loginResponseWithoutTokenError = errors.New("quay login response doesn't contain a token")
 var unexpectedTokenFormatError = errors.New("unexpected token format in quay login response")
 
 // DockerLogin performs docker login to quay using the provided username and password (that might be a robot account creds) and returns
 // a JWT token that can be used as a bearer token in the subsequent requests to the docker API in quay.
-// `repository` is in the form of `org/name`.
+// `repository` is in the form of `org/name`. If the provided credentials are invalid, an empty string is returned.
+// An error is returned when the attempt to parse the login response fails or any other error during the login process.
 func DockerLogin(ctx context.Context, cl *http.Client, repository string, username string, password string) (string, error) {
-	lg := log.FromContext(ctx, "repository", repository)
-	lg.Info("attempting docker login to quay")
+	debugLog := log.FromContext(ctx, "repository", repository).V(logs.DebugLevel)
+	debugLog.Info("attempting docker login to quay")
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://quay.io/v2/auth?service=quay.io&scope=repository:"+repository+":push,pull", nil)
 	if err != nil {
-		lg.Error(err, "failed to compose the quay login request")
+		debugLog.Error(err, "failed to compose the quay login request")
 		return "", fmt.Errorf("failed to compose the quay login request: %w", err)
 	}
 
@@ -49,54 +51,54 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 
 	res, err := cl.Do(req)
 	if err != nil {
-		lg.Error(err, "failed to perform the quay login request")
+		debugLog.Error(err, "failed to perform the quay login request")
 		return "", fmt.Errorf("failed to perform the quay login request: %w", err)
 	}
 
 	if res.StatusCode != 200 {
 		defer func() {
 			if err := res.Body.Close(); err != nil {
-				lg.Error(err, "failed to close response while trying to login to quay.io")
+				debugLog.Error(err, "failed to close response while trying to login to quay.io")
 			}
 		}()
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			lg.Error(err, "failed to read the body of response", "statusCode", res.StatusCode)
+			debugLog.Error(err, "failed to read the body of response", "statusCode", res.StatusCode)
 			return "", errors.WithMessage(err, "failed to read the body of non-200 response to login attempt")
 		}
 
 		msg := string(bytes)
 
-		lg.Info("quay docker login attempt unsuccessful (without error)", "response", msg)
-		return "", fmt.Errorf("%w (status %d): %s", unsuccessfulLoginError, res.StatusCode, msg)
+		debugLog.Info("quay docker login attempt unsuccessful (without error)", "status", res.StatusCode, "response", msg)
+		return "", nil
 	}
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		lg.Error(err, "failed to read the quay login response body")
+		debugLog.Error(err, "failed to read the quay login response body")
 		return "", fmt.Errorf("failed to read the quay login response body: %w", err)
 	}
 
 	resp := map[string]interface{}{}
 	if err := json.Unmarshal(bytes, &resp); err != nil {
-		lg.Error(err, "failed to unmarshal quay login response to JSON")
+		debugLog.Error(err, "failed to unmarshal quay login response to JSON")
 		return "", fmt.Errorf("failed to unmarshal quay login response to JSON: %w", err)
 	}
 
 	tokenObj, ok := resp["token"]
 	if !ok {
-		lg.Info("quay login response did not contain the expected 'token' field")
+		debugLog.Info("quay login response did not contain the expected 'token' field")
 		return "", loginResponseWithoutTokenError
 	}
 
 	token, ok := tokenObj.(string)
 	if !ok {
-		lg.Info("quay login response 'token' field is expected to be a string")
+		debugLog.Info("quay login response 'token' field is expected to be a string")
 		return "", unexpectedTokenFormatError
 	}
 
-	lg.Info("quay docker login attempt successful")
+	debugLog.Info("quay docker login attempt successful")
 
 	return token, nil
 }

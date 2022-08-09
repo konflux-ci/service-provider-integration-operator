@@ -16,6 +16,7 @@ package quay
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -26,14 +27,26 @@ import (
 )
 
 func TestDockerLogin(t *testing.T) {
+	var throwError bool
+	var responseBody string
+
+	setup := func() {
+		throwError = false
+		responseBody = `{"token": "token"}`
+	}
+
 	cl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			if throwError {
+				return nil, errors.New("intentional HTTP error")
+			}
+
 			assert.Contains(t, r.Header, "Authorization")
 			// the value is base64 encoded "alois:password"
 			if r.Header.Get("Authorization") == "Basic YWxvaXM6cGFzc3dvcmQ=" {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "token"}`)),
+					Body:       ioutil.NopCloser(strings.NewReader(responseBody)),
 				}, nil
 			} else {
 				return &http.Response{
@@ -44,16 +57,33 @@ func TestDockerLogin(t *testing.T) {
 	}
 
 	t.Run("successful login", func(t *testing.T) {
+		setup()
 		token, err := DockerLogin(context.TODO(), cl, "acme/foo", "alois", "password")
 		assert.NoError(t, err)
 		assert.Equal(t, "token", token)
 	})
 
 	t.Run("unsuccessful login", func(t *testing.T) {
+		setup()
 		token, err := DockerLogin(context.TODO(), cl, "acme/foo", "alois", "passwort")
+		assert.NoError(t, err)
 		assert.Empty(t, token)
+	})
+
+	t.Run("error during login", func(t *testing.T) {
+		setup()
+		throwError = true
+		token, err := DockerLogin(context.TODO(), cl, "acme/foo", "alois", "password")
 		assert.Error(t, err)
-		assert.True(t, strings.HasPrefix(err.Error(), "login did not succeed"))
+		assert.Empty(t, token)
+	})
+
+	t.Run("invalid response from quay as error", func(t *testing.T) {
+		setup()
+		responseBody = "invalid response body"
+		token, err := DockerLogin(context.TODO(), cl, "acme/foo", "alois", "password")
+		assert.Error(t, err)
+		assert.Empty(t, token)
 	})
 }
 
