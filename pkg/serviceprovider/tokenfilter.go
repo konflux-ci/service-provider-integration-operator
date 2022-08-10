@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,11 +54,19 @@ type FallBackTokenFilter struct {
 }
 
 func (f FallBackTokenFilter) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
-	if f.Condition() {
-		return f.MainTokenFilter.Matches(ctx, matchable, token)
-	} else {
-		return f.FallBackFilter.Matches(ctx, matchable, token)
+
+	var matches, err = f.getActiveFilter().Matches(ctx, matchable, token)
+	if err != nil {
+		return false, fmt.Errorf("failed to match the token: %w", err)
 	}
+	return matches, nil
+}
+
+func (f FallBackTokenFilter) getActiveFilter() TokenFilter {
+	if f.Condition() {
+		return f.MainTokenFilter
+	}
+	return f.FallBackFilter
 }
 
 var _ TokenFilter = FallBackTokenFilter{}
