@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -217,9 +218,17 @@ func createManager(ctx context.Context, args cliArgs) (manager.Manager, error) {
 	}
 	restConfig := ctrl.GetConfigOrDie()
 
+	var mgr manager.Manager
+	var err error
 	if infrastructure.IsKcp(ctx, restConfig) {
-		return infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
+		mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
 	} else {
-		return ctrl.NewManager(restConfig, options)
+		mgr, err = ctrl.NewManager(restConfig, options)
 	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manager %w", err)
+	}
+
+	return mgr, nil
 }

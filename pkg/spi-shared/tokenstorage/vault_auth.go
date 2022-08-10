@@ -17,7 +17,7 @@ package tokenstorage
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
@@ -73,7 +73,7 @@ func (a *kubernetesAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, er
 }
 
 func (a *approleAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, error) {
-	roleId, err := ioutil.ReadFile(config.RoleIdFilePath)
+	roleId, err := os.ReadFile(config.RoleIdFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read vault role id: %w", err)
 	}

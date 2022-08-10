@@ -44,7 +44,11 @@ func NewKcpManager(ctx context.Context, restConfig *rest.Config, options ctrl.Op
 	setupLog.Info("Using virtual workspace URL", "url", cfg.Host)
 
 	options.LeaderElectionConfig = restConfig
-	return kcp.NewClusterAwareManager(cfg, options)
+	mgr, err := kcp.NewClusterAwareManager(cfg, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KCP manager %w", err)
+	}
+	return mgr, nil
 }
 
 func IsKcp(ctx context.Context, restConfig *rest.Config) bool {
