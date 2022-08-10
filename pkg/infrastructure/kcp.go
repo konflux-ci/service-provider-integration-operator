@@ -51,36 +51,31 @@ func NewKcpManager(ctx context.Context, restConfig *rest.Config, options ctrl.Op
 	return mgr, nil
 }
 
-func IsKcp(ctx context.Context, restConfig *rest.Config) bool {
-	setupLog := log.FromContext(ctx)
-
+func IsKcp(restConfig *rest.Config) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
 	if err != nil {
-		setupLog.Error(err, "failed to create discovery client")
-		os.Exit(1)
+		return false, fmt.Errorf("failed to create discovery client %w", err)
 	}
 	apiGroupList, err := discoveryClient.ServerGroups()
 	if err != nil {
-		setupLog.Error(err, "failed to get server groups")
-		os.Exit(1)
+		return false, fmt.Errorf("failed to get server groups %w", err)
 	}
 
 	for _, group := range apiGroupList.Groups {
 		if group.Name == apisv1alpha1.SchemeGroupVersion.Group {
 			for _, version := range group.Versions {
 				if version.Version == apisv1alpha1.SchemeGroupVersion.Version {
-					return true
+					return true, nil
 				}
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 var (
-	noApiExportFoundError    = fmt.Errorf("no APIExport found")
-	moreApiExportsFoundError = fmt.Errorf("more than one APIExport found")
-	noVirtualWorkspaceError  = fmt.Errorf("status.virtualWorkspaces is empty")
+	missingApiExportNameError = fmt.Errorf("APIExport name must be provided")
+	noVirtualWorkspaceError   = fmt.Errorf("status.virtualWorkspaces is empty")
 )
 
 func NoVirtualWorkspaceError(apiExport string) error {
@@ -90,7 +85,9 @@ func NoVirtualWorkspaceError(apiExport string) error {
 // restConfigForAPIExport returns a *rest.Config properly configured to communicate with the endpoint for the
 // APIExport's virtual workspace.
 func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName string) (*rest.Config, error) {
-	setupLog := log.FromContext(ctx)
+	if apiExportName == "" {
+		return nil, missingApiExportNameError
+	}
 
 	scheme := runtime.NewScheme()
 	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
@@ -104,23 +101,8 @@ func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName
 
 	var apiExport apisv1alpha1.APIExport
 
-	if apiExportName != "" {
-		if err := apiExportClient.Get(ctx, types.NamespacedName{Name: apiExportName}, &apiExport); err != nil {
-			return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
-		}
-	} else {
-		setupLog.Info("api-export-name is empty - listing")
-		exports := &apisv1alpha1.APIExportList{}
-		if err := apiExportClient.List(ctx, exports); err != nil {
-			return nil, fmt.Errorf("error listing APIExports: %w", err)
-		}
-		if len(exports.Items) == 0 {
-			return nil, noApiExportFoundError
-		}
-		if len(exports.Items) > 1 {
-			return nil, moreApiExportsFoundError
-		}
-		apiExport = exports.Items[0]
+	if err := apiExportClient.Get(ctx, types.NamespacedName{Name: apiExportName}, &apiExport); err != nil {
+		return nil, fmt.Errorf("error getting APIExport %q: %w", apiExportName, err)
 	}
 
 	if len(apiExport.Status.VirtualWorkspaces) < 1 {

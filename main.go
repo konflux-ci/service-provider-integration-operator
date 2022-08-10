@@ -220,10 +220,14 @@ func createManager(ctx context.Context, args cliArgs) (manager.Manager, error) {
 
 	var mgr manager.Manager
 	var err error
-	if infrastructure.IsKcp(ctx, restConfig) {
-		mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
+	if isKcp, isKcpErr := infrastructure.IsKcp(restConfig); isKcpErr == nil {
+		if isKcp {
+			mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
+		} else {
+			mgr, err = ctrl.NewManager(restConfig, options)
+		}
 	} else {
-		mgr, err = ctrl.NewManager(restConfig, options)
+		err = isKcpErr
 	}
 
 	if err != nil {
