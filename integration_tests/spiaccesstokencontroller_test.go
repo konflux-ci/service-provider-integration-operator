@@ -17,6 +17,7 @@ package integrationtests
 import (
 	"context"
 	stderrors "errors"
+	"strings"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
@@ -69,7 +70,7 @@ var _ = Describe("Create without token data", func() {
 		Eventually(func(g Gomega) {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-			g.Expect(token.Status.UploadUrl).ToNot(BeEmpty())
+			g.Expect(strings.HasSuffix(token.Status.UploadUrl, "/token/"+token.Namespace+"/"+token.Name)).To(BeTrue())
 		}).Should(Succeed())
 	})
 })
