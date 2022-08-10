@@ -110,13 +110,13 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 
+	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {
 		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
 		lg = lg.WithValues("clusterName", req.ClusterName)
 	}
-
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 
 	binding := api.SPIAccessTokenBinding{}
 

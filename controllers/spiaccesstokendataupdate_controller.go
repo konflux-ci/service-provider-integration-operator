@@ -53,13 +53,13 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
 
+	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {
 		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
 		lg = lg.WithValues("clusterName", req.ClusterName)
 	}
-
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
 
 	update := api.SPIAccessTokenDataUpdate{}
 

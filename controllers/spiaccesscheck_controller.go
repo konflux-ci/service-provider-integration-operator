@@ -54,6 +54,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
 
+	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {
 		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
 		lg = lg.WithValues("clusterName", req.ClusterName)
