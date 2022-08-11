@@ -3,11 +3,12 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"runtime"
 	"testing"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/stretchr/testify/assert"
 )
 
 var filterTrue = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
