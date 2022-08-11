@@ -66,3 +66,4 @@ kcp-syncer-65c7cdf9d5-4cb4x   1/1     Running   0          68s
 ## Links
  - onboarding doc for kcp service https://docs.google.com/document/d/1ygHQOBDMMnnsEDQoXSLSxaLUrplhOC42R3_kHCr25TI/edit#heading=h.mao1hpka76i1
    - in "How do I get access to this environment?" you skip points 1 and 2 because we already have appstudio organization, instead of that ask Matous or Alexey for invitation link. You will need to create new RH sso account, which is pain because it's later used to authenticate you on cmd. I'm using different user in browser for that. 
+ - good start with some kcp demos/presendations is here https://docs.google.com/document/d/1H2f8wpiBXPKHQEIarihgIReuFvBJUO3irPtL7A3pSpM/edit?usp=sharing
