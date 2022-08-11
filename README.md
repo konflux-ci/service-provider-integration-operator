@@ -69,6 +69,10 @@ baseUrl: <oauth_base_url>
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
  - `<oauth_base_url>` - URL on which the OAuth service is deployed
 
+
+_To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
+
+
 ### Operator configuration parameters
 | Command argument                                      | Environment variable           | Default                | Description                                                                                                                                                                                                                        |
 |-------------------------------------------------------|--------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -91,7 +95,40 @@ baseUrl: <oauth_base_url>
 | --zap-stacktrace-level                                | ZAPSTACKTRACELEVEL             |                        | Zap Level at and above which stacktraces are captured.                                                                                                                                                                             |
 | --zap-time-encoding                                   | ZAPTIMEENCODING                | iso8601                | Format of the time in the log. One of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano.                                                                                                                             |
 
-_To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
+Usage example : 
+```bash
+kubectl set env deployment/spi-controller-manager ZAPLOGLEVEL=1 -n spi-system
+```
+
+
+### OAuth service configuration parameters
+| Command argument              | Environment variable           | Default                                                         | Description                                                                                                                                                                                                                        |
+|-------------------------------|--------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --config-file                 | CONFIGFILE                     | /etc/spi/config.yaml                                            | The location of the configuration file.                                                                                                                                                                                            |
+| --service-addr                | SERVICEADDR                    | 0.0.0.0:8000                                                    | Service address to listen on.                                                                                                                                                                                                      |
+| --allowed-origins             | ALLOWEDORIGINS                 | https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                                                                                                                                                                 |
+| --kubeconfig                  | KUBECONFIG                     |                                                                 | KUBE-CONFIG.                                                                                                                                                                                                                       |
+| --kube-insecure-tls           | KUBEINSECURETLS                | false                                                           | Whether is allowed or not insecure kubernetes tls connection.                                                                                                                                                                      |
+| --api-server                  | API_SERVER                     |                                                                 | Host:port of the Kubernetes API server to use when handling HTTP requests.                                                                                                                                                         |
+| --ca-path                     | API_SERVER_CA_PATH             |                                                                 | The path to the CA certificate to use when connecting to the Kubernetes API server.                                                                                                                                                |
+| --vault-host                  | VAULTHOST                      | http://spi-vault:8200                                           | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
+| --vault-insecure-tls          | VAULTINSECURETLS               | false                                                           | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
+| --vault-auth-method           | VAULTAUTHMETHOD                | kubernetes                                                      | Authentication method to Vault token storage. Options: 'kubernetes', 'approle'.                                                                                                                                                    |
+| --vault-roleid-filepath       | VAULTAPPROLEROLEIDFILEPATH     | /etc/spi/role_id                                                | Used with Vault approle authentication. Filepath with role_id.                                                                                                                                                                     |
+| --vault-secretid-filepath     | VAULTAPPROLESECRETIDFILEPATH   | /etc/spi/secret_id                                              | Used with Vault approle authentication. Filepath with secret_id.                                                                                                                                                                   |
+| --vault-k8s-sa-token-filepath | VAULTKUBERNETESSATOKENFILEPATH |                                                                 | Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development. |
+| --vault-k8s-role              | VAULTKUBERNETESROLE            | spi-controller-manager                                          | Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount.                                                                                                                                   |
+| --zap-devel                   | ZAPDEVEL                       | false                                                           | Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)                                                            |
+| --zap-encoder                 | ZAPENCODER                     |                                                                 | Zap log encoding (‘json’ or ‘console’)                                                                                                                                                                                             |
+| --zap-log-level               | ZAPLOGLEVEL                    |                                                                 | Zap Level to configure the verbosity of logging.                                                                                                                                                                                   |
+| --zap-stacktrace-level        | ZAPSTACKTRACELEVEL             |                                                                 | Zap Level at and above which stacktraces are captured.                                                                                                                                                                             |
+| --zap-time-encoding           | ZAPTIMEENCODING                | iso8601                                                         | Format of the time in the log. One of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano.                                                                                                                             |
+
+Usage example :
+```bash
+kubectl set env deployment/spi-oauth-service ZAPLOGLEVEL=1 -n spi-system
+```
+
 
 ## Vault
 
