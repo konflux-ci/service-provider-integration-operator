@@ -183,6 +183,8 @@ spec:
                 - kind
                 - name
                 type: object
+              uploadUrl:
+                type: string
             required:
             - linkedAccessTokenName
             - phase
