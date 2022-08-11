@@ -4,7 +4,7 @@
     - you can do it by cloning kcp repo and make install it -> `git clone https://github.com/kcp-dev/kcp && cd kcp && make install`
 2. run cluster of your choice (e.g. minikube)
 3. run `./hack/kcp-run.sh`
-4. if should start after few seconds. Check that `.kcp` directory was created. You can find kcp log there `.kcp/kcp.log`. It should log something like `Discovering types for logical cluster "root:default:spi"` each 3 seconds
+4. it should start after few seconds. Check that `.kcp` directory was created. You can find kcp log there `.kcp/kcp.log`. It should log something like `Discovering types for logical cluster "root:default:spi"` each 3 seconds
 5. there is kubeconfig at `.kcp/.kcp/admin.kubeconfig`. The script sets it into `KUBECONFIG` env variable, so now `kubectl` calls are against kcp
 6. check `kubectl kcp workspace`, it should output `Current workspace is "root:default:spi".`
 7. the script created one workloadcluster `spi-workload-cluster`, you can check it with `kubectl get workloadclusters` and `kubectl get workloadclusters spi-workload-cluster -o yaml`. You should see status like this:
