@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kcp-dev/logicalcluster"
@@ -295,6 +296,9 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		if changed {
 			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
+	}
+	if at.Status.UploadUrl == "" {
+		at.Status.UploadUrl = strings.TrimSuffix(r.Configuration.BaseUrl, "/") + "/token/" + at.Namespace + "/" + at.Name
 	}
 
 	return nil

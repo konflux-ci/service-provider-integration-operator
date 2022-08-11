@@ -240,6 +240,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
+	binding.Status.UploadUrl = token.Status.UploadUrl
 
 	existingSyncedSecretName := ""
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
@@ -362,6 +363,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 	if binding.Status.LinkedAccessTokenName != token.Name {
 		binding.Status.LinkedAccessTokenName = token.Name
 		binding.Status.OAuthUrl = token.Status.OAuthUrl
+		binding.Status.UploadUrl = token.Status.UploadUrl
 		if err := r.updateBindingStatusSuccess(ctx, binding); err != nil {
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding status with the token link: %w", err)
