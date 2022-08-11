@@ -130,7 +130,6 @@ spec:
             - errorReason
             - oAuthUrl
             - phase
-            - uploadUrl
             type: object
         type: object
     served: true

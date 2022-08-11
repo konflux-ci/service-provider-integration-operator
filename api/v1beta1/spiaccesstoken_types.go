@@ -133,7 +133,7 @@ type SPIAccessTokenStatus struct {
 	ErrorReason   SPIAccessTokenErrorReason `json:"errorReason"`
 	ErrorMessage  string                    `json:"errorMessage"`
 	OAuthUrl      string                    `json:"oAuthUrl"`
-	UploadUrl     string                    `json:"uploadUrl"`
+	UploadUrl     string                    `json:"uploadUrl,omitempty"`
 	TokenMetadata *TokenMetadata            `json:"tokenMetadata,omitempty"`
 }
 

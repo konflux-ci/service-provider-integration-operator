@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110648.spiaccesschecks.appstudio.redhat.com
+  name: v202208110932.spiaccesschecks.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -104,7 +104,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110648.spiaccesstokenbindings.appstudio.redhat.com
+  name: v202208110932.spiaccesstokenbindings.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -295,7 +295,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110648.spiaccesstokendataupdates.appstudio.redhat.com
+  name: v202208110932.spiaccesstokendataupdates.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -350,7 +350,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110648.spiaccesstokens.appstudio.redhat.com
+  name: v202208110932.spiaccesstokens.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -473,7 +473,6 @@ spec:
           - errorReason
           - oAuthUrl
           - phase
-          - uploadUrl
           type: object
       type: object
     served: true
