@@ -53,12 +53,13 @@ kcp-syncer-65c7cdf9d5-4cb4x   1/1     Running   0          68s
 ```
 - if you check kcp workloadcluster again `kubectl get workloadclusters spi-workload-cluster -o yaml` Run with kcp kubeconfig! status must be ready and heartbeat healthy
 
-10. you can run kustomize with kcp overlay against kcp `kubectl apply -k config/kcp`
-11. To verify results
+10. you need to deploy vault  first with `make deploy_vault_minikube` or make `vault_deploy_openshift`
+11. you can run kustomize with kcp overlay against kcp `VAULT_HOST=<vault_url> make deploy_kcp`
+12. To verify results
     - you must see `spi-system` namespace in kcp
     - namespace has label like `state.internal.workload.kcp.dev/spi-workload-cluster: Sync`
       - on physical cluster, there should be new `kcp<blablabla>` namespace
-12. to kill everything, run `./hack/kcp-kill.sh`
+13. to kill everything, run `./hack/kcp-kill.sh`
 
 
 
