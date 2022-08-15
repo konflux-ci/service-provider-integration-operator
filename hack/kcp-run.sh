@@ -42,6 +42,8 @@ if [ ! -f kcp.pid ]; then
     sleep 1
   done
 
+  sleep 5
+
   echo "KCP server started: $KCP_PID"
 fi
 
@@ -50,7 +52,7 @@ export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
 echo "creating spi kcp workspace"
 kubectl-kcp workspace create spi --enter
-
+kubectl create namespace default
 
 CLUSTER=spi-workload-cluster
 KCP_SYNCER_VERSION=release-0.6
