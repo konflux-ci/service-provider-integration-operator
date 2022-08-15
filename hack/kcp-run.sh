@@ -32,7 +32,6 @@ if [ ! -f kcp.pid ]; then
   echo "Starting KCP server ..."
   exec kcp start \
   --token-auth-file kcp-tokens \
-  --discovery-poll-interval 3s \
   &> kcp.log &
 
   KCP_PID=$!
