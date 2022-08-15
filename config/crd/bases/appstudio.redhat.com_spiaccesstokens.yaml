@@ -123,6 +123,8 @@ spec:
                 required:
                 - lastRefreshTime
                 type: object
+              uploadUrl:
+                type: string
             required:
             - errorMessage
             - errorReason
