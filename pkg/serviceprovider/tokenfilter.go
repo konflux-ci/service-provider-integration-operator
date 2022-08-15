@@ -45,15 +45,15 @@ var MatchAllTokenFilter TokenFilter = TokenFilterFunc(func(ctx context.Context, 
 	return true, nil
 })
 
-// FallBackTokenFilter is a TokenFilter that filters token with MainTokenFilter if Condition returns true or FallBackFilter if
+// ConditionalTokenFilter is a TokenFilter that filters token with MainTokenFilter if Condition returns true or BackupFilter if
 // Condition returns false.
-type FallBackTokenFilter struct {
+type ConditionalTokenFilter struct {
 	Condition       func() bool
 	MainTokenFilter TokenFilter
-	FallBackFilter  TokenFilter
+	BackupFilter    TokenFilter
 }
 
-func (f FallBackTokenFilter) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
+func (f ConditionalTokenFilter) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
 
 	var matches, err = f.getActiveFilter().Matches(ctx, matchable, token)
 	if err != nil {
@@ -62,11 +62,11 @@ func (f FallBackTokenFilter) Matches(ctx context.Context, matchable Matchable, t
 	return matches, nil
 }
 
-func (f FallBackTokenFilter) getActiveFilter() TokenFilter {
+func (f ConditionalTokenFilter) getActiveFilter() TokenFilter {
 	if f.Condition() {
 		return f.MainTokenFilter
 	}
-	return f.FallBackFilter
+	return f.BackupFilter
 }
 
-var _ TokenFilter = FallBackTokenFilter{}
+var _ TokenFilter = ConditionalTokenFilter{}

@@ -91,10 +91,10 @@ func TestFallBackTokenFilter_Matches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := FallBackTokenFilter{
+			f := ConditionalTokenFilter{
 				Condition:       tt.fields.Condition,
 				MainTokenFilter: tt.fields.MainTokenFilter,
-				FallBackFilter:  tt.fields.FallBackFilter,
+				BackupFilter:    tt.fields.FallBackFilter,
 			}
 			got, err := f.Matches(tt.args.ctx, tt.args.matchable, tt.args.token)
 			if !tt.wantErr(t, err, fmt.Sprintf("Matches(%v, %v, %v)", tt.args.ctx, tt.args.matchable, tt.args.token)) {
@@ -121,10 +121,10 @@ func TestFallBackTokenFilter_getActiveFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := FallBackTokenFilter{
+			f := ConditionalTokenFilter{
 				Condition:       tt.fields.Condition,
 				MainTokenFilter: tt.fields.MainTokenFilter,
-				FallBackFilter:  tt.fields.FallBackFilter,
+				BackupFilter:    tt.fields.FallBackFilter,
 			}
 			assert.Equalf(t, runtime.FuncForPC(reflect.ValueOf(tt.want).Pointer()).Name(), runtime.FuncForPC(reflect.ValueOf(f.getActiveFilter()).Pointer()).Name(), "getActiveFilter()")
 		})

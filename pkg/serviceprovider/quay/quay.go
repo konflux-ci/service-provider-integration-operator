@@ -78,12 +78,12 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter: serviceprovider.FallBackTokenFilter{
+			TokenFilter: serviceprovider.ConditionalTokenFilter{
 				Condition: func() bool {
 					return factory.Configuration.MatchAllTokenAlgorithm
 				},
 				MainTokenFilter: serviceprovider.MatchAllTokenFilter,
-				FallBackFilter: &tokenFilter{
+				BackupFilter: &tokenFilter{
 					metadataProvider: mp,
 				}},
 			MetadataProvider: mp,
