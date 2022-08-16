@@ -29,7 +29,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: 1.18
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
@@ -59,7 +59,7 @@ jobs:
         run: |
           git clone https://github.com/kcp-dev/kcp ~/kcp
           cd ~/kcp
-          git checkout v0.6.3
+          git checkout release-0.7
           WHAT=./cmd/kubectl-kcp make install
       - name: Cache go modules
         id: cache-mod
@@ -83,8 +83,8 @@ jobs:
           fi
       - name: Check format
         run: |
-          go get -u github.com/google/addlicense
-          go get -u golang.org/x/tools/cmd/goimports
+          go install github.com/google/addlicense@latest
+          go install golang.org/x/tools/cmd/goimports@latest
           git reset HEAD --hard
           make check_fmt
           if [[ $? != 0 ]]
