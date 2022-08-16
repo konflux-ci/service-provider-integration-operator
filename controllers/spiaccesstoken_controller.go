@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -128,8 +130,13 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
+
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	at := api.SPIAccessToken{}
 

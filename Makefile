@@ -123,7 +123,7 @@ fmt_license:
 	  @echo 'addlicense -v -f license_header.txt **/*.go'
 	  addlicense -v -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go')
   else
-	  $(error addlicense must be installed for this rule: go get -u github.com/google/addlicense)
+	  $(error addlicense must be installed for this rule: go install github.com/google/addlicense)
   endif
 
 ### check_fmt: Checks the formatting on files in repo
@@ -132,7 +132,7 @@ check_fmt:
 	  $(error "goimports must be installed for this rule" && exit 1)
   endif
   ifeq ($(shell command -v addlicense 2> /dev/null),)
-	  $(error "error addlicense must be installed for this rule: go get -u github.com/google/addlicense")
+	  $(error "error addlicense must be installed for this rule: go install github.com/google/addlicense")
   endif
 	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
 	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
@@ -212,8 +212,10 @@ deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deplo
 
 deploy_kcp: ensure-tmp manifests kustomize
 	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
-	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp"
+	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
+	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
 
 undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi

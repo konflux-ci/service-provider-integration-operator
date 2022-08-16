@@ -17,11 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -43,13 +48,12 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	//+kubebuilder:scaffold:imports
-
 	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 var (
-	scheme = runtime.NewScheme()
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
@@ -79,31 +83,25 @@ type cliArgs struct {
 	ZapLogLevel                    string                       `arg:"-v, --zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
 	ZapStackTraceLevel             string                       `arg:"-s, --zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
 	ZapTimeEncoding                string                       `arg:"-t, --zap-time-encoding, env" default:"iso8601" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
+	ApiExportName                  string                       `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
 }
 
 func main() {
-
 	args := cliArgs{}
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
-	setupLog := ctrl.Log.WithName("setup")
+
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 	if err := config.ValidateEnv(); err != nil {
 		setupLog.Error(err, "invalid configuration")
 		os.Exit(1)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     args.MetricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: args.ProbeAddr,
-		LeaderElection:         args.EnableLeaderElection,
-		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
-		Logger:                 ctrl.Log,
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+	ctx := ctrl.SetupSignalHandler()
+
+	mgr, mgrErr := createManager(ctx, args)
+	if mgrErr != nil {
+		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
 	}
 
@@ -204,8 +202,39 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func createManager(ctx context.Context, args cliArgs) (manager.Manager, error) {
+	options := ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     args.MetricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: args.ProbeAddr,
+		LeaderElection:         args.EnableLeaderElection,
+		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
+		Logger:                 ctrl.Log,
+	}
+	restConfig := ctrl.GetConfigOrDie()
+
+	var mgr manager.Manager
+	var err error
+	if isKcp, isKcpErr := infrastructure.IsKcp(restConfig); isKcpErr == nil {
+		if isKcp {
+			mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
+		} else {
+			mgr, err = ctrl.NewManager(restConfig, options)
+		}
+	} else {
+		err = isKcpErr
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manager %w", err)
+	}
+
+	return mgr, nil
 }

@@ -16,7 +16,6 @@ package config
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -186,7 +185,7 @@ func loadFrom(path string) (PersistedConfiguration, error) {
 func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 	conf := PersistedConfiguration{}
 
-	bytes, err := ioutil.ReadAll(rdr)
+	bytes, err := io.ReadAll(rdr)
 	if err != nil {
 		return conf, fmt.Errorf("error reading the config file: %w", err)
 	}
