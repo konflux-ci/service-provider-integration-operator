@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -38,8 +39,8 @@ func (f TokenFilterFunc) Matches(ctx context.Context, matchable Matchable, token
 	return f(ctx, matchable, token)
 }
 
-// MatchAnyTokenPolicy is a TokenFilter that match any token
-var MatchAnyTokenPolicy TokenFilter = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
+// MatchAllTokenFilter is a TokenFilter that match any token
+var MatchAllTokenFilter TokenFilter = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 	debugLog.Info("Unconditional token match", "token", token)
 	return true, nil
@@ -47,7 +48,7 @@ var MatchAnyTokenPolicy TokenFilter = TokenFilterFunc(func(ctx context.Context, 
 
 func NewFilter(policy config.TokenPolicy, exactTokenFilter TokenFilter) TokenFilter {
 	if policy == config.AnyTokenPolicy {
-		return MatchAnyTokenPolicy
+		return MatchAllTokenFilter
 	}
 	return exactTokenFilter
 }
