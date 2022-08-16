@@ -78,17 +78,10 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter: serviceprovider.ConditionalTokenFilter{
-				Condition: func() bool {
-					return factory.Configuration.MatchAllTokenAlgorithm
-				},
-				MainTokenFilter: serviceprovider.MatchAllTokenFilter,
-				BackupFilter: &tokenFilter{
-					metadataProvider: mp,
-				}},
-			MetadataProvider: mp,
-			MetadataCache:    &cache,
-			RepoHostParser:   serviceprovider.RepoHostFromSchemelessUrl,
+			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+			MetadataProvider:    mp,
+			MetadataCache:       &cache,
+			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,

@@ -16,7 +16,7 @@ package serviceprovider
 
 import (
 	"context"
-	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -38,35 +38,16 @@ func (f TokenFilterFunc) Matches(ctx context.Context, matchable Matchable, token
 	return f(ctx, matchable, token)
 }
 
-// MatchAllTokenFilter is a TokenFilter that match any token
-var MatchAllTokenFilter TokenFilter = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
+// MatchAnyTokenPolicy is a TokenFilter that match any token
+var MatchAnyTokenPolicy TokenFilter = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 	debugLog.Info("Unconditional token match", "token", token)
 	return true, nil
 })
 
-// ConditionalTokenFilter is a TokenFilter that filters token with MainTokenFilter if Condition returns true or BackupFilter if
-// Condition returns false.
-type ConditionalTokenFilter struct {
-	Condition       func() bool
-	MainTokenFilter TokenFilter
-	BackupFilter    TokenFilter
-}
-
-func (f ConditionalTokenFilter) Matches(ctx context.Context, matchable Matchable, token *api.SPIAccessToken) (bool, error) {
-
-	var matches, err = f.getActiveFilter().Matches(ctx, matchable, token)
-	if err != nil {
-		return false, fmt.Errorf("failed to match the token: %w", err)
+func NewFilter(policy config.TokenPolicy, exactTokenFilter TokenFilter) TokenFilter {
+	if policy == config.AnyTokenPolicy {
+		return MatchAnyTokenPolicy
 	}
-	return matches, nil
+	return exactTokenFilter
 }
-
-func (f ConditionalTokenFilter) getActiveFilter() TokenFilter {
-	if f.Condition() {
-		return f.MainTokenFilter
-	}
-	return f.BackupFilter
-}
-
-var _ TokenFilter = ConditionalTokenFilter{}

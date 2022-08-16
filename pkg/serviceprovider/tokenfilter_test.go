@@ -17,8 +17,6 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"runtime"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -41,94 +39,6 @@ var conditionTrue = func() bool {
 }
 var conditionFalse = func() bool {
 	return false
-}
-
-func TestFallBackTokenFilter_Matches(t *testing.T) {
-	type fields struct {
-		Condition       func() bool
-		MainTokenFilter TokenFilter
-		FallBackFilter  TokenFilter
-	}
-	type args struct {
-		ctx       context.Context
-		matchable Matchable
-		token     *api.SPIAccessToken
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    bool
-		wantErr assert.ErrorAssertionFunc
-	}{
-		{"test condition true with MatchAllTokenFilter", fields{
-			Condition:       conditionTrue,
-			MainTokenFilter: MatchAllTokenFilter,
-			FallBackFilter:  filterError,
-		},
-			args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}},
-			true,
-			assert.NoError,
-		},
-		{"test condition true and error", fields{
-			Condition:       conditionTrue,
-			MainTokenFilter: filterError,
-			FallBackFilter:  filterTrue,
-		},
-			args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}},
-			false,
-			assert.Error,
-		},
-		{"test condition false", fields{
-			Condition:       conditionFalse,
-			MainTokenFilter: filterTrue,
-			FallBackFilter:  filterFalse,
-		},
-			args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}},
-			false,
-			assert.NoError,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := ConditionalTokenFilter{
-				Condition:       tt.fields.Condition,
-				MainTokenFilter: tt.fields.MainTokenFilter,
-				BackupFilter:    tt.fields.FallBackFilter,
-			}
-			got, err := f.Matches(tt.args.ctx, tt.args.matchable, tt.args.token)
-			if !tt.wantErr(t, err, fmt.Sprintf("Matches(%v, %v, %v)", tt.args.ctx, tt.args.matchable, tt.args.token)) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "Matches(%v, %v, %v)", tt.args.ctx, tt.args.matchable, tt.args.token)
-		})
-	}
-}
-
-func TestFallBackTokenFilter_getActiveFilter(t *testing.T) {
-	type fields struct {
-		Condition       func() bool
-		MainTokenFilter TokenFilter
-		FallBackFilter  TokenFilter
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   TokenFilter
-	}{
-		{"test condition true", fields{conditionTrue, filterTrue, filterError}, filterTrue},
-		{"test condition false", fields{conditionFalse, filterTrue, filterError}, filterError},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := ConditionalTokenFilter{
-				Condition:       tt.fields.Condition,
-				MainTokenFilter: tt.fields.MainTokenFilter,
-				BackupFilter:    tt.fields.FallBackFilter,
-			}
-			assert.Equalf(t, runtime.FuncForPC(reflect.ValueOf(tt.want).Pointer()).Name(), runtime.FuncForPC(reflect.ValueOf(f.getActiveFilter()).Pointer()).Name(), "getActiveFilter()")
-		})
-	}
 }
 
 func TestTokenFilterFunc_Matches(t *testing.T) {

@@ -31,6 +31,11 @@ const (
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
 
+type TokenPolicy string
+
+var AnyTokenPolicy TokenPolicy = "any"
+var ExactTokenPolicy TokenPolicy = "exact"
+
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
 // and the used kube config. It can be Inflate-d into a Configuration that has these files loaded in memory for easier
 // consumption.
@@ -88,8 +93,8 @@ type Configuration struct {
 	// AccessTokenBindingTtl is time after that AccessTokenBinding will be deleted.
 	AccessTokenBindingTtl time.Duration
 
-	// An indicator that is telling to match all tokens of the given provider in the concrete namespace
-	MatchAllTokenAlgorithm bool
+	// The policy to match the token against the binding
+	TokenMatchPolicy TokenPolicy
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
