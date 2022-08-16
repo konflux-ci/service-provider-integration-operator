@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster"
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
