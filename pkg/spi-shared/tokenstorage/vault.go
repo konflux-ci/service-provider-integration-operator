@@ -189,7 +189,7 @@ func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToke
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
-	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted", "secret", s)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted from vault", "secret", s)
 	return nil
 }
 

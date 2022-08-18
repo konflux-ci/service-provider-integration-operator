@@ -21,6 +21,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -52,8 +56,9 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
+	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenDataUpdate")
 
 	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {
@@ -77,9 +82,33 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token
-	// The SPIAccessTokenReconciler is set up to watch the update objects and translate those to reconciliation requests
-	// of the tokens themselves.
+	lg = lg.WithValues("token_name", update.Spec.TokenName)
+
+	// The token data changed in the token storage. We need to delete the token metadata so that all the bindings are
+	// updated with the latest data...
+	token := &api.SPIAccessToken{}
+	if err := r.Get(ctx, client.ObjectKey{Name: update.Spec.TokenName, Namespace: update.Namespace}, token); err != nil {
+		if !errors.IsNotFound(err) {
+			lg.Error(err, "failed to obtain the updated token")
+			return ctrl.Result{}, fmt.Errorf("failed to obtain the updated token: %w", err)
+		}
+	}
+	if token.Name != "" {
+		// if the token was successfully loaded, let's reset it to an initial state, so that the token reconciler
+		// can set it up with the data in mind.
+		token.Status.TokenMetadata = nil
+		token.Status.Phase = ""
+		token.Status.ErrorMessage = ""
+		token.Status.ErrorReason = ""
+		token.Status.OAuthUrl = ""
+		if err := r.Status().Update(ctx, token); err != nil {
+			lg.Error(err, "failed to clear the token metadata")
+			return ctrl.Result{}, fmt.Errorf("failed to clear token metadata: %w", err)
+		}
+	}
+
+	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token.
+	// We've already updated the token and so the SPIAccessToken reconciler will pick up from there.
 	if err := r.Delete(ctx, &update); err != nil {
 		lg.Error(err, "failed to delete the processed data token update")
 		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
