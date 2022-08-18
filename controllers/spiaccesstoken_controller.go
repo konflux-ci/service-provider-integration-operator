@@ -25,6 +25,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -86,19 +90,10 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
+		// We're watching the bindings so that we can remove abandoned tokens without data
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, func() string {
 				return object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
-			})
-		})).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			return requestsForTokenInObjectNamespace(object, func() string {
-				update, ok := object.(*api.SPIAccessTokenDataUpdate)
-				if !ok {
-					return ""
-				}
-
-				return update.Spec.TokenName
 			})
 		})).
 		Complete(r)
@@ -129,8 +124,9 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
+	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessToken")
 
 	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {

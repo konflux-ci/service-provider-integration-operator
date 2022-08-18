@@ -45,6 +45,7 @@ const (
 	SPIAccessTokenBindingPhaseAwaitingTokenData SPIAccessTokenBindingPhase = "AwaitingTokenData"
 	SPIAccessTokenBindingPhaseInjected          SPIAccessTokenBindingPhase = "Injected"
 	SPIAccessTokenBindingPhaseError             SPIAccessTokenBindingPhase = "Error"
+	SPIAccessTokenBindingPhaseNoTokenNeeded     SPIAccessTokenBindingPhase = "NoTokenNeeded"
 )
 
 type SPIAccessTokenBindingErrorReason string
@@ -57,6 +58,7 @@ const (
 	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
 	SPIAccessTokenBindingErrorReasonTokenAnalysis              SPIAccessTokenBindingErrorReason = "TokenAnalysis"
 	SPIAccessTokenBindingErrorReasonUnsupportedPermissions     SPIAccessTokenBindingErrorReason = "UnsupportedPermissions"
+	SPIAccessTokenBindingErrorReasonRepositoryAnalysis         SPIAccessTokenBindingErrorReason = "RepositoryAnalysis"
 )
 
 //+kubebuilder:object:root=true

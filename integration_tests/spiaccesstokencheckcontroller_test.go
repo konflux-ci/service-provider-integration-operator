@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -29,6 +31,7 @@ var _ = Describe("SPIAccessCheck", func() {
 	var createdCheck *api.SPIAccessCheck
 
 	BeforeEach(func() {
+		log.Log.Info("SPIAccessCheck [BeforeEach] ----->")
 		ITest.TestServiceProvider.Reset()
 		ITest.TestServiceProvider.CheckRepositoryAccessImpl = func(ctx context.Context, c client.Client, check *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 			return &api.SPIAccessCheckStatus{
@@ -51,21 +54,26 @@ var _ = Describe("SPIAccessCheck", func() {
 			},
 		}
 		Expect(ITest.Client.Create(ITest.Context, createdCheck)).To(Succeed())
+		log.Log.Info("<----- SPIAccessCheck [BeforeEach]")
 	})
 
 	It("status is updated", func() {
+		log.Log.Info("SPIAccessCheck status is updated ----->")
 		Eventually(func(g Gomega) {
 			check := &api.SPIAccessCheck{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdCheck), check)).To(Succeed())
 			g.Expect(check).NotTo(BeNil())
 			g.Expect(check.Status.ServiceProvider).To(BeEquivalentTo("testProvider"))
 		}).WithTimeout(10 * time.Second).Should(Succeed())
+		log.Log.Info("<----- SPIAccessCheck status is updated")
 	})
 
 	AfterEach(func() {
+		log.Log.Info("SPIAccessCheck [AfterEach] ----->")
 		Eventually(func(g Gomega) {
 			check := &api.SPIAccessCheck{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdCheck), check)).Error()
 		})
+		log.Log.Info("<----- SPIAccessCheck [AfterEach]")
 	})
 })

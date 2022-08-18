@@ -23,6 +23,10 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -51,8 +55,10 @@ type SPIAccessCheckReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks/finalizers,verbs=update
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
+	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
+
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessCheck")
 
 	// if we're running on kcp, we need to include workspace name in context and logs
 	if req.ClusterName != "" {

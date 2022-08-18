@@ -162,17 +162,12 @@ func translateToQuayScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
-
-	if len(tokens) == 0 {
-		return nil, nil
-	}
-
-	return &tokens[0], nil
+	return tokens, nil
 }
 
 func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
