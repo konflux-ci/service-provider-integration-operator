@@ -48,7 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
@@ -88,7 +87,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&api.SPIAccessToken{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, func() string {
-				return object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
@@ -376,7 +375,7 @@ func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object)
 func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient client.Client) (bool, error) {
 	list := &api.SPIAccessTokenBindingList{}
 	if err := k8sClient.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
-		opconfig.SPIAccessTokenLinkLabel: token.Name,
+		SPIAccessTokenLinkLabel: token.Name,
 	}); err != nil {
 		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
 	}

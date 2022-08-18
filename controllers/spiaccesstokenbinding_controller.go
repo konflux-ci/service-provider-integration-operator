@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
@@ -348,11 +347,11 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
-	if binding.Labels[opconfig.SPIAccessTokenLinkLabel] != token.Name {
+	if binding.Labels[SPIAccessTokenLinkLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
 		}
-		binding.Labels[opconfig.SPIAccessTokenLinkLabel] = token.Name
+		binding.Labels[SPIAccessTokenLinkLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)

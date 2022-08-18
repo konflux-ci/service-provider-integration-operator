@@ -42,7 +42,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -92,10 +91,6 @@ func main() {
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
-	if err := config.ValidateEnv(); err != nil {
-		setupLog.Error(err, "invalid configuration")
-		os.Exit(1)
-	}
 
 	ctx := ctrl.SetupSignalHandler()
 
@@ -138,41 +133,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	if config.RunControllers() {
-		if err = (&controllers.SPIAccessTokenReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: strg,
-			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration:    cfg,
-				KubernetesClient: mgr.GetClient(),
-				HttpClient:       http.DefaultClient,
-				Initializers:     serviceproviders.KnownInitializers(),
-				TokenStorage:     strg,
-			},
-			Configuration: cfg,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
-			os.Exit(1)
-		}
-		if err = (&controllers.SPIAccessTokenBindingReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: strg,
-			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration:    cfg,
-				KubernetesClient: mgr.GetClient(),
-				HttpClient:       http.DefaultClient,
-				Initializers:     serviceproviders.KnownInitializers(),
-				TokenStorage:     strg,
-			},
-			Configuration: cfg,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
-			os.Exit(1)
-		}
-	} else {
-		setupLog.Info("CRD controllers inactive")
+	if err = (&controllers.SPIAccessTokenReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration:    cfg,
+			KubernetesClient: mgr.GetClient(),
+			HttpClient:       http.DefaultClient,
+			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
+		},
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
+		os.Exit(1)
+	}
+	if err = (&controllers.SPIAccessTokenBindingReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration:    cfg,
+			KubernetesClient: mgr.GetClient(),
+			HttpClient:       http.DefaultClient,
+			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
+		},
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.SPIAccessCheckReconciler{
