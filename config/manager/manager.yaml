@@ -25,17 +25,8 @@ spec:
         - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
-        env:
-          - name: VAULTHOST
-            valueFrom:
-              configMapKeyRef:
-                name: shared-config
-                key: VAULTHOST
-          - name: VAULTAUTHMETHOD
-            valueFrom:
-              configMapKeyRef:
-                name: shared-config
-                key: VAULTAUTHMETHOD
+        env: []
+        envFrom: []
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

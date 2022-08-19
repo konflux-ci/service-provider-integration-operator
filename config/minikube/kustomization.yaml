@@ -8,26 +8,11 @@ resources:
 
 patches:
   - target:
-      namespace: system
-      kind: Deployment
       version: v1
-      group: apps
-      name: controller-manager
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: VAULTINSECURETLS
-          value: "true"
-  - target:
+      kind: ConfigMap
+      name: shared-config
       namespace: system
-      kind: Deployment
-      version: v1
-      group: apps
-      name: oauth-service
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: VAULTINSECURETLS
-          value: "true"
+      - op: replace
+        path: /data/VAULTINSECURETLS
+        value: "true"
