@@ -32,6 +32,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -66,7 +67,7 @@ type IntegrationTest struct {
 	TestServiceProvider      TestServiceProvider
 	HostCredsServiceProvider TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
-	OperatorConfiguration    config.Configuration
+	OperatorConfiguration    opconfig.OperatorConfiguration
 }
 
 var ITest IntegrationTest
@@ -165,15 +166,17 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	ITest.OperatorConfiguration = config.Configuration{
-		ServiceProviders: []config.ServiceProviderConfiguration{
-			{
-				ClientId:            "testClient",
-				ClientSecret:        "testSecret",
-				ServiceProviderType: "TestServiceProvider",
+	ITest.OperatorConfiguration = opconfig.OperatorConfiguration{
+		SharedConfiguration: config.SharedConfiguration{
+			ServiceProviders: []config.ServiceProviderConfiguration{
+				{
+					ClientId:            "testClient",
+					ClientSecret:        "testSecret",
+					ServiceProviderType: "TestServiceProvider",
+				},
 			},
+			SharedSecret: []byte("secret"),
 		},
-		SharedSecret:          []byte("secret"),
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,
 		AccessTokenBindingTtl: 10 * time.Second,

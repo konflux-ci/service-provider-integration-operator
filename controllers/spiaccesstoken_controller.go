@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -64,7 +65,7 @@ type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 	ServiceProviderFactory serviceprovider.Factory
 	finalizers             finalizer.Finalizers
 }

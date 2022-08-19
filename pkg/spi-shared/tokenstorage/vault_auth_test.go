@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/hashicorp/vault/api"
 
 	"github.com/hashicorp/vault/api/auth/approle"
@@ -34,7 +36,7 @@ func TestPrepareKubernetesAuth(t *testing.T) {
 
 	authMethod, err := prepareAuth(
 		&VaultStorageConfig{
-			AuthType:                    VaultAuthMethodKubernetes,
+			AuthType:                    config.VaultAuthMethodKubernetes,
 			Role:                        "test-role",
 			ServiceAccountTokenFilePath: saTokenFile,
 		})
@@ -52,7 +54,7 @@ func TestPrepareApproleAuth(t *testing.T) {
 
 	authMethod, err := prepareAuth(
 		&VaultStorageConfig{
-			AuthType:         VaultAuthMethodApprole,
+			AuthType:         config.VaultAuthMethodApprole,
 			RoleIdFilePath:   roleIdFile,
 			SecretIdFilePath: secretIdFile,
 		})
@@ -78,7 +80,7 @@ func TestFail(t *testing.T) {
 	t.Run("approle no roleid file", func(t *testing.T) {
 		authMethod, err := prepareAuth(
 			&VaultStorageConfig{
-				AuthType: VaultAuthMethodApprole,
+				AuthType: config.VaultAuthMethodApprole,
 			})
 		checkFailed(t, authMethod, err)
 	})
@@ -89,7 +91,7 @@ func TestFail(t *testing.T) {
 
 		authMethod, err := prepareAuth(
 			&VaultStorageConfig{
-				AuthType:       VaultAuthMethodApprole,
+				AuthType:       config.VaultAuthMethodApprole,
 				RoleIdFilePath: roleIdFile,
 			})
 		checkFailed(t, authMethod, err)
@@ -98,7 +100,7 @@ func TestFail(t *testing.T) {
 	t.Run("kubernetes no token sa file", func(t *testing.T) {
 		authMethod, err := prepareAuth(
 			&VaultStorageConfig{
-				AuthType:                    VaultAuthMethodKubernetes,
+				AuthType:                    config.VaultAuthMethodKubernetes,
 				ServiceAccountTokenFilePath: "blabol",
 			})
 		checkFailed(t, authMethod, err)

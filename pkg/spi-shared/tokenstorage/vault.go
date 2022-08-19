@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/hashicorp/go-hclog"
@@ -50,7 +52,7 @@ var (
 
 type VaultStorageConfig struct {
 	Host     string
-	AuthType VaultAuthMethod
+	AuthType config.VaultAuthMethod
 	Insecure bool
 
 	Role                        string

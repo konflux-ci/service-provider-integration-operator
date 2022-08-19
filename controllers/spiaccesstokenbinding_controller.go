@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -66,7 +66,7 @@ type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
