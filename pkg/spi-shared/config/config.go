@@ -57,9 +57,6 @@ type persistedConfiguration struct {
 
 	// SharedSecret is secret value used for signing the JWT keys.
 	SharedSecret string `yaml:"sharedSecret"`
-
-	// BaseUrl is the URL on which the OAuth service is deployed.
-	BaseUrl string `yaml:"baseUrl"`
 }
 
 // SharedConfiguration contains the specification of the known service providers as well as other configuration data shared
@@ -97,15 +94,13 @@ type ServiceProviderConfiguration struct {
 	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
-// inflate loads the files specified in the persisted configuration and returns a fully initialized configuration
-// struct.
-func (c persistedConfiguration) inflate() (SharedConfiguration, error) {
+// convert converts persisted configuration into the SharedConfiguration instance.
+func (c persistedConfiguration) convert() SharedConfiguration {
 	conf := SharedConfiguration{}
 
 	conf.ServiceProviders = c.ServiceProviders
 	conf.SharedSecret = []byte(c.SharedSecret)
-	conf.BaseUrl = c.BaseUrl
-	return conf, nil
+	return conf
 }
 
 func ParseDuration(timeString string, defaultValue string) (time.Duration, error) {
@@ -121,17 +116,14 @@ func ParseDuration(timeString string, defaultValue string) (time.Duration, error
 	return dur, err
 }
 
-func LoadFrom(configFile string) (SharedConfiguration, error) {
-	cfg := SharedConfiguration{}
-	pcfg, err := loadFrom(configFile)
+func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
+	pcfg, err := loadFrom(args.ConfigFile)
 	if err != nil {
-		return cfg, err
+		return SharedConfiguration{}, err
 	}
 
-	cfg, err = pcfg.inflate()
-	if err != nil {
-		return cfg, err
-	}
+	cfg := pcfg.convert()
+	cfg.BaseUrl = args.BaseUrl
 
 	return cfg, nil
 }

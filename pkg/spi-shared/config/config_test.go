@@ -57,12 +57,11 @@ serviceProviders:
 - type: Quay
   clientId: "456"
   clientSecret: "54"
-baseUrl: blabol
 `
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
 
-	cfg, err := LoadFrom(cfgFilePath)
+	cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
 	assert.NoError(t, err)
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
