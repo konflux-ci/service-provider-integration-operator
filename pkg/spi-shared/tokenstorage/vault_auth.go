@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/api/auth/kubernetes"
@@ -37,9 +35,9 @@ type approleAuth struct{}
 
 func prepareAuth(cfg *VaultStorageConfig) (api.AuthMethod, error) {
 	var authMethod vaultAuthConfiguration
-	if cfg.AuthType == config.VaultAuthMethodKubernetes {
+	if cfg.AuthType == VaultAuthMethodKubernetes {
 		authMethod = &kubernetesAuth{}
-	} else if cfg.AuthType == config.VaultAuthMethodApprole {
+	} else if cfg.AuthType == VaultAuthMethodApprole {
 		authMethod = &approleAuth{}
 	} else {
 		return nil, VaultUnknownAuthMethodError

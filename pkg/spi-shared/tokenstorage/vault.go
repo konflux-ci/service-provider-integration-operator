@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/hashicorp/go-hclog"
@@ -50,9 +48,16 @@ var (
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
 )
 
+type VaultAuthMethod string
+
+const (
+	VaultAuthMethodKubernetes VaultAuthMethod = "kubernetes"
+	VaultAuthMethodApprole    VaultAuthMethod = "approle"
+)
+
 type VaultStorageConfig struct {
 	Host     string
-	AuthType config.VaultAuthMethod
+	AuthType VaultAuthMethod
 	Insecure bool
 
 	Role                        string
@@ -60,6 +65,28 @@ type VaultStorageConfig struct {
 
 	RoleIdFilePath   string
 	SecretIdFilePath string
+}
+
+type VaultCliArgs struct {
+	VaultHost                      string          `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
+	VaultInsecureTLS               bool            `arg:"--vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
+	VaultAuthMethod                VaultAuthMethod `arg:"--vault-auth-method, env" default:"kubernetes" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`
+	VaultApproleRoleIdFilePath     string          `arg:"--vault-roleid-filepath, env" default:"/etc/spi/role_id" help:"Used with Vault approle authentication. Filepath with role_id."`
+	VaultApproleSecretIdFilePath   string          `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`
+	VaultKubernetesSATokenFilePath string          `arg:"--vault-k8s-sa-token-filepath, env" help:"Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development."`
+	VaultKubernetesRole            string          `arg:"--vault-k8s-role, env" default:"spi-controller-manager" help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
+}
+
+func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *VaultStorageConfig {
+	return &VaultStorageConfig{
+		Host:                        args.VaultHost,
+		AuthType:                    args.VaultAuthMethod,
+		Insecure:                    args.VaultInsecureTLS,
+		Role:                        args.VaultKubernetesRole,
+		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
+		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
+		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
+	}
 }
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.

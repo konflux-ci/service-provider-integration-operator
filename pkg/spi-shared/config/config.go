@@ -30,33 +30,22 @@ const (
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
 
-type VaultAuthMethod string
+// LoggingCliArgs define the command line arguments for configuring the logging using Zap.
+type LoggingCliArgs struct {
+	ZapDevel           bool   `arg:"--zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
+	ZapEncoder         string `arg:"--zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
+	ZapLogLevel        string `arg:"--zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
+	ZapStackTraceLevel string `arg:"--zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
+	ZapTimeEncoding    string `arg:"--zap-time-encoding, env" default:"iso8601" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
+}
 
-const (
-	VaultAuthMethodKubernetes VaultAuthMethod = "kubernetes"
-	VaultAuthMethodApprole    VaultAuthMethod = "approle"
-)
-
-// SharedCliArgs are the command line arguments and environment variable definitions understood by the configuration
+// CommonCliArgs are the command line arguments and environment variable definitions understood by the configuration
 // infrastructure shared between the operator and the oauth service.
-type SharedCliArgs struct {
-	MetricsAddr                    string          `arg:"--metrics-bind-address, env" default:":8080" help:"The address the metric endpoint binds to."`
-	ProbeAddr                      string          `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
-	EnableLeaderElection           bool            `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
-	ConfigFile                     string          `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
-	BaseUrl                        string          `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
-	VaultHost                      string          `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
-	VaultInsecureTLS               bool            `arg:"--vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
-	VaultAuthMethod                VaultAuthMethod `arg:"--vault-auth-method, env" default:"kubernetes" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`
-	VaultApproleRoleIdFilePath     string          `arg:"--vault-roleid-filepath, env" default:"/etc/spi/role_id" help:"Used with Vault approle authentication. Filepath with role_id."`
-	VaultApproleSecretIdFilePath   string          `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`
-	VaultKubernetesSATokenFilePath string          `arg:"--vault-k8s-sa-token-filepath, env" help:"Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development."`
-	VaultKubernetesRole            string          `arg:"--vault-k8s-role, env" default:"spi-controller-manager" help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
-	ZapDevel                       bool            `arg:"--zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
-	ZapEncoder                     string          `arg:"--zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
-	ZapLogLevel                    string          `arg:"--zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
-	ZapStackTraceLevel             string          `arg:"--zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
-	ZapTimeEncoding                string          `arg:"--zap-time-encoding, env" default:"iso8601" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
+type CommonCliArgs struct {
+	MetricsAddr string `arg:"--metrics-bind-address, env" default:":8080" help:"The address the metric endpoint binds to."`
+	ProbeAddr   string `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
+	ConfigFile  string `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
+	BaseUrl     string `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
 }
 
 // persistedConfiguration is the on-disk format of the configuration that references other files for shared secret

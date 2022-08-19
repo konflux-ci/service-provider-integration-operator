@@ -32,7 +32,7 @@ func TestDefaults(t *testing.T) {
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
 
-	cfg, err := LoadFrom(&OperatorCliArgs{SharedCliArgs: config.SharedCliArgs{ConfigFile: cfgFilePath}})
+	cfg, err := LoadFrom(&OperatorCliArgs{CommonCliArgs: config.CommonCliArgs{ConfigFile: cfgFilePath}})
 	assert.NoError(t, err)
 
 	assert.Equal(t, cfg.AccessCheckTtl, 30*time.Minute)

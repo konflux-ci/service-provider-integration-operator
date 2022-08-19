@@ -83,15 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
-		Host:                        args.VaultHost,
-		AuthType:                    args.VaultAuthMethod,
-		Insecure:                    args.VaultInsecureTLS,
-		Role:                        args.VaultKubernetesRole,
-		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
-		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
-		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
-	})
+	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

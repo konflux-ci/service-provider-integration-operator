@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
@@ -30,7 +32,10 @@ const (
 )
 
 type OperatorCliArgs struct {
-	config.SharedCliArgs
+	config.CommonCliArgs
+	config.LoggingCliArgs
+	tokenstorage.VaultCliArgs
+	EnableLeaderElection        bool        `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
 	TokenMetadataCacheTtl       string      `arg:"--metadata-cache-ttl, env" default:"1h" help:"The maximum age of token metadata data cache"`
 	TokenLifetimeDuration       string      `arg:"--token-ttl, env" default:"120h" help:"the time after which a token will be automatically deleted in hours, minutes or seconds. Examples:  \"3h\",  \"5h30m40s\" etc"`
 	BindingLifetimeDuration     string      `arg:"--binding-ttl, env" default:"2h" help:"the time after which a token binding will be automatically deleted in hours, minutes or seconds. Examples: \"3h\", \"5h30m40s\" etc"`
