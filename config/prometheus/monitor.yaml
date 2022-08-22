@@ -5,6 +5,7 @@ kind: ServiceMonitor
 metadata:
   labels:
     control-plane: controller-manager
+    prometheus: appstudio-sre
   name: controller-manager-metrics-monitor
 spec:
   endpoints:
