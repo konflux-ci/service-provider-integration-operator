@@ -1,5 +1,6 @@
 
 # Prometheus Monitor Service (Metrics)
+# For internal test only
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
