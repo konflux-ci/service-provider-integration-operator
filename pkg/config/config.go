@@ -29,19 +29,27 @@ type TokenPolicy string
 const (
 	AnyTokenPolicy   TokenPolicy = "any"
 	ExactTokenPolicy TokenPolicy = "exact"
+
+	// NOTE: the defaults should match the defaults specified by the field tags in the OperatorCliArgs.
+
+	TokenMetadataCacheTtlDefault       = 1 * time.Hour
+	TokenLifetimeDurationDefault       = 120 * time.Hour
+	BindingLifetimeDurationDefault     = 2 * time.Hour
+	AccessCheckLifetimeDurationDefault = 30 * time.Minute
+	TokenMatchPolicyDefault            = AnyTokenPolicy
 )
 
 type OperatorCliArgs struct {
 	config.CommonCliArgs
 	config.LoggingCliArgs
 	tokenstorage.VaultCliArgs
-	EnableLeaderElection        bool        `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
-	TokenMetadataCacheTtl       string      `arg:"--metadata-cache-ttl, env" default:"1h" help:"The maximum age of token metadata data cache"`
-	TokenLifetimeDuration       string      `arg:"--token-ttl, env" default:"120h" help:"the time after which a token will be automatically deleted in hours, minutes or seconds. Examples:  \"3h\",  \"5h30m40s\" etc"`
-	BindingLifetimeDuration     string      `arg:"--binding-ttl, env" default:"2h" help:"the time after which a token binding will be automatically deleted in hours, minutes or seconds. Examples: \"3h\", \"5h30m40s\" etc"`
-	AccessCheckLifetimeDuration string      `arg:"--access-check-ttl, env" default:"30m" help:"the time after which SPIAccessCheck CR will be deleted by operator"`
-	TokenMatchPolicy            TokenPolicy `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
-	ApiExportName               string      `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
+	EnableLeaderElection        bool          `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	TokenMetadataCacheTtl       time.Duration `arg:"--metadata-cache-ttl, env" default:"1h" help:"The maximum age of token metadata data cache"`
+	TokenLifetimeDuration       time.Duration `arg:"--token-ttl, env" default:"120h" help:"the time after which a token will be automatically deleted in hours, minutes or seconds. Examples:  \"3h\",  \"5h30m40s\" etc"`
+	BindingLifetimeDuration     time.Duration `arg:"--binding-ttl, env" default:"2h" help:"the time after which a token binding will be automatically deleted in hours, minutes or seconds. Examples: \"3h\", \"5h30m40s\" etc"`
+	AccessCheckLifetimeDuration time.Duration `arg:"--access-check-ttl, env" default:"30m" help:"the time after which SPIAccessCheck CR will be deleted by operator"`
+	TokenMatchPolicy            TokenPolicy   `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
+	ApiExportName               string        `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
 }
 
 type OperatorConfiguration struct {
@@ -69,39 +77,12 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 		return OperatorConfiguration{}, fmt.Errorf("failed to load the configuration file from %s: %w", args.ConfigFile, err)
 	}
 	ret := OperatorConfiguration{SharedConfiguration: baseCfg}
-	setOrDefaultTokenPolicy(&ret.TokenMatchPolicy, args.TokenMatchPolicy, AnyTokenPolicy)
 
-	var parseErr error
-
-	ret.TokenLookupCacheTtl, parseErr = config.ParseDuration(args.TokenMetadataCacheTtl, "1h")
-	if parseErr != nil {
-		return ret, fmt.Errorf("failed to parse metadata-cache-ttl: %w", parseErr)
-	}
-
-	ret.AccessCheckTtl, parseErr = config.ParseDuration(args.AccessCheckLifetimeDuration, "30m")
-	if parseErr != nil {
-		return ret, fmt.Errorf("failed to parse access-check-ttl: %w", parseErr)
-	}
-
-	ret.AccessTokenTtl, parseErr = config.ParseDuration(args.TokenLifetimeDuration, "120h")
-	if parseErr != nil {
-		return ret, fmt.Errorf("failed to parse token-ttl: %w", parseErr)
-	}
-
-	ret.AccessTokenBindingTtl, parseErr = config.ParseDuration(args.BindingLifetimeDuration, "2h")
-	if parseErr != nil {
-		return ret, fmt.Errorf("failed to parse binding-ttl: %w", parseErr)
-	}
+	config.SetOrDefault[time.Duration](&ret.TokenLookupCacheTtl, args.TokenMetadataCacheTtl, TokenMetadataCacheTtlDefault)
+	config.SetOrDefault[time.Duration](&ret.AccessCheckTtl, args.AccessCheckLifetimeDuration, AccessCheckLifetimeDurationDefault)
+	config.SetOrDefault[time.Duration](&ret.AccessTokenTtl, args.TokenLifetimeDuration, TokenLifetimeDurationDefault)
+	config.SetOrDefault[time.Duration](&ret.AccessTokenBindingTtl, args.BindingLifetimeDuration, BindingLifetimeDurationDefault)
+	config.SetOrDefault[TokenPolicy](&ret.TokenMatchPolicy, args.TokenMatchPolicy, TokenMatchPolicyDefault)
 
 	return ret, nil
-}
-
-func setOrDefaultTokenPolicy(target *TokenPolicy, source TokenPolicy, defaultValue TokenPolicy) {
-	var val TokenPolicy
-	if source == val { // is empty
-		val = defaultValue
-	} else {
-		val = source
-	}
-	*target = val
 }

@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -67,34 +66,6 @@ serviceProviders:
 	assert.Equal(t, "blabol", cfg.BaseUrl)
 	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
 	assert.Len(t, cfg.ServiceProviders, 2)
-}
-
-func TestParseDuration(t *testing.T) {
-	t.Run("fail orig", func(t *testing.T) {
-		d, err := ParseDuration("blabol", "1h")
-		assert.Empty(t, d)
-		assert.Error(t, err)
-	})
-	t.Run("fail default", func(t *testing.T) {
-		d, err := ParseDuration("", "blabol")
-		assert.Empty(t, d)
-		assert.Error(t, err)
-	})
-	t.Run("ok orig", func(t *testing.T) {
-		d, err := ParseDuration("1h23m", "1h")
-		assert.Equal(t, 83*time.Minute, d)
-		assert.NoError(t, err)
-	})
-	t.Run("ok default", func(t *testing.T) {
-		d, err := ParseDuration("", "1h23m")
-		assert.Equal(t, 83*time.Minute, d)
-		assert.NoError(t, err)
-	})
-	t.Run("empty", func(t *testing.T) {
-		d, err := ParseDuration("", "")
-		assert.Empty(t, d)
-		assert.Error(t, err)
-	})
 }
 
 func createFile(t *testing.T, path string, content string) string {

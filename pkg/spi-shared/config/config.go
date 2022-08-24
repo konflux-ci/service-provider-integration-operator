@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,6 +27,8 @@ const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
+
+	ConfigFileDefault = "/etc/spi/config.yaml"
 )
 
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
@@ -103,21 +104,22 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 	return conf
 }
 
-func ParseDuration(timeString string, defaultValue string) (time.Duration, error) {
-	if timeString == "" {
-		timeString = defaultValue
+// GetOrDefault is a helper function to return the value of source or, if source is empty, the default value.
+func GetOrDefault[T comparable](source T, defaultValue T) T {
+	var empty T
+	if source == empty {
+		return defaultValue
 	}
+	return source
+}
 
-	dur, err := time.ParseDuration(timeString)
-	if err != nil {
-		err = fmt.Errorf("error parsing duration in config file: %w", err)
-	}
-
-	return dur, err
+// SetOrDefault is a helper function to set the target to the source, or if source is empty, to the default value.
+func SetOrDefault[T comparable](target *T, source T, defaultValue T) {
+	*target = GetOrDefault[T](source, defaultValue)
 }
 
 func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
-	pcfg, err := loadFrom(args.ConfigFile)
+	pcfg, err := loadFrom(GetOrDefault[string](args.ConfigFile, ConfigFileDefault))
 	if err != nil {
 		return SharedConfiguration{}, err
 	}

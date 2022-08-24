@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
@@ -86,19 +85,6 @@ func main() {
 	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
-		os.Exit(1)
-	}
-	cfg.TokenMatchPolicy = args.TokenMatchPolicy
-
-	cfg.AccessTokenTtl, err = time.ParseDuration(args.TokenLifetimeDuration)
-	if err != nil {
-		setupLog.Error(err, "failed to parse token lifetime duration parameter")
-		os.Exit(1)
-	}
-
-	cfg.AccessTokenBindingTtl, err = time.ParseDuration(args.BindingLifetimeDuration)
-	if err != nil {
-		setupLog.Error(err, "failed to parse binding lifetime duration parameter")
 		os.Exit(1)
 	}
 
