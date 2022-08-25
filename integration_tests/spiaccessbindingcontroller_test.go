@@ -137,6 +137,14 @@ var _ = Describe("Create binding", func() {
 			g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
 		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
+
+	It("have the upload URL set", func() {
+		Eventually(func(g Gomega) {
+			binding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+			g.Expect(strings.HasSuffix(binding.Status.UploadUrl, "/token/"+createdToken.Namespace+"/"+createdToken.Name)).To(BeTrue())
+		}).Should(Succeed())
+	})
 })
 
 var _ = Describe("Update binding", func() {

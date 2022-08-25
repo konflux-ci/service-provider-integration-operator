@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  name: spi-on-push
+  name: spi-operator-on-push
   annotations:
     pipelinesascode.tekton.dev/on-event: "[push]" 
     pipelinesascode.tekton.dev/on-target-branch: "[main]"
@@ -19,9 +19,14 @@ spec:
       value: .
     - name: dockerfile
       value: Dockerfile
+    - name: infra-deployment-update-script
+      value: |
+        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/default?ref=\)\(.*\)|\1{{ revision }}|' components/spi/kustomization.yaml;
+        awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/kustomization.yaml
+        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/vault/openshift?ref=\)\(.*\)|\1{{ revision }}|' components/spi/vault/kustomization.yaml
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/build-templates-bundle:0866720a87aec4675074069cd16662d8e01237cf
+    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
   workspaces: 
    - name: workspace 
      persistentVolumeClaim: 

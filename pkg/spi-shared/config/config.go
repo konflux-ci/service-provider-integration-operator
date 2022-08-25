@@ -16,7 +16,6 @@ package config
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -30,6 +29,11 @@ const (
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
+
+type TokenPolicy string
+
+var AnyTokenPolicy TokenPolicy = "any"
+var ExactTokenPolicy TokenPolicy = "exact"
 
 // PersistedConfiguration is the on-disk format of the configuration that references other files for shared secret
 // and the used kube config. It can be Inflate-d into a Configuration that has these files loaded in memory for easier
@@ -87,6 +91,9 @@ type Configuration struct {
 
 	// AccessTokenBindingTtl is time after that AccessTokenBinding will be deleted.
 	AccessTokenBindingTtl time.Duration
+
+	// The policy to match the token against the binding
+	TokenMatchPolicy TokenPolicy
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -178,7 +185,7 @@ func loadFrom(path string) (PersistedConfiguration, error) {
 func readFrom(rdr io.Reader) (PersistedConfiguration, error) {
 	conf := PersistedConfiguration{}
 
-	bytes, err := ioutil.ReadAll(rdr)
+	bytes, err := io.ReadAll(rdr)
 	if err != nil {
 		return conf, fmt.Errorf("error reading the config file: %w", err)
 	}

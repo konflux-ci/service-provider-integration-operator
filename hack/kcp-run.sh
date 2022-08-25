@@ -32,7 +32,6 @@ if [ ! -f kcp.pid ]; then
   echo "Starting KCP server ..."
   exec kcp start \
   --token-auth-file kcp-tokens \
-  --discovery-poll-interval 3s \
   &> kcp.log &
 
   KCP_PID=$!
@@ -43,6 +42,8 @@ if [ ! -f kcp.pid ]; then
     sleep 1
   done
 
+  sleep 5
+
   echo "KCP server started: $KCP_PID"
 fi
 
@@ -51,11 +52,12 @@ export KUBECONFIG=${KCP_DATA_DIR}/.kcp/admin.kubeconfig
 
 echo "creating spi kcp workspace"
 kubectl-kcp workspace create spi --enter
-
+kubectl create namespace default
 
 CLUSTER=spi-workload-cluster
+KCP_SYNCER_VERSION=release-0.6
 # TODO: for openshift we need to add routes to --resources
-kubectl kcp workload sync ${CLUSTER} --syncer-image ghcr.io/kcp-dev/kcp/syncer:main --resources=services,ingresses.networking.k8s.io > cluster_${CLUSTER}_syncer.yaml
+kubectl kcp workload sync ${CLUSTER} --syncer-image ghcr.io/kcp-dev/kcp/syncer:${KCP_SYNCER_VERSION} --resources=services --output-file=cluster_${CLUSTER}_syncer.yaml
 echo "configuration for workload cluster was generated at cluster_${CLUSTER}_syncer.yaml"
 echo "now you need to apply it on your cluster directly with:"
 echo "kubectl apply -f ${KCP_DATA_DIR}/cluster_${CLUSTER}_syncer.yaml"

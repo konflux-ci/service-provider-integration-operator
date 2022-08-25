@@ -20,7 +20,10 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -127,8 +130,13 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
+
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	at := api.SPIAccessToken{}
 
@@ -288,6 +296,9 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		if changed {
 			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
+	}
+	if at.Status.UploadUrl == "" {
+		at.Status.UploadUrl = strings.TrimSuffix(r.Configuration.BaseUrl, "/") + "/token/" + at.Namespace + "/" + at.Name
 	}
 
 	return nil
