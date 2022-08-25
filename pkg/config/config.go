@@ -29,14 +29,6 @@ type TokenPolicy string
 const (
 	AnyTokenPolicy   TokenPolicy = "any"
 	ExactTokenPolicy TokenPolicy = "exact"
-
-	// NOTE: the defaults should match the defaults specified by the field tags in the OperatorCliArgs.
-
-	TokenMetadataCacheTtlDefault       = 1 * time.Hour
-	TokenLifetimeDurationDefault       = 120 * time.Hour
-	BindingLifetimeDurationDefault     = 2 * time.Hour
-	AccessCheckLifetimeDurationDefault = 30 * time.Minute
-	TokenMatchPolicyDefault            = AnyTokenPolicy
 )
 
 type OperatorCliArgs struct {
@@ -78,11 +70,11 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 	}
 	ret := OperatorConfiguration{SharedConfiguration: baseCfg}
 
-	config.SetOrDefault[time.Duration](&ret.TokenLookupCacheTtl, args.TokenMetadataCacheTtl, TokenMetadataCacheTtlDefault)
-	config.SetOrDefault[time.Duration](&ret.AccessCheckTtl, args.AccessCheckLifetimeDuration, AccessCheckLifetimeDurationDefault)
-	config.SetOrDefault[time.Duration](&ret.AccessTokenTtl, args.TokenLifetimeDuration, TokenLifetimeDurationDefault)
-	config.SetOrDefault[time.Duration](&ret.AccessTokenBindingTtl, args.BindingLifetimeDuration, BindingLifetimeDurationDefault)
-	config.SetOrDefault[TokenPolicy](&ret.TokenMatchPolicy, args.TokenMatchPolicy, TokenMatchPolicyDefault)
+	ret.TokenLookupCacheTtl = args.TokenMetadataCacheTtl
+	ret.AccessCheckTtl = args.AccessCheckLifetimeDuration
+	ret.AccessTokenTtl = args.TokenLifetimeDuration
+	ret.AccessTokenBindingTtl = args.BindingLifetimeDuration
+	ret.TokenMatchPolicy = args.TokenMatchPolicy
 
 	return ret, nil
 }

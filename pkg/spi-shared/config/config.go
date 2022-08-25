@@ -27,8 +27,6 @@ const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
-
-	ConfigFileDefault = "/etc/spi/config.yaml"
 )
 
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
@@ -104,22 +102,8 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 	return conf
 }
 
-// GetOrDefault is a helper function to return the value of source or, if source is empty, the default value.
-func GetOrDefault[T comparable](source T, defaultValue T) T {
-	var empty T
-	if source == empty {
-		return defaultValue
-	}
-	return source
-}
-
-// SetOrDefault is a helper function to set the target to the source, or if source is empty, to the default value.
-func SetOrDefault[T comparable](target *T, source T, defaultValue T) {
-	*target = GetOrDefault[T](source, defaultValue)
-}
-
 func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
-	pcfg, err := loadFrom(GetOrDefault[string](args.ConfigFile, ConfigFileDefault))
+	pcfg, err := loadFrom(args.ConfigFile)
 	if err != nil {
 		return SharedConfiguration{}, err
 	}
