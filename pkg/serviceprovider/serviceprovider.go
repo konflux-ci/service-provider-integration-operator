@@ -85,10 +85,6 @@ type Factory struct {
 	TokenStorage     tokenstorage.TokenStorage
 }
 
-func getOptionalServiceProviderTypes() []config.ServiceProviderType {
-	return []config.ServiceProviderType{config.ServiceProviderTypeGitHub, config.ServiceProviderTypeQuay}
-}
-
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
