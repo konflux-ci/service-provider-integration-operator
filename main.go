@@ -46,7 +46,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	opConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 var (
@@ -62,7 +62,7 @@ func init() {
 }
 
 func main() {
-	args := opConfig.OperatorCliArgs{}
+	args := opconfig.OperatorCliArgs{}
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := opConfig.LoadFrom(&args)
+	cfg, err := opconfig.LoadFrom(&args)
 	if err != nil {
 		setupLog.Error(err, "Failed to load the configuration")
 		os.Exit(1)
@@ -154,7 +154,7 @@ func main() {
 	}
 }
 
-func createManager(ctx context.Context, args opConfig.OperatorCliArgs) (manager.Manager, error) {
+func createManager(ctx context.Context, args opconfig.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
