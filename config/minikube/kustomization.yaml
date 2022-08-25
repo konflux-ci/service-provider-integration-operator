@@ -13,6 +13,6 @@ patches:
       name: shared-config
       namespace: system
     patch: |-
-      - op: replace
+      - op: add
         path: /data/VAULTINSECURETLS
         value: "true"

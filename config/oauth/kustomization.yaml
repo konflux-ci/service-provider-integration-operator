@@ -13,3 +13,4 @@ resources:
 - service.yaml
 - cluster-role.yaml
 - cluster-role-binding.yaml
+- oauth-service-environment-config.yaml

@@ -21,12 +21,12 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         name: manager
         env: []
-        envFrom: []
+        envFrom:
+          - configMapRef:
+              name: controller-manager-environment-config
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -50,7 +50,7 @@ spec:
             memory: 20Mi
         volumeMounts:
           - mountPath: /etc/spi/config.yaml
-            name: oauth-config
+            name: config-file
             readOnly: true
             subPath: config.yaml
           - mountPath: /etc/spi/secret_id
@@ -64,9 +64,9 @@ spec:
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
-        - name: oauth-config
+        - name: config-file
           secret:
-            secretName: oauth-config
+            secretName: shared-configuration-file
             items:
               - key: config.yaml
                 path: config.yaml

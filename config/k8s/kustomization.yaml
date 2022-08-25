@@ -7,7 +7,10 @@ resources:
 - ../default
 - ingress.yaml
 
+generatorOptions:
+  disableNameSuffixHash: true
+
 secretGenerator:
-  - name: oauth-config
+  - name: shared-configuration-file
     files:
       - config.yaml

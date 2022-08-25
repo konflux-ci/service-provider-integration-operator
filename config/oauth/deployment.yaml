@@ -21,7 +21,9 @@ spec:
         - command:
           - /spi-oauth
           env: []
-          envFrom: []
+          envFrom:
+          - configMapRef:
+              name: oauth-service-environment-config
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
           name: oauth
           securityContext:
@@ -47,7 +49,7 @@ spec:
               memory: 100Mi
           volumeMounts:
           - mountPath: /etc/spi/config.yaml
-            name: oauth-config
+            name: config-file
             readOnly: true
             subPath: config.yaml
           - mountPath: /etc/spi/secret_id
@@ -61,9 +63,9 @@ spec:
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: oauth-config
+      - name: config-file
         secret:
-          secretName: oauth-config
+          secretName: shared-configuration-file
           items:
             - key: config.yaml
               path: config.yaml

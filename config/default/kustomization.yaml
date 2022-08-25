@@ -26,7 +26,7 @@ resources:
 - ../crd
 - ../rbac
 # Additional stuff deployed by the default overlay
-- shared-config.yaml
+- shared-environment-config.yaml
 - ../oauth
 - ../manager
 
