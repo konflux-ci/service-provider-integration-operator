@@ -52,8 +52,9 @@ type Github struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:       githubProbe{},
-	Constructor: serviceprovider.ConstructorFunc(newGithub),
+	Probe:                        githubProbe{},
+	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
+	SupportsManualUploadOnlyMode: true,
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {

@@ -94,40 +94,43 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvi
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
-
-	// using a map here to avoid wastefully trying to construct the same service provider twice
-	var spTypes = make(map[config.ServiceProviderType]bool)
-	for _, sp := range f.Configuration.ServiceProviders {
-		spTypes[sp.ServiceProviderType] = true
-	}
-	for _, sp := range getOptionalServiceProviderTypes() {
-		spTypes[sp] = true
-	}
-
-	for sp := range spTypes {
-		initializer, ok := f.Initializers[sp]
-		if !ok {
-			continue
-		}
-
+	tryInitialize := func(initializer Initializer) ServiceProvider {
 		probe := initializer.Probe
 		ctor := initializer.Constructor
 		if probe == nil || ctor == nil {
-			continue
+			return nil
 		}
 
 		baseUrl, err := probe.Examine(f.HttpClient, repoUrl)
 		if err != nil {
-			continue
+			return nil
 		}
 
 		if baseUrl != "" {
 			sp, err := ctor.Construct(f, baseUrl)
 			if err != nil {
-				continue
+				return nil
 			}
 
+			return sp
+		}
+		return nil
+	}
+	for _, spc := range f.Configuration.ServiceProviders {
+		initializer, ok := f.Initializers[spc.ServiceProviderType]
+		if !ok {
+			continue
+		}
+		if sp := tryInitialize(initializer); sp != nil {
 			return sp, nil
+		}
+	}
+
+	for _, initializer := range f.Initializers {
+		if initializer.SupportsManualUploadOnlyMode {
+			if sp := tryInitialize(initializer); sp != nil {
+				return sp, nil
+			}
 		}
 	}
 
