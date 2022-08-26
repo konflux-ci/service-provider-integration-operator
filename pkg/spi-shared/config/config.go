@@ -41,7 +41,7 @@ type LoggingCliArgs struct {
 // CommonCliArgs are the command line arguments and environment variable definitions understood by the configuration
 // infrastructure shared between the operator and the oauth service.
 type CommonCliArgs struct {
-	MetricsAddr string `arg:"--metrics-bind-address, env" default:":8080" help:"The address the metric endpoint binds to."`
+	MetricsAddr string `arg:"--metrics-bind-address, env" default:"127.0.0.1:8080" help:"The address the metric endpoint binds to."`
 	ProbeAddr   string `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
 	ConfigFile  string `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
 	BaseUrl     string `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
