@@ -1,7 +1,7 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: route
+  name: spi-oauth
 spec:
   port:
     targetPort: 8000
