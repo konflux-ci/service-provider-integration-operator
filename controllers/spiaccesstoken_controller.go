@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -52,7 +53,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
@@ -69,7 +69,7 @@ type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 	ServiceProviderFactory serviceprovider.Factory
 	finalizers             finalizer.Finalizers
 }
@@ -93,7 +93,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// We're watching the bindings so that we can remove abandoned tokens without data
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, func() string {
-				return object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
 		Complete(r)
@@ -372,7 +372,7 @@ func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object)
 func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient client.Client) (bool, error) {
 	list := &api.SPIAccessTokenBindingList{}
 	if err := k8sClient.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
-		opconfig.SPIAccessTokenLinkLabel: token.Name,
+		SPIAccessTokenLinkLabel: token.Name,
 	}); err != nil {
 		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
 	}

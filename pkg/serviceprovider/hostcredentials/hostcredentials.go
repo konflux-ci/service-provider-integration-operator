@@ -18,9 +18,10 @@ import (
 	"context"
 	"fmt"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,7 +31,7 @@ import (
 // manual upload of token data. Matching is done only by URL of the provider, so it is possible to have
 // only one token for particular URL in the given namespace.
 type HostCredentialsProvider struct {
-	Configuration config.Configuration
+	Configuration opconfig.OperatorConfiguration
 	lookup        serviceprovider.GenericLookup
 	httpClient    rest.HTTPClient
 	repoUrl       string

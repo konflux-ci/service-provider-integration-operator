@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"k8s.io/client-go/rest"
@@ -28,8 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +47,7 @@ var (
 )
 
 type Quay struct {
-	Configuration    config.Configuration
+	Configuration    opconfig.OperatorConfiguration
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
 	httpClient       rest.HTTPClient

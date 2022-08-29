@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +81,7 @@ func TestMapToken(t *testing.T) {
 	}
 
 	fac := &serviceprovider.Factory{
-		Configuration: config.Configuration{
+		Configuration: opconfig.OperatorConfiguration{
 			TokenLookupCacheTtl: 100 * time.Hour,
 		},
 		KubernetesClient: k8sClient,

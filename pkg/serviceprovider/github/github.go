@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"k8s.io/utils/pointer"
 
 	"k8s.io/client-go/rest"
@@ -28,10 +30,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,7 +44,7 @@ var (
 )
 
 type Github struct {
-	Configuration   config.Configuration
+	Configuration   opconfig.OperatorConfiguration
 	lookup          serviceprovider.GenericLookup
 	httpClient      rest.HTTPClient
 	tokenStorage    tokenstorage.TokenStorage

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -28,8 +30,6 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +47,7 @@ type SPIAccessCheckReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	ServiceProviderFactory serviceprovider.Factory
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks,verbs=get;list;watch;create;update;patch;delete
