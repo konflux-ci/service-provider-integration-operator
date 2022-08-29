@@ -220,7 +220,7 @@ deploy_kcp: ensure-tmp manifests kustomize
 deploy_kcp_openshift: ensure-tmp manifests kustomize
 	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
 	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
-	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp_openshift" "kcp"
+	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp_openshift"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 	kubectl apply -f .tmp/deployment_kcp_openshift/kcp/apibinding_spi.yaml
 
