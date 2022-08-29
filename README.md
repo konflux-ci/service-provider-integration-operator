@@ -42,6 +42,13 @@ The image being pushed can again be modified using the environment variable:
 SPIO_IMG=quay.io/acme/spio:42 make docker-push
 ```
 
+Before you push a PR to the repository, it is recommended to run an overall validity check of the codebase. This will
+run the formatting check, static code analysis and all the tests:
+
+```
+make check
+```
+
 ### KCP
 We generate `APIResourceSchema`s and `APIExport` for KCP from our CRDs using `./hack/generate-kcp-api.sh` script or `make manifests-kcp`.
 These have to be updated on every CRD change and committed. `APIResourceSchema` is immutable in KCP, so we version it by putting datetime as a name prefix.
@@ -50,7 +57,7 @@ These have to be updated on every CRD change and committed. `APIResourceSchema` 
 ## Configuration
 
 It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
-Name of the secret should be `oauth-config` with this configuration yaml under `config.yaml` key.
+Name of the secret should be `spi-shared-configuration-file` with this configuration yaml under `config.yaml` key.
 
 This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
 
@@ -60,14 +67,12 @@ serviceProviders:
 - type: <service_provider_type>
   clientId: <service_provider_client_id>
   clientSecret: <service_provider_secret>
-baseUrl: <oauth_base_url>
 ```
 
  - `<jwt_sign_secret>` - secret value used for signing the JWT keys
  - `<service_provider_type>` - type of the service provider. This must be one of the supported values: GitHub, Quay
  - `<service_provider_client_id>` - client ID of the OAuth application
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
- - `<oauth_base_url>` - URL on which the OAuth service is deployed
 
 
 _To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
@@ -76,6 +81,7 @@ _To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](
 ### Operator configuration parameters
 | Command argument                                      | Environment variable           | Default                | Description                                                                                                                                                                                                                        |
 |-------------------------------------------------------|--------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --base-url                                            | BASEURL                        |                        | This is the publicly accessible URL on which the SPI OAuth service is reachable. Note that this is not just a hostname, it is a full URL including a scheme, e.g. "https://acme.com/spi"
 | --metrics-bind-address                                | METRICSADDR                    | :8080                  | The address the metric endpoint binds to.                                                                                                                                                                                          |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                  | The address the probe endpoint binds to.                                                                                                                                                                                           |
 | --leader-elect                                        | ENABLELEADERELECTION           | false                  | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.                                                                                                              |
@@ -104,6 +110,7 @@ kubectl set env deployment/spi-controller-manager ZAPLOGLEVEL=1 -n spi-system
 ### OAuth service configuration parameters
 | Command argument              | Environment variable           | Default                                                         | Description                                                                                                                                                                                                                        |
 |-------------------------------|--------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --base-url                    | BASEURL                        |                                                                 | This is the publicly accessible URL on which the SPI OAuth service is reachable. Note that this is not just a hostname, it is a full URL including a scheme, e.g. "https://acme.com/spi"
 | --config-file                 | CONFIGFILE                     | /etc/spi/config.yaml                                            | The location of the configuration file.                                                                                                                                                                                            |
 | --service-addr                | SERVICEADDR                    | 0.0.0.0:8000                                                    | Service address to listen on.                                                                                                                                                                                                      |
 | --allowed-origins             | ALLOWEDORIGINS                 | https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                                                                                                                                                                 |
