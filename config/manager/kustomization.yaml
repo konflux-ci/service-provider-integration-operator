@@ -3,14 +3,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 
 resources:
 - manager.yaml
-
-generatorOptions:
-  disableNameSuffixHash: true
+- controller-manager-environment-config.yaml
 
 commonLabels:
   app.kubernetes.io/name: service-provider-integration-operator
-
-configMapGenerator:
-- files:
-  - controller_manager_config.yaml
-  name: manager-config
