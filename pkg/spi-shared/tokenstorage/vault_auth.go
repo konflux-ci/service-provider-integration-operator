@@ -26,11 +26,6 @@ import (
 
 var VaultUnknownAuthMethodError = errors.New("unknown Vault authentication method")
 
-type VaultAuthMethod string
-
-var VaultAuthMethodKubernetes VaultAuthMethod = "kubernetes"
-var VaultAuthMethodApprole VaultAuthMethod = "approle"
-
 type vaultAuthConfiguration interface {
 	prepare(config *VaultStorageConfig) (api.AuthMethod, error)
 }
@@ -38,17 +33,17 @@ type vaultAuthConfiguration interface {
 type kubernetesAuth struct{}
 type approleAuth struct{}
 
-func prepareAuth(config *VaultStorageConfig) (api.AuthMethod, error) {
+func prepareAuth(cfg *VaultStorageConfig) (api.AuthMethod, error) {
 	var authMethod vaultAuthConfiguration
-	if config.AuthType == VaultAuthMethodKubernetes {
+	if cfg.AuthType == VaultAuthMethodKubernetes {
 		authMethod = &kubernetesAuth{}
-	} else if config.AuthType == VaultAuthMethodApprole {
+	} else if cfg.AuthType == VaultAuthMethodApprole {
 		authMethod = &approleAuth{}
 	} else {
 		return nil, VaultUnknownAuthMethodError
 	}
 
-	vaultAuth, err := authMethod.prepare(config)
+	vaultAuth, err := authMethod.prepare(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare auth method '%w'", err)
 	}

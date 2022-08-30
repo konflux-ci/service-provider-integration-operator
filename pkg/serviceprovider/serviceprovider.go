@@ -25,6 +25,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,7 +79,7 @@ type ValidationResult struct {
 
 // Factory is able to construct service providers from repository URLs.
 type Factory struct {
-	Configuration    config.Configuration
+	Configuration    opconfig.OperatorConfiguration
 	KubernetesClient client.Client
 	HttpClient       *http.Client
 	Initializers     map[config.ServiceProviderType]Initializer

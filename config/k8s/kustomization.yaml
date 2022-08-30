@@ -4,11 +4,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 namespace: spi-system
 
 resources:
-# Common stuff with the prepare goal
 - ../default
 - ingress.yaml
 
+generatorOptions:
+  disableNameSuffixHash: true
+
 secretGenerator:
-  - name: oauth-config
+  - name: shared-configuration-file
     files:
       - config.yaml
