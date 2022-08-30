@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -135,7 +137,7 @@ func TestFromRepoUrl(t *testing.T) {
 	}
 
 	fact := Factory{
-		Configuration:    config.Configuration{},
+		Configuration:    opconfig.OperatorConfiguration{},
 		KubernetesClient: nil,
 		HttpClient:       nil,
 		Initializers: map[config.ServiceProviderType]Initializer{
