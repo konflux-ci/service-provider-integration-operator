@@ -15,8 +15,12 @@
 package serviceprovider
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -105,4 +109,42 @@ func TestDefaultMapToken(t *testing.T) {
 		assert.NotNil(t, m.ExpiredAfter)
 		assert.Equal(t, uint64(15), *m.ExpiredAfter)
 	})
+}
+
+func TestFromRepoUrl(t *testing.T) {
+	mockSP := struct {
+		ServiceProvider
+	}{}
+
+	mockInit := Initializer{
+		Probe: struct {
+			ProbeFunc
+		}{
+			ProbeFunc: func(cl *http.Client, url string) (string, error) {
+				return "https://base-url.com", nil
+			},
+		},
+		Constructor: struct {
+			ConstructorFunc
+		}{
+			ConstructorFunc: func(factory *Factory, baseUrl string) (ServiceProvider, error) {
+				return mockSP, nil
+			},
+		},
+		SupportsManualUploadOnlyMode: true,
+	}
+
+	fact := Factory{
+		Configuration:    config.Configuration{},
+		KubernetesClient: nil,
+		HttpClient:       nil,
+		Initializers: map[config.ServiceProviderType]Initializer{
+			config.ServiceProviderTypeQuay: mockInit,
+		},
+		TokenStorage: nil,
+	}
+
+	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo")
+	assert.NoError(t, err)
+	assert.Equal(t, mockSP, sp)
 }
