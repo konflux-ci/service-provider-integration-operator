@@ -56,8 +56,9 @@ type Quay struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:       quayProbe{},
-	Constructor: serviceprovider.ConstructorFunc(newQuay),
+	Probe:                        quayProbe{},
+	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
+	SupportsManualUploadOnlyMode: true,
 }
 
 const quayUrlBase = "https://quay.io"
