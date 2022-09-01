@@ -11,7 +11,7 @@ resources:
   - ../default
 
 secretGenerator:
-  - name: oauth-config
+  - name: shared-configuration-file
     files:
       - config.yaml
 
