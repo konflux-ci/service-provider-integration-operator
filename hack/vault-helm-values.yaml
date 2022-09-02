@@ -6,10 +6,15 @@ injector:
   enabled: false
 
 server:
-  logLevel: "trace"
+  logLevel: "info"
 
-  image:
-    tag: "1.9.4"
+  resources:
+    requests:
+      memory: 100Mi
+      cpu: 50m
+    limits:
+      memory: 500Mi
+      cpu: 500m
 
   dataStorage:
     enabled: true
@@ -19,6 +24,18 @@ server:
 
   service:
     enabled: true
+
+  ingress:
+    enabled: true
+    hosts:
+    - host: ${VAULT_HOST}
+      paths: []
+
+  route:
+    enabled: true
+    host: null
+    tls:
+      termination: edge
 
   standalone:
     config: |

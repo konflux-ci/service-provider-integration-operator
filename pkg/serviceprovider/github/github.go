@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"k8s.io/utils/pointer"
 
 	"k8s.io/client-go/rest"
@@ -28,10 +30,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,7 +44,7 @@ var (
 )
 
 type Github struct {
-	Configuration   config.Configuration
+	Configuration   opconfig.OperatorConfiguration
 	lookup          serviceprovider.GenericLookup
 	httpClient      rest.HTTPClient
 	tokenStorage    tokenstorage.TokenStorage
@@ -52,8 +52,9 @@ type Github struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:       githubProbe{},
-	Constructor: serviceprovider.ConstructorFunc(newGithub),
+	Probe:                        githubProbe{},
+	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
+	SupportsManualUploadOnlyMode: true,
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -69,7 +70,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			TokenFilter:         &tokenFilter{},
+			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
 			MetadataProvider: &metadataProvider{
 				httpClient:      httpClient,
 				tokenStorage:    factory.TokenStorage,
@@ -98,8 +99,8 @@ func (g *Github) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeGitHub
 }
 
-func (g *Github) TranslateToScopes(permission api.Permission) []string {
-	return translateToScopes(permission)
+func (g *Github) OAuthScopesFor(permissions *api.Permissions) []string {
+	return serviceprovider.GetAllScopes(translateToScopes, permissions)
 }
 
 func translateToScopes(permission api.Permission) []string {
@@ -175,6 +176,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	status.Accessible = publicRepo
 	if publicRepo {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
+		return status, nil
 	}
 
 	lg := log.FromContext(ctx)
@@ -182,7 +184,11 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return status, fmt.Errorf("failed to lookip token for accesscheck %s/%s: %w", accessCheck.Namespace, accessCheck.Name, lookupErr)
+		if !publicRepo {
+			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+			status.ErrorMessage = lookupErr.Error()
+		}
+		return status, nil
 	}
 
 	if len(tokens) > 0 {

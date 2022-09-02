@@ -1,8 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Integration Tests by Make" type="GoRemoteDebugConfigurationType" factoryName="Go Remote" show_console_on_std_err="true" show_console_on_std_out="true">
-    <log_file alias="test output" path="$PROJECT_DIR$/debug.out" skipped="false" />
-    <option name="disconnectOption" value="STOP" />
-    <disconnect value="STOP" />
-    <method v="2" />
-  </configuration>
-</component>

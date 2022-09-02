@@ -12,28 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package controllers
 
-import (
-	"os"
-)
-
-const (
-	runControllersEnv     = "RUN_CONTROLLERS"
-	runControllersDefault = true
-
-	SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //nolint:gosec // false positive, this is no private data
-)
-
-func RunControllers() bool {
-	ret, ok := os.LookupEnv(runControllersEnv)
-	if !ok {
-		return runControllersDefault
-	}
-
-	return "true" == ret
-}
-
-func ValidateEnv() error {
-	return nil
-}
+const SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //nolint:gosec // false positive, this is no private data

@@ -6,6 +6,10 @@ generatorOptions:
 
 commonLabels:
   app.kubernetes.io/name: service-provider-integration-vault
+  app.kubernetes.io/part-of: service-provider-integration-operator
+
+resources:
+  - namespace.yaml
 
 configMapGenerator:
   - name: vault-poststart-script

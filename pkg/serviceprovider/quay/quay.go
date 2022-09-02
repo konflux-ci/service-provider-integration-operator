@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"k8s.io/client-go/rest"
@@ -28,8 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +47,7 @@ var (
 )
 
 type Quay struct {
-	Configuration    config.Configuration
+	Configuration    opconfig.OperatorConfiguration
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
 	httpClient       rest.HTTPClient
@@ -56,8 +56,9 @@ type Quay struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:       quayProbe{},
-	Constructor: serviceprovider.ConstructorFunc(newQuay),
+	Probe:                        quayProbe{},
+	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
+	SupportsManualUploadOnlyMode: true,
 }
 
 const quayUrlBase = "https://quay.io"
@@ -78,30 +79,15 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter: &tokenFilter{
-				metadataProvider: mp,
-			},
-			MetadataProvider: mp,
-			MetadataCache:    &cache,
-			RepoHostParser:   repoHostFromSchemelessUrl,
+			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+			MetadataProvider:    mp,
+			MetadataCache:       &cache,
+			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
 	}, nil
-}
-
-func repoHostFromSchemelessUrl(repoUrl string) (string, error) {
-	schemeIndex := strings.Index(repoUrl, "://")
-	if schemeIndex == -1 {
-		repoUrl = "https://" + repoUrl
-	}
-
-	host, err := serviceprovider.RepoHostFromUrl(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse quay repo as URL: %w", err)
-	}
-	return host, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newQuay
@@ -118,53 +104,28 @@ func (g *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }
 
-func (g *Quay) TranslateToScopes(permission api.Permission) []string {
+func (g *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
-	// We represent the ability to pull/push images using fake scopes that don't exist in the Quay model and are used
-	// only to represent the permissions of the robot accounts. Since this is an OAuth URL, we need to replace those
-	// scopes with their "real" equivalents in the OAuth APIs - i.e. pull == repo:read and push == repo:write
+	// We basically disregard any request for specific permissions and always require the max usable set of permissions
+	// because we cannot change that set later due to a bug in Quay OAuth impl:
+	// https://issues.redhat.com/browse/PROJQUAY-3908
 
-	fullScopes := translateToQuayScopes(permission)
+	// Note that we don't require org:admin, because that is a super strong permission for which we currently don't
+	// have usecase. Users can still require it using the spec.permissions.additionalScopes if needed.
+	scopes := map[string]bool{}
+	scopes[string(ScopeRepoRead)] = true
+	scopes[string(ScopeRepoWrite)] = true
+	scopes[string(ScopeRepoCreate)] = true
+	scopes[string(ScopeRepoAdmin)] = true
 
-	replace := func(str *string) {
-		if *str == string(ScopePull) {
-			*str = string(ScopeRepoRead)
-		} else if *str == string(ScopePush) {
-			*str = string(ScopeRepoWrite)
-		}
+	for _, s := range ps.AdditionalScopes {
+		scopes[s] = true
 	}
 
-	// we only return 0, 1 or 2 elements in the arrays, so let's be very concrete here
-	if len(fullScopes) == 0 {
-		return fullScopes
-	} else if len(fullScopes) == 1 {
-		replace(&fullScopes[0])
-		return fullScopes
-	} else if len(fullScopes) == 2 {
-		replace(&fullScopes[0])
-		replace(&fullScopes[1])
-		return fullScopes
-	}
-
-	// the generic case in case translateToQuayScopes() returns something longer than 0, 1 or 2 elements
-
-	scopeMap := map[string]bool{}
-
-	for _, s := range fullScopes {
-		if s == string(ScopePull) {
-			s = string(ScopeRepoRead)
-		} else if s == string(ScopePush) {
-			s = string(ScopeRepoWrite)
-		}
-
-		scopeMap[s] = true
-	}
-
-	ret := make([]string, 0, len(scopeMap))
-	for s := range scopeMap {
+	ret := make([]string, 0, len(scopes))
+	for s := range scopes {
 		ret = append(ret, s)
 	}
-
 	return ret
 }
 
@@ -237,24 +198,27 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		lg.Error(failedToParseRepoUrlError, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = failedToParseRepoUrlError.Error()
-		return status, nil
+		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
 	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
 		status.ErrorMessage = lookupErr.Error()
-		return status, fmt.Errorf("failed lookup: %w", lookupErr)
+		// not returning here. We're still able to detect public repository without the token.
+		// The error will still be reported in status.
 	}
 
-	token := ""
+	var username, token string
 	if len(tokens) > 0 {
 		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
-		if apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0]); getTokenErr == nil {
-			token = apiToken.AccessToken
-		} else {
+		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
+		if getTokenErr != nil {
 			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
+		}
+		if apiToken != nil {
+			username, token = getUsernameAndPasswordFromTokenData(apiToken)
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
@@ -268,16 +232,37 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		switch responseCode {
 		case http.StatusOK:
 			status.Accessible = true
+			status.ErrorReason = ""
+			status.ErrorMessage = ""
 			if repoInfo["is_public"].(bool) {
 				status.Accessibility = api.SPIAccessCheckAccessibilityPublic
 			} else {
 				status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 			}
 		case http.StatusUnauthorized, http.StatusForbidden:
-			lg.Info("quay.io request unauthorized. Probably private repository for we don't have a token.")
+			// if we have no token, we cannot distinguish between non-existent and private repository, so in that case
+			// we can assign no new status here...
+			if token != "" {
+				// ok, we failed to authorize with a token. This means that we either are using a robot token on a
+				// private repo or token lookup didn't return a valid token (maybe an expired one or the perms changed
+				// in quay in the meantime).
+				if username != "" && username != OAuthTokenUserName {
+					// yes, a robot token. All we know is that the token lookup succeeded, so this must mean docker login
+					// must have succeeded (now or some time ago). So let's just assume here that the repo is accessible.
+					// For public repositories, the Quay API repository info query succeeds with any (or none) credentials.
+					// Since we're seeing a failure here, this means that this must be a private repo.
+					status.Accessible = true
+					status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+				} else {
+					// hmm.. so the token lookup was wrong about the repository. This is weird...
+					lg.Info("quay.io request unauthorized using a looked up token. Have permissions changed in the meantime?")
+				}
+			}
 		case http.StatusNotFound:
-			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
-			status.ErrorMessage = "repository does not exist"
+			if status.ErrorReason == "" && status.ErrorMessage == "" {
+				status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+				status.ErrorMessage = "repository does not exist"
+			}
 		default:
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = "unexpected response from Quay API"

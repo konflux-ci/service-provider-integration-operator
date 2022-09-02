@@ -77,7 +77,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	if len(data.Username) > 0 {
 		metadata.Username = data.Username
 	} else {
-		metadata.Username = "$oauthtoken"
+		metadata.Username = OAuthTokenUserName
 	}
 
 	metadata.ServiceProviderState = js
@@ -156,6 +156,11 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		if err != nil {
 			lg.Error(err, "failed to perform docker login")
 			return LoginTokenInfo{}, fmt.Errorf("fetch failed due to docker login error: %w", err)
+		}
+
+		// empty token means the credentials are no longer valid, which is not an error in and of itself
+		if tkn == "" {
+			return LoginTokenInfo{}, nil
 		}
 
 		info, err := AnalyzeLoginToken(tkn)

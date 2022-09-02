@@ -17,7 +17,12 @@ package tokenstorage
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
@@ -39,24 +44,63 @@ var testSpiAccessToken = &v1beta1.SPIAccessToken{
 	},
 }
 
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
+}
+
 func TestStorage(t *testing.T) {
 	cluster, storage := CreateTestVaultTokenStorage(t)
 	defer cluster.Cleanup()
 
-	err := storage.Store(context.TODO(), testSpiAccessToken, testToken)
-	assert.NoError(t, err)
+	test := func(ctx context.Context) {
+		err := storage.Store(ctx, testSpiAccessToken, testToken)
+		assert.NoError(t, err)
 
-	gettedToken, err := storage.Get(context.TODO(), testSpiAccessToken)
-	assert.NoError(t, err)
-	assert.NotNil(t, gettedToken)
-	assert.EqualValues(t, testToken, gettedToken)
+		gettedToken, err := storage.Get(ctx, testSpiAccessToken)
+		assert.NoError(t, err)
+		assert.NotNil(t, gettedToken)
+		assert.EqualValues(t, testToken, gettedToken)
 
-	err = storage.Delete(context.TODO(), testSpiAccessToken)
-	assert.NoError(t, err)
+		err = storage.Delete(ctx, testSpiAccessToken)
+		assert.NoError(t, err)
 
-	gettedToken, err = storage.Get(context.TODO(), testSpiAccessToken)
-	assert.NoError(t, err)
-	assert.Nil(t, gettedToken)
+		gettedToken, err = storage.Get(ctx, testSpiAccessToken)
+		assert.NoError(t, err)
+		assert.Nil(t, gettedToken)
+	}
+
+	t.Run("single cluster", func(t *testing.T) {
+		test(context.TODO())
+	})
+
+	t.Run("kcp", func(t *testing.T) {
+		test(logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace")))
+	})
+
+	t.Run("token accessible only in it's workspace", func(t *testing.T) {
+		workspaceCtx := logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace"))
+
+		err := storage.Store(workspaceCtx, testSpiAccessToken, testToken)
+		assert.NoError(t, err)
+
+		gettedToken, err := storage.Get(context.TODO(), testSpiAccessToken)
+		assert.NoError(t, err)
+		assert.Nil(t, gettedToken)
+
+		gettedToken, err = storage.Get(logicalcluster.WithCluster(context.Background(), logicalcluster.New("another_workspace")), testSpiAccessToken)
+		assert.NoError(t, err)
+		assert.Nil(t, gettedToken)
+
+		gettedToken, err = storage.Get(workspaceCtx, testSpiAccessToken)
+		assert.NoError(t, err)
+		assert.NotNil(t, gettedToken)
+		assert.EqualValues(t, testToken, gettedToken)
+
+		err = storage.Delete(workspaceCtx, testSpiAccessToken)
+		assert.NoError(t, err)
+	})
+
 }
 
 func TestParseToken(t *testing.T) {

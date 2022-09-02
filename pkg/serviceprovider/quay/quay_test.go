@@ -17,7 +17,7 @@ package quay
 import (
 	"context"
 	"encoding/json"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -47,7 +49,7 @@ import (
 const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
 
 func TestMain(m *testing.M) {
-	logs.InitLoggers(true, flag.CommandLine)
+	logs.InitDevelLoggers()
 	os.Exit(m.Run())
 }
 
@@ -79,7 +81,7 @@ func TestMapToken(t *testing.T) {
 	}
 
 	fac := &serviceprovider.Factory{
-		Configuration: config.Configuration{
+		Configuration: opconfig.OperatorConfiguration{
 			TokenLookupCacheTtl: 100 * time.Hour,
 		},
 		KubernetesClient: k8sClient,
@@ -181,40 +183,65 @@ func TestValidate(t *testing.T) {
 	assert.Equal(t, "unsupported scope 'user:read'", res.ScopeValidation[2].Error())
 }
 
-func TestQuay_TranslateToScopes(t *testing.T) {
-	repoR := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeRead,
-	}
-	repoW := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeWrite,
-	}
-	repoRW := api.Permission{
-		Area: api.PermissionAreaRepository,
-		Type: api.PermissionTypeReadWrite,
-	}
-	repoMR := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeRead,
-	}
-	repoMW := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeWrite,
-	}
-	repoMRW := api.Permission{
-		Area: api.PermissionAreaRepositoryMetadata,
-		Type: api.PermissionTypeReadWrite,
-	}
+func TestQuay_OAuthScopesFor(t *testing.T) {
 
 	q := &Quay{}
+	fullScopes := []string{"repo:read", "repo:write", "repo:create", "repo:admin"}
 
-	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoR))
-	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoW))
-	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoRW))
-	assert.Equal(t, []string{"repo:read"}, q.TranslateToScopes(repoMR))
-	assert.Equal(t, []string{"repo:write"}, q.TranslateToScopes(repoMW))
-	assert.Equal(t, []string{"repo:read", "repo:write"}, q.TranslateToScopes(repoMRW))
+	hasScopes := func(expectedScopes []string, ps api.Permissions) func(t *testing.T) {
+		return func(t *testing.T) {
+			actualScopes := q.OAuthScopesFor(&ps)
+			assert.Equal(t, len(expectedScopes), len(actualScopes))
+			for _, s := range expectedScopes {
+				assert.Contains(t, actualScopes, s)
+			}
+		}
+	}
+
+	hasDefault := func(ps api.Permissions) func(t *testing.T) {
+		return hasScopes(fullScopes, ps)
+	}
+
+	t.Run("empty", hasDefault(api.Permissions{}))
+	t.Run("read-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeRead,
+		},
+	}}))
+	t.Run("write-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeWrite,
+		},
+	}}))
+	t.Run("read-write-repo", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepository,
+			Type: api.PermissionTypeReadWrite,
+		},
+	}}))
+	t.Run("read-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeRead,
+		},
+	}}))
+	t.Run("write-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeWrite,
+		},
+	}}))
+	t.Run("read-write-meta", hasDefault(api.Permissions{Required: []api.Permission{
+		{
+			Area: api.PermissionAreaRepositoryMetadata,
+			Type: api.PermissionTypeReadWrite,
+		},
+	}}))
+	t.Run("additional-scopes", hasScopes(
+		[]string{"repo:read", "repo:write", "repo:create", "repo:admin", "org:admin"},
+		api.Permissions{AdditionalScopes: []string{"org:admin"}}))
 }
 
 func TestRequestRepoInfo(t *testing.T) {
@@ -272,7 +299,7 @@ func TestCheckRepositoryAccessPublic(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
 		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: repoHostFromSchemelessUrl,
+			RepoHostParser: serviceprovider.RepoHostFromSchemelessUrl,
 		},
 	}
 	k8sClient := mockK8sClient()
@@ -322,7 +349,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
 	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      repoHostFromSchemelessUrl,
+		RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		ServiceProviderType: api.ServiceProviderTypeQuay,
 		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{
@@ -331,8 +358,8 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			},
 		},
 	}
-	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
-		return &api.Token{AccessToken: "blabol"}
+	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
 	t.Run("public repository", func(t *testing.T) {
@@ -488,8 +515,125 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.NotEmpty(t, status.ErrorMessage)
 	})
 
-	t.Run("lookup failed", func(t *testing.T) {
+	t.Run("lookup failed public", func(t *testing.T) {
+		failingLookup := lookupMock
+		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+			return false, errors.New("intentional failure")
+		}}
 
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup:       failingLookup,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+		assert.Empty(t, status.ErrorMessage)
+		assert.Empty(t, status.ErrorReason)
+	})
+
+	t.Run("lookup failed nonpublic", func(t *testing.T) {
+		failingLookup := lookupMock
+		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+			return false, errors.New("intentional failure")
+		}}
+
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup:       failingLookup,
+			tokenStorage: ts,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.NotEmpty(t, status.ErrorMessage)
+		assert.Equal(t, api.SPIAccessCheckErrorTokenLookupFailed, status.ErrorReason)
+	})
+
+	t.Run("no token data on private", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return nil, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.False(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityUnknown, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
+	t.Run("no token on public", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return nil, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPublic, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
+	t.Run("robot token on private", func(t *testing.T) {
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
+			}},
+			lookup: lookupMock,
+			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
+			}},
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
 	})
 }
 
@@ -517,7 +661,7 @@ func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.
 }
 
 type tokenStorageMock struct {
-	getFunc func(ctx context.Context, owner *api.SPIAccessToken) *api.Token
+	getFunc func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
 }
 
 func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
@@ -525,7 +669,7 @@ func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, 
 }
 
 func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	return t.getFunc(ctx, owner), nil
+	return t.getFunc(ctx, owner)
 }
 
 func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {

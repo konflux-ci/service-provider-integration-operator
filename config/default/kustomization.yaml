@@ -25,7 +25,23 @@ resources:
 - ../namespace
 - ../crd
 - ../rbac
-- ../oauth
 # Additional stuff deployed by the default overlay
+- shared-environment-config.yaml
+- ../oauth
 - ../manager
-- ../vault/openshift
+
+patches:
+  - path: inject-config-patch.yaml
+    target:
+      name: controller-manager
+      namespace: system
+      group: apps
+      version: v1
+      kind: Deployment
+  - path: inject-config-patch.yaml
+    target:
+      name: oauth-service
+      namespace: system
+      group: apps
+      version: v1
+      kind: Deployment

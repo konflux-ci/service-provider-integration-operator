@@ -21,7 +21,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +43,7 @@ type SPIAccessCheckReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	ServiceProviderFactory serviceprovider.Factory
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks,verbs=get;list;watch;create;update;patch;delete
@@ -48,6 +52,13 @@ type SPIAccessCheckReconciler struct {
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
+
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
@@ -68,7 +79,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ac.Spec.RepoUrl); spErr == nil {
+	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl); spErr == nil {
 		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {
 			ac.Status = *status
 		} else {

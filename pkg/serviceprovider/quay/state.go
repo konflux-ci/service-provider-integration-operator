@@ -47,13 +47,14 @@ type TokenState struct {
 type Scope string
 
 const (
-	ScopeRepoRead   Scope = "repo:read"
-	ScopeRepoWrite  Scope = "repo:write"
-	ScopeRepoAdmin  Scope = "repo:admin"
-	ScopeRepoCreate Scope = "repo:create"
-	ScopeUserRead   Scope = "user:read"
-	ScopeUserAdmin  Scope = "user:admin"
-	ScopeOrgAdmin   Scope = "org:admin"
+	OAuthTokenUserName       = "$oauthtoken"
+	ScopeRepoRead      Scope = "repo:read"
+	ScopeRepoWrite     Scope = "repo:write"
+	ScopeRepoAdmin     Scope = "repo:admin"
+	ScopeRepoCreate    Scope = "repo:create"
+	ScopeUserRead      Scope = "user:read"
+	ScopeUserAdmin     Scope = "user:admin"
+	ScopeOrgAdmin      Scope = "org:admin"
 	// These are not real scopes in Quay, but we represent the permissions of the robot tokens with them
 	ScopePush Scope = "push"
 	ScopePull Scope = "pull"
@@ -96,12 +97,12 @@ func (s Scope) IsIncluded(scopes []Scope) bool {
 func fetchRepositoryRecord(ctx context.Context, cl *http.Client, repoUrl string, tokenData *api.Token, info LoginTokenInfo) (*EntityRecord, error) {
 	username, password := getUsernameAndPasswordFromTokenData(tokenData)
 
-	if username != "$oauthtoken" {
+	if username != OAuthTokenUserName {
 		// we're dealing with robot account
 		return robotAccountRepositoryRecord(ctx, repoUrl, info)
 	} else {
 		// we're dealing with an oauth token
-		return oauthRepositoryRecord(ctx, cl, repoUrl, password, info)
+		return oauthRepositoryRecord(ctx, cl, repoUrl, password)
 	}
 }
 
@@ -109,7 +110,7 @@ func getUsernameAndPasswordFromTokenData(tokenData *api.Token) (username, passwo
 	username = tokenData.Username
 
 	if username == "" {
-		username = "$oauthtoken"
+		username = OAuthTokenUserName
 	}
 
 	password = tokenData.AccessToken
@@ -123,7 +124,7 @@ func fetchOrganizationRecord(ctx context.Context, cl *http.Client, organization 
 
 	username, accessToken := getUsernameAndPasswordFromTokenData(tokenData)
 
-	if username != "$oauthtoken" {
+	if username != OAuthTokenUserName {
 		return nil, nil
 	}
 
@@ -166,7 +167,7 @@ func robotAccountRepositoryRecord(ctx context.Context, repository string, info L
 	}, nil
 }
 
-func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string, info LoginTokenInfo) (*EntityRecord, error) {
+func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository string, token string) (*EntityRecord, error) {
 	lg := log.FromContext(ctx)
 
 	rr := &EntityRecord{}

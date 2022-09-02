@@ -18,7 +18,10 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -46,6 +49,14 @@ type GenericLookup struct {
 }
 
 type RepoHostParser func(url string) (string, error)
+
+func RepoHostFromSchemelessUrl(repoUrl string) (string, error) {
+	schemeIndex := strings.Index(repoUrl, "://")
+	if schemeIndex == -1 {
+		repoUrl = "https://" + repoUrl
+	}
+	return RepoHostFromUrl(repoUrl)
+}
 
 func RepoHostFromUrl(repoUrl string) (string, error) {
 	parsed, err := url.Parse(repoUrl)
@@ -75,7 +86,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 		return result, fmt.Errorf("failed to list the potentially matching tokens: %w", err)
 	}
 
-	lg.Info("lookup", "potential_matches", len(potentialMatches.Items))
+	lg.V(logs.DebugLevel).Info("lookup", "potential_matches", len(potentialMatches.Items))
 
 	errs := make([]error, 0)
 
@@ -83,13 +94,13 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	wg := sync.WaitGroup{}
 	for _, t := range potentialMatches.Items {
 		if t.Status.Phase != api.SPIAccessTokenPhaseReady {
-			lg.Info("skipping lookup, token not ready", "token", t.Name)
+			lg.V(logs.DebugLevel).Info("skipping lookup, token not ready", "token", t.Name)
 			continue
 		}
 
 		wg.Add(1)
 		go func(tkn api.SPIAccessToken) {
-			lg.Info("matching", "token", tkn.Name)
+			lg.V(logs.DebugLevel).Info("matching", "token", tkn.Name)
 			defer wg.Done()
 			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
 				mutex.Lock()
@@ -121,7 +132,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 		return nil, fmt.Errorf("errors while examining the potential matches: %w", errors.NewAggregate(errs))
 	}
 
-	lg.Info("lookup finished", "matching_tokens", len(result))
+	lg.V(logs.DebugLevel).Info("lookup finished", "matching_tokens", len(result))
 
 	return result, nil
 }

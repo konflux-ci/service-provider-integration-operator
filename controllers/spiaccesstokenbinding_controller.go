@@ -20,6 +20,13 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"time"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -40,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
@@ -60,6 +66,7 @@ type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
+	Configuration          opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -102,8 +109,13 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 
-	lg.Info("Reconciling")
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	binding := api.SPIAccessTokenBinding{}
 
@@ -122,6 +134,18 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
+		return ctrl.Result{}, nil
+	}
+
+	// cleanup bindings by lifetime
+	bindingLifetime := time.Since(binding.CreationTimestamp.Time).Seconds()
+	if bindingLifetime > r.Configuration.AccessTokenBindingTtl.Seconds() {
+		err := r.Client.Delete(ctx, &binding)
+		if err != nil {
+			lg.Error(err, "failed to cleanup binding on reaching the max lifetime", "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup binding on reaching the max lifetime: %w", err)
+		}
+		lg.V(logs.DebugLevel).Info("binding being cleaned up on reaching the max lifetime", "binding", binding.ObjectMeta.Name, "bindingLifetime", bindingLifetime, "bindingttl", r.Configuration.AccessTokenBindingTtl.Seconds())
 		return ctrl.Result{}, nil
 	}
 
@@ -215,6 +239,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
+	binding.Status.UploadUrl = token.Status.UploadUrl
 
 	existingSyncedSecretName := ""
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
@@ -245,16 +270,17 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			// secret. The secret will get cleaned up once the binding is deleted because of the owner reference.
 		}
 	}
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+}
 
-	lg.Info("reconciliation complete")
-
-	return ctrl.Result{}, nil
+func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
+	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
 // The status of the binding is immediately persisted with an error if the service provider cannot be determined.
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
-	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(binding.Spec.RepoUrl)
+	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl)
 	if err != nil {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
@@ -267,14 +293,16 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 // linkToken updates the binding with a link to an SPIAccessToken object that should hold the token data. If no
 // suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
 func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	lg := log.FromContext(ctx)
 	token, err := sp.LookupToken(ctx, r.Client, binding)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
 		return nil, fmt.Errorf("failed to lookup the token in the service provider: %w", err)
 	}
 
+	newTokenCreated := false
 	if token == nil {
-		log.FromContext(ctx).Info("creating a new token because none found for binding")
+		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 		serviceProviderUrl := sp.GetBaseUrl()
 		if err != nil {
@@ -298,11 +326,20 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return nil, fmt.Errorf("failed to create the token: %w", err)
 		}
+		newTokenCreated = true
 	}
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
 	// up the watch to use the label to limit the scope...
 	if err := r.persistWithMatchingLabels(ctx, binding, token); err != nil {
+		// linking newly created token failed, lets cleanup it
+		if newTokenCreated {
+			lg.Error(err, "linking of the created token failed, cleaning up token.", "namespace", token.GetNamespace(), "token", token.GetName())
+			err := r.Client.Delete(ctx, token)
+			if err != nil {
+				lg.Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
+			}
+		}
 		return nil, err
 	}
 
@@ -310,11 +347,11 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
-	if binding.Labels[config.SPIAccessTokenLinkLabel] != token.Name {
+	if binding.Labels[SPIAccessTokenLinkLabel] != token.Name {
 		if binding.Labels == nil {
 			binding.Labels = map[string]string{}
 		}
-		binding.Labels[config.SPIAccessTokenLinkLabel] = token.Name
+		binding.Labels[SPIAccessTokenLinkLabel] = token.Name
 
 		if err := r.Client.Update(ctx, binding); err != nil {
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
@@ -325,6 +362,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 	if binding.Status.LinkedAccessTokenName != token.Name {
 		binding.Status.LinkedAccessTokenName = token.Name
 		binding.Status.OAuthUrl = token.Status.OAuthUrl
+		binding.Status.UploadUrl = token.Status.UploadUrl
 		if err := r.updateBindingStatusSuccess(ctx, binding); err != nil {
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
 			return fmt.Errorf("failed to update the binding status with the token link: %w", err)

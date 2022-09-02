@@ -24,7 +24,7 @@ import (
 // SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
 type SPIAccessTokenBindingSpec struct {
 	RepoUrl     string      `json:"repoUrl"`
-	Permissions Permissions `json:"permissions"`
+	Permissions Permissions `json:"permissions,omitempty"`
 	Secret      SecretSpec  `json:"secret"`
 }
 
@@ -34,7 +34,8 @@ type SPIAccessTokenBindingStatus struct {
 	ErrorReason           SPIAccessTokenBindingErrorReason `json:"errorReason,omitempty"`
 	ErrorMessage          string                           `json:"errorMessage,omitempty"`
 	LinkedAccessTokenName string                           `json:"linkedAccessTokenName"`
-	OAuthUrl              string                           `json:"oAuthUrl"`
+	OAuthUrl              string                           `json:"oAuthUrl,omitempty"`
+	UploadUrl             string                           `json:"uploadUrl,omitempty"`
 	SyncedObjectRef       TargetObjectRef                  `json:"syncedObjectRef"`
 }
 

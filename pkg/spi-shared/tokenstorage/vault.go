@@ -21,13 +21,19 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/hashicorp/go-hclog"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	vault "github.com/hashicorp/vault/api"
-	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const vaultDataPathFormat = "spi/data/%s/%s"
+const vaultDataKcpPathFormat = "spi/data/%s/%s/%s"
 
 type vaultTokenStorage struct {
 	*vault.Client
@@ -42,12 +48,53 @@ var (
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
 )
 
-// NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, insecure bool) (TokenStorage, error) {
-	config := vault.DefaultConfig()
-	config.Address = vaultHost
+type VaultAuthMethod string
 
-	if insecure {
+const (
+	VaultAuthMethodKubernetes VaultAuthMethod = "kubernetes"
+	VaultAuthMethodApprole    VaultAuthMethod = "approle"
+)
+
+type VaultStorageConfig struct {
+	Host     string
+	AuthType VaultAuthMethod
+	Insecure bool
+
+	Role                        string
+	ServiceAccountTokenFilePath string
+
+	RoleIdFilePath   string
+	SecretIdFilePath string
+}
+
+type VaultCliArgs struct {
+	VaultHost                      string          `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
+	VaultInsecureTLS               bool            `arg:"--vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
+	VaultAuthMethod                VaultAuthMethod `arg:"--vault-auth-method, env" default:"approle" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`
+	VaultApproleRoleIdFilePath     string          `arg:"--vault-roleid-filepath, env" default:"/etc/spi/role_id" help:"Used with Vault approle authentication. Filepath with role_id."`
+	VaultApproleSecretIdFilePath   string          `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`
+	VaultKubernetesSATokenFilePath string          `arg:"--vault-k8s-sa-token-filepath, env" help:"Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development."`
+	VaultKubernetesRole            string          `arg:"--vault-k8s-role, env"  help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
+}
+
+func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *VaultStorageConfig {
+	return &VaultStorageConfig{
+		Host:                        args.VaultHost,
+		AuthType:                    args.VaultAuthMethod,
+		Insecure:                    args.VaultInsecureTLS,
+		Role:                        args.VaultKubernetesRole,
+		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
+		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
+		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
+	}
+}
+
+// NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
+func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage, error) {
+	config := vault.DefaultConfig()
+	config.Address = vaultTokenStorageConfig.Host
+	config.Logger = hclog.Default()
+	if vaultTokenStorageConfig.Insecure {
 		if err := config.ConfigureTLS(&vault.TLSConfig{
 			Insecure: true,
 		}); err != nil {
@@ -59,17 +106,13 @@ func NewVaultStorage(role string, vaultHost string, serviceAccountToken string, 
 	if err != nil {
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
-	var k8sAuth *auth.KubernetesAuth
-	if serviceAccountToken == "" {
-		k8sAuth, err = auth.NewKubernetesAuth(role)
-	} else {
-		k8sAuth, err = auth.NewKubernetesAuth(role, auth.WithServiceAccountTokenPath(serviceAccountToken))
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error creating kubernetes authenticator: %w", err)
+
+	authMethod, authErr := prepareAuth(vaultTokenStorageConfig)
+	if authErr != nil {
+		return nil, fmt.Errorf("error preparing vault authentication: %w", authErr)
 	}
 
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), k8sAuth)
+	authInfo, err := vaultClient.Auth().Login(context.TODO(), authMethod)
 	if err != nil {
 		return nil, fmt.Errorf("error while authenticating: %w", err)
 	}
@@ -83,7 +126,9 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	data := map[string]interface{}{
 		"data": token,
 	}
-	path := getVaultPath(owner)
+	lg := log.FromContext(ctx)
+	path := getVaultPath(ctx, owner)
+
 	s, err := v.Client.Logical().Write(path, data)
 	if err != nil {
 		return fmt.Errorf("error writing the data to Vault: %w", err)
@@ -92,25 +137,26 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		return unspecifiedStoreError
 	}
 	for _, w := range s.Warnings {
-		logf.FromContext(ctx).Info(w)
+		lg.Info(w)
 	}
 
 	return nil
 }
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	path := getVaultPath(owner)
+	lg := log.FromContext(ctx)
 
+	path := getVaultPath(ctx, owner)
 	secret, err := v.Client.Logical().Read(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
 	}
 	if secret == nil || secret.Data == nil || len(secret.Data) == 0 || secret.Data["data"] == nil {
-		logf.FromContext(ctx).Info("no data found in vault at", "path", path)
+		lg.V(logs.DebugLevel).Info("no data found in vault at", "path", path)
 		return nil, nil
 	}
 	for _, w := range secret.Warnings {
-		logf.FromContext(ctx).Info(w)
+		lg.Info(w)
 	}
 	data, dataOk := secret.Data["data"]
 	if !dataOk {
@@ -167,14 +213,19 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	s, err := v.Client.Logical().Delete(getVaultPath(owner))
+	path := getVaultPath(ctx, owner)
+	s, err := v.Client.Logical().Delete(path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
-	logf.FromContext(ctx).Info("deleted", "secret", s)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted", "secret", s)
 	return nil
 }
 
-func getVaultPath(owner *api.SPIAccessToken) string {
-	return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+func getVaultPath(ctx context.Context, owner *api.SPIAccessToken) string {
+	if workspace, ok := logicalcluster.ClusterFromContext(ctx); ok {
+		return fmt.Sprintf(vaultDataKcpPathFormat, workspace, owner.Namespace, owner.Name)
+	} else {
+		return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+	}
 }

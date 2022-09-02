@@ -17,10 +17,17 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"context"
+	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
@@ -34,20 +41,17 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	//+kubebuilder:scaffold:imports
-
-	sharedConfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 var (
-	scheme = runtime.NewScheme()
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
@@ -58,89 +62,63 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var configFile string
-	var devmode bool
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&configFile, "config-file", "/etc/spi/config.yaml", "The location of the configuration file.")
-	flag.BoolVar(&devmode, "dev-mode", false, "Enable debug logging and insecure communication with vault")
+	args := opconfig.OperatorCliArgs{}
+	arg.MustParse(&args)
+	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	flag.Parse()
+	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
-	logs.InitLoggers(devmode, flag.CommandLine)
-	setupLog := ctrl.Log.WithName("setup")
+	ctx := ctrl.SetupSignalHandler()
 
-	if err := config.ValidateEnv(); err != nil {
-		setupLog.Error(err, "invalid configuration")
+	mgr, mgrErr := createManager(ctx, args)
+	if mgrErr != nil {
+		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
-		Logger:                 ctrl.Log,
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	cfg, err := sharedConfig.LoadFrom(configFile)
+	cfg, err := opconfig.LoadFrom(&args)
 	if err != nil {
 		setupLog.Error(err, "Failed to load the configuration")
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage("spi-controller-manager", cfg.VaultHost, cfg.ServiceAccountTokenFilePath, devmode)
+	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
 
-	if config.RunControllers() {
-		if err = (&controllers.SPIAccessTokenReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: strg,
-			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration:    cfg,
-				KubernetesClient: mgr.GetClient(),
-				HttpClient:       http.DefaultClient,
-				Initializers:     serviceproviders.KnownInitializers(),
-				TokenStorage:     strg,
-			},
-			Configuration: cfg,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
-			os.Exit(1)
-		}
-		if err = (&controllers.SPIAccessTokenBindingReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: strg,
-			ServiceProviderFactory: serviceprovider.Factory{
-				Configuration:    cfg,
-				KubernetesClient: mgr.GetClient(),
-				HttpClient:       http.DefaultClient,
-				Initializers:     serviceproviders.KnownInitializers(),
-				TokenStorage:     strg,
-			},
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
-			os.Exit(1)
-		}
-	} else {
-		setupLog.Info("CRD controllers inactive")
+	if err = (&controllers.SPIAccessTokenReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration:    cfg,
+			KubernetesClient: mgr.GetClient(),
+			HttpClient:       http.DefaultClient,
+			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
+		},
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
+		os.Exit(1)
+	}
+	if err = (&controllers.SPIAccessTokenBindingReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		TokenStorage: strg,
+		ServiceProviderFactory: serviceprovider.Factory{
+			Configuration:    cfg,
+			KubernetesClient: mgr.GetClient(),
+			HttpClient:       http.DefaultClient,
+			Initializers:     serviceproviders.KnownInitializers(),
+			TokenStorage:     strg,
+		},
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.SPIAccessCheckReconciler{
@@ -170,8 +148,39 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func createManager(ctx context.Context, args opconfig.OperatorCliArgs) (manager.Manager, error) {
+	options := ctrl.Options{
+		Scheme:                 scheme,
+		MetricsBindAddress:     args.MetricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: args.ProbeAddr,
+		LeaderElection:         args.EnableLeaderElection,
+		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
+		Logger:                 ctrl.Log,
+	}
+	restConfig := ctrl.GetConfigOrDie()
+
+	var mgr manager.Manager
+	var err error
+	if isKcp, isKcpErr := infrastructure.IsKcp(restConfig); isKcpErr == nil {
+		if isKcp {
+			mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
+		} else {
+			mgr, err = ctrl.NewManager(restConfig, options)
+		}
+	} else {
+		err = isKcpErr
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manager %w", err)
+	}
+
+	return mgr, nil
 }

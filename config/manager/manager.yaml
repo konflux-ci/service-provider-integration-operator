@@ -19,12 +19,14 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
-      - command:
+      - name: manager
+        command:
         - /manager
-        args:
-        - --leader-elect
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
-        name: manager
+        env: []
+        envFrom:
+          - configMapRef:
+              name: controller-manager-environment-config
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -47,15 +49,43 @@ spec:
             cpu: 100m
             memory: 20Mi
         volumeMounts:
-          - mountPath: /etc/spi/
-            name: oauth-config
+          - mountPath: /etc/spi/config.yaml
+            name: config-file
             readOnly: true
+            subPath: config.yaml
+          - mountPath: /etc/spi/secret_id
+            name: vault-approle
+            readOnly: true
+            subPath: secret_id
+          - mountPath: /etc/spi/role_id
+            name: vault-approle
+            readOnly: true
+            subPath: role_id
+      - name: kube-rbac-proxy
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        args:
+          - "--secure-listen-address=0.0.0.0:8443"
+          - "--upstream=http://127.0.0.1:8080/"
+          - "--logtostderr=true"
+          - "--v=10"
+        ports:
+          - containerPort: 8443
+            protocol: TCP
+            name: https
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
-        - name: oauth-config
+        - name: config-file
           secret:
-            secretName: oauth-config
+            secretName: shared-configuration-file
             items:
               - key: config.yaml
                 path: config.yaml
+        - name: vault-approle
+          secret:
+            secretName: vault-approle-spi-operator
+            items:
+              - key: role_id
+                path: role_id
+              - key: secret_id
+                path: secret_id

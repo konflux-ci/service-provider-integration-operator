@@ -5,9 +5,9 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -17,9 +17,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vault-config
-  namespace: system
+  namespace: spi-vault
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -43,7 +43,7 @@ kind: ClusterRoleBinding
 metadata:
   name: vault-server-binding
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -54,7 +54,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: vault
-  namespace: system
+  namespace: spi-vault
 ---
 # Source: vault/templates/server-headless-service.yaml
 # Service for Vault cluster
@@ -62,9 +62,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: vault-internal
-  namespace: system
+  namespace: spi-vault
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -91,9 +91,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
-    helm.sh/chart: vault-0.19.0
+    helm.sh/chart: vault-0.20.1
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
     app.kubernetes.io/managed-by: Helm
@@ -121,7 +121,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: vault
-  namespace: system
+  namespace: spi-vault
   labels:
     app.kubernetes.io/name: vault
     app.kubernetes.io/instance: vault
@@ -140,7 +140,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: vault-0.19.0
+        helm.sh/chart: vault-0.20.1
         app.kubernetes.io/name: vault
         app.kubernetes.io/instance: vault
         component: server
@@ -156,6 +156,7 @@ spec:
                   component: server
               topologyKey: kubernetes.io/hostname
   
+      
       
       
       terminationGracePeriodSeconds: 10
@@ -184,8 +185,15 @@ spec:
           emptyDir: {}
       containers:
         - name: vault
-          
-          image: hashicorp/vault:1.9.4
+          resources:
+            limits:
+              cpu: 500m
+              memory: 500Mi
+            requests:
+              cpu: 50m
+              memory: 100Mi
+  
+          image: hashicorp/vault:1.10.3
           imagePullPolicy: IfNotPresent
           command:
           - "/bin/sh"
@@ -237,7 +245,7 @@ spec:
             - name: HOME
               value: "/home/vault"
             - name: VAULT_LOG_LEVEL
-              value: "trace"
+              value: "info"
             
             
             
@@ -311,23 +319,52 @@ spec:
           requests:
             storage: 1Gi
 ---
+# Source: vault/templates/server-ingress.yaml
+apiVersion: networking.k8s.io/v1
+
+kind: Ingress
+metadata:
+  name: vault
+  namespace: spi-vault
+  labels:
+    helm.sh/chart: vault-0.20.1
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/instance: vault
+    app.kubernetes.io/managed-by: Helm
+spec:
+  rules:
+    - host: "${VAULT_HOST}"
+      http:
+        paths:
+
+          - path: /
+            
+            pathType: Prefix
+            
+            backend:
+              
+              service:
+                name: vault
+                port:
+                  number: 8200
+---
 # Source: vault/templates/tests/server-test.yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: "vault-server-test"
-  namespace: system
+  namespace: spi-vault
   annotations:
     "helm.sh/hook": test
 spec:
   
   containers:
     - name: vault-server-test
-      image: hashicorp/vault:1.9.4
+      image: hashicorp/vault:1.10.3
       imagePullPolicy: IfNotPresent
       env:
         - name: VAULT_ADDR
-          value: http://vault.system.svc:8200
+          value: http://vault.spi-vault.svc:8200
         
       command:
         - /bin/sh

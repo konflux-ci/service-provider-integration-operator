@@ -15,13 +15,27 @@
 package serviceprovider
 
 import (
+	"context"
+	"net/http"
+	"os"
 	"testing"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
+}
 
 func TestGetAllScopesUniqueValues(t *testing.T) {
 	translateToScopes := func(permission api.Permission) []string {
@@ -97,4 +111,42 @@ func TestDefaultMapToken(t *testing.T) {
 		assert.NotNil(t, m.ExpiredAfter)
 		assert.Equal(t, uint64(15), *m.ExpiredAfter)
 	})
+}
+
+func TestFromRepoUrl(t *testing.T) {
+	mockSP := struct {
+		ServiceProvider
+	}{}
+
+	mockInit := Initializer{
+		Probe: struct {
+			ProbeFunc
+		}{
+			ProbeFunc: func(cl *http.Client, url string) (string, error) {
+				return "https://base-url.com", nil
+			},
+		},
+		Constructor: struct {
+			ConstructorFunc
+		}{
+			ConstructorFunc: func(factory *Factory, baseUrl string) (ServiceProvider, error) {
+				return mockSP, nil
+			},
+		},
+		SupportsManualUploadOnlyMode: true,
+	}
+
+	fact := Factory{
+		Configuration:    opconfig.OperatorConfiguration{},
+		KubernetesClient: nil,
+		HttpClient:       nil,
+		Initializers: map[config.ServiceProviderType]Initializer{
+			config.ServiceProviderTypeQuay: mockInit,
+		},
+		TokenStorage: nil,
+	}
+
+	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo")
+	assert.NoError(t, err)
+	assert.Equal(t, mockSP, sp)
 }

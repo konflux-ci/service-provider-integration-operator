@@ -22,12 +22,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
+	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"github.com/hashicorp/vault/vault"
 
 	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -60,7 +65,9 @@ type IntegrationTest struct {
 	Cancel                   context.CancelFunc
 	TestServiceProviderProbe serviceprovider.Probe
 	TestServiceProvider      TestServiceProvider
+	HostCredsServiceProvider TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
+	OperatorConfiguration    opconfig.OperatorConfiguration
 }
 
 var ITest IntegrationTest
@@ -80,7 +87,7 @@ var _ = BeforeSuite(func() {
 		// service provider method implementation.
 		Fail("This testsuite cannot be run in parallel")
 	}
-
+	logs.InitDevelLoggers()
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ITest = IntegrationTest{}
@@ -93,6 +100,7 @@ var _ = BeforeSuite(func() {
 	testEnv := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		//UseExistingCluster: pointer.BoolPtr(true),
 	}
 	ITest.TestEnvironment = testEnv
 
@@ -103,7 +111,7 @@ var _ = BeforeSuite(func() {
 	noPrivsUser, err := testEnv.AddUser(envtest.User{
 		Name:   "test-user",
 		Groups: []string{},
-	}, nil)
+	}, cfg)
 	Expect(err).NotTo(HaveOccurred())
 
 	scheme := runtime.NewScheme()
@@ -121,6 +129,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = rbac.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = apiexv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -145,17 +156,30 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
-
-	operatorCfg := config.Configuration{
-		ServiceProviders: []config.ServiceProviderConfiguration{
-			{
-				ClientId:            "testClient",
-				ClientSecret:        "testSecret",
-				ServiceProviderType: "TestServiceProvider",
-			},
+	ITest.HostCredsServiceProvider = TestServiceProvider{
+		GetTypeImpl: func() api.ServiceProviderType {
+			return "HostCredsServiceProvider"
 		},
-		SharedSecret:   []byte("secret"),
-		AccessCheckTtl: 10 * time.Second,
+
+		GetBaseUrlImpl: func() string {
+			return "not-test-provider://"
+		},
+	}
+
+	ITest.OperatorConfiguration = opconfig.OperatorConfiguration{
+		SharedConfiguration: config.SharedConfiguration{
+			ServiceProviders: []config.ServiceProviderConfiguration{
+				{
+					ClientId:            "testClient",
+					ClientSecret:        "testSecret",
+					ServiceProviderType: "TestServiceProvider",
+				},
+			},
+			SharedSecret: []byte("secret"),
+		},
+		AccessCheckTtl:        10 * time.Second,
+		AccessTokenTtl:        10 * time.Second,
+		AccessTokenBindingTtl: 10 * time.Second,
 	}
 
 	// start webhook server using Manager
@@ -180,7 +204,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	factory := serviceprovider.Factory{
-		Configuration:    operatorCfg,
+		Configuration:    ITest.OperatorConfiguration,
 		KubernetesClient: mgr.GetClient(),
 		HttpClient:       http.DefaultClient,
 		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
@@ -190,6 +214,14 @@ var _ = BeforeSuite(func() {
 				}),
 				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 					return ITest.TestServiceProvider, nil
+				}),
+			},
+			"HostCredentials": {
+				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+				}),
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+					return ITest.HostCredsServiceProvider, nil
 				}),
 			},
 		},
@@ -206,7 +238,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		TokenStorage:           strg,
-		Configuration:          operatorCfg,
+		Configuration:          ITest.OperatorConfiguration,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -215,6 +247,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		TokenStorage:           strg,
+		Configuration:          ITest.OperatorConfiguration,
 		ServiceProviderFactory: factory,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
@@ -228,7 +261,7 @@ var _ = BeforeSuite(func() {
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
 		ServiceProviderFactory: factory,
-		Configuration:          operatorCfg,
+		Configuration:          ITest.OperatorConfiguration,
 	}).SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -248,7 +281,9 @@ var _ = AfterSuite(func() {
 	}
 
 	By("tearing down the test environment")
-	ITest.VaultTestCluster.Cleanup()
+	if ITest.VaultTestCluster != nil {
+		ITest.VaultTestCluster.Cleanup()
+	}
 	if ITest.TestEnvironment != nil {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())

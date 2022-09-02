@@ -52,6 +52,9 @@ kind: APIExport
 metadata:
   name: spi
 spec:
+  permissionClaims:
+    - group: ""
+      resource: secrets
   latestResourceSchemas:
 EOF
 

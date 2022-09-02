@@ -20,6 +20,7 @@ package tokenstorage
 import (
 	"context"
 
+	"github.com/hashicorp/go-hclog"
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	vaultapi "github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
@@ -74,6 +75,7 @@ func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, TokenStorage
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
 		NumCores:    1,
+		Logger:      hclog.Default(),
 	})
 	cluster.Start()
 	client := cluster.Cores[0].Client

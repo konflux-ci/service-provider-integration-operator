@@ -6,8 +6,11 @@ kind: APIExport
 metadata:
   name: spi
 spec:
+  permissionClaims:
+    - group: ""
+      resource: secrets
   latestResourceSchemas:
-    - v202206100727.spiaccesschecks.appstudio.redhat.com
-    - v202206100727.spiaccesstokenbindings.appstudio.redhat.com
-    - v202206100727.spiaccesstokendataupdates.appstudio.redhat.com
-    - v202206100727.spiaccesstokens.appstudio.redhat.com
+    - v202208110932.spiaccesschecks.appstudio.redhat.com
+    - v202208110932.spiaccesstokenbindings.appstudio.redhat.com
+    - v202208110932.spiaccesstokendataupdates.appstudio.redhat.com
+    - v202208110932.spiaccesstokens.appstudio.redhat.com

@@ -16,13 +16,10 @@ package serviceprovider
 
 import (
 	"context"
-	"flag"
-	"os"
 	"testing"
 	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,11 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-func TestMain(m *testing.M) {
-	logs.InitLoggers(true, flag.CommandLine)
-	os.Exit(m.Run())
-}
 
 func TestGenericLookup_Lookup(t *testing.T) {
 	matchingToken := &api.SPIAccessToken{

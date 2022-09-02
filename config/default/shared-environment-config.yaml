@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared-environment-config
+  namespace: system
+data:
+  VAULTHOST: ${VAULT_HOST}
+  BASEURL: https://${OAUTH_HOST}

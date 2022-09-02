@@ -18,8 +18,14 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
@@ -29,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -42,18 +49,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
+const GracePeriodSeconds = 2
+
+var (
+	unexpectedObjectTypeError = stderrors.New("unexpected object type")
+	linkedBindingPresentError = stderrors.New("linked bindings present")
+)
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
 type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          config.Configuration
+	Configuration          opconfig.OperatorConfiguration
 	ServiceProviderFactory serviceprovider.Factory
 	finalizers             finalizer.Finalizers
 }
@@ -76,7 +88,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&api.SPIAccessToken{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, func() string {
-				return object.GetLabels()[opconfig.SPIAccessTokenLinkLabel]
+				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
@@ -118,14 +130,19 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
 
-	lg.Info("Reconciling")
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		lg = lg.WithValues("clusterName", req.ClusterName)
+	}
 
 	at := api.SPIAccessToken{}
 
 	if err := r.Get(ctx, req.NamespacedName, &at); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("token already gone from the cluster. skipping reconciliation")
+			lg.V(logs.DebugLevel).Info("token already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
@@ -153,12 +170,32 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if at.DeletionTimestamp != nil {
-		lg.Info("token being deleted, no other changes required after completed finalization")
+		lg.V(logs.DebugLevel).Info("token being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
 	}
 
+	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
+
+	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
+		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
+		if err != nil {
+			lg.Error(err, "failed to check linked bindings for token", "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to check linked bindings for token: %w", err)
+		}
+		if !hasLinkedBindings {
+			err = r.Delete(ctx, &at)
+			if err != nil {
+				lg.Error(err, "failed to cleanup obsolete token", "error", err)
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup token on reaching the lifetime or being unreferenced: %w", err)
+			}
+			lg.V(logs.DebugLevel).Info("token being deleted on reaching іts lifetime or being unreferenced with awaiting state", "token", at.ObjectMeta.Name, "tokenLifetime", tokenLifetime, "accesstokenttl", r.Configuration.AccessTokenTtl.Seconds())
+			return ctrl.Result{}, nil
+		}
+	}
+
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
-	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
 		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed update the status: %w", uerr)
@@ -208,11 +245,14 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.updateTokenStatusSuccess(ctx, &at); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
-
 	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
-		Info("reconciliation finished successfully")
+		V(logs.DebugLevel).Info("reconciliation finished successfully")
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
+}
+
+func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
+	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(GracePeriodSeconds * time.Second))
 }
 
 func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {
@@ -242,7 +282,7 @@ func (r *SPIAccessTokenReconciler) updateTokenStatusSuccess(ctx context.Context,
 // fillInStatus examines the provided token object and updates its status to match the state of the object.
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	if at.Status.TokenMetadata == nil || at.Status.TokenMetadata.Username == "" {
-		oauthUrl, err := r.oAuthUrlFor(at)
+		oauthUrl, err := r.oAuthUrlFor(ctx, at)
 		if err != nil {
 			return err
 		}
@@ -254,19 +294,25 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
 		at.Status.OAuthUrl = ""
 		if changed {
-			lg := log.FromContext(ctx)
-			lg.Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
+			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
+	}
+	if at.Status.UploadUrl == "" {
+		at.Status.UploadUrl = strings.TrimSuffix(r.Configuration.BaseUrl, "/") + "/token/" + at.Namespace + "/" + at.Name
 	}
 
 	return nil
 }
 
 // oAuthUrlFor determines the OAuth flow initiation URL for given token.
-func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, error) {
-	sp, err := r.ServiceProviderFactory.FromRepoUrl(at.Spec.ServiceProviderUrl)
+func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIAccessToken) (string, error) {
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
+	}
+	oauthBaseUrl := sp.GetOAuthEndpoint()
+	if len(oauthBaseUrl) == 0 {
+		return "", nil
 	}
 
 	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
@@ -278,7 +324,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		IssuedAt:            time.Now().Unix(),
-		Scopes:              serviceprovider.GetAllScopes(sp.TranslateToScopes, &at.Spec.Permissions),
+		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
@@ -286,7 +332,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(at *api.SPIAccessToken) (string, 
 		return "", fmt.Errorf("failed to encode the OAuth state: %w", err)
 	}
 
-	return sp.GetOAuthEndpoint() + "?state=" + state, nil
+	return oauthBaseUrl + "?state=" + state, nil
 }
 
 type linkedBindingsFinalizer struct {
@@ -304,30 +350,19 @@ func (f *linkedBindingsFinalizer) Finalize(ctx context.Context, obj client.Objec
 	res := finalizer.Result{}
 	token, ok := obj.(*api.SPIAccessToken)
 	if !ok {
-		return res, fmt.Errorf("unexpected object type: %w", nil)
+		return res, unexpectedObjectTypeError
 	}
 
-	hasBindings, err := f.hasLinkedBindings(ctx, token)
+	hasBindings, err := hasLinkedBindings(ctx, token, f.client)
 	if err != nil {
 		return res, err
 	}
 
 	if hasBindings {
-		return res, fmt.Errorf("linked bindings present: %w", nil)
+		return res, linkedBindingPresentError
 	} else {
 		return res, nil
 	}
-}
-
-func (f *linkedBindingsFinalizer) hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken) (bool, error) {
-	list := &api.SPIAccessTokenBindingList{}
-	if err := f.client.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
-		opconfig.SPIAccessTokenLinkLabel: token.Name,
-	}); err != nil {
-		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
-	}
-
-	return len(list.Items) > 0, nil
 }
 
 func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
@@ -336,4 +371,15 @@ func (f *tokenStorageFinalizer) Finalize(ctx context.Context, obj client.Object)
 		err = fmt.Errorf("failed to delete the linked token during finalization of %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return finalizer.Result{}, err
+}
+
+func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient client.Client) (bool, error) {
+	list := &api.SPIAccessTokenBindingList{}
+	if err := k8sClient.List(ctx, list, client.InNamespace(token.Namespace), client.Limit(1), client.MatchingLabels{
+		SPIAccessTokenLinkLabel: token.Name,
+	}); err != nil {
+		return false, fmt.Errorf("failed to list the linked bindings for %s/%s: %w", token.Namespace, token.Name, err)
+	}
+
+	return len(list.Items) > 0, nil
 }

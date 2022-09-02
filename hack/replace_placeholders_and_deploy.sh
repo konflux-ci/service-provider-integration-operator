@@ -20,6 +20,9 @@ TEMP_DIR="${THIS_DIR}/../.tmp/deployment_${DEPL_NAME}"
 
 OVERLAY_DIR="${TEMP_DIR}/${OVERLAY}"
 
+# we need this to keep kustomize patches intact
+export patch="\$patch"
+
 mkdir -p "${TEMP_DIR}"
 cp -r "${THIS_DIR}/../config/"* "${TEMP_DIR}"
 find "${TEMP_DIR}" -name '*.yaml' | while read -r f; do
@@ -31,8 +34,14 @@ done
 CURDIR=$(pwd)
 
 cd "${OVERLAY_DIR}" || exit
-${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-operator="${SPIO_IMG}"
-${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-oauth="${SPIS_IMG}"
+if [ ! -z ${SPIO_IMG} ]; then
+  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-operator="${SPIO_IMG}"
+fi
+
+if [ ! -z ${SPIS_IMG} ]; then
+  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/service-provider-integration-oauth="${SPIS_IMG}"
+fi
+
 ${KUSTOMIZE} build . | kubectl apply -f -
 
 cd "${CURDIR}" || exit
