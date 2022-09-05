@@ -133,7 +133,7 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 				auditLog.Error(err, "Error when storing token metadata")
 				return err
 			}
-			auditLog.Info("oken metadata fetched and stored successfully")
+			auditLog.Info("token metadata fetched and stored successfully")
 		}
 	}
 
