@@ -17,8 +17,9 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
