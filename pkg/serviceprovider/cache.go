@@ -134,6 +134,8 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 				return err
 			}
 			auditLog.Info("token metadata fetched and stored successfully")
+		} else {
+			auditLog.Info("token metadata could not be read from the provider")
 		}
 	}
 
