@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -51,14 +51,10 @@ type SPIAccessCheckReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks/finalizers,verbs=update
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {

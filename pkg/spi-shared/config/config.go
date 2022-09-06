@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -109,7 +110,7 @@ func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
 	}
 
 	cfg := pcfg.convert()
-	cfg.BaseUrl = args.BaseUrl
+	cfg.BaseUrl = strings.TrimSuffix(args.BaseUrl, "/")
 
 	return cfg, nil
 }
