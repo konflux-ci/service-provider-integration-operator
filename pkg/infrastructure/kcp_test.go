@@ -17,11 +17,12 @@ package infrastructure
 import (
 	"context"
 	"encoding/json"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"net/http"
 	"net/http/httptest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"github.com/stretchr/testify/assert"
