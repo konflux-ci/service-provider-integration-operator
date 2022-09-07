@@ -65,7 +65,7 @@ type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 	ServiceProviderFactory serviceprovider.Factory
 	finalizers             finalizer.Finalizers
 }
