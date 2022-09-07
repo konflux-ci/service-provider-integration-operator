@@ -17,8 +17,10 @@ package infrastructure
 import (
 	"context"
 	"encoding/json"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"net/http"
 	"net/http/httptest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
@@ -87,6 +89,25 @@ func TestRestApiConfig(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, newRestConfig)
+	})
+}
+
+func TestInitKcpControllerContext(t *testing.T) {
+	t.Run("no workspace", func(t *testing.T) {
+		ctx := InitKcpControllerContext(context.TODO(), ctrl.Request{})
+
+		_, hasClusterName := logicalcluster.ClusterFromContext(ctx)
+		assert.False(t, hasClusterName)
+	})
+
+	t.Run("kcp workspace", func(t *testing.T) {
+		ctx := InitKcpControllerContext(context.TODO(), ctrl.Request{
+			ClusterName: "workspace",
+		})
+
+		clusterName, hasClusterName := logicalcluster.ClusterFromContext(ctx)
+		assert.True(t, hasClusterName)
+		assert.Equal(t, "workspace", clusterName.String())
 	})
 }
 
