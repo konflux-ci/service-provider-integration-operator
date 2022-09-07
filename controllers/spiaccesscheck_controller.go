@@ -43,7 +43,7 @@ type SPIAccessCheckReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	ServiceProviderFactory serviceprovider.Factory
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks,verbs=get;list;watch;create;update;patch;delete
