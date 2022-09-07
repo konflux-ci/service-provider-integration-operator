@@ -80,10 +80,13 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl); spErr == nil {
+		auditLog := log.FromContext(ctx, "audit", "true", "namespace", ac.Namespace, "token", ac.Name, "repository", ac.Spec.RepoUrl)
+		auditLog.Info("performing repository access check")
 		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {
 			ac.Status = *status
+			auditLog.Info("repository access check succeeded")
 		} else {
-			lg.Error(repoCheckErr, "failed to check repository access")
+			auditLog.Error(repoCheckErr, "failed to check repository access")
 			return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", repoCheckErr)
 		}
 	} else {
