@@ -86,7 +86,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	r.syncer = sync.New(mgr.GetClient())
 	r.finalizers = finalizer.NewFinalizers()
 	if err := r.finalizers.Register(linkedSecretsFinalizerName, &linkedSecretsFinalizer{client: r.Client}); err != nil {
-		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
+		return fmt.Errorf("failed to register the linked secrets finalizer: %w", err)
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
@@ -518,6 +518,7 @@ type linkedSecretsFinalizer struct {
 
 var _ finalizer.Finalizer = (*linkedSecretsFinalizer)(nil)
 
+// Finalize removes the secret synced to the actual binging being deleted
 func (f *linkedSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	res := finalizer.Result{}
 	binding, ok := obj.(*api.SPIAccessTokenBinding)
