@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -50,6 +52,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
+const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets"
+
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
 var (
@@ -69,6 +73,7 @@ type SPIAccessTokenBindingReconciler struct {
 	Configuration          *opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
+	finalizers             finalizer.Finalizers
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
@@ -79,9 +84,13 @@ type SPIAccessTokenBindingReconciler struct {
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.syncer = sync.New(mgr.GetClient())
+	r.finalizers = finalizer.NewFinalizers()
+	if err := r.finalizers.Register(linkedSecretsFinalizerName, &linkedSecretsFinalizer{client: r.Client}); err != nil {
+		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
+	}
+
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
-		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			bindings := &api.SPIAccessTokenBindingList{}
 			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace())); err != nil {
@@ -131,6 +140,23 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
 		"phase_at_reconcile_start", binding.Status.Phase)
+
+	finalizationResult, err := r.finalizers.Finalize(ctx, &binding)
+	if err != nil {
+		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
+		// we get another reconciliation due to cluster state change
+		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
+	}
+	if finalizationResult.Updated {
+		if err = r.Client.Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update based on finalization result: %w", err)
+		}
+	}
+	if finalizationResult.StatusUpdated {
+		if err = r.Client.Status().Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status based on finalization result: %w", err)
+		}
+	}
 
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
@@ -264,7 +290,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	// now that we set up the binding correctly, we need to clean up the potentially dangling secret (that might contain
 	// stale data if the data of the token disappeared from the token)
 	if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
-		if err := r.deleteSyncedSecret(ctx, existingSyncedSecretName, binding.Namespace); err != nil {
+		if err := deleteSyncedSecret(ctx, r.Client, existingSyncedSecretName, binding.Namespace); err != nil {
 			lg.Error(err, "failed to delete the stale synced object")
 			// note that we don't actually set any error on the binding itself, because it no longer references the
 			// secret. The secret will get cleaned up once the binding is deleted because of the owner reference.
@@ -454,13 +480,13 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	return toObjectRef(obj), nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context, secretName string, secretNamespace string) error {
+func deleteSyncedSecret(ctx context.Context, cl client.Client, secretName string, secretNamespace string) error {
 	if secretName == "" {
 		return nil
 	}
 
 	secret := &corev1.Secret{}
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
+	if err := cl.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -468,7 +494,7 @@ func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context
 		return fmt.Errorf("failed to get the secret to delete: %w", err)
 	}
 
-	if err := r.Client.Delete(ctx, secret); err != nil {
+	if err := cl.Delete(ctx, secret); err != nil {
 		return fmt.Errorf("failed to delete the injected secret: %w", err)
 	}
 
@@ -484,4 +510,23 @@ func toObjectRef(obj client.Object) api.TargetObjectRef {
 		Kind:       kind,
 		ApiVersion: apiVersion,
 	}
+}
+
+type linkedSecretsFinalizer struct {
+	client client.Client
+}
+
+var _ finalizer.Finalizer = (*linkedSecretsFinalizer)(nil)
+
+func (f *linkedSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+	res := finalizer.Result{}
+	binding, ok := obj.(*api.SPIAccessTokenBinding)
+	if !ok {
+		return res, unexpectedObjectTypeError
+	}
+
+	if err := deleteSyncedSecret(ctx, f.client, binding.Status.SyncedObjectRef.Name, binding.Namespace); err != nil {
+		return res, err
+	}
+	return finalizer.Result{}, nil
 }

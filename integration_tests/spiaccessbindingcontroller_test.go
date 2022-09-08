@@ -110,6 +110,14 @@ var _ = Describe("Create binding", func() {
 		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
+	It("registering the finalizers", func() {
+		Eventually(func(g Gomega) {
+			binding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+			g.Expect(binding.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-secrets"))
+		}).Should(Succeed())
+	})
+
 	It("should link the token to the binding", func() {
 		testTokenNameInStatus(createdBinding, Equal(createdToken.Name))
 	})
@@ -279,14 +287,14 @@ var _ = Describe("Delete binding", func() {
 	})
 
 	It("should delete the synced secret", func() {
-		// Note that automatic cleanup of owned objects doesn't seem to work in testenv, so we're just checking here
-		// that the secret has its owner reference set correctly and actually try to delete it ourselves here in this
-		// test.
-		Expect(syncedSecret.OwnerReferences).NotTo(BeEmpty())
-		Expect(syncedSecret.OwnerReferences[0].UID).To(Equal(createdBinding.UID))
-
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, syncedSecret)).To(Succeed())
+		// and check that secret eventually disappeared
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(syncedSecret), &corev1.Secret{})
+			if errors.IsNotFound(err) {
+				return
+			}
+		}).Should(Succeed())
 	})
 
 	It("should delete binding by timeout", func() {
