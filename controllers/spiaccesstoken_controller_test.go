@@ -27,13 +27,13 @@ import (
 )
 
 func TestCreateUploadUrl(t *testing.T) {
-	cfg := opconfig.OperatorConfiguration{
+	cfg := &opconfig.OperatorConfiguration{
 		SharedConfiguration: sconfig.SharedConfiguration{
 			BaseUrl: "blabol",
 		},
 	}
 	r := &SPIAccessTokenReconciler{
-		Configuration: cfg,
+		Configuration: *cfg,
 	}
 
 	at := &api.SPIAccessToken{
