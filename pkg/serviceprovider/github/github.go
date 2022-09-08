@@ -44,7 +44,7 @@ var (
 )
 
 type Github struct {
-	Configuration   opconfig.OperatorConfiguration
+	Configuration   *opconfig.OperatorConfiguration
 	lookup          serviceprovider.GenericLookup
 	httpClient      rest.HTTPClient
 	tokenStorage    tokenstorage.TokenStorage

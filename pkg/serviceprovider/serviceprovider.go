@@ -79,7 +79,7 @@ type ValidationResult struct {
 
 // Factory is able to construct service providers from repository URLs.
 type Factory struct {
-	Configuration    opconfig.OperatorConfiguration
+	Configuration    *opconfig.OperatorConfiguration
 	KubernetesClient client.Client
 	HttpClient       *http.Client
 	Initializers     map[config.ServiceProviderType]Initializer

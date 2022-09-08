@@ -47,7 +47,7 @@ var (
 )
 
 type Quay struct {
-	Configuration    opconfig.OperatorConfiguration
+	Configuration    *opconfig.OperatorConfiguration
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
 	httpClient       rest.HTTPClient
