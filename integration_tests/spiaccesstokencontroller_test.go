@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -256,8 +255,14 @@ var _ = Describe("Delete token", func() {
 	})
 
 	It("should delete the synced token in awaiting state", func() {
+		origDeletionGracePeriod := ITest.OperatorConfiguration.DeletionGracePeriod
+		ITest.OperatorConfiguration.DeletionGracePeriod = 1 * time.Second
+		defer func() {
+			ITest.OperatorConfiguration.DeletionGracePeriod = origDeletionGracePeriod
+		}()
+
 		Eventually(func(g Gomega) bool {
-			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.GracePeriodSeconds+1
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > ITest.OperatorConfiguration.DeletionGracePeriod.Seconds()+1
 		}).Should(BeTrue())
 		//flip back to awaiting
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)

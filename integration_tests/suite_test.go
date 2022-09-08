@@ -180,6 +180,7 @@ var _ = BeforeSuite(func() {
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,
 		AccessTokenBindingTtl: 10 * time.Second,
+		DeletionGracePeriod:   10 * time.Second,
 	}
 
 	// start webhook server using Manager
