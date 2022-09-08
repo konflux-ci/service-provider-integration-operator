@@ -20,7 +20,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	sconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,7 @@ import (
 
 func TestCreateUploadUrl(t *testing.T) {
 	r := &SPIAccessTokenReconciler{
-		Configuration: config.OperatorConfiguration{
+		Configuration: &opconfig.OperatorConfiguration{
 			SharedConfiguration: sconfig.SharedConfiguration{
 				BaseUrl: "blabol",
 			},
