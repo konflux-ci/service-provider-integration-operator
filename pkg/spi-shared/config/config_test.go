@@ -68,6 +68,23 @@ serviceProviders:
 	assert.Len(t, cfg.ServiceProviders, 2)
 }
 
+func TestBaseUrlIsTrimmed(t *testing.T) {
+	configFileContent := `
+sharedSecret: yaddayadda123$@#**
+serviceProviders:
+- type: GitHub
+  clientId: "123"
+  clientSecret: "42"
+`
+	cfgFilePath := createFile(t, "config", configFileContent)
+	defer os.Remove(cfgFilePath)
+
+	cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol/"})
+	assert.NoError(t, err)
+
+	assert.Equal(t, "blabol", cfg.BaseUrl)
+}
+
 func createFile(t *testing.T, path string, content string) string {
 	file, err := os.CreateTemp(os.TempDir(), path)
 	assert.NoError(t, err)

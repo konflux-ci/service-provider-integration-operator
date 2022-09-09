@@ -39,6 +39,9 @@ type AnonymousOAuthState struct {
 	// TokenNamespace is the namespace of the SPIAccessToken object for which we are initiating the OAuth flow
 	TokenNamespace string `json:"tokenNamespace"`
 
+	// TokenKcpWorkspace is the KCP workspace where SPIAccessToken lives. It's empty in non-KCP environment
+	TokenKcpWorkspace string `json:"tokenKcpWorkspace"`
+
 	// IssuedAt is the timestamp when the state was generated.
 	IssuedAt int64 `json:"issuedAt,omitempty"`
 
