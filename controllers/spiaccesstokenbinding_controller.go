@@ -20,8 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"time"
+
+	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
