@@ -248,7 +248,7 @@ undeploy_vault_openshift:
 
 deploy_vault_minikube:
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
-	NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
+	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
 undeploy_vault_k8s:
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f -
