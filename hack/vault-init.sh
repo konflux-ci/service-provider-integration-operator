@@ -46,7 +46,7 @@ function secret() {
   fi
 
   if kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}; then
-    echo "Secret 5{SECRET_NAME} already exists. Deleting ..."
+    echo "Secret ${SECRET_NAME} already exists. Deleting ..."
     kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}
   fi
 
@@ -137,11 +137,11 @@ function k8sAuth() {
   fi
   vaultExec "vault write auth/kubernetes/role/spi-controller-manager \
         bound_service_account_names=spi-controller-manager \
-        bound_service_account_VAULT_NAMESPACEs=spi-system \
+        bound_service_account_namespaces=spi-system \
         policies=spi"
   vaultExec "vault write auth/kubernetes/role/spi-oauth \
           bound_service_account_names=spi-oauth-sa \
-          bound_service_account_VAULT_NAMESPACEs=spi-system \
+          bound_service_account_namespaces=spi-system \
           policies=spi"
   # shellcheck disable=SC2016
   vaultExec 'vault write auth/kubernetes/config \
@@ -202,11 +202,20 @@ done
 sleep 5
 
 init
+echo 1
 secret
+echo 2
 unseal
+echo 3
 ensureRootToken
+echo 4
 login
+echo 5
 audit
+echo 6
 spiSecretEngine
+echo 7
 auth
+echo 8
 restart
+echo 9
