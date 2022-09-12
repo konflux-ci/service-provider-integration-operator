@@ -20,13 +20,12 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/finalizer"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -117,14 +116,10 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	binding := api.SPIAccessTokenBinding{}
 

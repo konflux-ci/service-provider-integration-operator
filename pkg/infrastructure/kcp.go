@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kcp-dev/logicalcluster/v2"
+
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -113,4 +115,14 @@ func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName
 	cfg.Host = apiExport.Status.VirtualWorkspaces[0].URL
 
 	return cfg, nil
+}
+
+func InitKcpControllerContext(ctx context.Context, req ctrl.Request) context.Context {
+	// if we're running on kcp, we need to include workspace name in context and logs
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+		ctx = log.IntoContext(ctx, log.FromContext(ctx, "clusterName", req.ClusterName))
+	}
+
+	return ctx
 }
