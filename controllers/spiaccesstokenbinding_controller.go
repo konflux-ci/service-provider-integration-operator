@@ -90,7 +90,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			bindings := &api.SPIAccessTokenBindingList{}
 
 			ctx := context.TODO()
-			if kcpWorkspace.Empty() {
+			if !kcpWorkspace.Empty() {
 				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
 			}
 
