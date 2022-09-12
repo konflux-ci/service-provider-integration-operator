@@ -288,6 +288,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
 		if err := deleteSyncedSecret(ctx, r.Client, existingSyncedSecretName, binding.Namespace); err != nil {
 			lg.Error(err, "failed to delete the stale synced object")
+			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		}
 	}
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
