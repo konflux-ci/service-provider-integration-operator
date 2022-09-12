@@ -175,7 +175,7 @@ function approleAuth() {
   cat << EOF
 
 secret yaml with Vault credentials prepared
-make sure your kubectl --kubeconfig=${VAULT_KUBE_CONFIG} context targets cluster with SPI deployment and create the secret using (check spi VAULT_NAMESPACE):
+make sure your kubectl --kubeconfig=${VAULT_KUBE_CONFIG} context targets cluster with SPI deployment and create the secret using:
 
   $ kubectl --kubeconfig=${VAULT_KUBE_CONFIG} apply -f ${SECRET_FILE} -n spi-system
 
@@ -202,20 +202,11 @@ done
 sleep 5
 
 init
-echo 1
 secret
-echo 2
 unseal
-echo 3
 ensureRootToken
-echo 4
 login
-echo 5
 audit
-echo 6
 spiSecretEngine
-echo 7
 auth
-echo 8
 restart
-echo 9
