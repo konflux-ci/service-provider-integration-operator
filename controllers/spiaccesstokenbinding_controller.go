@@ -20,8 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
