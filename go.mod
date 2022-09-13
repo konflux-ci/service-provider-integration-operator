@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.5.3-0.20220721224827-e96a652fbfb0
 	github.com/kcp-dev/kcp/pkg/apis v0.8.2
 	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1
-	github.com/migueleliasweb/go-github-mock v0.0.10
+	github.com/migueleliasweb/go-github-mock v0.0.12
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
