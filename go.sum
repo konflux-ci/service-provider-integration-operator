@@ -819,10 +819,10 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/kcp-dev/apimachinery v0.0.0-20220803185518-868856d14e8a h1:lJyVMNywLln1x5A3WVELeDpftc5FktP3asI1Prx0lOU=
 github.com/kcp-dev/apimachinery v0.0.0-20220803185518-868856d14e8a/go.mod h1:qnvUHkdxOrNzX17yX+z8r81CZEBuFdveNzWqFlwZ55w=
-github.com/kcp-dev/controller-runtime v0.12.2-0.20220808200255-4b60fd66e5de h1:IuXSIlIKJiR3ZsuO5PJ1yYdncsheX3A9rpuXQJ/TfQg=
-github.com/kcp-dev/controller-runtime v0.12.2-0.20220808200255-4b60fd66e5de/go.mod h1:OFkNQPsWPPz6qWrIY3FUjmSb0W7qKLK8aZC/xBIJwUE=
-github.com/kcp-dev/kcp/pkg/apis v0.7.5 h1:lnulwtIATDoeuc3GOk7jyce6dDh+a6gu3f63LewZ9x8=
-github.com/kcp-dev/kcp/pkg/apis v0.7.5/go.mod h1:jwvDdhVuswpwqCriyr7frT3Ak23OzuFoVRjqSvfFiRk=
+github.com/kcp-dev/controller-runtime v0.12.2-0.20220902130817-824b15a11b18 h1:zohp+lT9IcqxU0whlhoWRiUbFcEgkq0VRor31Vdt8HA=
+github.com/kcp-dev/controller-runtime v0.12.2-0.20220902130817-824b15a11b18/go.mod h1:OFkNQPsWPPz6qWrIY3FUjmSb0W7qKLK8aZC/xBIJwUE=
+github.com/kcp-dev/kcp/pkg/apis v0.8.2 h1:yGeI+wZvv32w2leVd354ELydOr2TZikywGf74M3QzL8=
+github.com/kcp-dev/kcp/pkg/apis v0.8.2/go.mod h1:jwvDdhVuswpwqCriyr7frT3Ak23OzuFoVRjqSvfFiRk=
 github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1 h1:6EMfOioekQNrpcHEK7k2ANBWogFMlf+3xTB3CC4k+2s=
 github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1/go.mod h1:lfWJL764jKFJxZWOGuFuT3PCCLPo6lV5Cl8P7u9T05g=
 github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8=
@@ -889,8 +889,8 @@ github.com/michaelklishin/rabbit-hole/v2 v2.12.0 h1:946p6jOYFcVJdtBBX8MwXvuBkpPj
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/miekg/dns v1.1.41 h1:WMszZWJG0XmzbK9FEmzH2TVcqYzFesusSIB41b8KHxY=
 github.com/miekg/dns v1.1.41/go.mod h1:p6aan82bvRIyn+zDIv9xYNUpwa73JcSh9BKwknJysuI=
-github.com/migueleliasweb/go-github-mock v0.0.10 h1:VTaNa4eYzkRpnZ7Fqop7Jldgh7vsUsgnKWXDOnAvm3k=
-github.com/migueleliasweb/go-github-mock v0.0.10/go.mod h1:mD5w+9J3oBBMLr7uD6owEYlYBAL8tZd+BA7iGjI4EU8=
+github.com/migueleliasweb/go-github-mock v0.0.12 h1:z9Qd82YRA2+LbVDefRG+4PKRgaB3NYtjlv+eNtREWY4=
+github.com/migueleliasweb/go-github-mock v0.0.12/go.mod h1:mD5w+9J3oBBMLr7uD6owEYlYBAL8tZd+BA7iGjI4EU8=
 github.com/mikesmitty/edkey v0.0.0-20170222072505-3356ea4e686a h1:eU8j/ClY2Ty3qdHnn0TyW3ivFoPC/0F1gQZz8yTxbbE=
 github.com/mitchellh/cli v1.0.0/go.mod h1:hNIlj7HEI86fIcpObd7a0FcrxTWetlwJDGcceTlRvqc=
 github.com/mitchellh/cli v1.1.2 h1:PvH+lL2B7IQ101xQL63Of8yFS2y+aDlsFcsqNc+u/Kw=
