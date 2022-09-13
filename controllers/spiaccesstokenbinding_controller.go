@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
@@ -92,8 +93,16 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			kcpWorkspace := logicalcluster.From(o)
+
 			bindings := &api.SPIAccessTokenBindingList{}
-			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace())); err != nil {
+
+			ctx := context.TODO()
+			if !kcpWorkspace.Empty() {
+				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
+			}
+
+			if err := r.Client.List(ctx, bindings, client.InNamespace(o.GetNamespace())); err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
@@ -101,6 +110,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			ret := make([]reconcile.Request, 0, len(bindings.Items))
 			for _, b := range bindings.Items {
 				ret = append(ret, reconcile.Request{
+					ClusterName: kcpWorkspace.String(),
 					NamespacedName: types.NamespacedName{
 						Name:      b.Name,
 						Namespace: b.Namespace,

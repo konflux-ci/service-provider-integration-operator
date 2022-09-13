@@ -119,6 +119,7 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 
 	return []reconcile.Request{
 		{
+			ClusterName: logicalcluster.From(object).String(),
 			NamespacedName: types.NamespacedName{
 				Namespace: object.GetNamespace(),
 				Name:      tokenName,
