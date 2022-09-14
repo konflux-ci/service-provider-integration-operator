@@ -2,11 +2,8 @@
 
 #set -x
 set -e
-echo 'Kube config used:'$VAULT_KUBE_CONFIG
 VAULT_KUBE_CONFIG=${VAULT_KUBE_CONFIG:-$HOME/.kube/config}
-echo 'Kube config used:'$VAULT_KUBE_CONFIG
 VAULT_NAMESPACE=${VAULT_NAMESPACE:-spi-vault}
-echo 'Vault namespace:'$VAULT_NAMESPACE
 SECRET_NAME=spi-vault-keys
 POD_NAME=${POD_NAME:-vault-0}
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}
