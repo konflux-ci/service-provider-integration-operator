@@ -6,6 +6,9 @@ injector:
   enabled: false
 
 server:
+  image:
+    repository: docker.io/hashicorp/vault
+
   logLevel: "info"
 
   resources:
