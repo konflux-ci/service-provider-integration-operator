@@ -477,7 +477,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		secret.GenerateName = binding.Name + "-secret-"
 	}
 
-	_, obj, err := r.syncer.Sync(ctx, binding, secret, secretDiffOpts)
+	_, obj, err := r.syncer.Sync(ctx, nil, secret, secretDiffOpts)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		return api.TargetObjectRef{}, fmt.Errorf("failed to sync the secret with the token data: %w", err)
