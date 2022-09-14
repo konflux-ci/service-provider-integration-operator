@@ -37,6 +37,7 @@ const vaultDataKcpPathFormat = "spi/data/%s/%s/%s"
 
 type vaultTokenStorage struct {
 	*vault.Client
+	loginHandler *loginHandler
 }
 
 var (
@@ -112,14 +113,21 @@ func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage,
 		return nil, fmt.Errorf("error preparing vault authentication: %w", authErr)
 	}
 
-	authInfo, err := vaultClient.Auth().Login(context.TODO(), authMethod)
-	if err != nil {
-		return nil, fmt.Errorf("error while authenticating: %w", err)
+	return &vaultTokenStorage{
+		Client: vaultClient,
+		loginHandler: &loginHandler{
+			client:     vaultClient,
+			authMethod: authMethod,
+		}}, nil
+}
+
+func (v *vaultTokenStorage) Initialize(ctx context.Context) error {
+	if v.loginHandler == nil {
+		log.FromContext(ctx).Info("no login handler configured for Vault - token refresh disabled")
+		return nil
 	}
-	if authInfo == nil {
-		return nil, noAuthInfoInVaultError
-	}
-	return &vaultTokenStorage{vaultClient}, nil
+
+	return v.loginHandler.Login(ctx)
 }
 
 func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {

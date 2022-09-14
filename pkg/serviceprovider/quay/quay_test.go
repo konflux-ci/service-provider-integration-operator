@@ -358,7 +358,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			},
 		},
 	}
-	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
@@ -573,7 +573,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -596,7 +596,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -619,7 +619,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
 			}},
 		}
@@ -658,20 +658,4 @@ type tokenFilterMock struct {
 
 func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	return t.matchesFunc(ctx, matchable, token)
-}
-
-type tokenStorageMock struct {
-	getFunc func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
-}
-
-func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
-	return nil
-}
-
-func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	return t.getFunc(ctx, owner)
-}
-
-func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	return nil
 }

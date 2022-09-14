@@ -23,6 +23,7 @@ import (
 // TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
 // so that we can provide either secret-based or Vault-based implementation.
 type TokenStorage interface {
+	Initialize(ctx context.Context) error
 	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error
 	Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error)
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error

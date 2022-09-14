@@ -195,13 +195,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	ITest.VaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
+	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuth(GinkgoT())
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
 		Client:       cl,
 		TokenStorage: strg,
 	}
+
+	Expect(ITest.TokenStorage.Initialize(ctx)).To(Succeed())
 
 	factory := serviceprovider.Factory{
 		Configuration:    ITest.OperatorConfiguration,
