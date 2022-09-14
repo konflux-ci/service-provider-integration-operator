@@ -2,16 +2,17 @@
 
 #set -x
 set -e
+
 VAULT_KUBE_CONFIG=${VAULT_KUBE_CONFIG:-$HOME/.kube/config}
 VAULT_NAMESPACE=${VAULT_NAMESPACE:-spi-vault}
 SECRET_NAME=spi-vault-keys
-POD_NAME=${POD_NAME:-vault-0}
+VAULT_PODNAME=${VAULT_PODNAME:-vault-0}
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 ROOT_TOKEN=""
 
 function vaultExec() {
   COMMAND=${1}
-  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} exec ${POD_NAME} -n ${VAULT_NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
+  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} exec ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
 }
 
 function init() {
@@ -187,11 +188,11 @@ function spiSecretEngine() {
 }
 
 function restart() {
-  echo "restarting vault pod '${POD_NAME}' ..."
-  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${POD_NAME} -n ${VAULT_NAMESPACE} > /dev/null
+  echo "restarting vault pod '${VAULT_PODNAME}' ..."
+  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} > /dev/null
 }
 
-until [ "$(kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get pod ${POD_NAME} -n ${VAULT_NAMESPACE} -o jsonpath='{.status.phase}')" == "Running" ]; do
+until [ "$(kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -o jsonpath='{.status.phase}')" == "Running" ]; do
    sleep 5
    echo "Waiting for Vault pod to be ready."
 done
