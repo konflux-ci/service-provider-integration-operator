@@ -53,7 +53,6 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
-const GracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
