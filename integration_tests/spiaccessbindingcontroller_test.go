@@ -232,6 +232,8 @@ var _ = Describe("Update binding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				g.Expect(createdBinding.Status.LinkedAccessTokenName).To(Equal(otherToken.Name))
+				g.Expect(createdBinding.Status.OAuthUrl).To(Equal(otherToken.Status.OAuthUrl))
+				g.Expect(createdBinding.Status.UploadUrl).To(Equal(otherToken.Status.UploadUrl))
 			}).Should(Succeed())
 		})
 	})
