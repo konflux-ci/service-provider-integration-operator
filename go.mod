@@ -12,7 +12,7 @@ require (
 	github.com/google/go-github/v45 v45.2.0
 	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/vault v1.11.2
-	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
+	github.com/hashicorp/vault-plugin-secrets-kv v0.13.0
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
