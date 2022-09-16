@@ -363,6 +363,45 @@ var _ = Describe("Syncing", func() {
 				g.Expect(string(secret.Data["password"])).To(Equal("access"))
 			})
 		})
+
+		It("keeps the secret data valid", func() {
+			By("checking there is no secret")
+			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+			Expect(createdBinding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+			By("updating the token")
+			err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				TokenType:    "awesome",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("waiting for the secret to be mentioned in the binding status")
+			Eventually(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+				g.Expect(createdBinding.Status.SyncedObjectRef.Name).To(Equal("binding-secret"))
+
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				g.Expect(string(secret.Data["password"])).To(Equal("access"))
+			})
+
+			By("changing secret data")
+			Eventually(func(g Gomega) {
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				secret.Data["password"] = []byte("wrong")
+				g.Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
+			})
+
+			By("waiting for the secret data to be reverted back to the correct values")
+			Eventually(func(g Gomega) {
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				g.Expect(string(secret.Data["password"])).To(Equal("access"))
+			})
+		})
 	})
 
 	When("token is not ready", func() {

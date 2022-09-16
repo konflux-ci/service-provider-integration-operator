@@ -94,36 +94,67 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			kcpWorkspace := logicalcluster.From(o)
-
-			bindings := &api.SPIAccessTokenBindingList{}
-
 			ctx := context.TODO()
 			if !kcpWorkspace.Empty() {
 				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
 			}
 
-			if err := r.Client.List(ctx, bindings, client.InNamespace(o.GetNamespace())); err != nil {
+			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
+			if err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
-			ret := make([]reconcile.Request, 0, len(bindings.Items))
-			for _, b := range bindings.Items {
-				ret = append(ret, reconcile.Request{
-					ClusterName: kcpWorkspace.String(),
-					NamespacedName: types.NamespacedName{
-						Name:      b.Name,
-						Namespace: b.Namespace,
-					},
-				})
+
+			return requests
+		})).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			kcpWorkspace := logicalcluster.From(o)
+			ctx := context.TODO()
+			if !kcpWorkspace.Empty() {
+				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
 			}
-			return ret
+
+			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				// return binding.Status.SyncedObjectRef == toObjectRef(o)  //i wanted that. But version and kind of o is empty by some unknown reason
+				return binding.Status.SyncedObjectRef.Name == toObjectRef(o).Name
+
+			})
+			if err != nil {
+				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to Secret",
+					"SecretName", o.GetName(), "SecretNamespace", o.GetNamespace())
+				return []reconcile.Request{}
+			}
+			return requests
 		})).
 		Complete(r)
 	if err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 	}
 	return err
+}
+
+type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
+
+//filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
+func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
+	bindings := &api.SPIAccessTokenBindingList{}
+	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
+		return nil, err
+	}
+	ret := make([]reconcile.Request, 0, len(bindings.Items))
+	for _, b := range bindings.Items {
+		if matchingFunc(b) {
+			ret = append(ret, reconcile.Request{
+				ClusterName: kcpWorkspace,
+				NamespacedName: types.NamespacedName{
+					Name:      b.Name,
+					Namespace: b.Namespace,
+				},
+			})
+		}
+	}
+	return ret, nil
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
