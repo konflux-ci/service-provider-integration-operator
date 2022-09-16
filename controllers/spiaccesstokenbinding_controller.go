@@ -140,7 +140,7 @@ type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
 func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
 	bindings := &api.SPIAccessTokenBindingList{}
 	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list bindings in the namespace %s, error: %w", namespace, err)
 	}
 	ret := make([]reconcile.Request, 0, len(bindings.Items))
 	for _, b := range bindings.Items {
