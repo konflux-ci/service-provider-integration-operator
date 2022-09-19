@@ -116,8 +116,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			}
 
 			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				// return binding.Status.SyncedObjectRef == toObjectRef(o)  //i wanted that. But version and kind of o is empty by some unknown reason
-				return binding.Status.SyncedObjectRef.Name == toObjectRef(o).Name
+				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == toObjectRef(o).Name
 
 			})
 			if err != nil {
