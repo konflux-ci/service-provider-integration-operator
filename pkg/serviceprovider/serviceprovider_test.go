@@ -137,7 +137,7 @@ func TestFromRepoUrl(t *testing.T) {
 	}
 
 	fact := Factory{
-		Configuration:    opconfig.OperatorConfiguration{},
+		Configuration:    &opconfig.OperatorConfiguration{},
 		KubernetesClient: nil,
 		HttpClient:       nil,
 		Initializers: map[config.ServiceProviderType]Initializer{

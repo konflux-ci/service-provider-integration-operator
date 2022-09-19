@@ -222,7 +222,7 @@ deploy_kcp_openshift: ensure-tmp manifests kustomize
 	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
 	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp_openshift"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-	kubectl apply -f .tmp/deployment_kcp_openshift/kcp/apibinding_spi.yaml
+	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
 
 undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
@@ -248,7 +248,7 @@ undeploy_vault_openshift:
 
 deploy_vault_minikube:
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
-	NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
+	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
 undeploy_vault_k8s:
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f -

@@ -44,7 +44,7 @@ var (
 )
 
 type Github struct {
-	Configuration   opconfig.OperatorConfiguration
+	Configuration   *opconfig.OperatorConfiguration
 	lookup          serviceprovider.GenericLookup
 	httpClient      rest.HTTPClient
 	tokenStorage    tokenstorage.TokenStorage
@@ -88,7 +88,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetOAuthEndpoint() string {
-	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/github/authenticate"
+	return g.Configuration.BaseUrl + "/github/authenticate"
 }
 
 func (g *Github) GetBaseUrl() string {

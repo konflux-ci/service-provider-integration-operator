@@ -25,9 +25,11 @@ import (
 
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
 	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -69,7 +71,7 @@ type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -86,8 +88,16 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			kcpWorkspace := logicalcluster.From(o)
+
 			bindings := &api.SPIAccessTokenBindingList{}
-			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace())); err != nil {
+
+			ctx := context.TODO()
+			if !kcpWorkspace.Empty() {
+				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
+			}
+
+			if err := r.Client.List(ctx, bindings, client.InNamespace(o.GetNamespace())); err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
@@ -95,6 +105,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			ret := make([]reconcile.Request, 0, len(bindings.Items))
 			for _, b := range bindings.Items {
 				ret = append(ret, reconcile.Request{
+					ClusterName: kcpWorkspace.String(),
 					NamespacedName: types.NamespacedName{
 						Name:      b.Name,
 						Namespace: b.Namespace,
@@ -111,14 +122,10 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	binding := api.SPIAccessTokenBinding{}
 
@@ -277,7 +284,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
+	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod * time.Second))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.

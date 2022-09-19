@@ -93,13 +93,13 @@ func main() {
 		Scheme:       mgr.GetScheme(),
 		TokenStorage: strg,
 		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    cfg,
+			Configuration:    &cfg,
 			KubernetesClient: mgr.GetClient(),
 			HttpClient:       http.DefaultClient,
 			Initializers:     serviceproviders.KnownInitializers(),
 			TokenStorage:     strg,
 		},
-		Configuration: cfg,
+		Configuration: &cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
 		os.Exit(1)
@@ -109,13 +109,13 @@ func main() {
 		Scheme:       mgr.GetScheme(),
 		TokenStorage: strg,
 		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    cfg,
+			Configuration:    &cfg,
 			KubernetesClient: mgr.GetClient(),
 			HttpClient:       http.DefaultClient,
 			Initializers:     serviceproviders.KnownInitializers(),
 			TokenStorage:     strg,
 		},
-		Configuration: cfg,
+		Configuration: &cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
 		os.Exit(1)
@@ -125,13 +125,13 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    cfg,
+			Configuration:    &cfg,
 			KubernetesClient: mgr.GetClient(),
 			HttpClient:       http.DefaultClient,
 			Initializers:     serviceproviders.KnownInitializers(),
 			TokenStorage:     strg,
 		},
-		Configuration: cfg,
+		Configuration: &cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessCheck")
 		os.Exit(1)

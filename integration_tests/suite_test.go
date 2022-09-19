@@ -67,7 +67,7 @@ type IntegrationTest struct {
 	TestServiceProvider      TestServiceProvider
 	HostCredsServiceProvider TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
-	OperatorConfiguration    opconfig.OperatorConfiguration
+	OperatorConfiguration    *opconfig.OperatorConfiguration
 }
 
 var ITest IntegrationTest
@@ -166,7 +166,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	ITest.OperatorConfiguration = opconfig.OperatorConfiguration{
+	ITest.OperatorConfiguration = &opconfig.OperatorConfiguration{
 		SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{
 				{
@@ -180,6 +180,7 @@ var _ = BeforeSuite(func() {
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,
 		AccessTokenBindingTtl: 10 * time.Second,
+		DeletionGracePeriod:   10 * time.Second,
 	}
 
 	// start webhook server using Manager
