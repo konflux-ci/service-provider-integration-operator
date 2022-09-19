@@ -7,6 +7,6 @@ spec:
     workspace:
       path: ${KCP_WORKSPACE}
       exportName: spi
-  acceptedPermissionClaims:
-    - group: ""
-      resource: secrets
+  permissionClaims:
+    - resource: secrets
+      state: Accepted
