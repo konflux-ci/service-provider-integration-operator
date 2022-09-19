@@ -308,7 +308,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 		serviceProviderUrl := sp.GetBaseUrl()
-		if err := validateSPUrl(serviceProviderUrl); err != nil {
+		if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 			return nil, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
@@ -350,13 +350,13 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	return token, nil
 }
 
-func validateSPUrl(serviceProviderUrl string) error {
+func validateServiceProviderUrl(serviceProviderUrl string) error {
 	parse, err := url.Parse(serviceProviderUrl)
 	if err != nil {
-		return fmt.Errorf("unable to parse service provider url: %w", err)
+		return fmt.Errorf("the service provider url, determined from repoUrl, is not parsable: %w", err)
 	}
-	if errs := kubevalidation.IsDNS1123Label(parse.Host); len(errs) > 0 {
-		return fmt.Errorf("host part of service provider url does not conform to DNS1123")
+	if errs := kubevalidation.IsDNS1123Subdomain(parse.Host); len(errs) > 0 {
+		return fmt.Errorf("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 	}
 	return nil
 }
