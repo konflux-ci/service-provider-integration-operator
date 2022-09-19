@@ -62,8 +62,9 @@ var (
 		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
 	}
 
-	linkedTokenDoesntMatchError  = stderrors.New("linked token doesn't match the criteria")
-	accessTokenDataNotFoundError = stderrors.New("access token data not found")
+	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
+	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
+	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -363,7 +364,7 @@ func validateServiceProviderUrl(serviceProviderUrl string) error {
 		return fmt.Errorf("the service provider url, determined from repoUrl, is not parsable: %w", err)
 	}
 	if errs := kubevalidation.IsDNS1123Subdomain(parse.Host); len(errs) > 0 {
-		return fmt.Errorf("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
+		return invalidServiceProviderHostError
 	}
 	return nil
 }
