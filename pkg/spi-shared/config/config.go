@@ -54,9 +54,6 @@ type CommonCliArgs struct {
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
 	ServiceProviders []ServiceProviderConfiguration `yaml:"serviceProviders"`
-
-	// SharedSecret is secret value used for signing the JWT keys.
-	SharedSecret string `yaml:"sharedSecret"`
 }
 
 // SharedConfiguration contains the specification of the known service providers as well as other configuration data shared
@@ -68,9 +65,6 @@ type SharedConfiguration struct {
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/${SP_TYPE}/callback` (e.g. my-host/github/callback).
 	BaseUrl string
-
-	// SharedSecret is the secret value used for signing the JWT keys used as OAuth state.
-	SharedSecret []byte
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -99,7 +93,6 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 	conf := SharedConfiguration{}
 
 	conf.ServiceProviders = c.ServiceProviders
-	conf.SharedSecret = []byte(c.SharedSecret)
 	return conf
 }
 

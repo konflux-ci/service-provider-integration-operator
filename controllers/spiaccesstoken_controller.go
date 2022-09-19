@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -319,24 +318,16 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		return "", nil
 	}
 
-	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
-	if err != nil {
-		return "", fmt.Errorf("failed to instantiate OAuth state codec: %w", err)
-	}
-
 	kcpWorkspace := ""
 	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
 		kcpWorkspace = kcpWorkspaceName.String()
 	}
 
-	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
-		TokenName:           at.Name,
-		TokenNamespace:      at.Namespace,
-		TokenKcpWorkspace:   kcpWorkspace,
-		IssuedAt:            time.Now().Unix(),
-		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
-		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
-		ServiceProviderUrl:  sp.GetBaseUrl(),
+	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
+		TokenName:         at.Name,
+		TokenNamespace:    at.Namespace,
+		TokenKcpWorkspace: kcpWorkspace,
+		Scopes:            sp.OAuthScopesFor(&at.Spec.Permissions),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to encode the OAuth state: %w", err)

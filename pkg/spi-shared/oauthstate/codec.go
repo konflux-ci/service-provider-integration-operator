@@ -14,56 +14,36 @@
 package oauthstate
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
-
-	"github.com/go-jose/go-jose/v3"
-	"github.com/go-jose/go-jose/v3/jwt"
 )
-
-// Codec is in charge of encoding and decoding the state passed through the OAuth flow as the state query parameter.
-type Codec struct {
-	Signer        jose.Signer
-	SigningSecret []byte
-}
-
-// NewCodec creates a new codec using the secret used for signing the JWT tokens that represent the state in the
-// query parameters. The signing is used to make it harder to forge malicious OAuth flow requests. We don't need to
-// encrypt the state strings, because they don't contain any information that would not be obtainable from the requests
-// initiating the OAuth flow.
-func NewCodec(signingSecret []byte) (Codec, error) {
-	signer, err := jose.NewSigner(jose.SigningKey{
-		Algorithm: jose.HS256,
-		Key:       signingSecret,
-	}, (&jose.SignerOptions{}).WithType("SPI"))
-	if err != nil {
-		return Codec{}, fmt.Errorf("failed to create JWT signer: %w", err)
-	}
-
-	return Codec{
-		Signer:        signer,
-		SigningSecret: signingSecret,
-	}, nil
-}
 
 // ParseInto tries to parse the provided state into the dest object. Note that no validation is done on the parsed
 // object.
-func (s *Codec) ParseInto(state string, dest interface{}) error {
-	token, err := jwt.ParseSigned(state)
+func ParseInto(state string, dest interface{}) error {
+	data, err := base64.RawURLEncoding.DecodeString(state)
 	if err != nil {
-		return fmt.Errorf("failed to parse the signed JWT token: %w", err)
+		return fmt.Errorf("failed to base64-decode the state: %w", err)
 	}
 
-	if err = token.Claims(s.SigningSecret, dest); err != nil {
-		return fmt.Errorf("failed to extract claims from the token: %w", err)
+	err = json.Unmarshal(data, dest)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal the state JSON: %w", err)
 	}
-
 	return nil
 }
 
-// Encode encodes the provided state as a signed JWT token
-func (s *Codec) Encode(state interface{}) (token string, err error) {
-	if token, err = jwt.Signed(s.Signer).Claims(state).CompactSerialize(); err != nil {
-		err = fmt.Errorf("failed to encode signed JWT token: %w", err)
+// Encode encodes the provided state as a URL-safe string.
+func Encode(state interface{}) (token string, err error) {
+	var data []byte
+
+	data, err = json.Marshal(state)
+	if err != nil {
+		return
 	}
+
+	token = base64.RawURLEncoding.EncodeToString(data)
+
 	return
 }

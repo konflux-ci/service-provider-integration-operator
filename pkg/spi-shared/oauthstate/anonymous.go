@@ -14,25 +14,14 @@
 package oauthstate
 
 import (
-	"errors"
 	"fmt"
-	"time"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
-var (
-	requestFromFutureError = errors.New("request from the future")
-)
-
-// AnonymousOAuthState is the state that is initially put to the OAuth URL by the operator. It does not hold
-// the information about the user that initiated the OAuth flow because the operator most probably doesn't know
-// the true identity of the initiating human.
+// OAuthInfo is the state that is initially put to the OAuth URL by the operator.
 // This state is put by the operator to the status of the SPIAccessToken and points to an endpoint in the OAuth service.
-// OAuth service requires kubernetes authentication on this endpoint, enriches the state with identity of the user
-// accessing the endpoint and redirects the caller once again to the actual service provider with the state that also
-// contains the identity of the requesting caller.
-type AnonymousOAuthState struct {
+// OAuth service requires kubernetes authentication on this endpoint, reads this data and redirects the caller once
+// again to the actual service provider with a random key to its session storage as the OAuth state.
+type OAuthInfo struct {
 	// TokenName is the name of the SPIAccessToken object for which we are initiating the OAuth flow
 	TokenName string `json:"tokenName"`
 
@@ -42,35 +31,18 @@ type AnonymousOAuthState struct {
 	// TokenKcpWorkspace is the KCP workspace where SPIAccessToken lives. It's empty in non-KCP environment
 	TokenKcpWorkspace string `json:"tokenKcpWorkspace"`
 
-	// IssuedAt is the timestamp when the state was generated.
-	IssuedAt int64 `json:"issuedAt,omitempty"`
-
 	// Scopes is the list of the service-provider-specific scopes that we require in the service provider
 	Scopes []string `json:"scopes"`
-
-	// ServiceProviderType is the type of the service provider
-	ServiceProviderType config.ServiceProviderType `json:"serviceProviderType"`
-
-	// ServiceProviderUrl the URL where the service provider is to be reached
-	ServiceProviderUrl string `json:"serviceProviderUrl"`
 }
 
-// ParseAnonymous parses the state from the URL query parameter and returns the anonymous state struct. It also validates
-// the struct using AnonymousOAuthState.Validate method.
-func (s *Codec) ParseAnonymous(state string) (AnonymousOAuthState, error) {
-	parsedState := AnonymousOAuthState{}
-	err := s.ParseInto(state, &parsedState)
+// ParseOAuthInfo parses the state from the URL query parameter and returns the anonymous state struct. It is just
+// a typed variant of the ParseInto function.
+func ParseOAuthInfo(state string) (OAuthInfo, error) {
+	parsedState := OAuthInfo{}
+	err := ParseInto(state, &parsedState)
 	if err != nil {
 		return parsedState, fmt.Errorf("error parsing OAuth state %w", err)
 	}
 
-	return parsedState, parsedState.Validate()
-}
-
-// Validate validates that IssuedAt is in the past.
-func (s AnonymousOAuthState) Validate() error {
-	if time.Now().Unix() < s.IssuedAt {
-		return requestFromFutureError
-	}
-	return nil
+	return parsedState, nil
 }
