@@ -426,7 +426,7 @@ var _ = Describe("Phase", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(otherToken).NotTo(BeNil())
 				g.Expect(otherToken.Status.Phase).NotTo(BeEmpty())
-				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://"))
+				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://not-baseurl"))
 			}).Should(Succeed())
 		})
 
