@@ -254,6 +254,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
 }
+}
 
 func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
 	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
