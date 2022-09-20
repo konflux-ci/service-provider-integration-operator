@@ -20,8 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 
@@ -57,7 +58,6 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
-const GracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -69,7 +69,7 @@ type SPIAccessTokenReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 	ServiceProviderFactory serviceprovider.Factory
 	finalizers             finalizer.Finalizers
 }
@@ -113,6 +113,7 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 
 	return []reconcile.Request{
 		{
+			ClusterName: logicalcluster.From(object).String(),
 			NamespacedName: types.NamespacedName{
 				Namespace: object.GetNamespace(),
 				Name:      tokenName,
@@ -124,15 +125,11 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessToken")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	at := api.SPIAccessToken{}
 
@@ -173,7 +170,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
 
 	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
-	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > r.Configuration.DeletionGracePeriod.Seconds()) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to check linked bindings for token", "error", err)
@@ -248,7 +245,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
-	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(GracePeriodSeconds * time.Second))
+	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
 func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {
@@ -293,11 +290,18 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
 	}
-	if at.Status.UploadUrl == "" {
-		at.Status.UploadUrl = strings.TrimSuffix(r.Configuration.BaseUrl, "/") + "/token/" + at.Namespace + "/" + at.Name
-	}
+
+	at.Status.UploadUrl = r.createUploadUrl(ctx, at)
 
 	return nil
+}
+
+func (r *SPIAccessTokenReconciler) createUploadUrl(ctx context.Context, at *api.SPIAccessToken) string {
+	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
+		return fmt.Sprintf("%s/token/%s/%s/%s", r.Configuration.BaseUrl, kcpWorkspaceName.String(), at.Namespace, at.Name)
+	} else {
+		return fmt.Sprintf("%s/token/%s/%s", r.Configuration.BaseUrl, at.Namespace, at.Name)
+	}
 }
 
 // oAuthUrlFor determines the OAuth flow initiation URL for given token.
@@ -316,9 +320,15 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		return "", fmt.Errorf("failed to instantiate OAuth state codec: %w", err)
 	}
 
+	kcpWorkspace := ""
+	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
+		kcpWorkspace = kcpWorkspaceName.String()
+	}
+
 	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
+		TokenKcpWorkspace:   kcpWorkspace,
 		IssuedAt:            time.Now().Unix(),
 		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),

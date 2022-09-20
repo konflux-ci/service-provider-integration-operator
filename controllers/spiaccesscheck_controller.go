@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
-	"github.com/kcp-dev/logicalcluster/v2"
-
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -47,7 +46,7 @@ type SPIAccessCheckReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	ServiceProviderFactory serviceprovider.Factory
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks,verbs=get;list;watch;create;update;patch;delete
@@ -55,16 +54,12 @@ type SPIAccessCheckReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks/finalizers,verbs=update
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessCheck")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
@@ -86,10 +81,13 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl); spErr == nil {
+		auditLog := log.FromContext(ctx, "audit", "true", "namespace", ac.Namespace, "token", ac.Name, "repository", ac.Spec.RepoUrl)
+		auditLog.Info("performing repository access check")
 		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {
 			ac.Status = *status
+			auditLog.Info("repository access check succeeded")
 		} else {
-			lg.Error(repoCheckErr, "failed to check repository access")
+			auditLog.Error(repoCheckErr, "failed to check repository access")
 			return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", repoCheckErr)
 		}
 	} else {

@@ -47,7 +47,7 @@ var (
 )
 
 type Quay struct {
-	Configuration    opconfig.OperatorConfiguration
+	Configuration    *opconfig.OperatorConfiguration
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
 	httpClient       rest.HTTPClient
@@ -56,8 +56,9 @@ type Quay struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:       quayProbe{},
-	Constructor: serviceprovider.ConstructorFunc(newQuay),
+	Probe:                        quayProbe{},
+	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
+	SupportsManualUploadOnlyMode: true,
 }
 
 const quayUrlBase = "https://quay.io"
@@ -92,7 +93,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 var _ serviceprovider.ConstructorFunc = newQuay
 
 func (g *Quay) GetOAuthEndpoint() string {
-	return strings.TrimSuffix(g.Configuration.BaseUrl, "/") + "/quay/authenticate"
+	return g.Configuration.BaseUrl + "/quay/authenticate"
 }
 
 func (g *Quay) GetBaseUrl() string {

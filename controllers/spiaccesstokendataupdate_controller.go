@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
 
@@ -56,15 +56,11 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenDataUpdate")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	update := api.SPIAccessTokenDataUpdate{}
 

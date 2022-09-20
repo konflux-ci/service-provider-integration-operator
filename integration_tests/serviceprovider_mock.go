@@ -78,7 +78,7 @@ func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Clie
 func (t TestServiceProvider) GetBaseUrl() string {
 	if t.GetBaseUrlImpl == nil {
 		log.Log.V(logs.DebugLevel).Info("empty impl of GetBaseUrl called")
-		return "test-provider://"
+		return "test-provider://base"
 	}
 	ret := t.GetBaseUrlImpl()
 	log.Log.V(logs.DebugLevel).Info("assigned impl of GetBaseUrl called", "result", ret)

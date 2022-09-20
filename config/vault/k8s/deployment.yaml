@@ -193,7 +193,7 @@ spec:
               cpu: 50m
               memory: 100Mi
   
-          image: hashicorp/vault:1.10.3
+          image: docker.io/hashicorp/vault:1.10.3
           imagePullPolicy: IfNotPresent
           command:
           - "/bin/sh"
@@ -360,7 +360,7 @@ spec:
   
   containers:
     - name: vault-server-test
-      image: hashicorp/vault:1.10.3
+      image: docker.io/hashicorp/vault:1.10.3
       imagePullPolicy: IfNotPresent
       env:
         - name: VAULT_ADDR

@@ -81,7 +81,7 @@ func TestMapToken(t *testing.T) {
 	}
 
 	fac := &serviceprovider.Factory{
-		Configuration: opconfig.OperatorConfiguration{
+		Configuration: &opconfig.OperatorConfiguration{
 			TokenLookupCacheTtl: 100 * time.Hour,
 		},
 		KubernetesClient: k8sClient,

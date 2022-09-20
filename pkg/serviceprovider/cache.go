@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -110,8 +112,14 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 	c.refresh(token)
 
 	if token.Status.TokenMetadata == nil {
+		auditLog := log.FromContext(ctx, "audit", "true", "namespace", token.Namespace, "token", token.Name)
+		if token.Labels[api.ServiceProviderTypeLabel] != "" {
+			auditLog = auditLog.WithValues("provider", token.Labels[api.ServiceProviderTypeLabel])
+		}
+		auditLog.Info("token metadata being fetched or refreshed")
 		data, err := ser.Fetch(ctx, token)
 		if err != nil {
+			auditLog.Error(err, "error fetching token metadata")
 			return fmt.Errorf("metadata cache error: fetching token data: %w", err)
 		}
 
@@ -122,8 +130,12 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 		token.Status.TokenMetadata = data
 		if wasPresent || token.Status.TokenMetadata != nil {
 			if err := c.Persist(ctx, token); err != nil {
+				auditLog.Error(err, "Error when storing token metadata")
 				return err
 			}
+			auditLog.Info("token metadata fetched and stored successfully")
+		} else {
+			auditLog.Info("token metadata could not be read from the provider")
 		}
 	}
 

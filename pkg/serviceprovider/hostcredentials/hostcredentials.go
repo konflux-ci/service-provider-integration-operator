@@ -31,7 +31,7 @@ import (
 // manual upload of token data. Matching is done only by URL of the provider, so it is possible to have
 // only one token for particular URL in the given namespace.
 type HostCredentialsProvider struct {
-	Configuration opconfig.OperatorConfiguration
+	Configuration *opconfig.OperatorConfiguration
 	lookup        serviceprovider.GenericLookup
 	httpClient    rest.HTTPClient
 	repoUrl       string

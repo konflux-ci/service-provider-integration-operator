@@ -20,11 +20,16 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"net/url"
 	"time"
 
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -60,8 +65,9 @@ var (
 		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
 	}
 
-	linkedTokenDoesntMatchError  = stderrors.New("linked token doesn't match the criteria")
-	accessTokenDataNotFoundError = stderrors.New("access token data not found")
+	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
+	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
+	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -69,7 +75,7 @@ type SPIAccessTokenBindingReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	TokenStorage           tokenstorage.TokenStorage
-	Configuration          opconfig.OperatorConfiguration
+	Configuration          *opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
 }
@@ -86,8 +92,16 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			kcpWorkspace := logicalcluster.From(o)
+
 			bindings := &api.SPIAccessTokenBindingList{}
-			if err := r.Client.List(context.TODO(), bindings, client.InNamespace(o.GetNamespace())); err != nil {
+
+			ctx := context.TODO()
+			if !kcpWorkspace.Empty() {
+				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
+			}
+
+			if err := r.Client.List(ctx, bindings, client.InNamespace(o.GetNamespace())); err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
@@ -95,6 +109,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			ret := make([]reconcile.Request, 0, len(bindings.Items))
 			for _, b := range bindings.Items {
 				ret = append(ret, reconcile.Request{
+					ClusterName: kcpWorkspace.String(),
 					NamespacedName: types.NamespacedName{
 						Name:      b.Name,
 						Namespace: b.Namespace,
@@ -112,15 +127,11 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+
 	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenBinding")
-
-	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		lg = lg.WithValues("clusterName", req.ClusterName)
-	}
 
 	binding := api.SPIAccessTokenBinding{}
 
@@ -254,10 +265,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
 }
-}
 
 func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
+	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod * time.Second))
 }
 
 func getLinkedTokenFromList(s *api.SPIAccessTokenBinding, tokens []api.SPIAccessToken) *api.SPIAccessToken {
@@ -306,7 +316,8 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 			lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 			serviceProviderUrl := sp.GetBaseUrl()
-			if err != nil {
+			if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 				r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 				return nil, false, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
 			}
@@ -357,6 +368,17 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	}
 
 	return
+}
+
+func validateServiceProviderUrl(serviceProviderUrl string) error {
+	parse, err := url.Parse(serviceProviderUrl)
+	if err != nil {
+		return fmt.Errorf("the service provider url, determined from repoUrl, is not parsable: %w", err)
+	}
+	if errs := kubevalidation.IsDNS1123Subdomain(parse.Host); len(errs) > 0 {
+		return invalidServiceProviderHostError
+	}
+	return nil
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {

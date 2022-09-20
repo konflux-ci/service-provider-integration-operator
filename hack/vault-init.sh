@@ -3,15 +3,16 @@
 #set -x
 set -e
 
-NAMESPACE=${NAMESPACE:-spi-system}
+VAULT_KUBE_CONFIG=${VAULT_KUBE_CONFIG:-${KUBECONFIG:-$HOME/.kube/config}}
+VAULT_NAMESPACE=${VAULT_NAMESPACE:-spi-vault}
 SECRET_NAME=spi-vault-keys
-POD_NAME=${POD_NAME:-spi-vault-0}
+VAULT_PODNAME=${VAULT_PODNAME:-vault-0}
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 ROOT_TOKEN=""
 
 function vaultExec() {
   COMMAND=${1}
-  kubectl exec ${POD_NAME} -n ${NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
+  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} exec ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
 }
 
 function init() {
@@ -42,12 +43,12 @@ function secret() {
     return
   fi
 
-  if kubectl get secret ${SECRET_NAME} -n ${NAMESPACE}; then
-    echo "Secret 5{SECRET_NAME} already exists. Deleting ..."
-    kubectl delete secret ${SECRET_NAME} -n ${NAMESPACE}
+  if kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}; then
+    echo "Secret ${SECRET_NAME} already exists. Deleting ..."
+    kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}
   fi
 
-  COMMAND="kubectl create secret generic ${SECRET_NAME} -n ${NAMESPACE}"
+  COMMAND="kubectl --kubeconfig=${VAULT_KUBE_CONFIG} create secret generic ${SECRET_NAME} -n ${VAULT_NAMESPACE}"
   KEYI=1
   # shellcheck disable=SC2013
   for KEY in $( grep "Unseal Key" "${KEYS_FILE}" | awk '{split($0,a,": "); print a[2]}'); do
@@ -62,7 +63,7 @@ function unseal() {
   KEYI=1
   until [ "$( isSealed )" == "false" ]; do
     echo "unsealing ..."
-    KEY=$( kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} --template="{{.data.key${KEYI}}}" | base64 --decode )
+    KEY=$( kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE} --template="{{.data.key${KEYI}}}" | base64 --decode )
     if [ -z "${KEY}" ]; then
       echo "failed to unseal"
       exit 1
@@ -96,7 +97,7 @@ function generateRootToken() {
   KEYI=1
   COMPLETE="false"
   until [ "${COMPLETE}" == "true" ]; do
-    KEY=$( kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} --template="{{.data.key${KEYI}}}" | base64 --decode )
+    KEY=$( kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE} --template="{{.data.key${KEYI}}}" | base64 --decode )
     if [ -z "${KEY}" ]; then
       echo "failed to generate token"
       exit 1
@@ -159,7 +160,7 @@ function approleAuth() {
     ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
     SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
     echo "---" >> ${SECRET_FILE}
-    kubectl create secret generic vault-approle-${1} \
+    kubectl --kubeconfig=${VAULT_KUBE_CONFIG} create secret generic vault-approle-${1} \
       --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
       --dry-run=client -o yaml >> ${SECRET_FILE}
   }
@@ -187,11 +188,11 @@ function spiSecretEngine() {
 }
 
 function restart() {
-  echo "restarting vault pod '${POD_NAME}' ..."
-  kubectl delete pod ${POD_NAME} -n ${NAMESPACE} > /dev/null
+  echo "restarting vault pod '${VAULT_PODNAME}' ..."
+  kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} > /dev/null
 }
 
-until [ "$(kubectl get pod ${POD_NAME} -n ${NAMESPACE} -o jsonpath='{.status.phase}')" == "Running" ]; do
+until [ "$(kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -o jsonpath='{.status.phase}')" == "Running" ]; do
    sleep 5
    echo "Waiting for Vault pod to be ready."
 done

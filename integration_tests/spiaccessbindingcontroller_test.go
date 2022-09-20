@@ -261,6 +261,8 @@ var _ = Describe("Update binding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				g.Expect(createdBinding.Status.LinkedAccessTokenName).To(Equal(otherToken.Name))
+				g.Expect(createdBinding.Status.OAuthUrl).To(Equal(otherToken.Status.OAuthUrl))
+				g.Expect(createdBinding.Status.UploadUrl).To(Equal(otherToken.Status.UploadUrl))
 			}).Should(Succeed())
 			log.Log.Info("<----- Update binding when lookup changes the token changes the linked token, too")
 		})
@@ -351,8 +353,8 @@ var _ = Describe("Delete binding", func() {
 	It("should delete the synced token in awaiting state", func() {
 		log.Log.Info("Delete binding should delete the synced token in awaiting state ----->")
 		Eventually(func(g Gomega) bool {
-			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.GracePeriodSeconds+1
-		}).WithTimeout(controllers.GracePeriodSeconds * 10 * time.Second).Should(BeTrue())
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > ITest.OperatorConfiguration.DeletionGracePeriod.Seconds()+1
+		}).WithTimeout(ITest.OperatorConfiguration.DeletionGracePeriod * 10 * time.Second).Should(BeTrue())
 		//flip back to awaiting
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
 
@@ -693,6 +695,42 @@ var _ = Describe("Status updates", func() {
 				g.Expect(currentBinding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions))
 			})
 			log.Log.Info("<----- Status updates when binding requires invalid scopes should flip to error state")
+		})
+	})
+
+	When("service provider url is invalid", func() {
+		It("should end in error phase and have an error message", func() {
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "invalid-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					RepoUrl: "invalid://abc./name/repo",
+				},
+			}
+			ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
+				return "invalid://abc."
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
+			//dummy update to cause reconciliation
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				binding.Annotations = map[string]string{"foo": "bar"}
+				g.Expect(ITest.Client.Update(ITest.Context, binding)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+				g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+				g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+				g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
+			}).Should(Succeed())
+			ITest.TestServiceProvider.Reset()
 		})
 	})
 

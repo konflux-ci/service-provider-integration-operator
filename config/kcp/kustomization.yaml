@@ -6,12 +6,14 @@ namespace: spi-system
 resources:
   - apiexport_spi.yaml
   - apiresourceschema_spi.yaml
+  - apiexport_spi_clusterrole.yaml
+  - apiexport_spi_clusterrolebinding.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - ../default
 
 secretGenerator:
-  - name: oauth-config
+  - name: shared-configuration-file
     files:
       - config.yaml
 
