@@ -596,6 +596,42 @@ var _ = Describe("Status updates", func() {
 		})
 	})
 
+	When("service provider url is invalid", func() {
+		It("should end in error phase and have an error message", func() {
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "invalid-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					RepoUrl: "invalid://abc./name/repo",
+				},
+			}
+			ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
+				return "invalid://abc."
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
+			//dummy update to cause reconciliation
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				binding.Annotations = map[string]string{"foo": "bar"}
+				g.Expect(ITest.Client.Update(ITest.Context, binding)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+				g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+				g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+				g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
+			}).Should(Succeed())
+			ITest.TestServiceProvider.Reset()
+		})
+	})
+
 	When("linking fails", func() {
 		// This simulates a situation where the CRDs and the code is out-of-sync and any updates to the binding status
 		// fail.

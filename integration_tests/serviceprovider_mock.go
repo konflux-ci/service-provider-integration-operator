@@ -62,7 +62,7 @@ func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Clie
 
 func (t TestServiceProvider) GetBaseUrl() string {
 	if t.GetBaseUrlImpl == nil {
-		return "test-provider://"
+		return "test-provider://base"
 	}
 	return t.GetBaseUrlImpl()
 }
