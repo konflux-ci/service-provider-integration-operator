@@ -628,7 +628,7 @@ var _ = Describe("Status updates", func() {
 				g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
 				g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
 			}).Should(Succeed())
-			ITest.TestServiceProvider.Reset()
+			ITest.HostCredsServiceProvider.Reset()
 		})
 	})
 
