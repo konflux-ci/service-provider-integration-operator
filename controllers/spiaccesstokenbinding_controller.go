@@ -120,7 +120,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			}
 
 			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == toObjectRef(o).Name
+				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == o.GetName()
 
 			})
 			if err != nil {
