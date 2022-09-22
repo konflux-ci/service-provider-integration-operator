@@ -39,6 +39,9 @@ func (h loginHandler) Login(ctx context.Context) error {
 		return err
 	}
 
+	// now, let's start the concurrent infinite loop that checks for the validity of the login token and does
+	// the refresh or re-login, if needed. Because we're using the Vault client for all this work, it automatically
+	// picks up any changes to the login token that we make.
 	go h.loginLoop(ctx, authInfo)
 
 	return nil
@@ -47,40 +50,51 @@ func (h loginHandler) Login(ctx context.Context) error {
 // loginLoop basically calls startRenew in an infinite loop, trying to re-login if startRenew tells it to.
 func (h loginHandler) loginLoop(ctx context.Context, authInfo *vault.Secret) {
 	lg := log.FromContext(ctx, "vaultLoginHandler", true)
-	getRenewableTokenBackoff := wait.Backoff{
+
+	// we're trying to re-login with increasing pauses between the attempts (the pause is increased 10 times, but there
+	// are infinite possible attempts).
+	attemptsToGetRenewableToken := wait.Backoff{
 		Duration: 1 * time.Second,
 		Factor:   2.0,
 		Steps:    10,
 	}
-
-	attemptsToGetRenewableToken := getRenewableTokenBackoff
 	for {
 		var err error
 
 		if authInfo == nil || !authInfo.Auth.Renewable {
-			lg.V(logs.DebugLevel).Info("token not renewable, reattempting login")
+			// it seems like we have a problem with the login, let's retry
+
+			// we've already tried before, so let's wait now a bit before the next attempt.
+			pause := attemptsToGetRenewableToken.Step()
+			lg.V(logs.DebugLevel).Info("token not renewable, reattempting login", "pause", pause)
+			time.Sleep(pause)
 
 			authInfo, err = h.doLogin(ctx)
 			if err != nil {
 				lg.Error(err, "failed to login to vault after detecting the current token is not renewable")
 			}
 
-			time.Sleep(attemptsToGetRenewableToken.Step())
 			continue
 		} else {
-			attemptsToGetRenewableToken = getRenewableTokenBackoff
+			// ok, we're logged in successfully, so let's reset our back-off strategy so that we can start over the
+			// next time we're seeing the login to fail.
+			attemptsToGetRenewableToken.Steps = 10
 		}
 
-		// ok, we have a renewable token
+		// ok, we have a renewable token. Let's start the renewal loop. This only ever returns if we need to re-login
+		// to Vault or if we should exit.
 		var reLogin bool
 		reLogin, err = h.startRenew(ctx, authInfo)
 		if err != nil {
 			lg.Error(err, "failed to run the Vault token renewal routine")
 		}
 		if !reLogin {
+			// ok, we're suppposed to quit, so let's do...
 			return
 		}
 
+		// the token renewal loop exited and told us we need to re-login to Vault. So let's do that now and check
+		// the outcome back at the start of this loop.
 		authInfo, err = h.doLogin(ctx)
 		if err != nil {
 			lg.Error(err, "failed to login to Vault")
@@ -105,6 +119,8 @@ func (h loginHandler) doLogin(ctx context.Context) (*vault.Secret, error) {
 // needs to be made. Returns true if the re-login is possible, false if no more login attempts should be made (if the
 // context is done).
 func (h loginHandler) startRenew(ctx context.Context, secret *vault.Secret) (bool, error) {
+	// Watcher is a Vault utility that renews the token if necessary and reports the results using a channel. It
+	// makes sure the client that created the watcher gets updated with the renewed token automatically.
 	watcher, err := h.client.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
 		Secret: secret,
 	})
@@ -114,17 +130,23 @@ func (h loginHandler) startRenew(ctx context.Context, secret *vault.Secret) (boo
 
 	lg := log.FromContext(ctx)
 
+	// start the watcher
 	go watcher.Start()
 	defer watcher.Stop()
 
 	for {
+		// look for the results of the watcher operation and also for our context being cancelled/done.
 		select {
 		case <-ctx.Done():
 			lg.Info("stopping the Vault token renewal routine because the context is done")
 			return false, nil
 		case err = <-watcher.DoneCh():
+			// we enter here if the watcher detects it can no longer renew the token. We therefore exist and ask the caller
+			// to try and log in again.
 			return true, err
 		case <-watcher.RenewCh():
+			// yay, the login token is renewed. We can happily wait for another message in the next iteration of this
+			// loop.
 			lg.V(logs.DebugLevel).Info("successfully renewed the Vault token")
 		}
 	}
