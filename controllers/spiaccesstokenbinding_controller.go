@@ -20,7 +20,10 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"net/url"
 	"time"
+
+	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
@@ -62,8 +65,9 @@ var (
 		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
 	}
 
-	linkedTokenDoesntMatchError  = stderrors.New("linked token doesn't match the criteria")
-	accessTokenDataNotFoundError = stderrors.New("access token data not found")
+	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
+	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
+	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -335,7 +339,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(GracePeriodSeconds * time.Second))
+	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod * time.Second))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
@@ -366,7 +370,8 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
 		serviceProviderUrl := sp.GetBaseUrl()
-		if err != nil {
+		if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 			return nil, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
 		}
@@ -405,6 +410,17 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 	}
 
 	return token, nil
+}
+
+func validateServiceProviderUrl(serviceProviderUrl string) error {
+	parse, err := url.Parse(serviceProviderUrl)
+	if err != nil {
+		return fmt.Errorf("the service provider url, determined from repoUrl, is not parsable: %w", err)
+	}
+	if errs := kubevalidation.IsDNS1123Subdomain(parse.Host); len(errs) > 0 {
+		return invalidServiceProviderHostError
+	}
+	return nil
 }
 
 func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken) error {
