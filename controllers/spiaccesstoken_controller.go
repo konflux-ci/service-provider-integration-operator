@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -324,10 +326,12 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	}
 
 	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
-		TokenName:         at.Name,
-		TokenNamespace:    at.Namespace,
-		TokenKcpWorkspace: kcpWorkspace,
-		Scopes:            sp.OAuthScopesFor(&at.Spec.Permissions),
+		TokenName:           at.Name,
+		TokenNamespace:      at.Namespace,
+		TokenKcpWorkspace:   kcpWorkspace,
+		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
+		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
+		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to encode the OAuth state: %w", err)

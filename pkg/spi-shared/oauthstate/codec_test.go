@@ -17,14 +17,18 @@ package oauthstate
 import (
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAnonymous(t *testing.T) {
 	encoded, err := Encode(&OAuthInfo{
-		TokenName:      "token-name",
-		TokenNamespace: "default",
-		Scopes:         []string{"a", "b", "c"},
+		TokenName:           "token-name",
+		TokenNamespace:      "default",
+		Scopes:              []string{"a", "b", "c"},
+		ServiceProviderType: "sp type",
+		ServiceProviderUrl:  "https://sp",
 	})
 	assert.NoError(t, err)
 
@@ -34,6 +38,8 @@ func TestAnonymous(t *testing.T) {
 	assert.Equal(t, "token-name", decoded.TokenName)
 	assert.Equal(t, "default", decoded.TokenNamespace)
 	assert.Equal(t, []string{"a", "b", "c"}, decoded.Scopes)
+	assert.Equal(t, config.ServiceProviderType("sp type"), decoded.ServiceProviderType)
+	assert.Equal(t, "https://sp", decoded.ServiceProviderUrl)
 }
 
 func TestCustom(t *testing.T) {

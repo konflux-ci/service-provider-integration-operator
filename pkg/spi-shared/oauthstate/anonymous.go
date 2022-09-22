@@ -15,6 +15,8 @@ package oauthstate
 
 import (
 	"fmt"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 // OAuthInfo is the state that is initially put to the OAuth URL by the operator.
@@ -33,6 +35,12 @@ type OAuthInfo struct {
 
 	// Scopes is the list of the service-provider-specific scopes that we require in the service provider
 	Scopes []string `json:"scopes"`
+
+	// ServiceProviderType is the type of the service provider
+	ServiceProviderType config.ServiceProviderType `json:"serviceProviderType"`
+
+	// ServiceProviderUrl the URL where the service provider is to be reached
+	ServiceProviderUrl string `json:"serviceProviderUrl"`
 }
 
 // ParseOAuthInfo parses the state from the URL query parameter and returns the anonymous state struct. It is just
