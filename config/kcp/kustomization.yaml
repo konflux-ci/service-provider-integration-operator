@@ -2,7 +2,8 @@ kind: Kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 
 namespace: spi-system
-
+generatorOptions:
+  disableNameSuffixHash: true
 resources:
   - apiexport_spi.yaml
   - apiresourceschema_spi.yaml
