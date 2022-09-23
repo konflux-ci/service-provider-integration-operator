@@ -175,7 +175,6 @@ var _ = BeforeSuite(func() {
 					ServiceProviderType: "TestServiceProvider",
 				},
 			},
-			SharedSecret: []byte("secret"),
 		},
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,

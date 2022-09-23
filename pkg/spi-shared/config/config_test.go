@@ -48,7 +48,6 @@ users:
 	defer os.Remove(kcfgFilePath)
 
 	configFileContent := `
-sharedSecret: yaddayadda123$@#**
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -64,13 +63,11 @@ serviceProviders:
 	assert.NoError(t, err)
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
-	assert.Equal(t, []byte("yaddayadda123$@#**"), cfg.SharedSecret)
 	assert.Len(t, cfg.ServiceProviders, 2)
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
 	configFileContent := `
-sharedSecret: yaddayadda123$@#**
 serviceProviders:
 - type: GitHub
   clientId: "123"

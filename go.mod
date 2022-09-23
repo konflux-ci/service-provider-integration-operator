@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/alexflint/go-arg v1.4.3
-	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/golang-jwt/jwt/v4 v4.4.2
