@@ -59,17 +59,15 @@ These have to be updated on every CRD change and committed. `APIResourceSchema` 
 It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
 Name of the secret should be `spi-shared-configuration-file` with this configuration yaml under `config.yaml` key.
 
-This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
+This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`persistedConfiguration`).
 
 ```yaml
-sharedSecret: <jwt_sign_secret>
 serviceProviders:
 - type: <service_provider_type>
   clientId: <service_provider_client_id>
   clientSecret: <service_provider_secret>
 ```
 
- - `<jwt_sign_secret>` - secret value used for signing the JWT keys
  - `<service_provider_type>` - type of the service provider. This must be one of the supported values: GitHub, Quay
  - `<service_provider_client_id>` - client ID of the OAuth application
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
