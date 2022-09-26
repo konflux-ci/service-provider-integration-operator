@@ -110,6 +110,14 @@ var _ = Describe("Create binding", func() {
 		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
+	It("registering the finalizers", func() {
+		Eventually(func(g Gomega) {
+			binding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+			g.Expect(binding.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-secrets"))
+		}).Should(Succeed())
+	})
+
 	It("should link the token to the binding", func() {
 		testTokenNameInStatus(createdBinding, Equal(createdToken.Name))
 	})
@@ -232,6 +240,8 @@ var _ = Describe("Update binding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				g.Expect(createdBinding.Status.LinkedAccessTokenName).To(Equal(otherToken.Name))
+				g.Expect(createdBinding.Status.OAuthUrl).To(Equal(otherToken.Status.OAuthUrl))
+				g.Expect(createdBinding.Status.UploadUrl).To(Equal(otherToken.Status.UploadUrl))
 			}).Should(Succeed())
 		})
 	})
@@ -279,14 +289,14 @@ var _ = Describe("Delete binding", func() {
 	})
 
 	It("should delete the synced secret", func() {
-		// Note that automatic cleanup of owned objects doesn't seem to work in testenv, so we're just checking here
-		// that the secret has its owner reference set correctly and actually try to delete it ourselves here in this
-		// test.
-		Expect(syncedSecret.OwnerReferences).NotTo(BeEmpty())
-		Expect(syncedSecret.OwnerReferences[0].UID).To(Equal(createdBinding.UID))
-
 		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, syncedSecret)).To(Succeed())
+		// and check that secret eventually disappeared
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(syncedSecret), &corev1.Secret{})
+			if errors.IsNotFound(err) {
+				return
+			}
+		}).Should(Succeed())
 	})
 
 	It("should delete binding by timeout", func() {
@@ -350,6 +360,45 @@ var _ = Describe("Syncing", func() {
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
 				g.Expect(createdBinding.Status.SyncedObjectRef.Name).To(Equal("binding-secret"))
 
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				g.Expect(string(secret.Data["password"])).To(Equal("access"))
+			})
+		})
+
+		It("keeps the secret data valid", func() {
+			By("checking there is no secret")
+			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+			Expect(createdBinding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+			By("updating the token")
+			err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				TokenType:    "awesome",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("waiting for the secret to be mentioned in the binding status")
+			Eventually(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), createdBinding)).To(Succeed())
+				g.Expect(createdBinding.Status.SyncedObjectRef.Name).To(Equal("binding-secret"))
+
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				g.Expect(string(secret.Data["password"])).To(Equal("access"))
+			})
+
+			By("changing secret data")
+			Eventually(func(g Gomega) {
+				secret := &corev1.Secret{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
+				secret.Data["password"] = []byte("wrong")
+				g.Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
+			})
+
+			By("waiting for the secret data to be reverted back to the correct values")
+			Eventually(func(g Gomega) {
 				secret := &corev1.Secret{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdBinding.Status.SyncedObjectRef.Name, Namespace: createdBinding.Namespace}, secret)).To(Succeed())
 				g.Expect(string(secret.Data["password"])).To(Equal("access"))
@@ -591,6 +640,42 @@ var _ = Describe("Status updates", func() {
 				g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
 				g.Expect(currentBinding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions))
 			})
+		})
+	})
+
+	When("service provider url is invalid", func() {
+		It("should end in error phase and have an error message", func() {
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "invalid-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					RepoUrl: "invalid://abc./name/repo",
+				},
+			}
+			ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
+				return "invalid://abc."
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
+			//dummy update to cause reconciliation
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				binding.Annotations = map[string]string{"foo": "bar"}
+				g.Expect(ITest.Client.Update(ITest.Context, binding)).To(Succeed())
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+				g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+				g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+				g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
+			}).Should(Succeed())
+			ITest.HostCredsServiceProvider.Reset()
 		})
 	})
 

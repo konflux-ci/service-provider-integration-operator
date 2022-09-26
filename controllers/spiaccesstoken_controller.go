@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -37,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -54,7 +55,6 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //nolint:gosec // this is false positive, we're not storing any sensitive data using this
-const GracePeriodSeconds = 2
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -175,7 +175,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	tokenLifetime := time.Since(at.CreationTimestamp.Time).Seconds()
 
 	// cleanup tokens by lifetime or on being unreferenced by any binding in the AwaitingToken state
-	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > GracePeriodSeconds) {
+	if (tokenLifetime > r.Configuration.AccessTokenTtl.Seconds()) || (at.Status.Phase == api.SPIAccessTokenPhaseAwaitingTokenData && tokenLifetime > r.Configuration.DeletionGracePeriod.Seconds()) {
 		hasLinkedBindings, err := hasLinkedBindings(ctx, &at, r.Client)
 		if err != nil {
 			lg.Error(err, "failed to check linked bindings for token", "error", err)
@@ -250,7 +250,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
-	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(GracePeriodSeconds * time.Second))
+	return time.Until(at.CreationTimestamp.Add(r.Configuration.AccessTokenTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
 func (r *SPIAccessTokenReconciler) flipToExceptionalPhase(ctx context.Context, at *api.SPIAccessToken, phase api.SPIAccessTokenPhase, reason api.SPIAccessTokenErrorReason, err error) error {
@@ -295,9 +295,8 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
 		}
 	}
-	if at.Status.UploadUrl == "" {
-		at.Status.UploadUrl = r.createUploadUrl(ctx, at)
-	}
+
+	at.Status.UploadUrl = r.createUploadUrl(ctx, at)
 
 	return nil
 }
@@ -321,21 +320,15 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		return "", nil
 	}
 
-	codec, err := oauthstate.NewCodec(r.Configuration.SharedSecret)
-	if err != nil {
-		return "", fmt.Errorf("failed to instantiate OAuth state codec: %w", err)
-	}
-
 	kcpWorkspace := ""
 	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
 		kcpWorkspace = kcpWorkspaceName.String()
 	}
 
-	state, err := codec.Encode(&oauthstate.AnonymousOAuthState{
+	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		TokenKcpWorkspace:   kcpWorkspace,
-		IssuedAt:            time.Now().Unix(),
 		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),

@@ -1,4 +1,3 @@
-sharedSecret: ${SHARED_SECRET}
 serviceProviders:
   - type: GitHub
     clientId: "123"

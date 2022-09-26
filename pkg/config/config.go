@@ -42,6 +42,7 @@ type OperatorCliArgs struct {
 	AccessCheckLifetimeDuration time.Duration `arg:"--access-check-ttl, env" default:"30m" help:"the time after which SPIAccessCheck CR will be deleted by operator"`
 	TokenMatchPolicy            TokenPolicy   `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
 	ApiExportName               string        `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
+	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
 }
 
 type OperatorConfiguration struct {
@@ -61,6 +62,9 @@ type OperatorConfiguration struct {
 
 	// The policy to match the token against the binding
 	TokenMatchPolicy TokenPolicy
+
+	// The time before a token without data and with no bindings is automatically deleted.
+	DeletionGracePeriod time.Duration
 }
 
 func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
@@ -75,6 +79,7 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 	ret.AccessTokenTtl = args.TokenLifetimeDuration
 	ret.AccessTokenBindingTtl = args.BindingLifetimeDuration
 	ret.TokenMatchPolicy = args.TokenMatchPolicy
+	ret.DeletionGracePeriod = args.DeletionGracePeriod
 
 	return ret, nil
 }

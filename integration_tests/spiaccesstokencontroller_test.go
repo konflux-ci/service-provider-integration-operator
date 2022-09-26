@@ -20,7 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
+	"k8s.io/apimachinery/pkg/util/uuid"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -71,6 +72,85 @@ var _ = Describe("Create without token data", func() {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
 			g.Expect(strings.HasSuffix(token.Status.UploadUrl, "/token/"+token.Namespace+"/"+token.Name)).To(BeTrue())
+		}).Should(Succeed())
+	})
+})
+
+var _ = Describe("Status", func() {
+	var createdToken *api.SPIAccessToken
+	var origBaseUrl string
+	var origOAuthUrl string
+	var origUploadUrl string
+
+	triggerReconciliation := func() {
+		Eventually(func(g Gomega) {
+			// trigger the update of the token to force the reconciliation
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
+			currentToken.Annotations = map[string]string{"random-anno": string(uuid.NewUUID())}
+			g.Expect(ITest.Client.Update(ITest.Context, currentToken)).To(Succeed())
+		}).Should(Succeed())
+	}
+
+	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+		origBaseUrl = ITest.OperatorConfiguration.BaseUrl
+		ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
+		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
+			return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+		}
+
+		createdToken = &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "status-update-test",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "test-provider://",
+			},
+		}
+
+		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
+
+		Eventually(func(g Gomega) {
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
+			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+			origOAuthUrl = currentToken.Status.OAuthUrl
+			origUploadUrl = currentToken.Status.UploadUrl
+			g.Expect(origOAuthUrl).NotTo(BeEmpty())
+			g.Expect(origUploadUrl).NotTo(BeEmpty())
+		}).Should(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+		ITest.OperatorConfiguration.BaseUrl = origBaseUrl
+	})
+
+	It("updates the OAuth URL when the base url changes in the config", func() {
+		ITest.OperatorConfiguration.BaseUrl = "https://completely-random-" + string(uuid.NewUUID())
+
+		triggerReconciliation()
+
+		Eventually(func(g Gomega) {
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
+			g.Expect(currentToken.Status.OAuthUrl).To(HavePrefix(ITest.OperatorConfiguration.BaseUrl))
+			g.Expect(currentToken.Status.OAuthUrl).NotTo(Equal(origOAuthUrl))
+		}).Should(Succeed())
+	})
+
+	It("updates the upload URL when the base url changes in the config", func() {
+		ITest.OperatorConfiguration.BaseUrl = "https://completely-random-" + string(uuid.NewUUID())
+
+		triggerReconciliation()
+
+		Eventually(func(g Gomega) {
+			currentToken := &api.SPIAccessToken{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
+			g.Expect(currentToken.Status.UploadUrl).To(HavePrefix(ITest.OperatorConfiguration.BaseUrl))
+			g.Expect(currentToken.Status.UploadUrl).NotTo(Equal(origUploadUrl))
 		}).Should(Succeed())
 	})
 })
@@ -175,8 +255,14 @@ var _ = Describe("Delete token", func() {
 	})
 
 	It("should delete the synced token in awaiting state", func() {
+		origDeletionGracePeriod := ITest.OperatorConfiguration.DeletionGracePeriod
+		ITest.OperatorConfiguration.DeletionGracePeriod = 1 * time.Second
+		defer func() {
+			ITest.OperatorConfiguration.DeletionGracePeriod = origDeletionGracePeriod
+		}()
+
 		Eventually(func(g Gomega) bool {
-			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > controllers.GracePeriodSeconds+1
+			return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > ITest.OperatorConfiguration.DeletionGracePeriod.Seconds()+1
 		}).Should(BeTrue())
 		//flip back to awaiting
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
@@ -340,7 +426,7 @@ var _ = Describe("Phase", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(otherToken).NotTo(BeNil())
 				g.Expect(otherToken.Status.Phase).NotTo(BeEmpty())
-				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://"))
+				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://not-baseurl"))
 			}).Should(Succeed())
 		})
 
