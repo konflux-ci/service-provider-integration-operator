@@ -138,6 +138,11 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
+	if err = (&controllers.SPIFileContentRequestReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SPIFileRequestContent")
+		os.Exit(1)
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
