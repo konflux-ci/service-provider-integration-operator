@@ -23,14 +23,14 @@ type SPIFileContentRequestSpec struct {
 }
 
 type SPIFileContentRequestStatus struct {
-	Phase                 SPIFileContentRequestPhase `json:"phase"`
-	LinkedAccessTokenName string                     `json:"linkedAccessTokenName"`
-	ErrorMessage          string                     `json:"errorMessage,omitempty"`
-	OAuthUrl              string                     `json:"oAuthUrl,omitempty"`
-	UploadUrl             string                     `json:"uploadUrl,omitempty"`
-	Content               string                     `json:"content,omitempty"`
-	ContentEncoding       string                     `json:"contentEncoding,omitempty"`
-	SHA                   string                     `json:"sha,omitempty"`
+	Phase             SPIFileContentRequestPhase `json:"phase"`
+	LinkedBindingName string                     `json:"linkedBindingName"`
+	ErrorMessage      string                     `json:"errorMessage,omitempty"`
+	OAuthUrl          string                     `json:"oAuthUrl,omitempty"`
+	UploadUrl         string                     `json:"uploadUrl,omitempty"`
+	Content           string                     `json:"content,omitempty"`
+	ContentEncoding   string                     `json:"contentEncoding,omitempty"`
+	SHA               string                     `json:"sha,omitempty"`
 }
 
 type SPIFileContentRequestPhase string

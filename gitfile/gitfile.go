@@ -17,21 +17,18 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/imroc/req"
 )
-
-type GitFile struct {
-	fetcher TokenFetcher
-}
 
 // GetFileContents is a main entry function allowing to retrieve file content from the SCM provider.
 // It expects three file location parameters, from which the repository URL and path to the file are mandatory,
 // and optional Git reference for the branch/tags/commitIds.
 // Function type parameter is a callback used when user authentication is needed in order to retrieve the file,
 // that function will be called with the URL to OAuth service, where user need to be redirected.
-func (g *GitFile) GetFileContents(ctx context.Context, namespace, repoUrl, filepath, ref string, callback func(ctx context.Context, url string)) (io.ReadCloser, error) {
-	headerStruct, err := buildAuthHeader(ctx, namespace, repoUrl, g.fetcher, callback)
+func GetFileContents(ctx context.Context, cl client.Client, namespace, repoUrl, filepath, ref string, callback func(ctx context.Context, url string)) (io.ReadCloser, error) {
+	headerStruct, err := buildAuthHeader(ctx, cl, namespace, repoUrl, callback)
 	if err != nil {
 		return nil, err
 	}
@@ -43,13 +40,4 @@ func (g *GitFile) GetFileContents(ctx context.Context, namespace, repoUrl, filep
 
 	response, _ := req.Get(fileUrl, ctx, authHeader)
 	return io.NopCloser(bytes.NewBuffer(response.Bytes())), nil
-}
-
-// New creates a new *GitFile instance
-func New(fetcher TokenFetcher) *GitFile {
-	return &GitFile{fetcher: fetcher}
-}
-
-func Default() *GitFile {
-	return &GitFile{fetcher: NewSpiTokenFetcher()}
 }

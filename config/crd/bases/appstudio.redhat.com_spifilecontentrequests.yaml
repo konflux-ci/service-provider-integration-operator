@@ -50,7 +50,7 @@ spec:
               properties:
                 errorMessage:
                   type: string
-                linkedAccessTokenName:
+                linkedBindingName:
                   type: string
                 oAuthUrl:
                   type: string

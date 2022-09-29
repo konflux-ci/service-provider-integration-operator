@@ -23,9 +23,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,30 +46,6 @@ var (
 	tokenBindingError  = errors.New("newly created binding is in the error state")
 )
 
-func NewSpiTokenFetcher() *SpiTokenFetcher {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	scheme := runtime.NewScheme()
-	if err = corev1.AddToScheme(scheme); err != nil {
-		panic(err.Error())
-	}
-
-	if err = v1beta1.AddToScheme(scheme); err != nil {
-		panic(err.Error())
-	}
-
-	// creates the client
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme})
-	if err != nil {
-		panic(err.Error())
-	}
-	return &SpiTokenFetcher{k8sClient: k8sClient}
-}
-
 func (s *SpiTokenFetcher) BuildHeader(ctx context.Context, namespace, repoUrl string, loginCallback func(ctx context.Context, url string)) (*HeaderStruct, error) {
 
 	var tBindingName = "file-retriever-binding-" + randStringBytes(6)
@@ -86,14 +59,14 @@ func (s *SpiTokenFetcher) BuildHeader(ctx context.Context, namespace, repoUrl st
 		return nil, fmt.Errorf("failed to create token binding: %w", err)
 	}
 
-	// scheduling the binding cleanup
-	defer func() {
-		// clean up token binding
-		err = s.k8sClient.Delete(ctx, newBinding)
-		if err != nil {
-			lg.Error(err, "Error cleaning up TB item")
-		}
-	}()
+	//// scheduling the binding cleanup
+	//defer func() {
+	//	// clean up token binding
+	//	err = s.k8sClient.Delete(ctx, newBinding)
+	//	if err != nil {
+	//		lg.Error(err, "Error cleaning up TB item")
+	//	}
+	//}()
 
 	// now re-reading SPITokenBinding to get updated fields
 	var tokenName string
