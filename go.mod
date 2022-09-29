@@ -9,13 +9,13 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v45 v45.2.0
-	github.com/hashicorp/go-hclog v1.2.2
+	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/vault v1.11.2
-	github.com/hashicorp/vault-plugin-secrets-kv v0.12.1
-	github.com/hashicorp/vault/api v1.7.2
+	github.com/hashicorp/vault-plugin-secrets-kv v0.13.2
+	github.com/hashicorp/vault/api v1.8.0
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0
-	github.com/hashicorp/vault/sdk v0.5.3-0.20220721224827-e96a652fbfb0
+	github.com/hashicorp/vault/sdk v0.6.0
 	github.com/kcp-dev/kcp/pkg/apis v0.8.2
 	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1
 	github.com/migueleliasweb/go-github-mock v0.0.12
@@ -111,7 +111,7 @@ require (
 	github.com/hashicorp/go-discover v0.0.0-20210818145131-c573d69da192 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-kms-wrapping v0.7.0 // indirect
-	github.com/hashicorp/go-kms-wrapping/entropy v0.1.0 // indirect
+	github.com/hashicorp/go-kms-wrapping/entropy/v2 v2.0.0 // indirect
 	github.com/hashicorp/go-memdb v1.3.2 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -122,7 +122,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/awsutil v0.1.5 // indirect
 	github.com/hashicorp/go-secure-stdlib/base62 v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
-	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6 // indirect
+	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.7 // indirect
 	github.com/hashicorp/go-secure-stdlib/reloadutil v0.1.1 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/tlsutil v0.1.1 // indirect
@@ -218,7 +218,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220207185906-7721543eae58 // indirect
 	google.golang.org/grpc v1.44.0 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
