@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 	"io"
 	"math/rand"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
