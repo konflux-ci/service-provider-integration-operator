@@ -654,6 +654,7 @@ var _ = Describe("Status updates", func() {
 					RepoUrl: "invalid://abc./name/repo",
 				},
 			}
+			previousBaseImpl := ITest.HostCredsServiceProvider.GetBaseUrlImpl
 			ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
 				return "invalid://abc."
 			}
@@ -675,7 +676,7 @@ var _ = Describe("Status updates", func() {
 				g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
 				g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
 			}).Should(Succeed())
-			ITest.HostCredsServiceProvider.Reset()
+			ITest.HostCredsServiceProvider.GetBaseUrlImpl = previousBaseImpl
 		})
 	})
 
