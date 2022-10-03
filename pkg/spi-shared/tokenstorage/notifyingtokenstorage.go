@@ -33,6 +33,13 @@ type NotifyingTokenStorage struct {
 	TokenStorage TokenStorage
 }
 
+func (n NotifyingTokenStorage) Initialize(ctx context.Context) error {
+	if err := n.TokenStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("wrapped storage error: %w", err)
+	}
+	return nil
+}
+
 func (n NotifyingTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	if err := n.TokenStorage.Store(ctx, owner, token); err != nil {
 		return fmt.Errorf("wrapped storage error: %w", err)

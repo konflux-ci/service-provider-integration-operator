@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -69,6 +71,7 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
+	ctx = log.IntoContext(ctx, ctrl.Log)
 
 	mgr, mgrErr := createManager(ctx, args)
 	if mgrErr != nil {
@@ -85,6 +88,11 @@ func main() {
 	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
+		os.Exit(1)
+	}
+
+	if err = strg.Initialize(ctx); err != nil {
+		setupLog.Error(err, "failed to log in to the token storage")
 		os.Exit(1)
 	}
 
