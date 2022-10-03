@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.2
+  creationTimestamp: null
   name: spifilecontentrequests.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
@@ -14,61 +15,58 @@ spec:
     singular: spifilecontentrequest
   scope: Namespaced
   versions:
-    - name: v1beta1
-      schema:
-        openAPIV3Schema:
-          description: SPIFileContentRequest is the Schema for the spifilecontentrequests
-            API
-          properties:
-            apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
               of an object. Servers should convert recognized schemas to the latest
               internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-              type: string
-            kind:
-              description: 'Kind is a string value representing the REST resource this
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
               submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: SPIFileContentRequestSpec defines the desired state of SPIFileAccessContentRequest
-              properties:
-                repoUrl:
-                  type: string
-                filePath:
-                   type: string
-                ref:
-                   type: string
-              required:
-                - repoUrl
-                - filePath
-              type: object
-            status:
-              description: SPIFileContentRequestStatus defines the observed state of SPIFileAccessContentRequest
-              properties:
-                errorMessage:
-                  type: string
-                linkedBindingName:
-                  type: string
-                oAuthUrl:
-                  type: string
-                phase:
-                  type: string
-                uploadUrl:
-                  type: string
-                content:
-                  type: string
-                contentEncoding:
-                  type: string
-                sha:
-                  type: string
-              required:
-                - phase
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              filePath:
+                type: string
+              ref:
+                type: string
+              repoUrl:
+                type: string
+            required:
+            - filePath
+            - repoUrl
+            type: object
+          status:
+            properties:
+              content:
+                type: string
+              contentEncoding:
+                type: string
+              errorMessage:
+                type: string
+              linkedBindingName:
+                type: string
+              oAuthUrl:
+                type: string
+              phase:
+                type: string
+              sha:
+                type: string
+              uploadUrl:
+                type: string
+            required:
+            - linkedBindingName
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

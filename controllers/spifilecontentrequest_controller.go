@@ -2,22 +2,26 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
+	"math/rand"
+	"time"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/gitfile"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"math/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const (
@@ -124,9 +128,25 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req rec
 			r.updateFileRequestStatusError(ctx, &request, err)
 			return reconcile.Result{}, err
 		} else {
-			//TODO: read content
+			contents, err := gitfile.GetFileContents(ctx, r.Client, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
+			if err != nil {
+				r.updateFileRequestStatusError(ctx, &request, err)
+				return reconcile.Result{}, err
+			}
+			fileBytes, err := io.ReadAll(contents)
+			if err != nil {
+				r.updateFileRequestStatusError(ctx, &request, err)
+				return reconcile.Result{}, err
+			}
+			request.Status.ContentEncoding = "base64"
+			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
+			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 		}
 	}
+	if err := r.Client.Status().Update(ctx, &request); err != nil {
+		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -160,6 +180,7 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 
 func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) {
 	request.Status.ErrorMessage = err.Error()
+	request.Status.Phase = api.SPIFileContentRequestPhaseError
 	if err := r.Client.Status().Update(ctx, request); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
 	}

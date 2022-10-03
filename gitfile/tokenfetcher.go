@@ -16,26 +16,27 @@ package gitfile
 import (
 	"context"
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// HeaderStruct is the simple struct to carry authentication string from different suppliers
-type HeaderStruct struct {
+// AuthHeaderStruct is the simple struct to carry authentication string from different suppliers
+type AuthHeaderStruct struct {
 	Authorization string `json:"Authorization"`
 }
 
-// TokenFetcher is the interface for the authentication token suppliers which are provides tokens as a HeaderStruct
+// TokenFetcher is the interface for the authentication token suppliers which are provides tokens as a AuthHeaderStruct
 // instances
 type TokenFetcher interface {
-	BuildHeader(ctx context.Context, namespace, repoUrl string, loginCallback func(ctx context.Context, url string)) (*HeaderStruct, error)
+	BuildAuthHeader(ctx context.Context, namespace, secretName string) (*AuthHeaderStruct, error)
 }
 
-func buildAuthHeader(ctx context.Context, cl client.Client, namespace, repoUrl string, loginCallback func(ctx context.Context, url string)) (*HeaderStruct, error) {
+func buildAuthHeader(ctx context.Context, cl client.Client, repoUrl, namespace, secretName string) (*AuthHeaderStruct, error) {
 	fetcher := &SpiTokenFetcher{
 		k8sClient: cl,
 	}
-	headerStruct, err := fetcher.BuildHeader(ctx, namespace, repoUrl, loginCallback)
+	headerStruct, err := fetcher.BuildAuthHeader(ctx, namespace, secretName)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Unable to prepare authentication header for repository", "repoUrl", repoUrl)
 		return nil, fmt.Errorf("fetcher failed to build the auth header: %w", err)

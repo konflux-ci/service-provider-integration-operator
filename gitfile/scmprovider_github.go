@@ -17,8 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"regexp"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/imroc/req"

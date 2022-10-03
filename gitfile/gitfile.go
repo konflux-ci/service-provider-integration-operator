@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/imroc/req"
@@ -27,8 +28,8 @@ import (
 // and optional Git reference for the branch/tags/commitIds.
 // Function type parameter is a callback used when user authentication is needed in order to retrieve the file,
 // that function will be called with the URL to OAuth service, where user need to be redirected.
-func GetFileContents(ctx context.Context, cl client.Client, namespace, repoUrl, filepath, ref string, callback func(ctx context.Context, url string)) (io.ReadCloser, error) {
-	headerStruct, err := buildAuthHeader(ctx, cl, namespace, repoUrl, callback)
+func GetFileContents(ctx context.Context, cl client.Client, namespace, secret, repoUrl, filepath, ref string) (io.ReadCloser, error) {
+	headerStruct, err := buildAuthHeader(ctx, cl, repoUrl, namespace, secret)
 	if err != nil {
 		return nil, err
 	}
