@@ -79,11 +79,11 @@ The rest of the configuration is applied using the environment variables or comm
 
 In addition to the secret, there are 3 configmaps that contain the configuration for operator and oauth service.
 
-| ConfigMap | Applicable to |
-|-----------|---------------|
-| `spi-shared-environment-config` | operator and oauth service |
-| `spi-controller-manager-environment-config` | operator |
-| `spi-oauth-service-environment-config` | oauth service |
+| ConfigMap                                   | Applicable to              |
+|---------------------------------------------|----------------------------|
+| `spi-shared-environment-config`             | operator and oauth service |
+| `spi-controller-manager-environment-config` | operator                   |
+| `spi-oauth-service-environment-config`      | oauth service              |
 
 The `spi-shared-environment-config` is bound to both the operator and oauth service and is therefore best used for
 configuration options that should have the same value in both deployments.
@@ -108,7 +108,7 @@ and oauth service to have the same value for them):
 |-------------------------------------------------------|--------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | --base-url                                            | BASEURL                        |                       | This is the publicly accessible URL on which the SPI OAuth service is reachable. Note that this is not just a hostname, it is a full URL including a scheme, e.g. "https://acme.com/spi"                                           |
 | --config-file                                         | CONFIGFILE                     | /etc/spi/config.yaml  | The location of the configuration file.                                                                                                                                                                                            |
-| --metrics-bind-address                                | METRICSADDR                    | :8080                 | The address the metric endpoint binds to.                                                                                                                                                                                          |
+| --metrics-bind-address                                | METRICSADDR                    | 127.0.0.1:8080        | The address the metric endpoint binds to.                                                                                                                                                                                          |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                 | The address the probe endpoint binds to.                                                                                                                                                                                           |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200 | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                 | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
@@ -138,7 +138,7 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
 | --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
-| --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.
+| --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
 
 ### OAuth service configuration parameters
 
