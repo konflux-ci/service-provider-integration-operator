@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
@@ -89,6 +91,12 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
+	}
+
+	// also make sure to collect the metrics on Vault access
+	strg = &tokenstorage.MetricsCollectingTokenStorage{
+		MetricsRegisterer: metrics.Registry,
+		TokenStorage:      strg,
 	}
 
 	if err = strg.Initialize(ctx); err != nil {
