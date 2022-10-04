@@ -146,7 +146,10 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	if err = (&controllers.SPIFileContentRequestReconciler{}).SetupWithManager(mgr); err != nil {
+	if err = (&controllers.SPIFileContentRequestReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SPIFileRequestContent")
 		os.Exit(1)
 	}

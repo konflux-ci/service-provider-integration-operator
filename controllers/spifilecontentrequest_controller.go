@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -31,6 +33,7 @@ const (
 
 type SPIFileContentRequestReconciler struct {
 	client.Client
+	Scheme *runtime.Scheme
 }
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
@@ -55,13 +58,13 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 				return []reconcile.Request{}
 			}
 			ret := make([]reconcile.Request, 0, len(fileRequests.Items))
-			for _, r := range fileRequests.Items {
-				if r.Status.LinkedBindingName == o.GetName() {
+			for _, fr := range fileRequests.Items {
+				if fr.Status.LinkedBindingName == o.GetName() {
 					ret = append(ret, reconcile.Request{
 						ClusterName: kcpWorkspace.String(),
 						NamespacedName: types.NamespacedName{
-							Name:      r.Name,
-							Namespace: r.Namespace,
+							Name:      fr.Name,
+							Namespace: fr.Namespace,
 						},
 					})
 				}
@@ -76,7 +79,7 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 }
 
-func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ctx = infrastructure.InitKcpControllerContext(ctx, req)
 	lg := log.FromContext(ctx)
 
@@ -104,7 +107,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	if request.Status.LinkedBindingName == "" {
-		if err := r.createAndLinkBinding(ctx, request); err != nil {
+		if err := r.createAndLinkBinding(ctx, &request); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
 		}
 	} else {
@@ -115,20 +118,16 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req rec
 				r.updateFileRequestStatusError(ctx, &request, err)
 			}
 		}
+		//binding not yet fully ready to work with, let's try next time
+		if binding.Status.Phase == "" {
+			return reconcile.Result{}, nil
+		}
+
 		//binding not injected yet, let's just synchronize URL's and that's it
 		if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.UploadUrl = binding.Status.UploadUrl
-			if err := r.Client.Status().Update(ctx, &request); err != nil {
-				r.updateFileRequestStatusError(ctx, &request, err)
-				return reconcile.Result{}, err
-			}
-			return ctrl.Result{}, nil
-		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseError {
-			err := fmt.Errorf("linked binding is in error state: %s", binding.Status.ErrorMessage)
-			r.updateFileRequestStatusError(ctx, &request, err)
-			return reconcile.Result{}, err
-		} else {
+		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
 			contents, err := gitfile.GetFileContents(ctx, r.Client, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
@@ -142,6 +141,10 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req rec
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
+		} else {
+			err := fmt.Errorf("linked binding is in error state: %s", binding.Status.ErrorMessage)
+			r.updateFileRequestStatusError(ctx, &request, err)
+			return reconcile.Result{}, err
 		}
 	}
 	if err := r.Client.Status().Update(ctx, &request); err != nil {
@@ -151,7 +154,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req rec
 	return reconcile.Result{}, nil
 }
 
-func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request api.SPIFileContentRequest) error {
+func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
 	lg := log.FromContext(ctx)
 	newBinding := &api.SPIAccessTokenBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "file-retriever-binding-" + randStringBytes(6), Namespace: request.GetNamespace()},
