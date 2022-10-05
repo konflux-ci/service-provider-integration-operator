@@ -14,7 +14,7 @@ jobs:
       - name: Install logcheck
         run: go install sigs.k8s.io/logtools/logcheck@latest
       - name: Run logcheck
-        run: logcheck .
+        run: logcheck ./...
   golangci:
     name: golangci
     runs-on: ubuntu-latest

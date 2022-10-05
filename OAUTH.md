@@ -1,10 +1,6 @@
 # spi-oauth
 Service provider integration OAuth2 microservice.
 
-
-[![Code Coverage Report](https://github.com/redhat-appstudio/service-provider-integration-oauth/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/service-provider-integration-oauth/actions/workflows/codecov.yaml)
-[![codecov](https://codecov.io/gh/redhat-appstudio/service-provider-integration-oauth/branch/main/graph/badge.svg?token=kdeoeJcs0A)](https://codecov.io/gh/redhat-appstudio/service-provider-integration-oauth)
-
 ### About
 
 OAuth2 protocol is the most commonly used way that allows users to authorize applications to communicate with service providers.
