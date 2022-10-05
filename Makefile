@@ -153,6 +153,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 test: manifests generate fmt vet envtest ## Run unit tests
+	$(K8S_CLI) apply -k ./config/crd
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate fmt vet envtest ## Run only integration tests.
@@ -167,21 +168,23 @@ itest_debug: manifests generate fmt vet envtest ## Start the integration tests i
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+	go build -o bin/ ./cmd/...
 
 run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
-	go run ./main.go
+	go run ./cmd/operator/operator.go
 
 run: ensure-tmp manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
-	KUBECONFIG=$(KUBECONFIG) go run ./main.go || true
+	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
 
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${SPIO_IMG} .
+	docker build -t ${SPIO_IMG} --target spi-operator .
+	docker build -t ${SPIS_IMG} --target spi-oauth .
 
 docker-push: ## Push docker image with the manager.
 	docker push ${SPIO_IMG}
+	docker push ${SPIS_IMG}
 
 ##@ Deployment
 

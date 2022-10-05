@@ -105,6 +105,11 @@ jobs:
             git --no-pager diff
             exit 1
           fi
+      - name: Start Minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/v1.23.2/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          minikube start --memory=4000mb
       - name: Run Go Tests
         env:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s

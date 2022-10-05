@@ -28,6 +28,11 @@ jobs:
           git clone https://github.com/kcp-dev/kcp ~/kcp
           cd ~/kcp
           WHAT=./cmd/kubectl-kcp make install
+      - name: Start Minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/v1.23.2/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          minikube start --memory=4000mb
       - name: Run tests
         env:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s

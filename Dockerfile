@@ -9,17 +9,44 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
+COPY static/ static/
+
 # Copy the go source
-COPY main.go main.go
+COPY cmd/ cmd/
 COPY api/ api/
 COPY controllers/ controllers/
+COPY oauth/ oauth/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/...
 
-# Compose the final image
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941
+# Compose the final image of spi-oauth service
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941 as spi-oauth
+
+# Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
+RUN microdnf install shadow-utils \
+	&& groupadd --gid 65532 nonroot \
+	&& adduser \
+		--no-create-home \
+		--no-user-group \
+		--uid 65532 \
+		--gid 65532 \
+		nonroot
+
+COPY --from=builder /workspace/bin/oauth /spi-oauth
+COPY --from=builder /workspace/static/callback_success.html /static/callback_success.html
+COPY --from=builder /workspace/static/callback_error.html /static/callback_error.html
+COPY --from=builder /workspace/static/redirect_notice.html /static/redirect_notice.html
+
+WORKDIR /
+USER 65532:65532
+
+ENTRYPOINT ["/spi-oauth"]
+
+# Compose the final image of spi-operator.
+# !!! This must be last one, because we want simple `docker build .` to build the operator image.
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941 as spi-operator
 
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf install shadow-utils \
@@ -32,7 +59,7 @@ RUN microdnf install shadow-utils \
 		nonroot
 
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/bin/operator .
 USER 65532:65532
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT ["/operator"]
