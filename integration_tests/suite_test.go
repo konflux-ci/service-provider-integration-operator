@@ -156,15 +156,17 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
-	ITest.HostCredsServiceProvider = TestServiceProvider{
-		GetTypeImpl: func() api.ServiceProviderType {
-			return "HostCredsServiceProvider"
-		},
 
-		GetBaseUrlImpl: func() string {
+	ITest.HostCredsServiceProvider = TestServiceProvider{}
+	ITest.HostCredsServiceProvider.CustomizeReset = func() {
+		ITest.HostCredsServiceProvider.GetTypeImpl = func() api.ServiceProviderType {
+			return "HostCredsServiceProvider"
+		}
+		ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
 			return "not-test-provider://not-baseurl"
-		},
+		}
 	}
+	ITest.HostCredsServiceProvider.Reset()
 
 	ITest.OperatorConfiguration = &opconfig.OperatorConfiguration{
 		SharedConfiguration: config.SharedConfiguration{
