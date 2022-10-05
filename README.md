@@ -57,7 +57,7 @@ These have to be updated on every CRD change and committed. `APIResourceSchema` 
 ## Configuration
 
 It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
-Name of the secret should be `spi-shared-configuration-file` with this configuration yaml under `config.yaml` key.
+Name of the secret should be `shared-configuration-file` with this configuration yaml under `config.yaml` key.
 
 This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`persistedConfiguration`).
 
