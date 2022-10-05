@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202210030822.spiaccesschecks.appstudio.redhat.com
+  name: v202210051502.spiaccesschecks.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -104,7 +104,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202210030822.spiaccesstokenbindings.appstudio.redhat.com
+  name: v202210051502.spiaccesstokenbindings.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -295,7 +295,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202210030822.spiaccesstokendataupdates.appstudio.redhat.com
+  name: v202210051502.spiaccesstokendataupdates.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -350,7 +350,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202210030822.spiaccesstokens.appstudio.redhat.com
+  name: v202210051502.spiaccesstokens.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -485,7 +485,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202210030822.spifilecontentrequests.appstudio.redhat.com
+  name: v202210051502.spifilecontentrequests.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -536,9 +536,7 @@ spec:
               type: string
             phase:
               type: string
-            sha:
-              type: string
-            uploadUrl:
+            tokenUploadUrl:
               type: string
           required:
           - linkedBindingName

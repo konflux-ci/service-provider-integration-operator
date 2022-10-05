@@ -57,9 +57,7 @@ spec:
                 type: string
               phase:
                 type: string
-              sha:
-                type: string
-              uploadUrl:
+              tokenUploadUrl:
                 type: string
             required:
             - linkedBindingName

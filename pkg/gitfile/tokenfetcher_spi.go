@@ -15,9 +15,8 @@ package gitfile
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -30,14 +29,7 @@ type SpiTokenFetcher struct {
 	k8sClient client.Client
 }
 
-const (
-	letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890"
-	duration    = 5 * time.Second
-)
-
-var (
-	taskCancelledError = errors.New("task is cancelled")
-)
+var secretDataEmptyError = stderrors.New("error reading the secret: data is empty")
 
 func (s *SpiTokenFetcher) BuildAuthHeader(ctx context.Context, namespace, secretName string) (*AuthHeaderStruct, error) {
 
@@ -53,5 +45,5 @@ func (s *SpiTokenFetcher) BuildAuthHeader(ctx context.Context, namespace, secret
 	if len(tokenSecret.Data) > 0 {
 		return &AuthHeaderStruct{Authorization: "Bearer " + string(tokenSecret.Data["password"])}, nil
 	}
-	return nil, fmt.Errorf("error reading the secret data")
+	return nil, secretDataEmptyError
 }

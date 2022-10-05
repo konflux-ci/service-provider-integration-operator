@@ -27,10 +27,9 @@ type SPIFileContentRequestStatus struct {
 	LinkedBindingName string                     `json:"linkedBindingName"`
 	ErrorMessage      string                     `json:"errorMessage,omitempty"`
 	OAuthUrl          string                     `json:"oAuthUrl,omitempty"`
-	UploadUrl         string                     `json:"uploadUrl,omitempty"`
+	TokenUploadUrl    string                     `json:"tokenUploadUrl,omitempty"`
 	Content           string                     `json:"content,omitempty"`
 	ContentEncoding   string                     `json:"contentEncoding,omitempty"`
-	SHA               string                     `json:"sha,omitempty"`
 }
 
 type SPIFileContentRequestPhase string

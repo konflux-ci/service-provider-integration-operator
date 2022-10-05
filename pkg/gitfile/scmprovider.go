@@ -38,7 +38,6 @@ var ScmProviders []ScmProvider
 
 func init() {
 	ScmProviders = []ScmProvider{
-		new(GitLabScmProvider),
 		new(GitHubScmProvider),
 	}
 }

@@ -10,8 +10,8 @@ spec:
     - group: ""
       resource: secrets
   latestResourceSchemas:
-    - v202210030822.spiaccesschecks.appstudio.redhat.com
-    - v202210030822.spiaccesstokenbindings.appstudio.redhat.com
-    - v202210030822.spiaccesstokendataupdates.appstudio.redhat.com
-    - v202210030822.spiaccesstokens.appstudio.redhat.com
-    - v202210030822.spifilecontentrequests.appstudio.redhat.com
+    - v202210051502.spiaccesschecks.appstudio.redhat.com
+    - v202210051502.spiaccesstokenbindings.appstudio.redhat.com
+    - v202210051502.spiaccesstokendataupdates.appstudio.redhat.com
+    - v202210051502.spiaccesstokens.appstudio.redhat.com
+    - v202210051502.spifilecontentrequests.appstudio.redhat.com

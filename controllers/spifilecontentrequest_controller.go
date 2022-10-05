@@ -104,6 +104,9 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 	if request.Status.Phase == "" {
 		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
+	} else if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
+		// already injected, nothing to do
+		return ctrl.Result{}, nil
 	}
 
 	if request.Status.LinkedBindingName == "" {
@@ -126,17 +129,17 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		//binding not injected yet, let's just synchronize URL's and that's it
 		if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
-			request.Status.UploadUrl = binding.Status.UploadUrl
+			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
 			contents, err := gitfile.GetFileContents(ctx, r.Client, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
 			}
 			fileBytes, err := io.ReadAll(contents)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("error reading file content: %w", err)
 			}
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
@@ -149,6 +152,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if err := r.Client.Status().Update(ctx, &request); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return reconcile.Result{}, nil
