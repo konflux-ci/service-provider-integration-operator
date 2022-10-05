@@ -4,7 +4,7 @@
 
 A Kubernetes controller/operator that manages service provider integration tasks 
 
-OAuth service is now part of this repository. [documentation](OAUTH.md)
+OAuth service is now part of this repository ([documentation](OAUTH.md)). 
 
 ## Building & Testing
 This project provides a `Makefile` to run all the usual development tasks. If you simply run `make` without any arguments, you'll get a list of available "targets".
