@@ -29,7 +29,7 @@ func LogErrorAndWriteResponse(ctx context.Context, w http.ResponseWriter, status
 	log.Error(err, msg)
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, err = fmt.Fprintf(w, "%s: %s", msg, err.Error())
+	_, err = fmt.Fprintf(w, "%s: %s", msg, err.Error()) //nolint:logcheck
 	if err != nil {
 		log.Error(err, "error recording response error message")
 	}
@@ -37,7 +37,7 @@ func LogErrorAndWriteResponse(ctx context.Context, w http.ResponseWriter, status
 
 func LogDebugAndWriteResponse(ctx context.Context, w http.ResponseWriter, status int, msg string, keysAndValues ...interface{}) {
 	log := log.FromContext(ctx)
-	log.V(logs.DebugLevel).Info(msg, keysAndValues...)
+	log.V(logs.DebugLevel).Info(msg, keysAndValues...) //nolint:logcheck
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, err := fmt.Fprint(w, msg)
