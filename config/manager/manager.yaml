@@ -21,7 +21,7 @@ spec:
       containers:
       - name: manager
         command:
-        - /manager
+        - /operator
         image: quay.io/redhat-appstudio/service-provider-integration-operator:next
         env: []
         envFrom:
