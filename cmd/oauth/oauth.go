@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/alexedwards/scs/v2"
@@ -107,7 +105,7 @@ func main() {
 	}
 
 	if err := strg.Initialize(context.Background()); err != nil {
-		zap.L().Error("failed to login to token storage", zap.Error(err))
+		setupLog.Error(err, "failed to login to token storage")
 		return
 	}
 
