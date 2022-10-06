@@ -25,10 +25,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
@@ -88,7 +87,7 @@ func main() {
 
 	if err != nil {
 		setupLog.Error(err, "failed to create kubernetes client")
-		return
+		os.Exit(1)
 	}
 
 	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
@@ -102,7 +101,12 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")
-		return
+		os.Exit(1)
+	}
+
+	if err := strg.Initialize(context.Background()); err != nil {
+		setupLog.Error(err, "failed to login to token storage")
+		os.Exit(1)
 	}
 
 	tokenUploader := oauth.SpiTokenUploader{
@@ -134,7 +138,7 @@ func main() {
 	redirectTpl, err := template.ParseFiles("static/redirect_notice.html")
 	if err != nil {
 		setupLog.Error(err, "failed to parse the redirect notice HTML template")
-		return
+		os.Exit(1)
 	}
 
 	for _, sp := range cfg.ServiceProviders {
