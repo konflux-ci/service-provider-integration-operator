@@ -66,21 +66,31 @@ func (t *MetricsCollectingTokenStorage) Initialize(ctx context.Context) error {
 		return fmt.Errorf("failed to register metrics: %w", err)
 	}
 
-	return t.TokenStorage.Initialize(ctx)
+	if err := t.TokenStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the wrapped token storage: %w", err)
+	}
+
+	return nil
 }
 
 func (t *MetricsCollectingTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	timer := metrics.NewValueTimer1(storeObserver)
+
+	//nolint:wrapcheck // this is just propagating our error
 	return timer.ObserveValuesAndDuration(t.TokenStorage.Store(ctx, owner, token))
 }
 
 func (t *MetricsCollectingTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 	timer := metrics.NewValueTimer2(getObserver)
+
+	//nolint:wrapcheck // this is just propagating our error
 	return timer.ObserveValuesAndDuration(t.TokenStorage.Get(ctx, owner))
 }
 
 func (t *MetricsCollectingTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	timer := metrics.NewValueTimer1(deleteObserver)
+
+	//nolint:wrapcheck // this is just propagating our error
 	return timer.ObserveValuesAndDuration(t.TokenStorage.Delete(ctx, owner))
 }
 

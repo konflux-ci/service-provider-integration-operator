@@ -162,34 +162,38 @@ func NewValueTimer5[T any, U any, V any, W any, X any](recorder ValueObserver5[T
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
 // the ValueTimer1 since this call. It also returns the supplied data.
 func (o ValueTimer1[T]) ObserveValuesAndDuration(val T) T {
-	o.Observer.Observe(val, time.Now().Sub(o.startTime).Seconds())
+	o.Observer.Observe(val, elapsedSeconds(o.startTime))
 	return val
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
 // the ValueTimer2 since this call. It also returns the supplied data.
 func (o ValueTimer2[T, U]) ObserveValuesAndDuration(v1 T, v2 U) (T, U) {
-	o.Recorder.Observe(v1, v2, time.Now().Sub(o.startTime).Seconds())
+	o.Recorder.Observe(v1, v2, elapsedSeconds(o.startTime))
 	return v1, v2
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
 // the ValueTimer3 since this call. It also returns the supplied data.
 func (o ValueTimer3[T, U, V]) ObserveValuesAndDuration(v1 T, v2 U, v3 V) (T, U, V) {
-	o.Recorder.Observe(v1, v2, v3, time.Now().Sub(o.startTime).Seconds())
+	o.Recorder.Observe(v1, v2, v3, elapsedSeconds(o.startTime))
 	return v1, v2, v3
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
 // the ValueTimer4 since this call. It also returns the supplied data.
 func (o ValueTimer4[T, U, V, W]) ObserveValuesAndDuration(v1 T, v2 U, v3 V, v4 W) (T, U, V, W) {
-	o.Recorder.Observe(v1, v2, v3, v4, time.Now().Sub(o.startTime).Seconds())
+	o.Recorder.Observe(v1, v2, v3, v4, elapsedSeconds(o.startTime))
 	return v1, v2, v3, v4
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
 // the ValueTimer5 since this call. It also returns the supplied data.
 func (o ValueTimer5[T, U, V, W, X]) ObserveValuesAndDuration(v1 T, v2 U, v3 V, v4 W, v5 X) (T, U, V, W, X) {
-	o.Recorder.Observe(v1, v2, v3, v4, v5, time.Now().Sub(o.startTime).Seconds())
+	o.Recorder.Observe(v1, v2, v3, v4, v5, elapsedSeconds(o.startTime))
 	return v1, v2, v3, v4, v5
+}
+
+func elapsedSeconds(start time.Time) float64 {
+	return time.Since(start).Seconds()
 }
