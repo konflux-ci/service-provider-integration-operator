@@ -2,7 +2,7 @@
 [![Code Coverage Report](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml)
 [![codecov](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator/branch/main/graph/badge.svg?token=EH16HO2RHP)](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator)
 
-A Kubernetes controller/operator that manages service provider integration tasks 
+A Kubernetes controller/operator that manages service provider integration tasks.
 
 OAuth service is now part of this repository ([documentation](OAUTH.md)). 
 
