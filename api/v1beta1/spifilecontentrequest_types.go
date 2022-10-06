@@ -17,19 +17,35 @@ package v1beta1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type SPIFileContentRequestSpec struct {
+	// FilePath defines target file path inside repository
 	FilePath string `json:"filePath"`
-	RepoUrl  string `json:"repoUrl"`
-	Ref      string `json:"ref,omitempty"`
+	// RepoUrl defines target file repository
+	RepoUrl string `json:"repoUrl"`
+	// Ref defines target git reference (tag/branch/commit)
+	// +optional
+	Ref string `json:"ref,omitempty"`
 }
 
 type SPIFileContentRequestStatus struct {
-	Phase             SPIFileContentRequestPhase `json:"phase"`
-	LinkedBindingName string                     `json:"linkedBindingName"`
-	ErrorMessage      string                     `json:"errorMessage,omitempty"`
-	OAuthUrl          string                     `json:"oAuthUrl,omitempty"`
-	TokenUploadUrl    string                     `json:"tokenUploadUrl,omitempty"`
-	Content           string                     `json:"content,omitempty"`
-	ContentEncoding   string                     `json:"contentEncoding,omitempty"`
+	// Phase of the current file request
+	Phase SPIFileContentRequestPhase `json:"phase"`
+	// LinkedBindingName name of the binding used for repository authentication
+	LinkedBindingName string `json:"linkedBindingName"`
+	// ErrorMessage defines error message if file request failed
+	// + optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
+	// OAuthUrl URL to authenticate into target repository using OAuth
+	// +optional
+	OAuthUrl string `json:"oAuthUrl,omitempty"`
+	// TokenUploadUrl URL to perform manual upload of the token to access target repository
+	// +optional
+	TokenUploadUrl string `json:"tokenUploadUrl,omitempty"`
+	// Content encoded target file content
+	// +optional
+	Content string `json:"content,omitempty"`
+	// ContentEncoding encoding used for file content
+	// +optional
+	ContentEncoding string `json:"contentEncoding,omitempty"`
 }
 
 type SPIFileContentRequestPhase string
