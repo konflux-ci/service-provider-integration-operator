@@ -34,10 +34,13 @@ spec:
           spec:
             properties:
               filePath:
+                description: FilePath defines target file path inside repository
                 type: string
               ref:
+                description: Ref defines target git reference (tag/branch/commit)
                 type: string
               repoUrl:
+                description: RepoUrl defines target file repository
                 type: string
             required:
             - filePath
@@ -46,18 +49,28 @@ spec:
           status:
             properties:
               content:
+                description: Content encoded target file content
                 type: string
               contentEncoding:
+                description: ContentEncoding encoding used for file content
                 type: string
               errorMessage:
+                description: ErrorMessage defines error message if file request failed
                 type: string
               linkedBindingName:
+                description: LinkedBindingName name of the binding used for repository
+                  authentication
                 type: string
               oAuthUrl:
+                description: OAuthUrl URL to authenticate into target repository using
+                  OAuth
                 type: string
               phase:
+                description: Phase of the current file request
                 type: string
               tokenUploadUrl:
+                description: TokenUploadUrl URL to perform manual upload of the token
+                  to access target repository
                 type: string
             required:
             - linkedBindingName
