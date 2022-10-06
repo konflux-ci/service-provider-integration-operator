@@ -137,7 +137,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	lg := log.FromContext(ctx)
 	path := getVaultPath(ctx, owner)
 
-	s, err := v.Client.Logical().Write(path, data)
+	s, err := v.Client.Logical().WriteWithContext(ctx, path, data)
 	if err != nil {
 		return fmt.Errorf("error writing the data to Vault: %w", err)
 	}
@@ -155,7 +155,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 	lg := log.FromContext(ctx)
 
 	path := getVaultPath(ctx, owner)
-	secret, err := v.Client.Logical().Read(path)
+	secret, err := v.Client.Logical().ReadWithContext(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
 	}
@@ -222,7 +222,7 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	path := getVaultPath(ctx, owner)
-	s, err := v.Client.Logical().Delete(path)
+	s, err := v.Client.Logical().DeleteWithContext(ctx, path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
