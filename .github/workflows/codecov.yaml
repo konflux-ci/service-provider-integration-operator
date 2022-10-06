@@ -30,7 +30,7 @@ jobs:
           WHAT=./cmd/kubectl-kcp make install
       - name: Start Minikube
         run: |
-          curl -LO https://storage.googleapis.com/minikube/releases/v1.23.2/minikube-linux-amd64
+          curl -LO https://storage.googleapis.com/minikube/releases/v1.27.0/minikube-linux-amd64
           sudo install minikube-linux-amd64 /usr/local/bin/minikube
           minikube start --memory=4000mb
       - name: Run tests
