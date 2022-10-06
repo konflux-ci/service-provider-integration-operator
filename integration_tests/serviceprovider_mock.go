@@ -36,7 +36,7 @@ type TestServiceProvider struct {
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
-	CustomizeReset            func()
+	CustomizeReset            func(provider *TestServiceProvider)
 }
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -116,7 +116,7 @@ func (t *TestServiceProvider) Reset() {
 	t.MapTokenImpl = nil
 	t.ValidateImpl = nil
 	if t.CustomizeReset != nil {
-		t.CustomizeReset()
+		t.CustomizeReset(t)
 	}
 }
 

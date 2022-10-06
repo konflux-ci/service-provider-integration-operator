@@ -158,11 +158,11 @@ var _ = BeforeSuite(func() {
 	})
 
 	ITest.HostCredsServiceProvider = TestServiceProvider{}
-	ITest.HostCredsServiceProvider.CustomizeReset = func() {
-		ITest.HostCredsServiceProvider.GetTypeImpl = func() api.ServiceProviderType {
+	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {
+		provider.GetTypeImpl = func() api.ServiceProviderType {
 			return "HostCredsServiceProvider"
 		}
-		ITest.HostCredsServiceProvider.GetBaseUrlImpl = func() string {
+		provider.GetBaseUrlImpl = func() string {
 			return "not-test-provider://not-baseurl"
 		}
 	}
