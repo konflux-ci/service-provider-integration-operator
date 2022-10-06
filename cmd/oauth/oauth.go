@@ -87,7 +87,7 @@ func main() {
 
 	if err != nil {
 		setupLog.Error(err, "failed to create kubernetes client")
-		return
+		os.Exit(1)
 	}
 
 	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
@@ -101,12 +101,12 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")
-		return
+		os.Exit(1)
 	}
 
 	if err := strg.Initialize(context.Background()); err != nil {
 		setupLog.Error(err, "failed to login to token storage")
-		return
+		os.Exit(1)
 	}
 
 	tokenUploader := oauth.SpiTokenUploader{
@@ -138,7 +138,7 @@ func main() {
 	redirectTpl, err := template.ParseFiles("static/redirect_notice.html")
 	if err != nil {
 		setupLog.Error(err, "failed to parse the redirect notice HTML template")
-		return
+		os.Exit(1)
 	}
 
 	for _, sp := range cfg.ServiceProviders {
