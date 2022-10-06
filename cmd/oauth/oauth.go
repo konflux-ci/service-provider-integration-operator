@@ -25,10 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
+	"go.uber.org/zap"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
@@ -102,6 +103,11 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")
+		return
+	}
+
+	if err := strg.Initialize(context.Background()); err != nil {
+		zap.L().Error("failed to login to token storage", zap.Error(err))
 		return
 	}
 
