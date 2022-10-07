@@ -100,8 +100,6 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	//TODO: lifetime cleanup
-
 	if request.Status.Phase == "" {
 		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
 	} else if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
