@@ -21,19 +21,20 @@ To test the code:
 make test
 ```
 
-To build the docker image of the operator one can run:
+To build the docker images of the operator and oauth service one can run:
 
 ```
 make docker-build
 ```
 
-This will make a docker image called `controller:latest` which might or might not be what you want. To override the name of the image build, specify it in the `SPIO_IMG` environment variable, e.g.:
+This will make a docker images called `quay.io/redhat-appstudio/service-provider-integration-operator:next` and `quay.io/redhat-appstudio/service-provider-integration-oauth:next` which might or might not be what you want.
+To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable (see [Makefile](Makefile) for more granular options), e.g.:
 
 ```
-SPIO_IMG=quay.io/acme/spio:42 make docker-build
+SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-build
 ```
 
-To push the image to an image repository one can use:
+To push the images to an image repository one can use:
 
 ```
 make docker-push
@@ -41,7 +42,7 @@ make docker-push
 
 The image being pushed can again be modified using the environment variable:
 ```
-SPIO_IMG=quay.io/acme/spio:42 make docker-push
+SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-push
 ```
 
 Before you push a PR to the repository, it is recommended to run an overall validity check of the codebase. This will
