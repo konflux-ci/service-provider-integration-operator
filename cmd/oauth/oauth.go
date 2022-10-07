@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 	"html/template"
 	"net"
 	"net/http"
@@ -65,6 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := mux.NewRouter()
 
 	// insecure mode only allowed when the trusted root certificate is not specified...
