@@ -112,6 +112,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.VaultTestCluster, IT.TokenStorage = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
+
+	err = IT.TokenStorage.Initialize(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.TokenStorage = tokenstorage.NotifyingTokenStorage{

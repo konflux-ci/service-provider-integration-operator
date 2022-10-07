@@ -85,16 +85,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
+	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	// use the same metrics registry as the controller-runtime
+	vaultConfig.MetricsRegisterer = metrics.Registry
+	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
-	}
-
-	// also make sure to collect the metrics on Vault access
-	strg = &tokenstorage.MetricsCollectingTokenStorage{
-		MetricsRegisterer: metrics.Registry,
-		TokenStorage:      strg,
 	}
 
 	if err = strg.Initialize(ctx); err != nil {

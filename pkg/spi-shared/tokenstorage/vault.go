@@ -19,9 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -38,6 +42,7 @@ const vaultDataKcpPathFormat = "spi/data/%s/%s/%s"
 type vaultTokenStorage struct {
 	*vault.Client
 	loginHandler *loginHandler
+	metrics      prometheus.Registerer
 }
 
 var (
@@ -47,6 +52,35 @@ var (
 	noAuthInfoInVaultError = errors.New("no auth info returned from Vault")
 	unexpectedDataError    = errors.New("unexpected data")
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
+
+	vaultRequestCountMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "vault_request_count_total",
+		Help:      "The request counts to Vault categorized by status code",
+	}, []string{"method", "status"})
+
+	vaultResponseTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "vault_response_time_seconds",
+		Help:      "The response time of Vault requests categorized by HTTP method and status code",
+	}, []string{"method", "status"})
+
+	requestMetricConfig = httptransport.HttpMetricCollectionConfig{
+		CounterPicker: httptransport.HttpCounterMetricPickerFunc(func(request *http.Request, resp *http.Response, err error) []prometheus.Counter {
+			if resp == nil {
+				return nil
+			}
+			return []prometheus.Counter{vaultRequestCountMetric.WithLabelValues(request.Method, strconv.Itoa(resp.StatusCode))}
+		}),
+		HistogramOrSummaryPicker: httptransport.HttpHistogramOrSummaryMetricPickerFunc(func(request *http.Request, resp *http.Response, err error) []prometheus.Observer {
+			if resp == nil {
+				return nil
+			}
+			return []prometheus.Observer{vaultResponseTimeMetric.WithLabelValues(request.Method, strconv.Itoa(resp.StatusCode))}
+		}),
+	}
 )
 
 type VaultAuthMethod string
@@ -66,6 +100,8 @@ type VaultStorageConfig struct {
 
 	RoleIdFilePath   string
 	SecretIdFilePath string
+
+	MetricsRegisterer prometheus.Registerer
 }
 
 type VaultCliArgs struct {
@@ -78,6 +114,9 @@ type VaultCliArgs struct {
 	VaultKubernetesRole            string          `arg:"--vault-k8s-role, env"  help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
 }
 
+// VaultStorageConfigFromCliArgs returns an instance of the VaultStorageConfig with some fields initialized from
+// the corresponding CLI arguments. Notably, the VaultStorageConfig.MetricsRegisterer is NOT configured, because this
+// cannot be done using just the CLI arguments.
 func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *VaultStorageConfig {
 	return &VaultStorageConfig{
 		Host:                        args.VaultHost,
@@ -103,6 +142,10 @@ func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage,
 		}
 	}
 
+	// This needs to be done AFTER configuring the TLS, because ConfigureTLS assumes that the transport is http.Transport
+	// and not our round tripper.
+	config.HttpClient.Transport = httptransport.HttpMetricCollectingRoundTripper{RoundTripper: config.HttpClient.Transport}
+
 	vaultClient, err := vault.NewClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("error creating the client: %w", err)
@@ -118,16 +161,33 @@ func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage,
 		loginHandler: &loginHandler{
 			client:     vaultClient,
 			authMethod: authMethod,
-		}}, nil
+		},
+		metrics: vaultTokenStorageConfig.MetricsRegisterer,
+	}, nil
 }
 
 func (v *vaultTokenStorage) Initialize(ctx context.Context) error {
-	if v.loginHandler == nil {
+	if v.loginHandler != nil {
+		if err := v.loginHandler.Login(ctx); err != nil {
+			return fmt.Errorf("failed to login to Vault: %w", err)
+		}
+	} else {
 		log.FromContext(ctx).Info("no login handler configured for Vault - token refresh disabled")
-		return nil
 	}
 
-	return v.loginHandler.Login(ctx)
+	if v.metrics != nil {
+		if err := v.metrics.Register(vaultRequestCountMetric); err != nil {
+			return fmt.Errorf("failed to register request count metric: %w", err)
+		}
+
+		if err := v.metrics.Register(vaultResponseTimeMetric); err != nil {
+			return fmt.Errorf("failed to register response time metric: %w", err)
+		}
+	} else {
+		log.FromContext(ctx).Info("no metrics registry configured - metrics collection for Vault access is disabled")
+	}
+
+	return nil
 }
 
 func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
@@ -137,6 +197,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 	lg := log.FromContext(ctx)
 	path := getVaultPath(ctx, owner)
 
+	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 	s, err := v.Client.Logical().WriteWithContext(ctx, path, data)
 	if err != nil {
 		return fmt.Errorf("error writing the data to Vault: %w", err)
@@ -153,6 +214,8 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 
 func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 	lg := log.FromContext(ctx)
+
+	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
 	path := getVaultPath(ctx, owner)
 	secret, err := v.Client.Logical().ReadWithContext(ctx, path)
@@ -221,6 +284,8 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 }
 
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
+	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
+
 	path := getVaultPath(ctx, owner)
 	s, err := v.Client.Logical().DeleteWithContext(ctx, path)
 	if err != nil {
