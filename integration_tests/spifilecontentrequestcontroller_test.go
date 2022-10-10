@@ -59,7 +59,7 @@ var _ = Describe("Create without token data", func() {
 			request := &api.SPIFileContentRequest{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
-			//g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty()) //failing, why ?
+			g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty()) //failing, why ?
 		}).Should(Succeed())
 	})
 })
@@ -75,14 +75,16 @@ var _ = Describe("With binding ready", func() {
 				Namespace:    "default",
 			},
 			Spec: api.SPIFileContentRequestSpec{
-				RepoUrl:  "test-provider://test",
-				FilePath: "foo/bar.txt",
+				RepoUrl:  "test-provider://acme",
+				FilePath: "README.md",
 			},
 		}
+
 		Expect(ITest.Client.Create(ITest.Context, createdRequest)).To(Succeed())
 		// re-read to fill other fields
 		Eventually(func(g Gomega) {
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), createdRequest)).To(Succeed())
+			g.Expect(createdRequest.Status.LinkedBindingName).NotTo(BeEmpty())
 		}).Should(Succeed())
 
 		binding := &api.SPIAccessTokenBinding{}
@@ -122,7 +124,10 @@ var _ = Describe("With binding ready", func() {
 	})
 
 	It("fetches the content", func() {
-		//binding := &api.SPIAccessTokenBinding{}
+		//Eventually(func(g Gomega) {
+		//	g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), createdRequest)).To(Succeed())
+		//	g.Expect(createdRequest.Status.Content).NotTo(BeEmpty())
+		//}).Should(Succeed())
 	})
 
 })
