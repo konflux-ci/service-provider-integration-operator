@@ -19,6 +19,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -30,6 +34,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var objectLifetimeMetric = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Namespace: config.MetricsNamespace,
+	Subsystem: config.MetricsSubsystem,
+	Name:      "spiaccesstokendataupdate_lifetime_seconds",
+	Help:      "The lifetime in seconds of the SPIAccessTokenDataUpdate objects. This measures the time between storing the new token data in Vault and the operator reacting on its presence.",
+})
+
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=get;list;watch;delete
 
 // SPIAccessTokenDataUpdateReconciler reconciles a SPIAccessTokenDataUpdate object
@@ -39,14 +50,18 @@ type SPIAccessTokenDataUpdateReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenDataUpdate{}).
-		Complete(r)
-	if err != nil {
+		Complete(r); err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
+		return err
 	}
 
-	return err
+	if err := metrics.Registry.Register(objectLifetimeMetric); err != nil {
+		return fmt.Errorf("failed to register the SPIAccessTokenDataUpdate metrics: %w", err)
+	}
+
+	return nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -61,7 +76,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 
 	if err := r.Get(ctx, req.NamespacedName, &update); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("token data update already gone from the cluster. skipping reconciliation")
+			lg.V(logs.DebugLevel).Info("token data update already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
@@ -69,9 +84,11 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if update.DeletionTimestamp != nil {
-		lg.Info("token data update being deleted, no other changes required after completed finalization")
+		lg.V(logs.DebugLevel).Info("token data update being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
 	}
+
+	creationTime := update.CreationTimestamp
 
 	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token
 	// The SPIAccessTokenReconciler is set up to watch the update objects and translate those to reconciliation requests
@@ -80,5 +97,8 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		lg.Error(err, "failed to delete the processed data token update")
 		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
 	}
+
+	objectLifetimeMetric.Observe(time.Since(creationTime.Time).Seconds())
+
 	return ctrl.Result{}, nil
 }
