@@ -21,8 +21,8 @@ require (
 	github.com/hashicorp/vault/api/auth/approle v0.1.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.2.0
 	github.com/hashicorp/vault/sdk v0.5.3-0.20220826205147-7caf353e8124
-	github.com/kcp-dev/kcp/pkg/apis v0.8.2
-	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.1
+	github.com/kcp-dev/kcp/pkg/apis v0.9.0
+	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.3
 	github.com/migueleliasweb/go-github-mock v0.0.12
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
