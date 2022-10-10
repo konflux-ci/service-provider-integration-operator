@@ -57,7 +57,7 @@ var (
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
 		Name:      "vault_request_count_total",
-		Help:      "The request counts to Vault categorized by status code",
+		Help:      "The request counts to Vault categorized by HTTP method status code",
 	}, []string{"method", "status"})
 
 	vaultResponseTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
