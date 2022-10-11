@@ -16,7 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"html/template"
 	"net"
 	"net/http"

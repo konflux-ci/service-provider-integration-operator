@@ -12,8 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-//var metricsRegistry *prometheus.Registry
-
 func ServeMetrics(ctx context.Context, address string) {
 	setupLog := ctrl.Log.WithName("metrics")
 	//metricsRegistry = prometheus.NewRegistry()
@@ -50,12 +48,11 @@ func ServeMetrics(ctx context.Context, address string) {
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
 	if err := server.Shutdown(context); err != nil {
-		setupLog.Error(err, "OAuth server shutdown failed")
-		os.Exit(1)
+		setupLog.Error(err, "Metrics server shutdown failed")
+		return
 	}
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
 	setupLog.Info("Metrics server exited properly")
-	os.Exit(0)
 }
