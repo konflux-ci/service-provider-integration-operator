@@ -15,6 +15,7 @@ package gitfile
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -41,5 +42,5 @@ func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient ht
 		req.Header.Add(k, v)
 	}
 	response, err := httpClient.Do(req)
-	return response.Body, err
+	return response.Body, fmt.Errorf("error reading file content: %w", err)
 }

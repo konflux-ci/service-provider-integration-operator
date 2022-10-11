@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -45,6 +46,8 @@ import (
 const (
 	letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890"
 )
+
+var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
 
 type SPIFileContentRequestReconciler struct {
 	K8sClient  client.Client
@@ -159,8 +162,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 		} else {
-			lg.Info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-			err := fmt.Errorf("linked binding is in error state: %s", binding.Status.ErrorMessage)
+			err := fmt.Errorf("%w: %s", linkedBindingErrorStateError, binding.Status.ErrorMessage)
 			r.updateFileRequestStatusError(ctx, &request, err)
 			return reconcile.Result{}, err
 		}
