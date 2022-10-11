@@ -190,7 +190,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 
 	owner, repository, _ := splitToOrganizationAndRepositoryAndVersion(accessCheck.Spec.RepoUrl)
 	if owner == "" || repository == "" {
-		lg.Error(failedToParseRepoUrlError, "we don't reconcile this resource again as we don't understand the URL '%s'. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
+		lg.Error(failedToParseRepoUrlError, "we don't reconcile this resource again as we don't understand the URL. Error written to SPIAccessCheck status.", "repo url", accessCheck.Spec.RepoUrl)
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = failedToParseRepoUrlError.Error()
 		return status, nil // return nil error, because we don't want to reconcile this again

@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
 	"errors"
 	"fmt"
 	"io"
@@ -58,22 +60,6 @@ type tokenFilterMock struct {
 
 func (t tokenFilterMock) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	return t.matchesFunc(ctx, matchable, token)
-}
-
-type tokenStorageMock struct {
-	getFunc func(ctx context.Context, owner *api.SPIAccessToken) *api.Token
-}
-
-func (t tokenStorageMock) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
-	return nil
-}
-
-func (t tokenStorageMock) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	return t.getFunc(ctx, owner), nil
-}
-
-func (t tokenStorageMock) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	return nil
 }
 
 func TestMain(m *testing.M) {
@@ -347,8 +333,8 @@ func TestValidate(t *testing.T) {
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
 	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
-	ts := tokenStorageMock{getFunc: func(ctx context.Context, owner *api.SPIAccessToken) *api.Token {
-		return &api.Token{AccessToken: "blabol"}
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
 	mockedHTTPClient := &http.Client{

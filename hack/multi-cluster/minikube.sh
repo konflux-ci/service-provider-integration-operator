@@ -11,9 +11,6 @@ SPIS_IMG=${SPIS_IMG:=quay.io/redhat-appstudio/service-provider-integration-oauth
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
-# the shared secret set in the configuration of SPI in both clusters
-SHARED_SECRET="kachny"
-
 # change the directory so that we can run make
 cd "$SCRIPT_DIR/../.." || exit 1
 

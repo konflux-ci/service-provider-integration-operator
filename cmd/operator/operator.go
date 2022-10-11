@@ -19,8 +19,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
@@ -29,7 +30,6 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	corev1 "k8s.io/api/core/v1"
@@ -69,6 +69,7 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
+	ctx = log.IntoContext(ctx, ctrl.Log)
 
 	mgr, mgrErr := createManager(ctx, args)
 	if mgrErr != nil {
@@ -88,54 +89,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.SPIAccessTokenReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		TokenStorage: strg,
-		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    &cfg,
-			KubernetesClient: mgr.GetClient(),
-			HttpClient:       http.DefaultClient,
-			Initializers:     serviceproviders.KnownInitializers(),
-			TokenStorage:     strg,
-		},
-		Configuration: &cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessToken")
-		os.Exit(1)
-	}
-	if err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		TokenStorage: strg,
-		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    &cfg,
-			KubernetesClient: mgr.GetClient(),
-			HttpClient:       http.DefaultClient,
-			Initializers:     serviceproviders.KnownInitializers(),
-			TokenStorage:     strg,
-		},
-		Configuration: &cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessTokenBinding")
+	if err = strg.Initialize(ctx); err != nil {
+		setupLog.Error(err, "failed to log in to the token storage")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.SPIAccessCheckReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		ServiceProviderFactory: serviceprovider.Factory{
-			Configuration:    &cfg,
-			KubernetesClient: mgr.GetClient(),
-			HttpClient:       http.DefaultClient,
-			Initializers:     serviceproviders.KnownInitializers(),
-			TokenStorage:     strg,
-		},
-		Configuration: &cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SPIAccessCheck")
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers()); err != nil {
+		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

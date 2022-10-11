@@ -34,12 +34,15 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+SPI_IMG_BASE ?= quay.io/redhat-appstudio
+
 # SPIO_IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # appstudio.redhat.org/service-provider-integration-operator-bundle:$VERSION and appstudio.redhat.org/service-provider-integration-operator-catalog:$VERSION.
-SPIO_IMAGE_TAG_BASE ?= quay.io/redhat-appstudio/service-provider-integration-operator
+SPIO_IMAGE_NAME ?= service-provider-integration-operator
+SPIO_IMAGE_TAG_BASE ?= $(SPI_IMG_BASE)/$(SPIO_IMAGE_NAME)
 
 # SPIO_BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build SPIO_BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -49,7 +52,8 @@ SPIO_BUNDLE_IMG ?= $(SPIO_IMAGE_TAG_BASE)-bundle:$(TAG_NAME)
 SPIO_IMG ?= $(SPIO_IMAGE_TAG_BASE):$(TAG_NAME)
 
 # SPIS_IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for the OAuth service image.
-SPIS_IMAGE_TAG_BASE ?= quay.io/redhat-appstudio/service-provider-integration-oauth
+SPIS_IMAGE_NAME ?= service-provider-integration-oauth
+SPIS_IMAGE_TAG_BASE ?= $(SPI_IMG_BASE)/$(SPIS_IMAGE_NAME)
 
 # Image URL to use for deploying of the OAuth service
 SPIS_IMG ?= $(SPIS_IMAGE_TAG_BASE):$(TAG_NAME)
@@ -153,6 +157,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 test: manifests generate fmt vet envtest ## Run unit tests
+	$(K8S_CLI) apply -k ./config/crd
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate fmt vet envtest ## Run only integration tests.
@@ -167,21 +172,34 @@ itest_debug: manifests generate fmt vet envtest ## Start the integration tests i
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+	go build -o bin/ ./cmd/...
 
 run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
-	go run ./main.go
+	go run ./cmd/operator/operator.go
 
 run: ensure-tmp manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
-	KUBECONFIG=$(KUBECONFIG) go run ./main.go || true
+	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
 
-docker-build: test ## Build docker image with the manager.
-	docker build -t ${SPIO_IMG} .
+run_oauth:
+	go run ./cmd/oauth/oauth.go
 
-docker-push: ## Push docker image with the manager.
+docker-build: docker-build-operator docker-build-oauth
+
+docker-build-operator:
+	docker build -t ${SPIO_IMG}  . -f Dockerfile
+
+docker-build-oauth:
+	docker build -t ${SPIS_IMG} . -f oauth.Dockerfile
+
+docker-push: docker-push-operator docker-push-oauth
+
+docker-push-operator:
 	docker push ${SPIO_IMG}
+
+docker-push-oauth:
+	docker push ${SPIS_IMG}
 
 ##@ Deployment
 
@@ -243,14 +261,14 @@ deploy_vault_openshift:
 	$(KUSTOMIZE) build config/vault/openshift | kubectl apply -f -
 	POD_NAME=vault-0 NAMESPACE=spi-vault hack/vault-init.sh
 
-undeploy_vault_openshift:
+undeploy_vault_openshift: kustomize
 	$(KUSTOMIZE) build config/vault/openshift | kubectl delete -f -
 
-deploy_vault_minikube:
+deploy_vault_minikube: kustomize
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
-undeploy_vault_k8s:
+undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f -
 
 ##@ Build Dependencies

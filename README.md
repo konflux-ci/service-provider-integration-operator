@@ -2,7 +2,9 @@
 [![Code Coverage Report](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/service-provider-integration-operator/actions/workflows/codecov.yaml)
 [![codecov](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator/branch/main/graph/badge.svg?token=EH16HO2RHP)](https://codecov.io/gh/redhat-appstudio/service-provider-integration-operator)
 
-A Kubernetes controller/operator that manages service provider integration tasks 
+A Kubernetes controller/operator that manages service provider integration tasks.
+
+OAuth service is now part of this repository ([documentation](OAUTH.md)). 
 
 ## Building & Testing
 This project provides a `Makefile` to run all the usual development tasks. If you simply run `make` without any arguments, you'll get a list of available "targets".
@@ -19,19 +21,20 @@ To test the code:
 make test
 ```
 
-To build the docker image of the operator one can run:
+To build the docker images of the operator and oauth service one can run:
 
 ```
 make docker-build
 ```
 
-This will make a docker image called `controller:latest` which might or might not be what you want. To override the name of the image build, specify it in the `SPIO_IMG` environment variable, e.g.:
+This will make a docker images called `quay.io/redhat-appstudio/service-provider-integration-operator:next` and `quay.io/redhat-appstudio/service-provider-integration-oauth:next` which might or might not be what you want.
+To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable (see [Makefile](Makefile) for more granular options), e.g.:
 
 ```
-SPIO_IMG=quay.io/acme/spio:42 make docker-build
+SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-build
 ```
 
-To push the image to an image repository one can use:
+To push the images to an image repository one can use:
 
 ```
 make docker-push
@@ -39,7 +42,7 @@ make docker-push
 
 The image being pushed can again be modified using the environment variable:
 ```
-SPIO_IMG=quay.io/acme/spio:42 make docker-push
+SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-push
 ```
 
 Before you push a PR to the repository, it is recommended to run an overall validity check of the codebase. This will
@@ -57,19 +60,17 @@ These have to be updated on every CRD change and committed. `APIResourceSchema` 
 ## Configuration
 
 It is expected by the Kustomize deployment that this configuration lives in a Secret in the same namespaces as SPI.
-Name of the secret should be `spi-shared-configuration-file` with this configuration yaml under `config.yaml` key.
+Name of the secret should be `shared-configuration-file` with this configuration yaml under `config.yaml` key.
 
-This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`PersistedConfiguration` and `ServiceProviderConfiguration`).
+This is basic configuration that is mandatory to run SPI Operator and OAuth services. [See config.go](pkg/spi-shared/config/config.go) for details (`persistedConfiguration`).
 
 ```yaml
-sharedSecret: <jwt_sign_secret>
 serviceProviders:
 - type: <service_provider_type>
   clientId: <service_provider_client_id>
   clientSecret: <service_provider_secret>
 ```
 
- - `<jwt_sign_secret>` - secret value used for signing the JWT keys
  - `<service_provider_type>` - type of the service provider. This must be one of the supported values: GitHub, Quay
  - `<service_provider_client_id>` - client ID of the OAuth application
  - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
@@ -81,11 +82,11 @@ The rest of the configuration is applied using the environment variables or comm
 
 In addition to the secret, there are 3 configmaps that contain the configuration for operator and oauth service.
 
-| ConfigMap | Applicable to |
-|-----------|---------------|
-| `spi-shared-environment-config` | operator and oauth service |
-| `spi-controller-manager-environment-config` | operator |
-| `spi-oauth-service-environment-config` | oauth service |
+| ConfigMap                                   | Applicable to              |
+|---------------------------------------------|----------------------------|
+| `spi-shared-environment-config`             | operator and oauth service |
+| `spi-controller-manager-environment-config` | operator                   |
+| `spi-oauth-service-environment-config`      | oauth service              |
 
 The `spi-shared-environment-config` is bound to both the operator and oauth service and is therefore best used for
 configuration options that should have the same value in both deployments.
@@ -110,7 +111,7 @@ and oauth service to have the same value for them):
 |-------------------------------------------------------|--------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | --base-url                                            | BASEURL                        |                       | This is the publicly accessible URL on which the SPI OAuth service is reachable. Note that this is not just a hostname, it is a full URL including a scheme, e.g. "https://acme.com/spi"                                           |
 | --config-file                                         | CONFIGFILE                     | /etc/spi/config.yaml  | The location of the configuration file.                                                                                                                                                                                            |
-| --metrics-bind-address                                | METRICSADDR                    | :8080                 | The address the metric endpoint binds to.                                                                                                                                                                                          |
+| --metrics-bind-address                                | METRICSADDR                    | 127.0.0.1:8080        | The address the metric endpoint binds to. Note: While this is the default from the operator binary point of view, the metrics are still available externally through the authorized endpoint provided by kube-rbac-proxy           |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                 | The address the probe endpoint binds to.                                                                                                                                                                                           |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200 | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                 | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
@@ -140,7 +141,7 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
 | --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
-| --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.
+| --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
 
 ### OAuth service configuration parameters
 
@@ -148,14 +149,14 @@ This table only contains the configuration parameters specific to the oauth serv
 are also applicable to the oauth service. The configmap for oauth-service-specific configuration is called
 `spi-oauth-service-environment-config`.
 
-| Command argument              | Environment variable           | Default                                                         | Description                                                                                                                                                                                                                        |
-|-------------------------------|--------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| --service-addr                | SERVICEADDR                    | 0.0.0.0:8000                                                    | Service address to listen on.                                                                                                                                                                                                      |
-| --allowed-origins             | ALLOWEDORIGINS                 | https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                                                                                                                                                                 |
-| --kubeconfig                  | KUBECONFIG                     |                                                                 | KUBE-CONFIG.                                                                                                                                                                                                                       |
-| --kube-insecure-tls           | KUBEINSECURETLS                | false                                                           | Whether is allowed or not insecure kubernetes tls connection.                                                                                                                                                                      |
-| --api-server                  | API_SERVER                     |                                                                 | Host:port of the Kubernetes API server to use when handling HTTP requests.                                                                                                                                                         |
-| --ca-path                     | API_SERVER_CA_PATH             |                                                                 | The path to the CA certificate to use when connecting to the Kubernetes API server.                                                                                                                                                |
+| Command argument    | Environment variable | Default                                                          | Description                                                                         |
+|---------------------|----------------------|------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| --service-addr      | SERVICEADDR          | 0.0.0.0:8000                                                     | Service address to listen on.                                                       |
+| --allowed-origins   | ALLOWEDORIGINS       | https://console.dev.redhat.com, https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                  |
+| --kubeconfig        | KUBECONFIG           |                                                                  | KUBE-CONFIG.                                                                        |
+| --kube-insecure-tls | KUBEINSECURETLS      | false                                                            | Whether is allowed or not insecure kubernetes tls connection.                       |
+| --api-server        | API_SERVER           |                                                                  | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
+| --ca-path           | API_SERVER_CA_PATH   |                                                                  | The path to the CA certificate to use when connecting to the Kubernetes API server. |
 
 ## Vault
 

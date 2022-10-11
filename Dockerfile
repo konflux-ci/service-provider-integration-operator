@@ -9,17 +9,19 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
+
 # Copy the go source
-COPY main.go main.go
+COPY cmd/operator cmd/operator
 COPY api/ api/
 COPY controllers/ controllers/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/operator/operator.go
 
-# Compose the final image
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941
+# Compose the final image of spi-operator.
+# !!! This must be last one, because we want simple `docker build .` to build the operator image.
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941 as spi-operator
 
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf install shadow-utils \
@@ -32,7 +34,7 @@ RUN microdnf install shadow-utils \
 		nonroot
 
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/bin/operator .
 USER 65532:65532
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT ["/operator"]

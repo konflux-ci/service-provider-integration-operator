@@ -179,16 +179,18 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 			return false, obj, err
 		} else {
 			blueprintKey := client.ObjectKeyFromObject(blueprint)
-			err := controllerutil.SetControllerReference(owner, blueprint, s.client.Scheme())
-			if err != nil {
-				lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", blueprintKey)
-				return false, actual, fmt.Errorf("error while setting controller reference of %+v before update: %w", blueprintKey, err)
+			if owner != nil {
+				err := controllerutil.SetControllerReference(owner, blueprint, s.client.Scheme())
+				if err != nil {
+					lg.Error(err, "failed to set owner reference", "Owner", client.ObjectKeyFromObject(owner), "Object", blueprintKey)
+					return false, actual, fmt.Errorf("error while setting controller reference of %+v before update: %w", blueprintKey, err)
+				}
 			}
 
 			// to be able to update, we need to set the resource version of the object that we know of
 			blueprint.SetResourceVersion(actual.GetResourceVersion())
 
-			err = s.client.Update(ctx, blueprint)
+			err := s.client.Update(ctx, blueprint)
 			if err != nil {
 				lg.Error(err, "failed to update object", "Object", blueprintKey)
 				return false, actual, fmt.Errorf("error while updating the object %+v: %w", blueprintKey, err)

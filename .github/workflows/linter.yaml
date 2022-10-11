@@ -2,19 +2,6 @@ name: golangci-lint
 on:
   pull_request:
 jobs:
-  logcheck:
-    name: logcheck
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.18
-      - uses: actions/checkout@v3
-      - name: Install logcheck
-        run: go install sigs.k8s.io/logtools/logcheck@latest
-      - name: Run logcheck
-        run: logcheck .
   golangci:
     name: golangci
     runs-on: ubuntu-latest
@@ -28,7 +15,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: v1.48.0
+          version: v1.50.0
 
           # Optional: working directory, useful for monorepos
           # working-directory: somedir

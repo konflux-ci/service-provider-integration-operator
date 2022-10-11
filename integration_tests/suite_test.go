@@ -156,15 +156,17 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
-	ITest.HostCredsServiceProvider = TestServiceProvider{
-		GetTypeImpl: func() api.ServiceProviderType {
-			return "HostCredsServiceProvider"
-		},
 
-		GetBaseUrlImpl: func() string {
+	ITest.HostCredsServiceProvider = TestServiceProvider{}
+	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {
+		provider.GetTypeImpl = func() api.ServiceProviderType {
+			return "HostCredsServiceProvider"
+		}
+		provider.GetBaseUrlImpl = func() string {
 			return "not-test-provider://not-baseurl"
-		},
+		}
 	}
+	ITest.HostCredsServiceProvider.Reset()
 
 	ITest.OperatorConfiguration = &opconfig.OperatorConfiguration{
 		SharedConfiguration: config.SharedConfiguration{
@@ -175,7 +177,6 @@ var _ = BeforeSuite(func() {
 					ServiceProviderType: "TestServiceProvider",
 				},
 			},
-			SharedSecret: []byte("secret"),
 		},
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,
@@ -196,7 +197,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	ITest.VaultTestCluster, strg = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
+	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuth(GinkgoT())
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
@@ -204,30 +205,7 @@ var _ = BeforeSuite(func() {
 		TokenStorage: strg,
 	}
 
-	factory := serviceprovider.Factory{
-		Configuration:    ITest.OperatorConfiguration,
-		KubernetesClient: mgr.GetClient(),
-		HttpClient:       http.DefaultClient,
-		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
-			"TestServiceProvider": {
-				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
-					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
-				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-					return ITest.TestServiceProvider, nil
-				}),
-			},
-			"HostCredentials": {
-				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
-					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
-				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-					return ITest.HostCredsServiceProvider, nil
-				}),
-			},
-		},
-		TokenStorage: strg,
-	}
+	Expect(ITest.TokenStorage.Initialize(ctx)).To(Succeed())
 
 	// the controllers themselves do not need the notifying token storage because they operate in the cluster
 	// the notifying token storage is only needed if changes are only made to the storage and the cluster needs to be
@@ -235,38 +213,25 @@ var _ = BeforeSuite(func() {
 	// storage so that the controllers can react to the changes made to the token storage by the testsuite but the
 	// controllers themselves use the "raw" token storage because they only write to the storage based on the conditions
 	// in the cluster.
-	err = (&controllers.SPIAccessTokenReconciler{
-		Client:                 mgr.GetClient(),
-		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           strg,
-		Configuration:          ITest.OperatorConfiguration,
-		ServiceProviderFactory: factory,
-	}).SetupWithManager(mgr)
+	err = controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, strg, map[config.ServiceProviderType]serviceprovider.Initializer{
+		"TestServiceProvider": {
+			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+			}),
+			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+				return ITest.TestServiceProvider, nil
+			}),
+		},
+		"HostCredentials": {
+			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+			}),
+			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+				return ITest.HostCredsServiceProvider, nil
+			}),
+		},
+	})
 	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controllers.SPIAccessTokenBindingReconciler{
-		Client:                 mgr.GetClient(),
-		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           strg,
-		Configuration:          ITest.OperatorConfiguration,
-		ServiceProviderFactory: factory,
-	}).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controllers.SPIAccessTokenDataUpdateReconciler{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&controllers.SPIAccessCheckReconciler{
-		Client:                 mgr.GetClient(),
-		Scheme:                 mgr.GetScheme(),
-		ServiceProviderFactory: factory,
-		Configuration:          ITest.OperatorConfiguration,
-	}).SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	//+kubebuilder:scaffold:webhook
 
 	go func() {
 		err = mgr.Start(ctx)

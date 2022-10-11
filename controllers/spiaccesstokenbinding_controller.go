@@ -26,6 +26,7 @@ import (
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v2"
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
@@ -58,6 +59,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
+const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //nolint:gosec
+
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
 var (
@@ -78,6 +81,7 @@ type SPIAccessTokenBindingReconciler struct {
 	Configuration          *opconfig.OperatorConfiguration
 	syncer                 sync.Syncer
 	ServiceProviderFactory serviceprovider.Factory
+	finalizers             finalizer.Finalizers
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings,verbs=get;list;watch;create;update;patch;delete
@@ -88,42 +92,76 @@ type SPIAccessTokenBindingReconciler struct {
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.syncer = sync.New(mgr.GetClient())
+	r.finalizers = finalizer.NewFinalizers()
+	if err := r.finalizers.Register(linkedSecretsFinalizerName, &linkedSecretsFinalizer{client: r.Client}); err != nil {
+		return fmt.Errorf("failed to register the linked secrets finalizer: %w", err)
+	}
+
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
-		Owns(&corev1.Secret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			kcpWorkspace := logicalcluster.From(o)
-
-			bindings := &api.SPIAccessTokenBindingList{}
-
 			ctx := context.TODO()
 			if !kcpWorkspace.Empty() {
 				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
 			}
 
-			if err := r.Client.List(ctx, bindings, client.InNamespace(o.GetNamespace())); err != nil {
+			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
+			if err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
-			ret := make([]reconcile.Request, 0, len(bindings.Items))
-			for _, b := range bindings.Items {
-				ret = append(ret, reconcile.Request{
-					ClusterName: kcpWorkspace.String(),
-					NamespacedName: types.NamespacedName{
-						Name:      b.Name,
-						Namespace: b.Namespace,
-					},
-				})
+			log.Log.V(logs.DebugLevel).Info("enqueueing reconciliation of bindings due to token change", "token_name", o.GetName(), "namespace", o.GetNamespace(), "requests", requests)
+			return requests
+		})).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			kcpWorkspace := logicalcluster.From(o)
+			ctx := context.TODO()
+			if !kcpWorkspace.Empty() {
+				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
 			}
-			log.Log.V(logs.DebugLevel).Info("enqueueing reconciliation of bindings due to token change", "token_name", o.GetName(), "namespace", o.GetNamespace(), "requests", ret)
-			return ret
+
+			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == o.GetName()
+
+			})
+			if err != nil {
+				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to Secret",
+					"SecretName", o.GetName(), "SecretNamespace", o.GetNamespace())
+				return []reconcile.Request{}
+			}
+			log.Log.V(logs.DebugLevel).Info("enqueueing reconciliation of bindings due to secret change", "secret_name", o.GetName(), "namespace", o.GetNamespace(), "requests", requests)
+			return requests
 		})).
 		Complete(r)
 	if err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 	}
 	return err
+}
+
+type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
+
+//filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
+func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
+	bindings := &api.SPIAccessTokenBindingList{}
+	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list bindings in the namespace %s, error: %w", namespace, err)
+	}
+	ret := make([]reconcile.Request, 0, len(bindings.Items))
+	for _, b := range bindings.Items {
+		if matchingFunc(b) {
+			ret = append(ret, reconcile.Request{
+				ClusterName: kcpWorkspace,
+				NamespacedName: types.NamespacedName{
+					Name:      b.Name,
+					Namespace: b.Namespace,
+				},
+			})
+		}
+	}
+	return ret, nil
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -147,6 +185,23 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
 		"phase_at_reconcile_start", binding.Status.Phase)
+
+	finalizationResult, err := r.finalizers.Finalize(ctx, &binding)
+	if err != nil {
+		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
+		// we get another reconciliation due to cluster state change
+		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
+	}
+	if finalizationResult.Updated {
+		if err = r.Client.Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update based on finalization result: %w", err)
+		}
+	}
+	if finalizationResult.StatusUpdated {
+		if err = r.Client.Status().Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status based on finalization result: %w", err)
+		}
+	}
 
 	if binding.DeletionTimestamp != nil {
 		lg.Info("object is being deleted")
@@ -254,8 +309,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if binding.Status.Phase != api.SPIAccessTokenBindingPhaseInjected && origSyncedObject.Name != "" {
-		if err = r.deleteSyncedSecret(ctx, origSyncedObject.Name, binding.Namespace); err != nil {
+		if err = deleteSyncedSecret(ctx, r.Client, origSyncedObject.Name, binding.Namespace); err != nil {
 			lg.Error(err, "failed to delete the potential stale synced secret")
+			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -482,7 +538,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		secret.GenerateName = binding.Name + "-secret-"
 	}
 
-	_, obj, err := r.syncer.Sync(ctx, binding, secret, secretDiffOpts)
+	_, obj, err := r.syncer.Sync(ctx, nil, secret, secretDiffOpts)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		return api.TargetObjectRef{}, fmt.Errorf("failed to sync the secret with the token data: %w", err)
@@ -490,13 +546,13 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	return toObjectRef(obj), nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context, secretName string, secretNamespace string) error {
+func deleteSyncedSecret(ctx context.Context, cl client.Client, secretName string, secretNamespace string) error {
 	if secretName == "" {
 		return nil
 	}
 
 	secret := &corev1.Secret{}
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
+	if err := cl.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -504,7 +560,7 @@ func (r *SPIAccessTokenBindingReconciler) deleteSyncedSecret(ctx context.Context
 		return fmt.Errorf("failed to get the secret to delete: %w", err)
 	}
 
-	if err := r.Client.Delete(ctx, secret); err != nil {
+	if err := cl.Delete(ctx, secret); err != nil {
 		return fmt.Errorf("failed to delete the injected secret: %w", err)
 	}
 
@@ -520,4 +576,24 @@ func toObjectRef(obj client.Object) api.TargetObjectRef {
 		Kind:       kind,
 		ApiVersion: apiVersion,
 	}
+}
+
+type linkedSecretsFinalizer struct {
+	client client.Client
+}
+
+var _ finalizer.Finalizer = (*linkedSecretsFinalizer)(nil)
+
+// Finalize removes the secret synced to the actual binging being deleted
+func (f *linkedSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+	res := finalizer.Result{}
+	binding, ok := obj.(*api.SPIAccessTokenBinding)
+	if !ok {
+		return res, unexpectedObjectTypeError
+	}
+
+	if err := deleteSyncedSecret(ctx, f.client, binding.Status.SyncedObjectRef.Name, binding.Namespace); err != nil {
+		return res, err
+	}
+	return finalizer.Result{}, nil
 }

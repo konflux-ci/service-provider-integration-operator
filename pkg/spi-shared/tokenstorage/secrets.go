@@ -40,6 +40,10 @@ func NewSecretsStorage(cl client.Client) (TokenStorage, error) {
 	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
 }
 
+func (s secretsTokenStorage) Initialize(_ context.Context) error {
+	return nil
+}
+
 func (s secretsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	data := map[string][]byte{
 		"username":      []byte(token.Username),

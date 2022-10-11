@@ -21,3 +21,4 @@ linters:
     - prealloc
     - wrapcheck
     - nolintlint
+    - loggercheck
