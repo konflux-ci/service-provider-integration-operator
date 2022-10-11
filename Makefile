@@ -188,10 +188,10 @@ run_oauth:
 docker-build: docker-build-operator docker-build-oauth
 
 docker-build-operator:
-	docker build -t ${SPIO_IMG} --target spi-operator .
+	docker build -t ${SPIO_IMG}  . -f Dockerfile
 
 docker-build-oauth:
-	docker build -t ${SPIS_IMG} --target spi-oauth .
+	docker build -t ${SPIS_IMG} . -f oauth.Dockerfile
 
 docker-push: docker-push-operator docker-push-oauth
 
