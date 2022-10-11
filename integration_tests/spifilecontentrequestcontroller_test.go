@@ -63,3 +63,84 @@ var _ = Describe("Create without token data", func() {
 		}).Should(Succeed())
 	})
 })
+var _ = Describe("With binding is in error", func() {
+	var createdRequest *api.SPIFileContentRequest
+
+	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
+		createdRequest = &api.SPIFileContentRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "filerequest-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIFileContentRequestSpec{
+				RepoUrl:  "test-provider://test",
+				FilePath: "foo/bar.txt",
+			},
+		}
+		Expect(ITest.Client.Create(ITest.Context, createdRequest)).To(Succeed())
+		// re-read to fill other fields
+		Eventually(func(g Gomega) {
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), createdRequest)).To(Succeed())
+			g.Expect(createdRequest.Status.LinkedBindingName).NotTo(BeEmpty())
+		}).Should(Succeed())
+
+		binding := &api.SPIAccessTokenBinding{}
+		Eventually(func(g Gomega) {
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdRequest.Status.LinkedBindingName, Namespace: createdRequest.Namespace}, binding)).To(Succeed())
+			g.Expect(binding.Status.LinkedAccessTokenName).NotTo(BeEmpty())
+		}).Should(Succeed())
+
+		token := &api.SPIAccessToken{}
+		Eventually(func(g Gomega) {
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token)).To(Succeed())
+		}).Should(Succeed())
+
+		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+			Username:             "alois",
+			UserId:               "42",
+			Scopes:               []string{},
+			ServiceProviderState: []byte("state"),
+		})
+		err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
+			AccessToken: "token",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		//to fail binding
+		ITest.TestServiceProvider.LookupTokenImpl = nil
+
+		// update the binding to force reconciliation
+		Eventually(func(g Gomega) {
+			currentBinding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+			currentBinding.Annotations = map[string]string{"just-an-annotation": "to force reconciliation"}
+			g.Expect(ITest.Client.Update(ITest.Context, currentBinding)).To(Succeed())
+		}).Should(Succeed())
+
+		// wait for error state
+		Eventually(func(g Gomega) {
+			currentBinding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), currentBinding)).To(Succeed())
+			g.Expect(currentBinding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+		}).Should(Succeed())
+	})
+
+	var _ = AfterEach(func() {
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIFileContentRequest{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+	})
+
+	It("sets request into error too", func() {
+		Eventually(func(g Gomega) {
+			request := &api.SPIFileContentRequest{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
+			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
+			g.Expect(request.Status.ErrorMessage).To(HavePrefix("linked binding is in error state"))
+		}).Should(Succeed())
+	})
+
+})
