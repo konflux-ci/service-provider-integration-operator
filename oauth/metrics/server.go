@@ -33,7 +33,7 @@ func ServeMetrics(ctx context.Context, address string) {
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
-			setupLog.Error(err, "failed to start the HTTP server")
+			setupLog.Error(err, "failed to start the metrics HTTP server")
 		}
 	}()
 	setupLog.Info("Metrics server is up and running", "Addr", address)
@@ -45,11 +45,11 @@ func ServeMetrics(ctx context.Context, address string) {
 	<-stop
 	setupLog.Info("Server got interrupt signal, going to gracefully shutdown the server", "signal", stop)
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	context, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(context); err != nil {
 		setupLog.Error(err, "OAuth server shutdown failed")
 		os.Exit(1)
 	}
