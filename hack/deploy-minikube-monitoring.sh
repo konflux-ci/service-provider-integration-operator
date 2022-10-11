@@ -2,8 +2,8 @@
 
 #set -e
 
-PROMETHEUS_HOST=${PROMETHEUS_HOST:-="prometheus.$(minikube ip).nip.io"}
-GRAFANA_HOST=${GRAFANA_HOST:-="grafana.$(minikube ip).nip.io"}
+PROMETHEUS_HOST=${PROMETHEUS_HOST:-"prometheus.$(minikube ip).nip.io"}
+GRAFANA_HOST=${GRAFANA_HOST:-"grafana.$(minikube ip).nip.io"}
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 echo 'Align time on podman VM'
