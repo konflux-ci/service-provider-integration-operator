@@ -15,14 +15,16 @@ package gitfile
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/imroc/req"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -38,6 +40,7 @@ type GithubFile struct {
 }
 
 var GithubAPITemplate = "https://api.github.com/repos/%s/%s/contents/%s"
+var RefTemplate = "?ref=%s"
 var GithubURLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<repoUser>[^/]+)/(?P<repoName>[^/]+)(.git)?$`)
 var GithubURLRegexpNames = GithubURLRegexp.SubexpNames()
 
@@ -45,7 +48,7 @@ var GithubURLRegexpNames = GithubURLRegexp.SubexpNames()
 type GitHubScmProvider struct {
 }
 
-func (d *GitHubScmProvider) detect(ctx context.Context, repoUrl, filepath, ref string, opts ...interface{}) (bool, string, error) {
+func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (bool, string, error) {
 	if len(repoUrl) == 0 || !GithubURLRegexp.MatchString(repoUrl) {
 		return false, "", nil
 	}
@@ -56,28 +59,40 @@ func (d *GitHubScmProvider) detect(ctx context.Context, repoUrl, filepath, ref s
 	for i, n := range result[0] {
 		m[GithubURLRegexpNames[i]] = n
 	}
-	param := req.Param{}
+
+	fileUrl := fmt.Sprintf(GithubAPITemplate, m["repoUser"], m["repoName"], filepath)
 	if ref != "" {
-		param["ref"] = ref
-		opts = append(opts, param)
+		fileUrl = fileUrl + fmt.Sprintf(RefTemplate, ref)
+	}
+	req, _ := http.NewRequestWithContext(ctx, "GET", fileUrl, nil)
+	for k, v := range authHeaders {
+		req.Header.Add(k, v)
 	}
 
-	resp, err := req.Get(fmt.Sprintf(GithubAPITemplate, m["repoUser"], m["repoName"], filepath), opts...)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		lg.Error(err, "Failed to make GitHub API call")
 		return true, "", fmt.Errorf("GitHub API call failed: %w", err)
 	}
-	res := resp.Response()
-	defer res.Body.Close()
+	defer resp.Body.Close()
 
-	statusCode := res.StatusCode
+	statusCode := resp.StatusCode
 	lg.V(logs.DebugLevel).Info("GitHub API call response", "status code", statusCode)
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		lg.Error(err, "failed to read the body of response", "statusCode", resp.StatusCode)
+		return true, "", fmt.Errorf("failed to read GitHub file response to JSON: %w", err)
+	}
 	if statusCode >= 400 {
-		return true, "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, statusCode, resp.String())
+		return true, "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, statusCode, string(bytes))
 	}
 
 	var file GithubFile
-	err = resp.ToJSON(&file)
+	if err := json.Unmarshal(bytes, &file); err != nil {
+		lg.Error(err, "failed to unmarshal github file response as JSON")
+		return true, "", fmt.Errorf("failed to unmarshal GitHub file response to JSON: %w", err)
+	}
 	if err != nil {
 		lg.Error(err, "Failed to parse GitHub json response")
 		return true, "", fmt.Errorf("failed to convert GitHub response to JSON: %w", err)

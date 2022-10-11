@@ -21,25 +21,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// AuthHeaderStruct is the simple struct to carry authentication string from different suppliers
-type AuthHeaderStruct struct {
-	Authorization string `json:"Authorization"`
-}
-
 // TokenFetcher is the interface for the authentication token suppliers which are provides tokens as a AuthHeaderStruct
 // instances
 type TokenFetcher interface {
-	BuildAuthHeader(ctx context.Context, namespace, secretName string) (*AuthHeaderStruct, error)
+	BuildAuthHeader(ctx context.Context, namespace, secretName string) (map[string]string, error)
 }
 
-func buildAuthHeader(ctx context.Context, cl client.Client, repoUrl, namespace, secretName string) (*AuthHeaderStruct, error) {
+func buildAuthHeader(ctx context.Context, cl client.Client, repoUrl, namespace, secretName string) (map[string]string, error) {
 	fetcher := &SpiTokenFetcher{
 		k8sClient: cl,
 	}
-	headerStruct, err := fetcher.BuildAuthHeader(ctx, namespace, secretName)
+	headerMap, err := fetcher.BuildAuthHeader(ctx, namespace, secretName)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Unable to prepare authentication header for repository", "repoUrl", repoUrl)
 		return nil, fmt.Errorf("fetcher failed to build the auth header: %w", err)
 	}
-	return headerStruct, nil
+	return headerMap, nil
 }

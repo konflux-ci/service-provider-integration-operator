@@ -31,7 +31,7 @@ type SpiTokenFetcher struct {
 
 var secretDataEmptyError = stderrors.New("error reading the secret: data is empty")
 
-func (s *SpiTokenFetcher) BuildAuthHeader(ctx context.Context, namespace, secretName string) (*AuthHeaderStruct, error) {
+func (s *SpiTokenFetcher) BuildAuthHeader(ctx context.Context, namespace, secretName string) (map[string]string, error) {
 
 	lg := log.FromContext(ctx)
 	lg.Info("Reading the credentials secret", "secret", secretName)
@@ -43,7 +43,7 @@ func (s *SpiTokenFetcher) BuildAuthHeader(ctx context.Context, namespace, secret
 		return nil, fmt.Errorf("failed to read the token secret: %w", err)
 	}
 	if len(tokenSecret.Data) > 0 {
-		return &AuthHeaderStruct{Authorization: "Bearer " + string(tokenSecret.Data["password"])}, nil
+		return map[string]string{"Authorization": "Bearer " + string(tokenSecret.Data["password"])}, nil
 	}
 	return nil, secretDataEmptyError
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,8 +33,9 @@ const (
 )
 
 type SPIFileContentRequestReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	K8sClient  client.Client
+	Scheme     *runtime.Scheme
+	HttpClient *http.Client
 }
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
@@ -53,7 +55,7 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 			}
 
 			fileRequests := &api.SPIFileContentRequestList{}
-			if err := r.Client.List(ctx, fileRequests, client.InNamespace(o.GetNamespace())); err != nil {
+			if err := r.K8sClient.List(ctx, fileRequests, client.InNamespace(o.GetNamespace())); err != nil {
 				spiFileContentRequestLog.Error(err, "Unable to fetch file content requests list", "namespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
@@ -85,7 +87,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 	request := api.SPIFileContentRequest{}
 
-	if err := r.Get(ctx, req.NamespacedName, &request); err != nil {
+	if err := r.K8sClient.Get(ctx, req.NamespacedName, &request); err != nil {
 		if errors.IsNotFound(err) {
 			lg.Info("object not found")
 			return ctrl.Result{}, nil
@@ -113,7 +115,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	} else {
 		binding := &api.SPIAccessTokenBinding{}
-		if err := r.Client.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
+		if err := r.K8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
 			if errors.IsNotFound(err) {
 				request.Status.LinkedBindingName = ""
 				r.updateFileRequestStatusError(ctx, &request, err)
@@ -129,7 +131,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
-			contents, err := gitfile.GetFileContents(ctx, r.Client, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
+			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
@@ -148,7 +150,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			return reconcile.Result{}, err
 		}
 	}
-	if err := r.Client.Status().Update(ctx, &request); err != nil {
+	if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -175,7 +177,7 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 			},
 		},
 	}
-	err := r.Client.Create(ctx, newBinding)
+	err := r.K8sClient.Create(ctx, newBinding)
 	if err != nil {
 		lg.Error(err, "Error creating Token Binding item")
 		return fmt.Errorf("failed to create token binding: %w", err)
@@ -187,7 +189,7 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) {
 	request.Status.ErrorMessage = err.Error()
 	request.Status.Phase = api.SPIFileContentRequestPhaseError
-	if err := r.Client.Status().Update(ctx, request); err != nil {
+	if err := r.K8sClient.Status().Update(ctx, request); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
 	}
 

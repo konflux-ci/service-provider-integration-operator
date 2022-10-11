@@ -14,13 +14,11 @@
 package gitfile
 
 import (
-	"bytes"
 	"context"
 	"io"
+	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/imroc/req"
 )
 
 // GetFileContents is a main entry function allowing to retrieve file content from the SCM provider.
@@ -28,17 +26,20 @@ import (
 // and optional Git reference for the branch/tags/commitIds.
 // Function type parameter is a callback used when user authentication is needed in order to retrieve the file,
 // that function will be called with the URL to OAuth service, where user need to be redirected.
-func GetFileContents(ctx context.Context, cl client.Client, namespace, secret, repoUrl, filepath, ref string) (io.ReadCloser, error) {
-	headerStruct, err := buildAuthHeader(ctx, cl, repoUrl, namespace, secret)
+func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient http.Client, namespace, secret, repoUrl, filepath, ref string) (io.ReadCloser, error) {
+	authHeaders, err := buildAuthHeader(ctx, k8sClient, repoUrl, namespace, secret)
 	if err != nil {
 		return nil, err
 	}
-	authHeader := req.HeaderFromStruct(headerStruct)
-	fileUrl, err := detect(ctx, repoUrl, filepath, ref, authHeader)
+	fileUrl, err := detect(ctx, httpClient, repoUrl, filepath, ref, authHeaders)
 	if err != nil {
 		return nil, err
 	}
 
-	response, _ := req.Get(fileUrl, ctx, authHeader)
-	return io.NopCloser(bytes.NewBuffer(response.Bytes())), nil
+	req, _ := http.NewRequestWithContext(ctx, "GET", fileUrl, nil)
+	for k, v := range authHeaders {
+		req.Header.Add(k, v)
+	}
+	response, err := httpClient.Do(req)
+	return response.Body, err
 }
