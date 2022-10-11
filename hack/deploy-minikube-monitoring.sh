@@ -1,8 +1,9 @@
 #!/bin/bash
 
 #set -e
-PROMETHEUS_HOST='prometheus.127.0.0.1.nip.io'
-GRAFANA_HOST='grafana.127.0.0.1.nip.io'
+
+PROMETHEUS_HOST=${PROMETHEUS_HOST:-="prometheus.$(minikube ip).nip.io"}
+GRAFANA_HOST=${GRAFANA_HOST:-="grafana.$(minikube ip).nip.io"}
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 echo 'Align time on podman VM'
@@ -162,7 +163,7 @@ EOF
 
 
 echo 'Installing Grafana'
-#kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v4.6.0" | kubectl apply -f -
+kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v4.6.0" | kubectl apply -f -
 echo
 echo -n "Waiting deployment/grafana-operator-controller-manager become available: "
 kubectl wait --for=condition=Available=True deployment/grafana-operator-controller-manager -n grafana-operator-system  --timeout=30s
@@ -253,7 +254,7 @@ EOF
 kubectl create configmap grafana-dashboard-prometheus-2-0-overview --from-file=$SCRIPT_DIR/grafana-dashboards/prometheus-2-0-overview_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
 
 # id 15920
-kubectl create configmap grafana-dashboard-controller-runtime --from-file=$SCRIPT_DIR/grafana-dashboardscontroller-runtime-controllers-detail_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap grafana-dashboard-controller-runtime --from-file=$SCRIPT_DIR/grafana-dashboards/controller-runtime-controllers-detail_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
 
 
 # id 6671
@@ -319,10 +320,20 @@ spec:
     datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
+function decode() {
+  case `uname` in
+    Darwin)
+      base64 -D
+      ;;
+    *)
+      base64 -d
+      ;;
+  esac
+}
+
 
 echo
-echo 'Premetheus url: https://'${PROMETHEUS_HOST}
+echo 'Prometheus url: https://'${PROMETHEUS_HOST}
 echo 'Grafana url: https://'${GRAFANA_HOST}
-echo 'Grafana admin user: '$(kubectl get secret/grafana-admin-credentials -n grafana-operator-system  --template={{.data.GF_SECURITY_ADMIN_USER}} | base64 -D)
-echo 'Grafana admin pasword: '$(kubectl get secret/grafana-admin-credentials -n grafana-operator-system  --template={{.data.GF_SECURITY_ADMIN_PASSWORD}} | base64 -D)
-
+echo 'Grafana admin user: '$(kubectl get secret/grafana-admin-credentials -n grafana-operator-system  --template={{.data.GF_SECURITY_ADMIN_USER}} | decode)
+echo 'Grafana admin password: '$(kubectl get secret/grafana-admin-credentials -n grafana-operator-system  --template={{.data.GF_SECURITY_ADMIN_PASSWORD}} | decode)
