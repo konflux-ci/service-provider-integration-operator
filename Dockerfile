@@ -17,7 +17,7 @@ COPY controllers/ controllers/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/...
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/operator/operator.go
 
 # Compose the final image of spi-operator.
 # !!! This must be last one, because we want simple `docker build .` to build the operator image.

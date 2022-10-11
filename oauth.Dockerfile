@@ -18,7 +18,7 @@ COPY oauth/ oauth/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/...
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/oauth/oauth.go
 
 # Compose the final image of spi-oauth service
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941 as spi-oauth
