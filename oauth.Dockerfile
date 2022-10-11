@@ -12,9 +12,8 @@ RUN go mod download
 COPY static/ static/
 
 # Copy the go source
-COPY cmd/ cmd/
+COPY cmd/oauth cmd/oauth
 COPY api/ api/
-COPY controllers/ controllers/
 COPY oauth/ oauth/
 COPY pkg/ pkg/
 

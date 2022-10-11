@@ -9,13 +9,11 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-COPY static/ static/
 
 # Copy the go source
-COPY cmd/ cmd/
+COPY cmd/operator cmd/operator
 COPY api/ api/
 COPY controllers/ controllers/
-COPY oauth/ oauth/
 COPY pkg/ pkg/
 
 # Build
