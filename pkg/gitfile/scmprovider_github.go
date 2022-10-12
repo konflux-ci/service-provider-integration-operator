@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	unexpectedStatusCodeError = errors.New("unexpected status code from GitHub API")
+	unexpectedStatusCodeError  = errors.New("unexpected status code from GitHub API")
+	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
 )
 
 type GithubFile struct {
@@ -96,7 +97,7 @@ func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, 
 
 	if file.Size > 10485760 {
 		lg.Error(err, "file size too big")
-		return true, "", fmt.Errorf("failed to retrieve file: size too big (%d)", file.Size)
+		return true, "", fmt.Errorf("%s (%d)", fileSizeLimitExceededError, file.Size)
 	}
 	return true, file.DownloadUrl, nil
 }

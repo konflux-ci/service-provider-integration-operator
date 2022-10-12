@@ -20,8 +20,9 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
