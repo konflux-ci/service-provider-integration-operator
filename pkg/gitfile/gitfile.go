@@ -34,7 +34,7 @@ func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient ht
 	}
 	fileUrl, err := detect(ctx, httpClient, repoUrl, filepath, ref, authHeaders)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error detecting file download URL: %w", err)
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", fileUrl, nil)
@@ -42,5 +42,8 @@ func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient ht
 		req.Header.Add(k, v)
 	}
 	response, err := httpClient.Do(req)
-	return response.Body, fmt.Errorf("error reading file content: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file content: %w", err)
+	}
+	return response.Body, nil
 }

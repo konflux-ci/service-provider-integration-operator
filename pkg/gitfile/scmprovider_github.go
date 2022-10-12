@@ -93,9 +93,10 @@ func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, 
 		lg.Error(err, "failed to unmarshal github file response as JSON")
 		return true, "", fmt.Errorf("failed to unmarshal GitHub file response to JSON: %w", err)
 	}
-	if err != nil {
-		lg.Error(err, "Failed to parse GitHub json response")
-		return true, "", fmt.Errorf("failed to convert GitHub response to JSON: %w", err)
+
+	if file.Size > 10485760 {
+		lg.Error(err, "file size too big")
+		return true, "", fmt.Errorf("failed to retrieve file: size too big (%d)", file.Size)
 	}
 	return true, file.DownloadUrl, nil
 }

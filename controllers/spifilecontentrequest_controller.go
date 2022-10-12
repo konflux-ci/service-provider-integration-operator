@@ -161,10 +161,13 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
+			if err = r.cleanupBinding(ctx, &request); err != nil {
+				log.FromContext(ctx).Error(err, "failed to cleanup the binding, re-queueing it", "error", err)
+				return reconcile.Result{Requeue: true}, err
+			}
 		} else {
 			err := fmt.Errorf("%w: %s", linkedBindingErrorStateError, binding.Status.ErrorMessage)
 			r.updateFileRequestStatusError(ctx, &request, err)
-			return reconcile.Result{}, err
 		}
 	}
 	if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
@@ -194,12 +197,32 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 			},
 		},
 	}
-	err := r.K8sClient.Create(ctx, newBinding)
-	if err != nil {
+	if err := r.K8sClient.Create(ctx, newBinding); err != nil {
 		lg.Error(err, "Error creating Token Binding item")
 		return fmt.Errorf("failed to create token binding: %w", err)
 	}
 	request.Status.LinkedBindingName = newBinding.GetName()
+	return nil
+}
+
+func (r *SPIFileContentRequestReconciler) cleanupBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
+	lg := log.FromContext(ctx)
+	binding := &api.SPIAccessTokenBinding{}
+	if err := r.K8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
+		if !errors.IsNotFound(err) {
+			lg.Error(err, "Error getting Token Binding item during cleanup")
+			return fmt.Errorf("error getting Token Binding item during cleanup: %w", err)
+		} else {
+			// already deleted, nothing to do
+			return nil
+		}
+	}
+
+	if err := r.K8sClient.Delete(ctx, binding); err != nil {
+		lg.Error(err, "Error creating Token Binding item")
+		return fmt.Errorf("failed to create token binding: %w", err)
+	}
+	request.Status.LinkedBindingName = ""
 	return nil
 }
 
