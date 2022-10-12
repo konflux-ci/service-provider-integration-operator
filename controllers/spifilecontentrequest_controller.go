@@ -20,11 +20,8 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"math/rand"
-	"net/http"
-	"time"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"net/http"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
@@ -41,10 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-)
-
-const (
-	letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890"
 )
 
 var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
@@ -179,15 +172,14 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
-	lg := log.FromContext(ctx)
 	newBinding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "file-retriever-binding-" + randStringBytes(6), Namespace: request.GetNamespace()},
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "file-retriever-binding-", Namespace: request.GetNamespace()},
 		Spec: api.SPIAccessTokenBindingSpec{
 			RepoUrl: request.RepoUrl(),
 			Permissions: api.Permissions{
 				Required: []api.Permission{
 					{
-						Type: api.PermissionTypeReadWrite,
+						Type: api.PermissionTypeRead,
 						Area: api.PermissionAreaRepository,
 					},
 				},
@@ -198,7 +190,6 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 		},
 	}
 	if err := r.K8sClient.Create(ctx, newBinding); err != nil {
-		lg.Error(err, "Error creating Token Binding item")
 		return fmt.Errorf("failed to create token binding: %w", err)
 	}
 	request.Status.LinkedBindingName = newBinding.GetName()
@@ -206,11 +197,9 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 }
 
 func (r *SPIFileContentRequestReconciler) cleanupBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
-	lg := log.FromContext(ctx)
 	binding := &api.SPIAccessTokenBinding{}
 	if err := r.K8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
 		if !errors.IsNotFound(err) {
-			lg.Error(err, "Error getting Token Binding item during cleanup")
 			return fmt.Errorf("error getting Token Binding item during cleanup: %w", err)
 		} else {
 			// already deleted, nothing to do
@@ -219,8 +208,7 @@ func (r *SPIFileContentRequestReconciler) cleanupBinding(ctx context.Context, re
 	}
 
 	if err := r.K8sClient.Delete(ctx, binding); err != nil {
-		lg.Error(err, "Error creating Token Binding item")
-		return fmt.Errorf("failed to create token binding: %w", err)
+		return fmt.Errorf("failed to delete token binding: %w", err)
 	}
 	request.Status.LinkedBindingName = ""
 	return nil
@@ -233,14 +221,4 @@ func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx conte
 		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
 	}
 
-}
-
-func randStringBytes(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))] //nolint:gosec // we're using this to produce a random name so
-		// the weakness of the generator is not a big deal here
-	}
-	return string(b)
 }
