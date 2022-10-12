@@ -28,6 +28,9 @@ const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
+
+	MetricsNamespace = "redhat_appstudio"
+	MetricsSubsystem = "spi"
 )
 
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
