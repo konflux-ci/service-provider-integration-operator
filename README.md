@@ -227,7 +227,7 @@ Then we can install our CRDs:
 make install
 ```
 
-Next, we're ready to build and push the custom operator and images:
+Next, we're ready to build and push the custom operator and oauth images:
 ```
 make docker-build docker-push SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
