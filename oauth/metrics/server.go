@@ -2,12 +2,13 @@ package metrics
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"os"
 	"os/signal"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
