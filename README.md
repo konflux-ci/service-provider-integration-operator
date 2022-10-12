@@ -9,13 +9,13 @@ OAuth service is now part of this repository ([documentation](OAUTH.md)).
 ## Building & Testing
 This project provides a `Makefile` to run all the usual development tasks. If you simply run `make` without any arguments, you'll get a list of available "targets".
 
-To build the project one needs to invoke:
+To build the project one needs to invoke (builds both `operator` and `oauth` binaries into `bin/` folder):
 
 ```
 make build
 ```
 
-To test the code:
+To test the code (!tests requires running cluster in kubectl context):
 
 ```
 make test
@@ -28,7 +28,7 @@ make docker-build
 ```
 
 This will make a docker images called `quay.io/redhat-appstudio/service-provider-integration-operator:next` and `quay.io/redhat-appstudio/service-provider-integration-oauth:next` which might or might not be what you want.
-To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable (see [Makefile](Makefile) for more granular options), e.g.:
+To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable, e.g.:
 
 ```
 SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-build
@@ -44,6 +44,8 @@ The image being pushed can again be modified using the environment variable:
 ```
 SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-push
 ```
+
+To set precise image names, one can use `SPIO_IMG` for operator image and `SPIS_IMG` for oauth image (see [Makefile](Makefile) for more details).
 
 Before you push a PR to the repository, it is recommended to run an overall validity check of the codebase. This will
 run the formatting check, static code analysis and all the tests:
@@ -225,23 +227,23 @@ Then we can install our CRDs:
 make install
 ```
 
-Next, we're ready to build and push the custom operator image:
+Next, we're ready to build and push the custom operator and images:
 ```
-make docker-build docker-push SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE>
+make docker-build docker-push SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
 Next step is to deploy the operator and oauth service along with all other Kubernetes objects to the cluster.
-This step assumes that you also want to use a custom image of the SPI OAuth service. If you want to use the
-default one, just don't specify the `SPIS_IMG` env var below.
+This step assumes that you also want to use a custom image for both SPI OAuth service and Operator. If you want to use the
+default one, specify just the `SPIS_IMG` or `SPIO_IMG` env var below.
 
 On OpenShift use:
 ```
-make deploy SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+make deploy SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
-On Kubernetes/Minikube use:
+On Minikube use:
 ```
-make deploy_k8s SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+make deploy_minikube SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
 Next, comes the manual part. We need to set the external domain of the ingress/route of the OAuth service and reconfigure
