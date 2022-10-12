@@ -67,23 +67,14 @@ type exchangeResult struct {
 	authorizationHeader string
 }
 
-// newOAuth2Config returns a new instance of the oauth2.Config struct with the clientId, clientSecret and redirect URL
-// specific to this controller.
-func (c *commonController) newOAuth2Config() oauth2.Config {
-	return oauth2.Config{
-		ClientID:     c.Config.ClientId,
-		ClientSecret: c.Config.ClientSecret,
-		RedirectURL:  c.redirectUrl(),
-	}
-}
-
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
 	return strings.TrimSuffix(c.BaseUrl, "/") + "/" + strings.ToLower(string(c.Config.ServiceProviderType)) + "/callback"
 }
 
-func (c commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
-	log := log.FromContext(r.Context())
+func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := log.FromContext(ctx)
 
 	defer logs.TimeTrack(log, time.Now(), "/authenticate")
 
@@ -91,17 +82,20 @@ func (c commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
 
 	state, err := oauthstate.ParseOAuthInfo(stateString)
 	if err != nil {
-		LogErrorAndWriteResponse(r.Context(), w, http.StatusBadRequest, "failed to decode the OAuth state", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "failed to decode the OAuth state", err)
 		return
 	}
+	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(state.TokenKcpWorkspace))
 	token, err := c.Authenticator.GetToken(r)
 	if err != nil {
-		LogErrorAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
 		return
 	}
-	hasAccess, err := c.checkIdentityHasAccess(token, r, state)
+	ctx = WithAuthIntoContext(token, ctx)
+
+	hasAccess, err := c.checkIdentityHasAccess(ctx, token, r, state)
 	if err != nil {
-		LogErrorAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		log.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
 			"and the API_SERVER environment variable points it to the incorrect Kubernetes API server. "+
 			"If SPI is running with Devsandbox Proxy or KCP, make sure this env var points to the Kubernetes API proxy,"+
@@ -110,21 +104,24 @@ func (c commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hasAccess {
-		LogDebugAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
+		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
 		return
 	}
-	AuditLogWithTokenInfo(r.Context(), "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerType", string(state.ServiceProviderType), "providerUrl", state.ServiceProviderUrl, "kcpWorkspace", state.TokenKcpWorkspace)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerType", string(state.ServiceProviderType), "providerUrl", state.ServiceProviderUrl, "kcpWorkspace", state.TokenKcpWorkspace)
 	newStateString, err := c.StateStorage.VeilRealState(r)
 	if err != nil {
-		LogErrorAndWriteResponse(r.Context(), w, http.StatusBadRequest, err.Error(), err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 	keyedState := exchangeState{
 		OAuthInfo: state,
 	}
 
-	oauthCfg := c.newOAuth2Config()
-	oauthCfg.Endpoint = c.Endpoint
+	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state)
+	if oauthConfigErr != nil {
+		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
+		return
+	}
 	oauthCfg.Scopes = keyedState.Scopes
 
 	templateData := struct {
@@ -135,12 +132,12 @@ func (c commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
 	log.V(logs.DebugLevel).Info("Redirecting ", "url", templateData.Url)
 	err = c.RedirectTemplate.Execute(w, templateData)
 	if err != nil {
-		LogErrorAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "failed to return redirect notice HTML page", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to return redirect notice HTML page", err)
 		return
 	}
 }
 
-func (c commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/callback")
 
@@ -171,7 +168,7 @@ func (c commonController) Callback(ctx context.Context, w http.ResponseWriter, r
 
 // finishOAuthExchange implements the bulk of the Callback function. It returns the token, if obtained, the decoded
 // state from the oauth flow, if available, and the result of the authentication.
-func (c commonController) finishOAuthExchange(ctx context.Context, r *http.Request, endpoint oauth2.Endpoint) (exchangeResult, error) {
+func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request, endpoint oauth2.Endpoint) (exchangeResult, error) {
 	// TODO support the implicit flow here, too?
 
 	// check that the state is correct
@@ -191,9 +188,13 @@ func (c commonController) finishOAuthExchange(ctx context.Context, r *http.Reque
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
 
+	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(state.TokenKcpWorkspace))
 	// the state is ok, let's retrieve the token from the service provider
-	oauthCfg := c.newOAuth2Config()
-	oauthCfg.Endpoint = endpoint
+	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state.OAuthInfo)
+	if oauthConfigErr != nil {
+		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to obtain oauth configuration: %w", oauthConfigErr)
+	}
+	log.FromContext(ctx).Info("oauth config", "cfg", oauthCfg)
 
 	code := r.FormValue("code")
 
@@ -213,7 +214,7 @@ func (c commonController) finishOAuthExchange(ctx context.Context, r *http.Reque
 }
 
 // syncTokenData stores the data of the token to the configured TokenStorage.
-func (c commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
+func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
 	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
@@ -235,7 +236,7 @@ func (c commonController) syncTokenData(ctx context.Context, exchange *exchangeR
 	return nil
 }
 
-func (c *commonController) checkIdentityHasAccess(token string, req *http.Request, state oauthstate.OAuthInfo) (bool, error) {
+func (c *commonController) checkIdentityHasAccess(ctx context.Context, token string, req *http.Request, state oauthstate.OAuthInfo) (bool, error) {
 	review := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &v1.ResourceAttributes{
@@ -247,9 +248,6 @@ func (c *commonController) checkIdentityHasAccess(token string, req *http.Reques
 			},
 		},
 	}
-
-	ctx := WithAuthIntoContext(token, req.Context())
-	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(state.TokenKcpWorkspace))
 
 	if err := c.K8sClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
