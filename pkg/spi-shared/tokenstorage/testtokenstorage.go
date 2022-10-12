@@ -20,6 +20,10 @@ package tokenstorage
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
 	"github.com/hashicorp/go-hclog"
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	vaultapi "github.com/hashicorp/vault/api"
@@ -75,16 +79,16 @@ var _ TokenStorage = (*TestTokenStorage)(nil)
 
 func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, TokenStorage) {
 	t.Helper()
-	cluster, storage, _, _ := createTestVaultTokenStorage(t, false)
+	cluster, storage, _, _ := createTestVaultTokenStorage(t, false, nil)
 	return cluster, storage
 }
 
-func CreateTestVaultTokenStorageWithAuth(t vtesting.T) (*vault.TestCluster, TokenStorage, string, string) {
+func CreateTestVaultTokenStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry *prometheus.Registry) (*vault.TestCluster, TokenStorage, string, string) {
 	t.Helper()
-	return createTestVaultTokenStorage(t, true)
+	return createTestVaultTokenStorage(t, true, metricsRegistry)
 }
 
-func createTestVaultTokenStorage(t vtesting.T, auth bool) (*vault.TestCluster, TokenStorage, string, string) {
+func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prometheus.Registry) (*vault.TestCluster, TokenStorage, string, string) {
 	t.Helper()
 
 	coreConfig := &vault.CoreConfig{
@@ -116,6 +120,10 @@ func createTestVaultTokenStorage(t vtesting.T, auth bool) (*vault.TestCluster, T
 		}); err != nil {
 			t.Fatal(err)
 		}
+
+		// This needs to be done AFTER configuring the TLS, because ConfigureTLS assumes that the transport is http.Transport
+		// and not our round tripper.
+		cfg.HttpClient.Transport = httptransport.HttpMetricCollectingRoundTripper{RoundTripper: cfg.HttpClient.Transport}
 
 		client, err = vaultapi.NewClient(cfg)
 		if err != nil {
@@ -183,5 +191,13 @@ func createTestVaultTokenStorage(t vtesting.T, auth bool) (*vault.TestCluster, T
 		}
 	}
 
-	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh}, roleId, secretId
+	// we have to be sure that we're passing a true nil to vault storage - not a non-nil interface pointer pointing
+	// to a nil struct (yes, I think this is ridiculous, too).
+	var nilSafeRegistry prometheus.Registerer
+	if metricsRegistry == nil {
+		nilSafeRegistry = nil
+	} else {
+		nilSafeRegistry = metricsRegistry
+	}
+	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh, metrics: nilSafeRegistry}, roleId, secretId
 }

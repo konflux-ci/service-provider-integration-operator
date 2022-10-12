@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
@@ -83,7 +85,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage(tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs))
+	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	// use the same metrics registry as the controller-runtime
+	vaultConfig.MetricsRegisterer = metrics.Registry
+	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

@@ -13,13 +13,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func ServeMetrics(ctx context.Context, address string) {
+func ServeMetrics(ctx context.Context, reg prometheus.Registerer, address string) {
 	setupLog := ctrl.Log.WithName("metrics")
-	//metricsRegistry = prometheus.NewRegistry()
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
-		prometheus.DefaultRegisterer, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})))
+	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})))
 	server := &http.Server{Addr: address,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout:      time.Second * 15,

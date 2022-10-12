@@ -20,6 +20,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
+
 	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -51,6 +54,7 @@ func TestMain(m *testing.M) {
 
 func TestStorage(t *testing.T) {
 	cluster, storage := CreateTestVaultTokenStorage(t)
+	assert.NoError(t, storage.Initialize(context.Background()))
 	defer cluster.Cleanup()
 
 	test := func(ctx context.Context) {
@@ -162,4 +166,17 @@ func TestParseToken(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Nil(t, token)
 	})
+}
+
+func TestMetricCollection(t *testing.T) {
+	ctx := context.Background()
+	cluster, storage, _, _ := CreateTestVaultTokenStorageWithAuthAndMetrics(t, prometheus.NewPedanticRegistry())
+	assert.NoError(t, storage.Initialize(ctx))
+	defer cluster.Cleanup()
+
+	_, err := storage.Get(ctx, testSpiAccessToken)
+	assert.NoError(t, err)
+
+	assert.Greater(t, prometheusTest.CollectAndCount(vaultRequestCountMetric), 0)
+	assert.Greater(t, prometheusTest.CollectAndCount(vaultResponseTimeMetric), 0)
 }
