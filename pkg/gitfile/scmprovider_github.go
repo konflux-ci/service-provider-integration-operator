@@ -44,12 +44,13 @@ var GithubAPITemplate = "https://api.github.com/repos/%s/%s/contents/%s"
 var RefTemplate = "?ref=%s"
 var GithubURLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<repoUser>[^/]+)/(?P<repoName>[^/]+)(.git)?$`)
 var GithubURLRegexpNames = GithubURLRegexp.SubexpNames()
+var maxFileSizeLimit int32 = 2097152
 
-// GitHubScmProvider implements Detector to detect GitHub URLs.
+// GitHubScmProvider implements ScmProvider to resolve GitHub URLs.
 type GitHubScmProvider struct {
 }
 
-func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (bool, string, error) {
+func (d *GitHubScmProvider) resolve(ctx context.Context, httpClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (bool, string, error) {
 	if len(repoUrl) == 0 || !GithubURLRegexp.MatchString(repoUrl) {
 		return false, "", nil
 	}
@@ -95,7 +96,7 @@ func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, 
 		return true, "", fmt.Errorf("failed to unmarshal GitHub file response to JSON: %w", err)
 	}
 
-	if file.Size > 10485760 {
+	if file.Size > maxFileSizeLimit {
 		lg.Error(err, "file size too big")
 		return true, "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}

@@ -26,11 +26,11 @@ var (
 
 // ScmProvider defines the interface that in order to determine if URL belongs to SCM provider
 type ScmProvider interface {
-	// detect will check whether the provided repository URL matches a known SCM pattern,
-	// and transform input params into valid file download URL.
+	// resolve will check whether the provided repository URL matches a known SCM pattern,
+	// and resolves input params into valid file download URL.
 	// Params are repository, path to the file inside the repository, Git reference (branch/tag/commitId) and
 	// set of optional Http headers for authentication
-	detect(ctc context.Context, httpClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (bool, string, error)
+	resolve(ctc context.Context, httpClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (bool, string, error)
 }
 
 // ScmProviders is the list of detectors that are tried on an SCM URL.
@@ -43,9 +43,10 @@ func init() {
 	}
 }
 
+//detect tries to recognize correct provider for the given repository URL and call it's download URL resolve method
 func detect(ctx context.Context, restClient http.Client, repoUrl, filepath, ref string, authHeaders map[string]string) (string, error) {
 	for _, d := range ScmProviders {
-		ok, resultUrl, err := d.detect(ctx, restClient, repoUrl, filepath, ref, authHeaders)
+		ok, resultUrl, err := d.resolve(ctx, restClient, repoUrl, filepath, ref, authHeaders)
 		if err != nil {
 			return "", fmt.Errorf("detection failed: %w", err)
 		}

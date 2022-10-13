@@ -27,6 +27,9 @@ var _ = Describe("Create without token data", func() {
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
+		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
+			return "test-provider://test"
+		}
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "filerequest-",
@@ -59,7 +62,7 @@ var _ = Describe("Create without token data", func() {
 			request := &api.SPIFileContentRequest{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
-			//			g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty()) //failing, why ?
+			g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty())
 		}).Should(Succeed())
 	})
 })
