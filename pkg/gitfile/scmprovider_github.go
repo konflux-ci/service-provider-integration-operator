@@ -97,7 +97,7 @@ func (d *GitHubScmProvider) detect(ctx context.Context, httpClient http.Client, 
 
 	if file.Size > 10485760 {
 		lg.Error(err, "file size too big")
-		return true, "", fmt.Errorf("%s (%d)", fileSizeLimitExceededError, file.Size)
+		return true, "", fmt.Errorf("%s: (%d)", fileSizeLimitExceededError, file.Size)
 	}
 	return true, file.DownloadUrl, nil
 }
