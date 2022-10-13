@@ -126,6 +126,7 @@ const (
 	PermissionAreaRepositoryMetadata PermissionArea = "repositoryMetadata"
 	PermissionAreaWebhooks           PermissionArea = "webhooks"
 	PermissionAreaUser               PermissionArea = "user"
+	PermissionAreaRegistry           PermissionArea = "registry"
 )
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
