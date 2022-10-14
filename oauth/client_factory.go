@@ -81,7 +81,7 @@ type kcpWorkspaceRoundTripper struct {
 }
 
 func (w kcpWorkspaceRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	if clusterName, hasClusterName := logicalcluster.ClusterFromContext(request.Context()); hasClusterName {
+	if clusterName, hasClusterName := logicalcluster.ClusterFromContext(request.Context()); hasClusterName && !clusterName.Empty() {
 		request.URL.Path = path.Join(clusterName.Path(), request.URL.Path)
 	}
 	response, err := w.next.RoundTrip(request)
