@@ -45,6 +45,11 @@ func (t *tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Mat
 
 	requiredScopes := serviceprovider.GetAllScopes(translateToQuayScopes, matchable.Permissions())
 
+	if rec == nil {
+		// if there is no metadata, we only match if there are no scopes required
+		return len(requiredScopes) == 0, nil
+	}
+
 	for _, s := range requiredScopes {
 		requiredScope := Scope(s)
 
