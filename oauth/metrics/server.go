@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,15 +26,12 @@ type RegistererGatherer interface {
 var Registry RegistererGatherer = prometheus.NewRegistry()
 
 func init() {
-	log := log.FromContext(context.TODO())
-	log.Info("setup MustRegister")
 	Registry.MustRegister(
 		// expose process metrics like CPU, Memory, file descriptor usage etc.
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		// expose Go runtime metrics like GC stats, memory stats etc.
 		collectors.NewGoCollector(),
 	)
-	log.Info("setup MustRegister2")
 }
 
 func ServeMetrics(ctx context.Context, address string) {
