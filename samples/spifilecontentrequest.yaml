@@ -1,0 +1,8 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  filePath: hack/boilerplate.go.txt
