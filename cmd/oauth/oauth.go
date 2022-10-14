@@ -16,7 +16,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"html/template"
 	"net"
@@ -66,8 +65,8 @@ func main() {
 		setupLog.Error(err, "failed to create kubernetes configuration")
 		os.Exit(1)
 	}
-	metricsRegistry := prometheus.NewRegistry()
-	go metrics.ServeMetrics(context.Background(), metricsRegistry, args.MetricsAddr)
+
+	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := mux.NewRouter()
 
 	// insecure mode only allowed when the trusted root certificate is not specified...
@@ -101,7 +100,7 @@ func main() {
 		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
 		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
 		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
-		MetricsRegisterer:           metricsRegistry,
+		MetricsRegisterer:           metrics.Registry,
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")

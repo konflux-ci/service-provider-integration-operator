@@ -2,9 +2,11 @@ package metrics
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"net/http"
 	"os"
 	"os/signal"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,11 +15,33 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func ServeMetrics(ctx context.Context, reg prometheus.Registerer, address string) {
-	setupLog := ctrl.Log.WithName("metrics")
+// RegistererGatherer combines both parts of the API of a Prometheus
+// registry, both the Registerer and the Gatherer interfaces.
+type RegistererGatherer interface {
+	prometheus.Registerer
+	prometheus.Gatherer
+}
 
+// Registry is a prometheus registry for storing metrics within the
+// controller-runtime.
+var Registry RegistererGatherer = prometheus.NewRegistry()
+
+func init() {
+	log := log.FromContext(context.TODO())
+	log.Info("setup MustRegister")
+	Registry.MustRegister(
+		// expose process metrics like CPU, Memory, file descriptor usage etc.
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		// expose Go runtime metrics like GC stats, memory stats etc.
+		collectors.NewGoCollector(),
+	)
+	log.Info("setup MustRegister2")
+}
+
+func ServeMetrics(ctx context.Context, address string) {
+	setupLog := ctrl.Log.WithName("metrics")
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})))
+	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(Registry, promhttp.Handler()))
 	server := &http.Server{Addr: address,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout:      time.Second * 15,
