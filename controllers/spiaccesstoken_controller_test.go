@@ -18,7 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	sconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -43,7 +44,7 @@ func TestCreateUploadUrl(t *testing.T) {
 	}
 
 	t.Run("kcp-env", func(t *testing.T) {
-		ctx := logicalcluster.WithCluster(context.TODO(), logicalcluster.New("workspace"))
+		ctx := infrastructure.InitKcpContext(context.TODO(), "workspace")
 		url := r.createUploadUrl(ctx, at)
 		assert.Contains(t, url, "blabol")
 		assert.Contains(t, url, "workspace")

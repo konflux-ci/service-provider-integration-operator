@@ -117,11 +117,11 @@ func restConfigForAPIExport(ctx context.Context, cfg *rest.Config, apiExportName
 	return cfg, nil
 }
 
-func InitKcpControllerContext(ctx context.Context, req ctrl.Request) context.Context {
+func InitKcpContext(ctx context.Context, kcpWorkspace string) context.Context {
 	// if we're running on kcp, we need to include workspace name in context and logs
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-		ctx = log.IntoContext(ctx, log.FromContext(ctx, "clusterName", req.ClusterName))
+	if kcpWorkspace != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(kcpWorkspace))
+		ctx = log.IntoContext(ctx, log.FromContext(ctx, "clusterName", kcpWorkspace))
 	}
 
 	return ctx

@@ -20,10 +20,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
-
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -79,11 +79,11 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("kcp", func(t *testing.T) {
-		test(logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace")))
+		test(infrastructure.InitKcpContext(context.Background(), "test_workspace"))
 	})
 
 	t.Run("token accessible only in it's workspace", func(t *testing.T) {
-		workspaceCtx := logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace"))
+		workspaceCtx := infrastructure.InitKcpContext(context.Background(), "test_workspace")
 
 		err := storage.Store(workspaceCtx, testSpiAccessToken, testToken)
 		assert.NoError(t, err)
@@ -92,7 +92,7 @@ func TestStorage(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, gettedToken)
 
-		gettedToken, err = storage.Get(logicalcluster.WithCluster(context.Background(), logicalcluster.New("another_workspace")), testSpiAccessToken)
+		gettedToken, err = storage.Get(infrastructure.InitKcpContext(context.Background(), "another_workspace"), testSpiAccessToken)
 		assert.NoError(t, err)
 		assert.Nil(t, gettedToken)
 

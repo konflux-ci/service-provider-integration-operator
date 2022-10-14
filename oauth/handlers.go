@@ -18,12 +18,12 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/gorilla/handlers"
@@ -91,7 +91,7 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 		tokenObjectName := vars["name"]
 		tokenObjectNamespace := vars["namespace"]
 		if tokenObjectKcpWorkspace, hasKcpWorkspace := vars["kcpWorkspace"]; hasKcpWorkspace {
-			ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(tokenObjectKcpWorkspace))
+			ctx = infrastructure.InitKcpContext(ctx, tokenObjectKcpWorkspace)
 		}
 
 		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {

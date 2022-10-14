@@ -98,10 +98,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIAccessTokenBinding{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			kcpWorkspace := logicalcluster.From(o)
-			ctx := context.TODO()
-			if !kcpWorkspace.Empty() {
-				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
-			}
+			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
 
 			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
 			if err != nil {
@@ -114,10 +111,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		})).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			kcpWorkspace := logicalcluster.From(o)
-			ctx := context.TODO()
-			if !kcpWorkspace.Empty() {
-				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
-			}
+			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
 
 			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == o.GetName()
@@ -139,7 +133,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
 
-//filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
+// filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
 func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
 	bindings := &api.SPIAccessTokenBindingList{}
 	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
@@ -161,7 +155,7 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
