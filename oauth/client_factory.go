@@ -73,7 +73,7 @@ func CreateClient(cfg *rest.Config, options client.Options) (AuthenticatingClien
 //
 // client usage then looks like this:
 // ...
-// ctx = logicalcluster.WithCluster(ctx, logicalcluster.New("kcp-workspace"))
+// ctx = infrastructure.InitKcpContext(ctx, "kcp-workspace")
 // err := client.Get(ctx, client.ObjectKey{Name: "object-name", Namespace: "object-namespace"}, object)
 // ...
 type kcpWorkspaceRoundTripper struct {
