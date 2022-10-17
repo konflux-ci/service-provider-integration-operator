@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -85,7 +85,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "failed to decode the OAuth state", err)
 		return
 	}
-	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(state.TokenKcpWorkspace))
+	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 	token, err := c.Authenticator.GetToken(r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
@@ -146,7 +146,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "error in Service Provider token exchange", err)
 		return
 	}
-	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(exchange.TokenKcpWorkspace))
+	ctx = infrastructure.InitKcpContext(ctx, exchange.TokenKcpWorkspace)
 
 	if exchange.result == oauthFinishK8sAuthRequired {
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "could not authenticate to Kubernetes", err)
@@ -188,7 +188,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
 
-	ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(state.TokenKcpWorkspace))
+	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 	// the state is ok, let's retrieve the token from the service provider
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state.OAuthInfo)
 	if oauthConfigErr != nil {
@@ -248,6 +248,9 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, token str
 			},
 		},
 	}
+
+	ctx = WithAuthIntoContext(token, req.Context())
+	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 
 	if err := c.K8sClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)

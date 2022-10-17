@@ -17,6 +17,8 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	sconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -28,7 +30,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
-		HttpClient:       http.DefaultClient,
+		HttpClient:       &http.Client{Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: http.DefaultTransport}},
 		Initializers:     initializers,
 		TokenStorage:     ts,
 	}
@@ -66,6 +68,14 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		Scheme:                 mgr.GetScheme(),
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&SPIFileContentRequestReconciler{
+		K8sClient:  mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		HttpClient: spf.HttpClient,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

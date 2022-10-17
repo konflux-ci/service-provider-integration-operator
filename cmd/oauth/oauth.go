@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/alexedwards/scs/v2"
@@ -92,6 +94,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	metricsRegistry := prometheus.NewRegistry()
+
 	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
 		Host:                        args.VaultHost,
 		AuthType:                    args.VaultAuthMethod,
@@ -100,6 +104,7 @@ func main() {
 		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
 		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
 		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
+		MetricsRegisterer:           metricsRegistry,
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")

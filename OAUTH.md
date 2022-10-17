@@ -15,24 +15,6 @@ This OAuth2 microservice would be responsible for:
  - Creation or update of SPIAccessToken
  - Successful redirection at the end
 
-### How to build
- `make docker-build docker-push`
-  Available paramters
-  - `SPIS_IMAGE_TAG_BASE` - the name of the image. Example `quay.io/skabashn/service-provider-integration-oauth`.
-  - `SPIS_TAG_NAME` - the tag of the image. Example `$(git branch --show-current)'_'$(date '+%Y_%m_%d_%H_%M_%S')`.
-### How to run
-The easiest way to run the SPI OAuth service is to deploy it together with the SPI
-operator.
-
-Check out the [SPI operator repository](https://github.com/redhat-appstudio/service-provider-integration-operator)
-and run:
-```
-make install deploy SPIS_IMG=<...the image of the SPI OAuth service...>
-```
-
-replace the `deploy` target above with the specialization required for your target
-cluster, e.g. use `deploy_minikube` when deploying to Minikube.
-
 ### HTTP API Endpoints
 
 The OAuth service exposes 3 kinds of endpoints:
