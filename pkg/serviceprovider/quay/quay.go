@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -67,11 +65,6 @@ const quayUrlBase = "https://quay.io"
 const quayApiUrlBase = quayUrlBase + "/api/v1"
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-
-	if err := metrics.Registry.Register(entityFetchMetric); err != nil {
-		return nil, fmt.Errorf("failed to register metrics: %w", err)
-	}
-
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})

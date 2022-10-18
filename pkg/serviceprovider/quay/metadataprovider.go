@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
@@ -59,19 +61,25 @@ var entityFetchMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 var entityFetchSuccessMetric = entityFetchMetric.WithLabelValues("false")
 var entityFetchFailureMetric = entityFetchMetric.WithLabelValues("true")
 
-var entityFetchTimer = metrics.NewValueTimer3[*RepositoryMetadata, bool, error](metrics.ValueObserverFunc3[*RepositoryMetadata, bool, error](func(m *RepositoryMetadata, cached bool, err error, dur float64) {
-	if err == nil {
-		if m != nil && !cached {
-			// only collect the success if there was any metadata actually fetched. If there was no error and no
-			// metadata fetched, there must have been no token therefore it makes no sense to even talk about
-			// metadata fetching.
-			// We're also not measuring the time it takes to look up the metadata in the cache.
-			entityFetchSuccessMetric.Observe(dur)
+func entityFetchTimer() metrics.ValueTimer3[*RepositoryMetadata, bool, error] {
+	return metrics.NewValueTimer3[*RepositoryMetadata, bool, error](metrics.ValueObserverFunc3[*RepositoryMetadata, bool, error](func(m *RepositoryMetadata, cached bool, err error, dur float64) {
+		if err == nil {
+			if m != nil && !cached {
+				// only collect the success if there was any metadata actually fetched. If there was no error and no
+				// metadata fetched, there must have been no token therefore it makes no sense to even talk about
+				// metadata fetching.
+				// We're also not measuring the time it takes to look up the metadata in the cache.
+				entityFetchSuccessMetric.Observe(dur)
+			}
+		} else {
+			entityFetchFailureMetric.Observe(dur)
 		}
-	} else {
-		entityFetchFailureMetric.Observe(dur)
-	}
-}))
+	}))
+}
+
+func init() {
+	k8sMetrics.Registry.MustRegister(entityFetchMetric)
+}
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
@@ -129,7 +137,8 @@ type RepositoryMetadata struct {
 // FetchRepo is the iterative version of Fetch used internally in the Quay service provider. It takes care of both
 // fetching and caching of the data on per-repository basis.
 func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (*RepositoryMetadata, error) {
-	metadata, _, err := entityFetchTimer.ObserveValuesAndDuration(p.doFetchRepo(ctx, repoUrl, token))
+	timer := entityFetchTimer()
+	metadata, _, err := timer.ObserveValuesAndDuration(p.doFetchRepo(ctx, repoUrl, token))
 	return metadata, err
 }
 

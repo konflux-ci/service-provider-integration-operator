@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -83,10 +81,6 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
-	}
-
-	if err := metrics.Registry.Register(metadataFetchMetric); err != nil {
-		return nil, fmt.Errorf("failed to register metrics: %w", err)
 	}
 
 	return github, nil
