@@ -400,8 +400,8 @@ spec:
 ```
 That will result in SPIAccessTokenBinding creation and waiting for it to be ready/injected.
 After that happens, controller reads the credential data from Binding's linked secret,
-and tries to fetch requested content using it. A successful attempt will result in file content
-appearing in the `status.Content` field on the `SPIFileContentRequest` CR.
+and tries to fetch requested content using it. A successful attempt will result in base64 encoded file content
+appearing in the `status.content` field on the `SPIFileContentRequest` CR.
 ```
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIFileContentRequest
@@ -412,7 +412,7 @@ spec:
   filePath: hack/boilerplate.go.txt
   repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
 status:
-  content: LyoKQ29weXJpZ2h0IDIw....
+  content: LyoKQ29weXJpZ2h0IDIw....==
   contentEncoding: base64
   linkedBindingName: ""
   phase: Delivered
