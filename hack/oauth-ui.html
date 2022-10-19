@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="application/javascript">
+        function login() {
+            let form = document.getElementById("loginform");
+            let oauthUrl = new URL(document.getElementById("oauth_url").value);
+            form.action = oauthUrl.origin + "/login";
+            form.submit();
+        }
+
+        function oauth_submit() {
+            let form = document.getElementById("oauthform");
+            let oauthUrl = new URL(document.getElementById("oauth_url").value);
+            let stateInput = document.getElementById("state");
+            stateInput.value = oauthUrl.searchParams.get("state");
+            form.action = oauthUrl.origin + oauthUrl.pathname;
+            form.submit();
+        }
+    </script>
+    <title>The complex UI</title>
+</head>
+<body>
+<label for="oauth_url">OAuth Url:</label><input type="text" name="oauth_url" id="oauth_url"/>
+<form id="loginform" method="post">
+    <label for="k8s_token">K8s token:</label> <input id="k8s_token" type="text" name="k8s_token"/><br/>
+</form>
+<input type="button" onclick="login()" value="Login"/>
+<form id="oauthform" method="post" target="_blank">
+    <input id="state" type="hidden" name="state"/>
+</form>
+<input type="button" onclick="oauth_submit()" value="Initiate OAuth"/>
+</body>
+</html>
