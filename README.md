@@ -381,3 +381,47 @@ Note that both `username` and `access_token` fields are mandatory.
 `204` response indicates that credentials successfully uploaded and stored.
 Please note that SPI service didn't perform any specific validity checks 
 for the user provided credentials, so it's assumed user provides a correct data.  
+
+
+## Retrieving file content from SCM repository
+There is dedicated controller for file content requests, which can be performed by putting
+a new `SPIFileContentRequest` CR in the namespace, as follows: 
+
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  filePath: hack/boilerplate.go.txt
+
+```
+That will result in SPIAccessTokenBinding creation and waiting for it to be ready/injected.
+After that happens, controller reads the credential data from Binding's linked secret,
+and tries to fetch requested content using it. A successful attempt will result in file content
+appearing in the `status.Content` field on the `SPIFileContentRequest` CR.
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  filePath: hack/boilerplate.go.txt
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+status:
+  content: LyoKQ29weXJpZ2h0IDIw....
+  contentEncoding: base64
+  linkedBindingName: ""
+  phase: Delivered
+```
+
+
+At this stage, file request CR-s are intended to be single-used, so no further content refresh 
+or accessibility checks must be expected. A new CR instance should be used to re-request the content.
+  
+Currently, the file retrievals are limited to GitHub repositories only, and files size up to 2 Megabytes.
+
+
