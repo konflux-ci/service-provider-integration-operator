@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	secretLabel             = "service-provider-integration/service-provider-config"
-	secretFieldClientId     = "clientId"
-	secretFieldClientSecret = "clientSecret"
-	secretFieldAuthUrl      = "authUrl"
-	secretFieldTokenUrl     = "tokenUrl"
+	oauthCfgSecretLabel             = "service-provider-integration/service-provider-config"
+	oauthCfgSecretFieldClientId     = "clientId"
+	oauthCfgSecretFieldClientSecret = "clientSecret"
+	oauthCfgSecretFieldAuthUrl      = "authUrl"
+	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -57,7 +57,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 
 	secrets := &corev1.SecretList{}
 	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(info.TokenNamespace), client.MatchingLabels{
-		secretLabel: string(c.Config.ServiceProviderType),
+		oauthCfgSecretLabel: string(c.Config.ServiceProviderType),
 	}); listErr != nil {
 		if errors.IsForbidden(listErr) {
 			lg.Info("user is not able to read secrets")
@@ -76,23 +76,23 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 }
 
 func createConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
-	if clientId, has := secret.Data[secretFieldClientId]; has {
+	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
 		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId'", secret.Namespace, secret.Name)
 	}
 
-	if clientSecret, has := secret.Data[secretFieldClientSecret]; has {
+	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
 		oauthCfg.ClientSecret = string(clientSecret)
 	} else {
 		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret'", secret.Namespace, secret.Name)
 	}
 
-	if authUrl, has := secret.Data[secretFieldAuthUrl]; has {
+	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has {
 		oauthCfg.Endpoint.AuthURL = string(authUrl)
 	}
 
-	if tokenUrl, has := secret.Data[secretFieldTokenUrl]; has {
+	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has {
 		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
 	}
 

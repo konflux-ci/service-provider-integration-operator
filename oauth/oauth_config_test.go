@@ -3,6 +3,8 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	oauthstate2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +18,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 const (
@@ -30,10 +31,10 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("all fields set ok", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				secretFieldClientId:     []byte(testClientId),
-				secretFieldClientSecret: []byte(testClientSecret),
-				secretFieldAuthUrl:      []byte(testAuthUrl),
-				secretFieldTokenUrl:     []byte(testTokenUrl),
+				oauthCfgSecretFieldClientId:     []byte(testClientId),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
 			},
 		}
 
@@ -50,9 +51,9 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("error if missing client id", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				secretFieldClientSecret: []byte(testClientSecret),
-				secretFieldAuthUrl:      []byte(testAuthUrl),
-				secretFieldTokenUrl:     []byte(testTokenUrl),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
 			},
 		}
 
@@ -65,9 +66,9 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("error if missing client secret", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				secretFieldClientId: []byte(testClientId),
-				secretFieldAuthUrl:  []byte(testAuthUrl),
-				secretFieldTokenUrl: []byte(testTokenUrl),
+				oauthCfgSecretFieldClientId: []byte(testClientId),
+				oauthCfgSecretFieldAuthUrl:  []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl: []byte(testTokenUrl),
 			},
 		}
 
@@ -80,8 +81,8 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("ok with just client id and secret", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				secretFieldClientId:     []byte(testClientId),
-				secretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldClientId:     []byte(testClientId),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
 			},
 		}
 
@@ -123,7 +124,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							secretLabel: string(config.ServiceProviderTypeGitHub),
+							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 				},
@@ -155,7 +156,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							secretLabel: string(config.ServiceProviderTypeQuay),
+							oauthCfgSecretLabel: string(config.ServiceProviderTypeQuay),
 						},
 					},
 				},
@@ -187,7 +188,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: "different-namespace",
 						Labels: map[string]string{
-							secretLabel: string(config.ServiceProviderTypeGitHub),
+							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 				},
@@ -311,12 +312,12 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							secretLabel: string(config.ServiceProviderTypeGitHub),
+							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 					Data: map[string][]byte{
-						secretFieldClientId:     []byte("testclientid"),
-						secretFieldClientSecret: []byte("testclientsecret"),
+						oauthCfgSecretFieldClientId:     []byte("testclientid"),
+						oauthCfgSecretFieldClientSecret: []byte("testclientsecret"),
 					},
 				},
 			},
@@ -365,11 +366,11 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							secretLabel: string(config.ServiceProviderTypeGitHub),
+							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 					Data: map[string][]byte{
-						secretFieldClientId: []byte("testclientid"),
+						oauthCfgSecretFieldClientId: []byte("testclientid"),
 					},
 				},
 			},
