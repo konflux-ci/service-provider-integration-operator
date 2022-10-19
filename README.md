@@ -399,7 +399,7 @@ spec:
 
 ```
 That will result in SPIAccessTokenBinding creation and waiting for it to be ready/injected.
-After that happens, controller reads the credential data from Binding's linked secret,
+After that happens, controller reads the credential data from Binding-s linked secret,
 and tries to fetch requested content using it. A successful attempt will result in base64 encoded file content
 appearing in the `status.content` field on the `SPIFileContentRequest` CR.
 ```
