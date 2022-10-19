@@ -385,7 +385,7 @@ for the user provided credentials, so it's assumed user provides a correct data.
 
 ## Retrieving file content from SCM repository
 There is dedicated controller for file content requests, which can be performed by putting
-a new `SPIFileContentRequest` CR in the namespace, as follows: 
+a `SPIFileContentRequest` CR in the namespace, as follows: 
 
 ```
 apiVersion: appstudio.redhat.com/v1beta1
@@ -398,9 +398,8 @@ spec:
   filePath: hack/boilerplate.go.txt
 
 ```
-That will result in SPIAccessTokenBinding creation and waiting for it to be ready/injected.
-After that happens, controller reads the credential data from Binding-s linked secret,
-and tries to fetch requested content using it. A successful attempt will result in base64 encoded file content
+Controller then generates SPIAccessTokenBinding and waiting for it to be ready/injected.
+Once binding became ready, controller fetches requested content using credentials from injected secret. A successful attempt will result in base64 encoded file content
 appearing in the `status.content` field on the `SPIFileContentRequest` CR.
 ```
 apiVersion: appstudio.redhat.com/v1beta1
