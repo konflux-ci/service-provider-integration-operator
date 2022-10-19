@@ -21,6 +21,9 @@ const (
 	secretFieldTokenUrl     = "tokenUrl"
 )
 
+// obtainOauthConfig is responsible for getting oauth configuration of service provider.
+// Currently, this can be configured with labeled secret living in namespace together with SPIAccessToken.
+// If no such secret is found, global configuration of oauth service is used.
 func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
 	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
 
@@ -35,7 +38,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	}
 
 	if found {
-		if createOauthCfgErr := c.createConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
+		if createOauthCfgErr := createConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
 			lg.V(logs.DebugLevel).Info("using custom user oauth config")
 			return oauthCfg, nil
 		} else {
@@ -72,7 +75,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 	}
 }
 
-func (c *commonController) createConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
+func createConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
 	if clientId, has := secret.Data[secretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
@@ -90,7 +93,7 @@ func (c *commonController) createConfigFromSecret(secret *corev1.Secret, oauthCf
 	}
 
 	if tokenUrl, has := secret.Data[secretFieldTokenUrl]; has {
-		oauthCfg.Endpoint.AuthURL = string(tokenUrl)
+		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
 	}
 
 	return nil
