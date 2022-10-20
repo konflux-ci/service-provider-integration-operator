@@ -15,7 +15,10 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
@@ -36,6 +39,10 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	}
 
 	var err error
+
+	if err = serviceprovider.RegisterCommonMetrics(metrics.Registry); err != nil {
+		return fmt.Errorf("failed to register the metrics with k8s metrics registry: %w", err)
+	}
 
 	if err = (&SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
