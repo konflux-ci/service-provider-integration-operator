@@ -21,6 +21,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -41,21 +46,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings" //nolint:gosec
+
 var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
 
 type SPIFileContentRequestReconciler struct {
-	K8sClient  client.Client
-	Scheme     *runtime.Scheme
-	HttpClient *http.Client
+	Configuration *opconfig.OperatorConfiguration
+	K8sClient     client.Client
+	Scheme        *runtime.Scheme
+	HttpClient    *http.Client
+	finalizers    finalizer.Finalizers
 }
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests/finalizers,verbs=update
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.finalizers = finalizer.NewFinalizers()
+	if err := r.finalizers.Register(linkedFileRequestBindingsFinalizerName, &linkedFileRequestBindingsFinalizer{client: r.K8sClient}); err != nil {
+		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
+	}
+
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIFileContentRequest{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
@@ -105,8 +120,37 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
 	}
 
+	finalizationResult, err := r.finalizers.Finalize(ctx, &request)
+	if err != nil {
+		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
+		// we get another reconciliation due to cluster state change
+		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
+	}
+	if finalizationResult.Updated {
+		if err = r.K8sClient.Update(ctx, &request); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update file request based on finalization result: %w", err)
+		}
+	}
+	if finalizationResult.StatusUpdated {
+		if err = r.K8sClient.Status().Update(ctx, &request); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the file request status based on finalization result: %w", err)
+		}
+	}
+
 	if request.DeletionTimestamp != nil {
 		lg.Info("file request object is being deleted")
+		return ctrl.Result{}, nil
+	}
+
+	// cleanup file content requests by lifetime
+	requestLifetime := time.Since(request.CreationTimestamp.Time).Seconds()
+	if requestLifetime > r.Configuration.FileContentRequestTtl.Seconds() {
+		err := r.K8sClient.Delete(ctx, &request)
+		if err != nil {
+			lg.Error(err, "failed to cleanup file content request on reaching the max lifetime", "error", err)
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup file content request on reaching the max lifetime: %w", err)
+		}
+		lg.V(logs.DebugLevel).Info("file content request being cleaned up on reaching the max lifetime", "binding", request.ObjectMeta.Name, "requestLifetime", requestLifetime, "requestttl", r.Configuration.FileContentRequestTtl.Seconds())
 		return ctrl.Result{}, nil
 	}
 
@@ -152,7 +196,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
-			if err = r.cleanupBinding(ctx, &request); err != nil {
+			if err = deleteSyncedBinding(ctx, r.K8sClient, &request); err != nil {
 				log.FromContext(ctx).Error(err, "failed to cleanup the binding, re-queueing it", "error", err)
 				return reconcile.Result{Requeue: true}, err
 			}
@@ -166,7 +210,11 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	return reconcile.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&request)}, nil
+}
+
+func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(cr *api.SPIFileContentRequest) time.Duration {
+	return time.Until(cr.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
 func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
@@ -194,9 +242,9 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 	return nil
 }
 
-func (r *SPIFileContentRequestReconciler) cleanupBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
+func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *api.SPIFileContentRequest) error {
 	binding := &api.SPIAccessTokenBinding{}
-	if err := r.K8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("error getting Token Binding item during cleanup: %w", err)
 		} else {
@@ -205,7 +253,7 @@ func (r *SPIFileContentRequestReconciler) cleanupBinding(ctx context.Context, re
 		}
 	}
 
-	if err := r.K8sClient.Delete(ctx, binding); err != nil {
+	if err := k8sClient.Delete(ctx, binding); err != nil {
 		return fmt.Errorf("failed to delete token binding: %w", err)
 	}
 	request.Status.LinkedBindingName = ""
@@ -219,4 +267,24 @@ func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx conte
 		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
 	}
 
+}
+
+type linkedFileRequestBindingsFinalizer struct {
+	client client.Client
+}
+
+var _ finalizer.Finalizer = (*linkedFileRequestBindingsFinalizer)(nil)
+
+// Finalize removes the secret synced to the actual binging being deleted
+func (f *linkedFileRequestBindingsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+	res := finalizer.Result{}
+	contentRequest, ok := obj.(*api.SPIFileContentRequest)
+	if !ok {
+		return res, unexpectedObjectTypeError
+	}
+
+	if err := deleteSyncedBinding(ctx, f.client, contentRequest); err != nil {
+		return res, err
+	}
+	return finalizer.Result{}, nil
 }

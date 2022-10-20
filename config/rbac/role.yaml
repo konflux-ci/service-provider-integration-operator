@@ -118,6 +118,12 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - spifilecontentrequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - spifilecontentrequests/status
   verbs:
   - get
