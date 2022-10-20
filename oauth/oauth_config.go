@@ -2,13 +2,14 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -19,6 +20,10 @@ const (
 	oauthCfgSecretFieldClientSecret = "clientSecret"
 	oauthCfgSecretFieldAuthUrl      = "authUrl"
 	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
+)
+
+var (
+	missingFieldError = errors.New("missing mandatory field in oauth configuration")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -59,7 +64,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(info.TokenNamespace), client.MatchingLabels{
 		oauthCfgSecretLabel: string(c.Config.ServiceProviderType),
 	}); listErr != nil {
-		if errors.IsForbidden(listErr) {
+		if kuberrors.IsForbidden(listErr) {
 			lg.Info("user is not able to read secrets")
 			return false, nil, nil
 		} else {
@@ -79,13 +84,13 @@ func createConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) erro
 	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId'", secret.Namespace, secret.Name)
+		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, missingFieldError)
 	}
 
 	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
 		oauthCfg.ClientSecret = string(clientSecret)
 	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret'", secret.Namespace, secret.Name)
+		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, missingFieldError)
 	}
 
 	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has {

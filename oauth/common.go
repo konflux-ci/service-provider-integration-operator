@@ -93,7 +93,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 	}
 	ctx = WithAuthIntoContext(token, ctx)
 
-	hasAccess, err := c.checkIdentityHasAccess(ctx, token, r, state)
+	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		log.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
@@ -236,7 +236,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	return nil
 }
 
-func (c *commonController) checkIdentityHasAccess(ctx context.Context, token string, req *http.Request, state oauthstate.OAuthInfo) (bool, error) {
+func (c *commonController) checkIdentityHasAccess(ctx context.Context, state oauthstate.OAuthInfo) (bool, error) {
 	review := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &v1.ResourceAttributes{
@@ -249,13 +249,10 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, token str
 		},
 	}
 
-	ctx = WithAuthIntoContext(token, req.Context())
-	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
-
 	if err := c.K8sClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
 	}
 
-	log.FromContext(req.Context()).V(logs.DebugLevel).Info("self subject review result", "review", &review)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review result", "review", &review)
 	return review.Status.Allowed, nil
 }
