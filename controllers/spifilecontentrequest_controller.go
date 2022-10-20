@@ -275,7 +275,7 @@ type linkedFileRequestBindingsFinalizer struct {
 
 var _ finalizer.Finalizer = (*linkedFileRequestBindingsFinalizer)(nil)
 
-// Finalize removes the secret synced to the actual binging being deleted
+// Finalize removes the binding synced to the actual file content request which is being deleted
 func (f *linkedFileRequestBindingsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	res := finalizer.Result{}
 	contentRequest, ok := obj.(*api.SPIFileContentRequest)
