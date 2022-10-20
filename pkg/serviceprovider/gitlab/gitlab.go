@@ -20,7 +20,7 @@ import (
 
 var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
-var userWritePermissionsNotSupportedError = errors.New("user write permissions are not supported by GitLab")
+var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
 
 // Temp
 var notGitlabUrlError = errors.New("not a gitlab repository url")
@@ -239,7 +239,7 @@ func (g Gitlab) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding
 	return serviceprovider.DefaultMapToken(token, tokenData), nil
 }
 
-func (g Gitlab) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+func (g Gitlab) Validate(_ context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 	ret := serviceprovider.ValidationResult{}
 
 	for _, p := range validated.Permissions().Required {
@@ -250,7 +250,7 @@ func (g Gitlab) Validate(ctx context.Context, validated serviceprovider.Validate
 			continue
 		case api.PermissionAreaUser:
 			if p.Type.IsWrite() {
-				ret.ScopeValidation = append(ret.ScopeValidation, userWritePermissionsNotSupportedError)
+				ret.ScopeValidation = append(ret.ScopeValidation, unsupportedUserWritePermissionError)
 			}
 		default:
 			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unsupportedAreaError, p.Area))
