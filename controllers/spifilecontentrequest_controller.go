@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings" //nolint:gosec
+const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
 
 var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
 
