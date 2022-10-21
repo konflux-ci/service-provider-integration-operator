@@ -86,7 +86,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
-	token, err := c.Authenticator.GetToken(r)
+	token, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
 		return
@@ -183,7 +183,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
 	}
 
-	k8sToken, err := c.Authenticator.GetToken(r) //nolint:contextCheck // no idea why contextCheck is complaining here - we're not doing any HTTP requests with this call
+	k8sToken, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}

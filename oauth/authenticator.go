@@ -14,6 +14,7 @@
 package oauth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -52,16 +53,16 @@ func (a Authenticator) tokenReview(token string, req *http.Request) (bool, error
 	//return review.Status.Authenticated, nil
 	return true, nil
 }
-func (a *Authenticator) GetToken(r *http.Request) (string, error) {
-	lg := log.FromContext(r.Context())
+func (a *Authenticator) GetToken(ctx context.Context, r *http.Request) (string, error) {
+	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/GetToken")
 
 	token := r.URL.Query().Get("k8s_token")
 	if token == "" {
-		token = a.SessionManager.GetString(r.Context(), "k8s_token")
+		token = a.SessionManager.GetString(ctx, "k8s_token")
 	} else {
-		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8_token` query parameter to the session")
-		a.SessionManager.Put(r.Context(), "k8s_token", token)
+		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8s_token` query parameter to the session")
+		a.SessionManager.Put(ctx, "k8s_token", token)
 	}
 
 	if token == "" {
