@@ -381,3 +381,27 @@ Note that both `username` and `access_token` fields are mandatory.
 `204` response indicates that credentials successfully uploaded and stored.
 Please note that SPI service didn't perform any specific validity checks 
 for the user provided credentials, so it's assumed user provides a correct data.  
+
+
+## User OAuth configuration
+
+In situations, when OAuth configurations set for SPI does not fit user's use case (like on-prem installations), one may define it's own OAuth service provider configuration in the Kubernetes secret:
+```yaml
+...
+metadata:
+  labels:
+    service-provider-integration/service-provider-config: GitHub
+data:
+  clientId: ...
+  clientSecret: ...
+  authUrl: ...
+  tokenUrl: ...
+
+```
+Such secret must be labeled with `service-provider-integration/service-provider-config` label with value of service provider name (`GitHub`, `Quay`).
+Data of the secret must contain `clientId` and `clientSecret` keys.
+`authUrl` and `tokenUrl` are optional, if not set, default values for the service provider are used.
+
+The secret must live in same namespace as `SPIAccessToken` and used authorization token must have permissions to `list` and `get` secrets in such namespace.
+If matching secret is found, it is used for oauth flow. In other cases, default SPI configuration is used.
+If format of the user's oauth configuration secret is not valid, oauth flow will fail with a descriptive error.
