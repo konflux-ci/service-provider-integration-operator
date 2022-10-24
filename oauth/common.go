@@ -74,9 +74,9 @@ func (c *commonController) redirectUrl() string {
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := log.FromContext(ctx)
+	lg := log.FromContext(ctx)
 
-	defer logs.TimeTrack(log, time.Now(), "/authenticate")
+	defer logs.TimeTrack(lg, time.Now(), "/authenticate")
 
 	stateString := r.FormValue("state")
 
@@ -96,7 +96,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
-		log.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
+		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
 			"and the API_SERVER environment variable points it to the incorrect Kubernetes API server. "+
 			"If SPI is running with Devsandbox Proxy or KCP, make sure this env var points to the Kubernetes API proxy,"+
 			" otherwise unset this variable. See more https://github.com/redhat-appstudio/infra-deployments/pull/264")
@@ -129,7 +129,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 	}{
 		Url: oauthCfg.AuthCodeURL(newStateString),
 	}
-	log.V(logs.DebugLevel).Info("Redirecting ", "url", templateData.Url)
+	lg.V(logs.DebugLevel).Info("Redirecting ", "url", templateData.Url)
 	err = c.RedirectTemplate.Execute(w, templateData)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to return redirect notice HTML page", err)
@@ -141,7 +141,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/callback")
 
-	exchange, err := c.finishOAuthExchange(ctx, r, c.Endpoint)
+	exchange, err := c.finishOAuthExchange(ctx, r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "error in Service Provider token exchange", err)
 		return
@@ -168,7 +168,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 
 // finishOAuthExchange implements the bulk of the Callback function. It returns the token, if obtained, the decoded
 // state from the oauth flow, if available, and the result of the authentication.
-func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request, endpoint oauth2.Endpoint) (exchangeResult, error) {
+func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request) (exchangeResult, error) {
 	// TODO support the implicit flow here, too?
 
 	// check that the state is correct
@@ -182,13 +182,14 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	if err != nil {
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
 	}
+	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 
 	k8sToken, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
+	ctx = WithAuthIntoContext(k8sToken, ctx)
 
-	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 	// the state is ok, let's retrieve the token from the service provider
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state.OAuthInfo)
 	if oauthConfigErr != nil {
