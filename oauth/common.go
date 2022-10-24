@@ -195,7 +195,6 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	if oauthConfigErr != nil {
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to obtain oauth configuration: %w", oauthConfigErr)
 	}
-	log.FromContext(ctx).Info("oauth config", "cfg", oauthCfg)
 
 	code := r.FormValue("code")
 
