@@ -16,7 +16,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"html/template"
 	"net"
 	"net/http"
@@ -25,6 +24,8 @@ import (
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
