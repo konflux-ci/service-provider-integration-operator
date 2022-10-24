@@ -21,10 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	apisv1alpha1 "github.com/kcp-dev/kcp/pkg/apis/apis/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -95,16 +93,14 @@ func TestRestApiConfig(t *testing.T) {
 
 func TestInitKcpControllerContext(t *testing.T) {
 	t.Run("no workspace", func(t *testing.T) {
-		ctx := InitKcpControllerContext(context.TODO(), ctrl.Request{})
+		ctx := InitKcpContext(context.TODO(), "")
 
 		_, hasClusterName := logicalcluster.ClusterFromContext(ctx)
 		assert.False(t, hasClusterName)
 	})
 
 	t.Run("kcp workspace", func(t *testing.T) {
-		ctx := InitKcpControllerContext(context.TODO(), ctrl.Request{
-			ClusterName: "workspace",
-		})
+		ctx := InitKcpContext(context.TODO(), "workspace")
 
 		clusterName, hasClusterName := logicalcluster.ClusterFromContext(ctx)
 		assert.True(t, hasClusterName)

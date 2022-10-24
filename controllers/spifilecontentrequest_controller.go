@@ -60,10 +60,7 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&api.SPIFileContentRequest{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			kcpWorkspace := logicalcluster.From(o)
-			ctx := context.TODO()
-			if !kcpWorkspace.Empty() {
-				ctx = logicalcluster.WithCluster(ctx, kcpWorkspace)
-			}
+			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
 
 			fileRequests := &api.SPIFileContentRequestList{}
 			if err := r.K8sClient.List(ctx, fileRequests, client.InNamespace(o.GetNamespace())); err != nil {
@@ -93,7 +90,7 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpControllerContext(ctx, req)
+	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 	lg := log.FromContext(ctx)
 
 	request := api.SPIFileContentRequest{}
