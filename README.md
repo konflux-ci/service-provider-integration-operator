@@ -383,6 +383,47 @@ Please note that SPI service didn't perform any specific validity checks
 for the user provided credentials, so it's assumed user provides a correct data.  
 
 
+## Retrieving file content from SCM repository
+There is dedicated controller for file content requests, which can be performed by putting
+a `SPIFileContentRequest` CR in the namespace, as follows: 
+
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  filePath: hack/boilerplate.go.txt
+
+```
+Controller then generates SPIAccessTokenBinding and waiting for it to be ready/injected.
+Once binding became ready, controller fetches requested content using credentials from injected secret. A successful attempt will result in base64 encoded file content
+appearing in the `status.content` field on the `SPIFileContentRequest` CR.
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  filePath: hack/boilerplate.go.txt
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+status:
+  content: LyoKQ29weXJpZ2h0IDIw....==
+  contentEncoding: base64
+  linkedBindingName: ""
+  phase: Delivered
+```
+
+
+At this stage, file request CR-s are intended to be single-used, so no further content refresh 
+or accessibility checks must be expected. A new CR instance should be used to re-request the content.
+  
+Currently, the file retrievals are limited to GitHub repositories only, and files size up to 2 Megabytes.
+
+
 ## User OAuth configuration
 
 In situations, when OAuth configurations set for SPI does not fit user's use case (like on-prem installations), one may define it's own OAuth service provider configuration in the Kubernetes secret:
