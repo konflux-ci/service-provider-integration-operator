@@ -143,14 +143,13 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// cleanup file content requests by lifetime
-	requestLifetime := time.Since(request.CreationTimestamp.Time).Seconds()
-	if requestLifetime > r.Configuration.FileContentRequestTtl.Seconds() {
+	if time.Now().After(request.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl)) {
 		err := r.K8sClient.Delete(ctx, &request)
 		if err != nil {
 			lg.Error(err, "failed to cleanup file content request on reaching the max lifetime", "error", err)
 			return ctrl.Result{}, fmt.Errorf("failed to cleanup file content request on reaching the max lifetime: %w", err)
 		}
-		lg.V(logs.DebugLevel).Info("file content request being cleaned up on reaching the max lifetime", "binding", request.ObjectMeta.Name, "requestLifetime", requestLifetime, "requestttl", r.Configuration.FileContentRequestTtl.Seconds())
+		lg.V(logs.DebugLevel).Info("file content request being cleaned up on reaching the max lifetime", "binding", request.ObjectMeta.Name, "requestLifetime", request.CreationTimestamp.String(), "requestTTL", r.Configuration.FileContentRequestTtl.String())
 		return ctrl.Result{}, nil
 	}
 
