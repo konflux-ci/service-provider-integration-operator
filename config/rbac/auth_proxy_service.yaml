@@ -7,9 +7,10 @@ metadata:
   namespace: system
 spec:
   ports:
-  - name: https
+  - name: metrics
     port: 8443
     protocol: TCP
     targetPort: https
   selector:
     control-plane: controller-manager
+    app.kubernetes.io/name: service-provider-integration-operator
