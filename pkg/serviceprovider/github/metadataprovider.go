@@ -23,6 +23,12 @@ import (
 	"strings"
 	"time"
 
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
+
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -30,6 +36,37 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// registered in newGithub function
+var metadataFetchMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Namespace: config.MetricsNamespace,
+	Subsystem: config.MetricsSubsystem,
+	Name:      "github_token_metadata_fetch_seconds",
+	Help:      "The overall time to fetch the metadata for a single repository",
+}, []string{"failure"})
+
+func init() {
+	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
+}
+
+var metadataFetchSuccessMetric = metadataFetchMetric.WithLabelValues("false")
+var metadataFetchFailureMetric = metadataFetchMetric.WithLabelValues("true")
+
+// metadataFetchTimer constructs a new timer to measure the duration of the fetch call.
+func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
+	return metrics.NewValueTimer2[*api.TokenMetadata, error](metrics.ValueObserverFunc2[*api.TokenMetadata, error](func(m *api.TokenMetadata, err error, metric float64) {
+		if err == nil {
+			if m != nil {
+				// only collect the success if there was any metadata actually fetched. If there was no error and no
+				// metadata fetched, there must have been no token therefore it makes no sense to even talk about
+				// metadata fetching.
+				metadataFetchSuccessMetric.Observe(metric)
+			}
+		} else {
+			metadataFetchFailureMetric.Observe(metric)
+		}
+	}))
+}
 
 type metadataProvider struct {
 	httpClient      *http.Client
@@ -40,6 +77,11 @@ type metadataProvider struct {
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
 func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+	timer := metadataFetchTimer()
+	return timer.ObserveValuesAndDuration(s.doFetch(ctx, token))
+}
+
+func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("error while getting token data: %w", err)

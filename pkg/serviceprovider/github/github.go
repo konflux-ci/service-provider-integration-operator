@@ -82,6 +82,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
 	}
+
 	return github, nil
 }
 
