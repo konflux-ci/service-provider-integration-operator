@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
@@ -29,7 +31,6 @@ import (
 )
 
 const (
-	oauthCfgSecretLabel             = "service-provider-integration/service-provider-config"
 	oauthCfgSecretFieldClientId     = "clientId"
 	oauthCfgSecretFieldClientSecret = "clientSecret"
 	oauthCfgSecretFieldAuthUrl      = "authUrl"
@@ -57,7 +58,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	}
 
 	if found {
-		if createOauthCfgErr := createConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
+		if createOauthCfgErr := initializeConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
 			lg.V(logs.DebugLevel).Info("using custom user oauth config")
 			return oauthCfg, nil
 		} else {
@@ -76,10 +77,10 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 
 	secrets := &corev1.SecretList{}
 	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(info.TokenNamespace), client.MatchingLabels{
-		oauthCfgSecretLabel: string(c.Config.ServiceProviderType),
+		v1beta1.ServiceProviderTypeLabel: string(c.Config.ServiceProviderType),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
-			lg.Info("user is not able to read secrets")
+			lg.Info("user is not able to list or get secrets")
 			return false, nil, nil
 		} else {
 			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
@@ -94,7 +95,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 	}
 }
 
-func createConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
+func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
 	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {

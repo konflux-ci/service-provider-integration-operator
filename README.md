@@ -428,12 +428,12 @@ Default lifetime for file content requests is 30 min and can be changed via oper
 
 ## User OAuth configuration
 
-In situations, when OAuth configurations set for SPI does not fit user's use case (like on-prem installations), one may define it's own OAuth service provider configuration in the Kubernetes secret:
+In situations when OAuth configuration of SPI does not fit user's use case (like on-prem installations), one may define their own OAuth service provider configuration using a Kubernetes secret:
 ```yaml
 ...
 metadata:
   labels:
-    service-provider-integration/service-provider-config: GitHub
+    spi.appstudio.redhat.com/service-provider-type: GitHub
 data:
   clientId: ...
   clientSecret: ...
@@ -441,7 +441,7 @@ data:
   tokenUrl: ...
 
 ```
-Such secret must be labeled with `service-provider-integration/service-provider-config` label with value of service provider name (`GitHub`, `Quay`).
+Such secret must be labeled with `spi.appstudio.redhat.com/service-provider-type` label with value of service provider name (`GitHub`, `Quay`).
 Data of the secret must contain `clientId` and `clientSecret` keys.
 `authUrl` and `tokenUrl` are optional, if not set, default values for the service provider are used.
 

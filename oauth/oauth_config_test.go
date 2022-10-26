@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	oauthstate2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +55,7 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 		}
 
 		oauthCfg := &oauth2.Config{}
-		err := createConfigFromSecret(secret, oauthCfg)
+		err := initializeConfigFromSecret(secret, oauthCfg)
 
 		assert.NoError(t, err)
 		assert.Equal(t, testClientId, oauthCfg.ClientID)
@@ -72,7 +74,7 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 		}
 
 		oauthCfg := &oauth2.Config{}
-		err := createConfigFromSecret(secret, oauthCfg)
+		err := initializeConfigFromSecret(secret, oauthCfg)
 
 		assert.Error(t, err)
 	})
@@ -87,7 +89,7 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 		}
 
 		oauthCfg := &oauth2.Config{}
-		err := createConfigFromSecret(secret, oauthCfg)
+		err := initializeConfigFromSecret(secret, oauthCfg)
 
 		assert.Error(t, err)
 	})
@@ -101,7 +103,7 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 		}
 
 		oauthCfg := &oauth2.Config{}
-		err := createConfigFromSecret(secret, oauthCfg)
+		err := initializeConfigFromSecret(secret, oauthCfg)
 
 		assert.NoError(t, err)
 		assert.Equal(t, testClientId, oauthCfg.ClientID)
@@ -138,7 +140,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 				},
@@ -170,7 +172,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							oauthCfgSecretLabel: string(config.ServiceProviderTypeQuay),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
 						},
 					},
 				},
@@ -202,7 +204,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: "different-namespace",
 						Labels: map[string]string{
-							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 				},
@@ -326,7 +328,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 					Data: map[string][]byte{
@@ -380,7 +382,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							oauthCfgSecretLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
 						},
 					},
 					Data: map[string][]byte{
@@ -446,23 +448,19 @@ type mockTracker struct {
 }
 
 func (t *mockTracker) Add(obj runtime.Object) error {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
 
 func (t *mockTracker) Get(gvr schema.GroupVersionResource, ns, name string) (runtime.Object, error) {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
 
 func (t *mockTracker) Create(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
 
 func (t *mockTracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
 
 func (t *mockTracker) List(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, ns string) (runtime.Object, error) {
@@ -470,11 +468,9 @@ func (t *mockTracker) List(gvr schema.GroupVersionResource, gvk schema.GroupVers
 }
 
 func (t *mockTracker) Delete(gvr schema.GroupVersionResource, ns, name string) error {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
 
 func (t *mockTracker) Watch(gvr schema.GroupVersionResource, ns string) (watch.Interface, error) {
-	//TODO implement me
-	panic("implement me")
+	panic("not needed for now")
 }
