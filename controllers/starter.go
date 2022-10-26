@@ -73,9 +73,10 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	}
 
 	if err = (&SPIFileContentRequestReconciler{
-		K8sClient:  mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		HttpClient: spf.HttpClient,
+		K8sClient:     mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		HttpClient:    spf.HttpClient,
+		Configuration: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
