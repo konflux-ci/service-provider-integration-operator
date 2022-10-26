@@ -18,10 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/utils/strings/slices"
 	http "net/http"
 	"net/url"
 	"strings"
+
+	"k8s.io/utils/strings/slices"
 
 	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -148,8 +149,8 @@ func (g Gitlab) GetType() api.ServiceProviderType {
 }
 
 func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	// We currently only check access to git repository on GitLab.
 	repoUrl := accessCheck.Spec.RepoUrl
-
 	status := &api.SPIAccessCheckStatus{
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitLab,
@@ -163,7 +164,7 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 		return status, nil
 	}
 
-	publicRepo, err := g.publicRepo(ctx, accessCheck)
+	publicRepo, err := g.isPublicRepo(ctx, accessCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -189,37 +190,45 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 		lg.Info("we have no tokens for repository", "repo", repoUrl)
 		return status, nil
 	}
-
 	token := &tokens[0]
+
+	if err := g.checkPrivateRepoAccess(ctx, token, repo, status); err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAccessToken, repo string, status *api.SPIAccessCheckStatus) error {
 	glClient, err := g.glClientBuilder.createGitlabAuthClient(ctx, token, g.baseUrl)
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = err.Error()
-		return status, err
+		return err
 	}
 
 	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = err.Error()
-		return status, nil
+		return nil
 	}
 	if response.StatusCode != http.StatusOK {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = fmt.Sprintf("GitLab responded with non-ok status code: %d", response.StatusCode)
-		return status, nil
+		return nil
 	}
 	status.Accessible = true
-	// TODO: figure out how to categorize internal visibility
+
+	// "Internal projects can be cloned by any signed-in user except external users."
+	// This means that a repo cannot be accessed without user context thus the repo is not public.
+	// https://docs.gitlab.com/ee/user/public_access.html#internal-projects-and-groups
 	if project.Visibility == gitlab.PrivateVisibility || project.Visibility == gitlab.InternalVisibility {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 	}
-
-	return status, nil
+	return nil
 }
 
-// Temp
-func (g *Gitlab) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
+func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
 	if reqErr != nil {
@@ -230,18 +239,16 @@ func (g *Gitlab) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
-		return false, fmt.Errorf("error performing HTTP request for access check to %v: %w", accessCheck.Spec.RepoUrl, err)
+		return false, fmt.Errorf("error performing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, err)
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		return true, nil
-	} else if resp.StatusCode == http.StatusNotFound {
-		return false, nil
-	} else {
-		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
-		return false, nil
 	}
+	if resp.StatusCode != http.StatusNotFound {
+		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
+	}
+	return false, nil
 }
 
 // Temp

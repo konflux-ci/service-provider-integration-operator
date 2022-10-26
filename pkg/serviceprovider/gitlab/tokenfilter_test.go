@@ -16,6 +16,7 @@ package gitlab
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -34,68 +35,68 @@ func TestMatches(t *testing.T) {
 	})
 
 	test := func(t *testing.T, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, expectedMatch bool) {
-		res, err := tf.Matches(context.TODO(), binding, token)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedMatch, res)
+		t.Run(fmt.Sprintf("match should be %t by required scopes", expectedMatch), func(t *testing.T) {
+			res, err := tf.Matches(context.TODO(), binding, token)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedMatch, res)
+		})
 	}
 
-	t.Run("match by scopes", func(t *testing.T) {
-		binding := &api.SPIAccessTokenBinding{
-			Spec: api.SPIAccessTokenBindingSpec{
-				RepoUrl: "some-gitlab-repo",
-				Permissions: api.Permissions{
-					Required: []api.Permission{
-						{
-							Type: api.PermissionTypeWrite,
-							Area: api.PermissionAreaRepository,
-						},
-						{
-							Type: api.PermissionTypeRead,
-							Area: api.PermissionAreaRegistry,
-						},
+	binding := &api.SPIAccessTokenBinding{
+		Spec: api.SPIAccessTokenBindingSpec{
+			RepoUrl: "some-gitlab-repo",
+			Permissions: api.Permissions{
+				Required: []api.Permission{
+					{
+						Type: api.PermissionTypeWrite,
+						Area: api.PermissionAreaRepository,
+					},
+					{
+						Type: api.PermissionTypeRead,
+						Area: api.PermissionAreaRegistry,
 					},
 				},
 			},
-		}
+		},
+	}
 
-		nonMatchingToken := &api.SPIAccessToken{
-			Spec: api.SPIAccessTokenSpec{},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					Username:             "you",
-					UserId:               "42",
-					Scopes:               []string{string(ScopeWriteRepository)},
-					ServiceProviderState: []byte(""),
-				},
+	nonMatchingToken := &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{},
+		Status: api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				Username:             "you",
+				UserId:               "42",
+				Scopes:               []string{string(ScopeWriteRepository)},
+				ServiceProviderState: []byte(""),
 			},
-		}
+		},
+	}
 
-		matchingToken := &api.SPIAccessToken{
-			Spec: api.SPIAccessTokenSpec{},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					Username:             "you",
-					UserId:               "42",
-					Scopes:               []string{string(ScopeWriteRepository), string(ScopeReadRegistry)},
-					ServiceProviderState: []byte(""),
-				},
+	matchingToken := &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{},
+		Status: api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				Username:             "you",
+				UserId:               "42",
+				Scopes:               []string{string(ScopeWriteRepository), string(ScopeReadRegistry)},
+				ServiceProviderState: []byte(""),
 			},
-		}
+		},
+	}
 
-		matchingToken2 := &api.SPIAccessToken{
-			Spec: api.SPIAccessTokenSpec{},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					Username:             "you",
-					UserId:               "42",
-					Scopes:               []string{string(ScopeApi)},
-					ServiceProviderState: []byte(""),
-				},
+	matchingToken2 := &api.SPIAccessToken{
+		Spec: api.SPIAccessTokenSpec{},
+		Status: api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				Username:             "you",
+				UserId:               "42",
+				Scopes:               []string{string(ScopeApi)},
+				ServiceProviderState: []byte(""),
 			},
-		}
+		},
+	}
 
-		test(t, binding, nonMatchingToken, false)
-		test(t, binding, matchingToken, true)
-		test(t, binding, matchingToken2, true)
-	})
+	test(t, binding, nonMatchingToken, false)
+	test(t, binding, matchingToken, true)
+	test(t, binding, matchingToken2, true)
 }

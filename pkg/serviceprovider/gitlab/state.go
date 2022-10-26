@@ -24,7 +24,7 @@ const (
 	ScopeWriteRepository Scope = "write_repository"
 	ScopeReadRegistry    Scope = "read_registry"
 	ScopeWriteRegistry   Scope = "write_registry"
-	ScopeSudo            Scope = "sudo" // less understood scopes bellow
+	ScopeSudo            Scope = "sudo" // less understood and less relevant scopes begin
 	ScopeOpenid          Scope = "openid"
 	ScopeProfile         Scope = "profile"
 	ScopeEmail           Scope = "email"
@@ -39,7 +39,8 @@ func (s Scope) Implies(other Scope) bool {
 	}
 	switch s {
 	case ScopeApi:
-		return other == ScopeReadApi || other == ScopeReadUser || other == ScopeReadRepository || other == ScopeWriteRepository || other == ScopeReadRegistry || other == ScopeWriteRegistry
+		return other == ScopeReadApi || other == ScopeReadUser || other == ScopeReadRepository ||
+			other == ScopeWriteRepository || other == ScopeReadRegistry || other == ScopeWriteRegistry
 	case ScopeReadApi:
 		return other == ScopeReadUser || other == ScopeReadRepository || other == ScopeReadRegistry
 	case ScopeWriteRepository:
