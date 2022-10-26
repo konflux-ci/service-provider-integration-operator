@@ -14,3 +14,4 @@ resources:
 - cluster-role.yaml
 - cluster-role-binding.yaml
 - oauth-service-environment-config.yaml
+- auth_proxy_service.yaml
