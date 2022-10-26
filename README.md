@@ -141,6 +141,7 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --token-ttl             | TOKENLIFETIMEDURATION       | 120h    | Access token lifetime in hours, minutes or seconds. Examples:  "3h",  "5h30m40s" etc.                                                                                            |
 | --binding-ttl           | BINDINGLIFETIMEDURATION     | 2h      | Access token binding lifetime in hours, minutes or seconds. Examples: "3h", "5h30m40s" etc.                                                                                      |
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
+| --file-request-ttl      | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
 | --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
 | --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
@@ -422,6 +423,7 @@ At this stage, file request CR-s are intended to be single-used, so no further c
 or accessibility checks must be expected. A new CR instance should be used to re-request the content.
   
 Currently, the file retrievals are limited to GitHub repositories only, and files size up to 2 Megabytes.
+Default lifetime for file content requests is 30 min and can be changed via operator configuration parameter.
 
 
 ## User OAuth configuration
