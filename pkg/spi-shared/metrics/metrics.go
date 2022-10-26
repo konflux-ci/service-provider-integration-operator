@@ -88,12 +88,12 @@ var _ ValueObserver3[int, int, int] = (ValueObserverFunc3[int, int, int])(nil)
 var _ ValueObserver4[int, int, int, int] = (ValueObserverFunc4[int, int, int, int])(nil)
 var _ ValueObserver5[int, int, int, int, int] = (ValueObserverFunc5[int, int, int, int, int])(nil)
 
-// ValueTimer1 is a timer that calls the supplied recorder function. When the ObserveValuesAndDuration method is called the supplied
-// recorder function is called with the provided data and the time it took since the instantiation of
-// the RecordingTimer.
+// ValueTimer1 is a timer that calls the supplied observer function. When the ObserveValuesAndDuration method is called
+// the supplied observer function is called with the provided data and the time it took since the instantiation of
+// the ValueTimer1.
 //
 // It is similar to prometheus.Timer but unlike it, this can also process the supplied data. This means though that it
-// is not possible to defer the execution of the RecordingTimer rather it is expected that is called right before
+// is not possible to defer the execution of the ValueTimer1 rather it is expected that is called right before
 // the return from a function. See ObserveValuesAndDuration for more details.
 type ValueTimer1[T any] struct {
 	Observer  ValueObserver1[T]
@@ -102,95 +102,110 @@ type ValueTimer1[T any] struct {
 
 // ValueTimer2 is similar to ValueTimer1 but can be used with functions returning two values.
 type ValueTimer2[T any, U any] struct {
-	Recorder  ValueObserver2[T, U]
+	Observer  ValueObserver2[T, U]
 	startTime time.Time
 }
 
 // ValueTimer3 is similar to ValueTimer1 but can be used with functions returning three values.
 type ValueTimer3[T any, U any, V any] struct {
-	Recorder  ValueObserver3[T, U, V]
+	Observer  ValueObserver3[T, U, V]
 	startTime time.Time
 }
 
 // ValueTimer4 is similar to ValueTimer1 but can be used with functions returning four values.
 type ValueTimer4[T any, U any, V any, W any] struct {
-	Recorder  ValueObserver4[T, U, V, W]
+	Observer  ValueObserver4[T, U, V, W]
 	startTime time.Time
 }
 
 // ValueTimer5 is similar to ValueTimer1 but can be used with functions returning five values.
 type ValueTimer5[T any, U any, V any, W any, X any] struct {
-	Recorder  ValueObserver5[T, U, V, W, X]
+	Observer  ValueObserver5[T, U, V, W, X]
 	startTime time.Time
 }
 
-func NewValueTimer1[T any](recorder ValueObserver1[T]) ValueTimer1[T] {
+func NewValueTimer1[T any](observer ValueObserver1[T]) ValueTimer1[T] {
 	return ValueTimer1[T]{
-		Observer:  recorder,
+		Observer:  observer,
 		startTime: time.Now(),
 	}
 }
 
-func NewValueTimer2[T any, U any](recorder ValueObserver2[T, U]) ValueTimer2[T, U] {
+func NewValueTimer2[T any, U any](observer ValueObserver2[T, U]) ValueTimer2[T, U] {
 	return ValueTimer2[T, U]{
-		Recorder:  recorder,
+		Observer:  observer,
 		startTime: time.Now(),
 	}
 }
 
-func NewValueTimer3[T any, U any, V any](recorder ValueObserver3[T, U, V]) ValueTimer3[T, U, V] {
+func NewValueTimer3[T any, U any, V any](observer ValueObserver3[T, U, V]) ValueTimer3[T, U, V] {
 	return ValueTimer3[T, U, V]{
-		Recorder:  recorder,
+		Observer:  observer,
 		startTime: time.Now(),
 	}
 }
 
-func NewValueTimer4[T any, U any, V any, W any](recorder ValueObserver4[T, U, V, W]) ValueTimer4[T, U, V, W] {
+func NewValueTimer4[T any, U any, V any, W any](observer ValueObserver4[T, U, V, W]) ValueTimer4[T, U, V, W] {
 	return ValueTimer4[T, U, V, W]{
-		Recorder:  recorder,
+		Observer:  observer,
 		startTime: time.Now(),
 	}
 }
 
-func NewValueTimer5[T any, U any, V any, W any, X any](recorder ValueObserver5[T, U, V, W, X]) ValueTimer5[T, U, V, W, X] {
+func NewValueTimer5[T any, U any, V any, W any, X any](observer ValueObserver5[T, U, V, W, X]) ValueTimer5[T, U, V, W, X] {
 	return ValueTimer5[T, U, V, W, X]{
-		Recorder:  recorder,
+		Observer:  observer,
 		startTime: time.Now(),
 	}
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
-// the ValueTimer1 since this call. It also returns the supplied data.
+// the ValueTimer1 to this call. It also returns the supplied data.
+//
+// The intended usage is for wrapping the call to a function, use the returned value (or values in case of ValueTimer2
+// and others) to determine which metrics to observe and how and then return the value as if the metrics collection
+// wasn't there.
+//
+// E.g.:
+//   timer := metrics.NewValueTimer1[int](metrics.ValueObserverFunc1[int](func (val int, duration float64) {
+//     if val > 1 {
+//        counter.Inc()
+//     } else {
+//        histo.Observe(val)
+//     }
+//   }))
+//
+//   returnValue := timer.ObserverValuesAndDuration(expensiveCall())
 func (o ValueTimer1[T]) ObserveValuesAndDuration(val T) T {
 	o.Observer.Observe(val, elapsedSeconds(o.startTime))
 	return val
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
-// the ValueTimer2 since this call. It also returns the supplied data.
+// the ValueTimer2 to this call. It also returns the supplied data.
 func (o ValueTimer2[T, U]) ObserveValuesAndDuration(v1 T, v2 U) (T, U) {
-	o.Recorder.Observe(v1, v2, elapsedSeconds(o.startTime))
+	o.Observer.Observe(v1, v2, elapsedSeconds(o.startTime))
 	return v1, v2
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
-// the ValueTimer3 since this call. It also returns the supplied data.
+// the ValueTimer3 to this call. It also returns the supplied data.
 func (o ValueTimer3[T, U, V]) ObserveValuesAndDuration(v1 T, v2 U, v3 V) (T, U, V) {
-	o.Recorder.Observe(v1, v2, v3, elapsedSeconds(o.startTime))
+	o.Observer.Observe(v1, v2, v3, elapsedSeconds(o.startTime))
 	return v1, v2, v3
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
-// the ValueTimer4 since this call. It also returns the supplied data.
+// the ValueTimer4 to this call. It also returns the supplied data.
 func (o ValueTimer4[T, U, V, W]) ObserveValuesAndDuration(v1 T, v2 U, v3 V, v4 W) (T, U, V, W) {
-	o.Recorder.Observe(v1, v2, v3, v4, elapsedSeconds(o.startTime))
+	o.Observer.Observe(v1, v2, v3, v4, elapsedSeconds(o.startTime))
 	return v1, v2, v3, v4
 }
 
 // ObserveValuesAndDuration calls the stored observer with the supplied data and the time it took since the instantiation of
-// the ValueTimer5 since this call. It also returns the supplied data.
+// the ValueTimer5 to this call. It also returns the supplied data.
 func (o ValueTimer5[T, U, V, W, X]) ObserveValuesAndDuration(v1 T, v2 U, v3 V, v4 W, v5 X) (T, U, V, W, X) {
-	o.Recorder.Observe(v1, v2, v3, v4, v5, elapsedSeconds(o.startTime))
+	o.Observer.Observe(v1, v2, v3, v4, v5, elapsedSeconds(o.startTime))
 	return v1, v2, v3, v4, v5
 }
 
