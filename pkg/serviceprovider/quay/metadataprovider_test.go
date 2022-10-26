@@ -189,8 +189,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
 		assert.NoError(t, err)
 
-		assert.Empty(t, repoMetadata.Repository.PossessedScopes)
-		assert.Empty(t, repoMetadata.Organization.PossessedScopes)
+		assert.Nil(t, repoMetadata)
 	})
 
 	t.Run("attempted fetch with missing token", func(t *testing.T) {
@@ -219,8 +218,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/not-our-org/repo:latest", token)
 		assert.NoError(t, err)
 
-		assert.Empty(t, repoMetadata.Repository.PossessedScopes)
-		assert.Empty(t, repoMetadata.Organization.PossessedScopes)
+		assert.Nil(t, repoMetadata)
 	})
 
 	t.Run("fetch from quay", func(t *testing.T) {

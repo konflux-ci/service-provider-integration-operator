@@ -22,3 +22,18 @@ linters:
     - wrapcheck
     - nolintlint
     - loggercheck
+
+linters-settings:
+  wrapcheck:
+    ignoreSigs:
+      # These are our timers that just forward the errors so there's no need to wrap such errors.
+      - .ObserveValuesAndDuration(
+      # These are the default ignores that we need to repeat here, because we cannot just add to the list :-\
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
