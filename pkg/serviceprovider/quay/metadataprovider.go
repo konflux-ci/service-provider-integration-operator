@@ -25,7 +25,9 @@ import (
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,6 +38,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
+
+var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeQuay)
 
 type metadataProvider struct {
 	tokenStorage     tokenstorage.TokenStorage
@@ -181,6 +185,8 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 		lg.Info("no token data found")
 		return
 	}
+
+	ctx = httptransport.ContextWithMetrics(ctx, metricsConfig)
 
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
 	if orgOrUser == "" || repo == "" {

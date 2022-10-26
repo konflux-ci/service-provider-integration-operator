@@ -15,9 +15,12 @@
 package integrationtests
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -143,6 +146,69 @@ var _ = Describe("With binding is in error", func() {
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
 			g.Expect(request.Status.ErrorMessage).To(HavePrefix("linked binding is in error state"))
+		}).Should(Succeed())
+	})
+
+})
+
+var _ = Describe("Request is removed", func() {
+	var createdRequest *api.SPIFileContentRequest
+
+	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+
+		createdRequest = &api.SPIFileContentRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "filerequest-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIFileContentRequestSpec{
+				RepoUrl:  "test-provider://test",
+				FilePath: "foo/bar.txt",
+			},
+		}
+		Expect(ITest.Client.Create(ITest.Context, createdRequest)).To(Succeed())
+		// re-read to fill other fields
+		Eventually(func(g Gomega) {
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), createdRequest)).To(Succeed())
+			g.Expect(createdRequest.Status.LinkedBindingName).NotTo(BeEmpty())
+		}).Should(Succeed())
+	})
+
+	var _ = AfterEach(func() {
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIFileContentRequest{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+	})
+
+	It("it removes the binding, too", func() {
+		Expect(ITest.Client.Delete(ITest.Context, createdRequest)).To(Succeed())
+		binding := &api.SPIAccessTokenBinding{}
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKey{Name: createdRequest.Status.LinkedBindingName, Namespace: createdRequest.Namespace}, binding)
+			g.Expect(errors.IsNotFound(err)).To(BeTrue())
+		}).Should(Succeed())
+	})
+
+	It("should delete request by timeout", func() {
+		orig := ITest.OperatorConfiguration.FileContentRequestTtl
+		ITest.OperatorConfiguration.FileContentRequestTtl = 500 * time.Millisecond
+		defer func() {
+			ITest.OperatorConfiguration.FileContentRequestTtl = orig
+		}()
+
+		// and check that request eventually disappeared
+		Eventually(func(g Gomega) {
+			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), &api.SPIAccessToken{})
+			if errors.IsNotFound(err) {
+				return
+			} else {
+				//force reconciliation timeout is passed
+				request := &api.SPIFileContentRequest{}
+				ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)
+				request.Annotations = map[string]string{"foo": "bar"}
+				ITest.Client.Update(ITest.Context, request)
+			}
 		}).Should(Succeed())
 	})
 
