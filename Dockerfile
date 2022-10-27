@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/operator/ope
 
 # Compose the final image of spi-operator.
 # !!! This must be last one, because we want simple `docker build .` to build the operator image.
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-941 as spi-operator
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.6-985 as spi-operator
 
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf install shadow-utils \
