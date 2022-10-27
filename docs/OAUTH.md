@@ -16,10 +16,10 @@ Also, this service provides an HTTP API to support manual upload of tokens for s
 
 ## HTTP API Endpoints
 
-- [POST /login](#POST-/login)
-- [GET {sp_type}/authenticate](#GET-/{sp_type}/authenticate)
-- [GET /{sp_type}/callback](#GET-/{sp_type}/callback)
-- [POST /token/{namespace}/{name}](#POST-/token/{namespace}/{name})
+- [POST /login](#post-login)
+- [GET {sp_type}/authenticate](#get-sp_typeauthenticate)
+- [GET /{sp_type}/callback](##get-sp_typecallback)
+- [POST /token/{namespace}/{name}](#post-tokennamespacename)
 
 
 ### POST /login
