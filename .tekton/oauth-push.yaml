@@ -14,7 +14,7 @@ spec:
     - name: revision
       value: "{{revision}}"
     - name: output-image
-      value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{revision}}'
+      value: 'quay.io/redhat-appstudio/service-provider-integration-oauth:{{revision}}'
     - name: path-context
       value: .
     - name: dockerfile
