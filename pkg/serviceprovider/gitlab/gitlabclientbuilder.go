@@ -36,9 +36,15 @@ func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, 
 	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
 	if err != nil {
 		lg.Error(err, "failed to get token from storage for", "token", spiAccessToken)
-		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiAccessToken.Namespace, spiAccessToken.Name, err)
+		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w",
+			spiAccessToken.Namespace, spiAccessToken.Name, err)
 	}
-	lg.V(logs.DebugLevel).Info("Created new gitlab client", "SPIAccessToken", spiAccessToken)
-	return gitlab.NewOAuthClient(tokenData.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
 
+	client, err := gitlab.NewOAuthClient(tokenData.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
+	if err != nil {
+		return nil, fmt.Errorf("failed to created new authenticated gitlab client for SPIAccessToken %s/%s: %w",
+			spiAccessToken.Namespace, spiAccessToken.Name, err)
+	}
+	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
+	return client, nil
 }

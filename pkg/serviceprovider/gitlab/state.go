@@ -31,6 +31,7 @@ const (
 )
 
 type TokenState struct {
+	// TODO: implement
 }
 
 func (s Scope) Implies(other Scope) bool {

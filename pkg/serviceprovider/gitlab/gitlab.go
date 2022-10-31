@@ -107,7 +107,7 @@ func (g Gitlab) LookupToken(ctx context.Context, cl client.Client, binding *api.
 
 func (g Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
-		return fmt.Errorf("failed to persiste gitlab metadata: %w", err)
+		return fmt.Errorf("failed to persist gitlab metadata: %w", err)
 	}
 	return nil
 }
@@ -161,7 +161,7 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = err.Error()
-		return status, nil
+		return status, nil //nolint:nilerr // we preserve the error in the status
 	}
 
 	publicRepo, err := g.isPublicRepo(ctx, accessCheck)
@@ -210,7 +210,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = err.Error()
-		return nil
+		return nil //nolint:nilerr // we preserve the error in the status
 	}
 	if response.StatusCode != http.StatusOK {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
@@ -230,23 +230,28 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 
 func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
-	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
-	if reqErr != nil {
-		lg.Error(reqErr, "failed to prepare request", "accessCheck", accessCheck.Spec)
-		return false, fmt.Errorf("error while constructing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, reqErr)
+	req, err := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
+	if err != nil {
+		lg.Error(err, "failed to construct request to assess if repo is public", "accessCheck", accessCheck)
+		return false, fmt.Errorf("error while constructing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, err)
 	}
 
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
-		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
+		lg.Error(err, "failed to request the repo to assess if it is public", "accessCheck", accessCheck)
 		return false, fmt.Errorf("error performing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, err)
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "unable to close body of request for access check", "accessCheck", accessCheck)
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		return true, nil
 	}
 	if resp.StatusCode != http.StatusNotFound {
-		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
+		lg.Info("unexpected return code for repo", "accessCheck", accessCheck, "code", resp.StatusCode)
 	}
 	return false, nil
 }
@@ -301,7 +306,7 @@ var _ serviceprovider.Probe = (*gitlabProbe)(nil)
 // Examine checks whether the URL host contains gitlab as a substring.
 // Note that parsing url without scheme, such as "gitlab.etc/whatever" results in empty host which
 // this function discriminates against.
-// TODO: consult improvement of this function
+// TODO: In the future, this method should compare the repoUrl to base urls of all configured gitlab service providers.
 func (p gitlabProbe) Examine(_ *http.Client, repoUrl string) (string, error) {
 	parsed, err := url.Parse(repoUrl)
 	if err != nil {

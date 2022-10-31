@@ -25,9 +25,7 @@ import (
 
 var _ serviceprovider.TokenFilter = (*tokenFilter)(nil)
 
-type tokenFilter struct {
-	metadataProvider *metadataProvider
-}
+type tokenFilter struct{}
 
 func (t tokenFilter) Matches(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 	// We are currently matching only by scopes.
