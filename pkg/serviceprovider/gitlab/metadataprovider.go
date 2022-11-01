@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/hashicorp/go-retryablehttp"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -102,7 +104,7 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 func (p metadataProvider) fetchUser(ctx context.Context, gitlabClient *gitlab.Client) (userName string, userId string, err error) {
 	lg := log.FromContext(ctx)
-	usr, resp, err := gitlabClient.Users.CurrentUser(gitlab.WithContext(ctx))
+	usr, resp, err := gitlabClient.Users.CurrentUser(gitlab.WithContext(ctx)) //nolint:contextcheck // context present
 	if err != nil {
 		return "", "", fmt.Errorf("failed to fetch user metadata from GitLab: %w", err)
 	}
@@ -127,13 +129,12 @@ func (p metadataProvider) fetchOAuthScopes(ctx context.Context, gitlabClient *gi
 		Scopes []string `json:"scope"`
 	}{}
 
-	req, err := gitlabClient.NewRequest(http.MethodGet, gitlabOAuthTokenInfoPath,
-		nil, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, p.baseUrl+"/"+gitlabOAuthTokenInfoPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request to fetch oauth token scopes: %w", err)
 	}
 
-	res, err := gitlabClient.Do(req, &tokenInfoResponse)
+	res, err := gitlabClient.Do(req, &tokenInfoResponse) //nolint:contextcheck // context in request
 	if err != nil {
 		if res != nil && res.StatusCode == http.StatusUnauthorized {
 			// GitLab client returns an error in case the response is 401, but we would like to try
@@ -162,13 +163,12 @@ func (p metadataProvider) fetchPATScopes(ctx context.Context, gitlabClient *gitl
 		Scopes []string `json:"scope"`
 	}{}
 
-	patInfoRequest, err := gitlabClient.NewRequest(http.MethodGet, gitlabPatInfoPath,
-		nil, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
+	patInfoRequest, err := gitlabClient.NewRequest(http.MethodGet, gitlabPatInfoPath, nil, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)}) //nolint:contextcheck // context present
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request to fetch PAT token scopes: %w", err)
 	}
 
-	patInfoResponse, err := gitlabClient.Do(patInfoRequest, &tokenInfoResponse)
+	patInfoResponse, err := gitlabClient.Do(patInfoRequest, &tokenInfoResponse) //nolint:contextcheck // context in request
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch PAT token scopes: %w", err)
 	}

@@ -206,7 +206,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 		return err
 	}
 
-	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx))
+	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx)) //nolint:contextcheck // context present
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = err.Error()
@@ -230,7 +230,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 
 func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	lg := log.FromContext(ctx)
-	req, err := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, accessCheck.Spec.RepoUrl, nil)
 	if err != nil {
 		lg.Error(err, "failed to construct request to assess if repo is public", "accessCheck", accessCheck)
 		return false, fmt.Errorf("error while constructing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, err)

@@ -152,7 +152,7 @@ func TestIsPublicRepo(t *testing.T) {
 	test(200, true)
 	test(404, false)
 	test(402, false)
-	test(301, false)
+	test(401, false)
 }
 
 func TestCheckRepositoryAccess(t *testing.T) {
