@@ -260,7 +260,9 @@ kubectl create configmap grafana-dashboard-controller-runtime --from-file=$SCRIP
 # id 6671
 kubectl create configmap grafana-dashboard-go-processes --from-file=$SCRIPT_DIR/grafana-dashboards/go-processes_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
 
+kubectl create configmap grafana-dashboard-spi-health --from-file=$SCRIPT_DIR/grafana-dashboards/spi-health.json -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
 
+kubectl create configmap grafana-dashboard-spi-outbound-traffic --from-file=$SCRIPT_DIR/grafana-dashboards/spi-outbound-traffic.json -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
@@ -315,6 +317,44 @@ spec:
   configMapRef:
     name: grafana-dashboard-go-processes
     key: go-processes_rev1.json
+  datasources:
+  - inputName: "DS_PROMETHEUS"
+    datasourceName: "spi-prometheus-grafanadatasource"
+EOF
+
+echo 'Creating Grafana dashboard: SPI Health'
+cat <<EOF | kubectl apply -n grafana-operator-system -f -
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: spi-health
+  labels:
+    app: grafana
+spec:
+  json:
+    ""
+  configMapRef:
+    name: grafana-dashboard-spi-health
+    key: spi-health.json
+  datasources:
+  - inputName: "DS_PROMETHEUS"
+    datasourceName: "spi-prometheus-grafanadatasource"
+EOF
+
+echo 'Creating Grafana dashboard: SPI Outbound Traffic'
+cat <<EOF | kubectl apply -n grafana-operator-system -f -
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: spi-outbound-traffic
+  labels:
+    app: grafana
+spec:
+  json:
+    ""
+  configMapRef:
+    name: grafana-dashboard-spi-outbound-traffic
+    key: spi-outbound-traffic.json
   datasources:
   - inputName: "DS_PROMETHEUS"
     datasourceName: "spi-prometheus-grafanadatasource"
