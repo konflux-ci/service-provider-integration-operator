@@ -21,6 +21,7 @@
       }
     ]
   },
+  "description": "The measurements of the outbound requests made by the operator.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -33,7 +34,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "",
+      "description": "The individual requests made to the service providers.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -165,7 +166,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "",
+      "description": "The overall time to fetch the metadata of a single repository for a single token in Quay. This is a compound of the number of requests to Quay + the processing and storage time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -298,6 +299,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The mean of the overall time to fetch the metadata of a single repository for a single token in Quay.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -364,7 +366,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "",
+      "description": "The overall time to fetch the metadata of all repositories accessible by a single token in Github. This is a compound of the number of requests to Github + the processing and storage time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -497,7 +499,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "",
+      "description": "The mean of the overall time to fetch the metadata of all repositories accessible by a single token in Github.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -564,6 +566,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The number of individual requests made to the Quay API (both REST and docker endpoints) in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -632,6 +635,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The number of individual requests made to the Github API in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
           "color": {

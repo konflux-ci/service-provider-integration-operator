@@ -21,7 +21,7 @@
       }
     ]
   },
-  "description": "",
+  "description": "The CPU time, memory consumption and reconcile times of the SPI operator and OAuth service.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -34,6 +34,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The show the CPU time as a portion of time the operator process occupied the CPU",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -129,6 +130,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The show the CPU time as a portion of time the OAuth service process occupied the CPU",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -224,6 +226,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The memory consumed by the operator. This is the sum of the resident and the virtual memory.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -319,6 +322,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The memory consumed by the OAuth service. This is the sum of the resident and the virtual memory.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -414,6 +418,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The time it takes the operator to reconcile an object of the given type.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -508,6 +513,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "The time it takes from the point in time the token data is uploaded into the Vault to it being picked up by the operator. This should be very similar to the reconcile time of the SPIAccessTokenDataUpdate object but will always be a little bit larger.",
       "fieldConfig": {
         "defaults": {
           "color": {
