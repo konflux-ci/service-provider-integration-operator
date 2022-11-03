@@ -206,7 +206,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 		return err
 	}
 
-	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx)) //nolint:contextcheck // context present
+	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = err.Error()

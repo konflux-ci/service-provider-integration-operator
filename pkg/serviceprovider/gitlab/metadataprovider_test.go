@@ -99,7 +99,7 @@ func TestFetch_Success_PatScopes(t *testing.T) {
 			if strings.Contains(r.URL.String(), gitlabPatInfoPath) {
 				return &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"scope": ["write_repository", "read_registry"]}`))),
+					Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"scopes": ["write_repository", "read_registry"]}`))),
 				}, nil
 			}
 			return nil, nil

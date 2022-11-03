@@ -76,15 +76,14 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	}
 
 	if scopes == nil {
-		// We are going to try to get scopes with PAT API since OAuth API did not accept the token.
 		lg.Info("could not obtain token scopes from OAuth API, proceeding to PAT API")
 		scopes, err = p.fetchPATScopes(ctx, glClient)
 		if err != nil {
 			return nil, err
 		}
 	}
-	// TODO: In the future we can figure out scopes by making request for different resources similarly to how we do it with Quay.
 
+	// TODO: In the future we can figure out scopes by making request for different resources similarly to how we do it with Quay.
 	lg.V(logs.DebugLevel).Info("fetched user metadata from GitLab", "login", username, "userid", userId, "scopes", scopes)
 
 	// Service provider state is currently expected to be empty json.
@@ -93,18 +92,17 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 		return nil, fmt.Errorf("error marshalling the state: %w", err)
 	}
 
-	metadata := &api.TokenMetadata{}
-	metadata.UserId = userId
-	metadata.Username = username
-	metadata.Scopes = scopes
-	metadata.ServiceProviderState = encodedState
-
-	return metadata, nil
+	return &api.TokenMetadata{
+		Username:             username,
+		UserId:               userId,
+		Scopes:               scopes,
+		ServiceProviderState: encodedState,
+	}, nil
 }
 
 func (p metadataProvider) fetchUser(ctx context.Context, gitlabClient *gitlab.Client) (userName string, userId string, err error) {
 	lg := log.FromContext(ctx)
-	usr, resp, err := gitlabClient.Users.CurrentUser(gitlab.WithContext(ctx)) //nolint:contextcheck // context present
+	usr, resp, err := gitlabClient.Users.CurrentUser(gitlab.WithContext(ctx))
 	if err != nil {
 		return "", "", fmt.Errorf("failed to fetch user metadata from GitLab: %w", err)
 	}
@@ -134,7 +132,7 @@ func (p metadataProvider) fetchOAuthScopes(ctx context.Context, gitlabClient *gi
 		return nil, fmt.Errorf("failed to construct request to fetch oauth token scopes: %w", err)
 	}
 
-	res, err := gitlabClient.Do(req, &tokenInfoResponse) //nolint:contextcheck // context in request
+	res, err := gitlabClient.Do(req, &tokenInfoResponse)
 	if err != nil {
 		if res != nil && res.StatusCode == http.StatusUnauthorized {
 			// GitLab client returns an error in case the response is 401, but we would like to try
@@ -159,23 +157,30 @@ func (p metadataProvider) fetchOAuthScopes(ctx context.Context, gitlabClient *gi
 }
 
 func (p metadataProvider) fetchPATScopes(ctx context.Context, gitlabClient *gitlab.Client) ([]string, error) {
-	tokenInfoResponse := struct {
-		Scopes []string `json:"scope"`
+	lg := log.FromContext(ctx)
+	patInfoResponse := struct {
+		Scopes []string `json:"scopes"`
 	}{}
 
-	patInfoRequest, err := gitlabClient.NewRequest(http.MethodGet, gitlabPatInfoPath, nil, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)}) //nolint:contextcheck // context present
+	req, err := gitlabClient.NewRequest(http.MethodGet, gitlabPatInfoPath, nil, []gitlab.RequestOptionFunc{gitlab.WithContext(ctx)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct request to fetch PAT token scopes: %w", err)
 	}
 
-	patInfoResponse, err := gitlabClient.Do(patInfoRequest, &tokenInfoResponse) //nolint:contextcheck // context in request
+	res, err := gitlabClient.Do(req, &patInfoResponse)
 	if err != nil {
+		if res != nil && res.StatusCode == http.StatusNotFound {
+			// Endpoint for fetching PAT scopes not found in this GitLab, just return empty slice.
+			return []string{}, nil
+		}
 		return nil, fmt.Errorf("failed to fetch PAT token scopes: %w", err)
 	}
 
-	if err := patInfoResponse.Body.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close body of a response when fetching PAT token scopes: %w", err)
-	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			lg.Error(err, "failed to close response body when fetching PAT token scopes from GitLab")
+		}
+	}()
 
-	return tokenInfoResponse.Scopes, nil
+	return patInfoResponse.Scopes, nil
 }
