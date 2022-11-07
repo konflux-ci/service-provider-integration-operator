@@ -17,6 +17,7 @@ package serviceproviders
 import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -30,6 +31,7 @@ import (
 func KnownInitializers() map[config.ServiceProviderType]serviceprovider.Initializer {
 	return map[config.ServiceProviderType]serviceprovider.Initializer{
 		config.ServiceProviderTypeGitHub:          github.Initializer,
+		config.ServiceProviderTypeGitLab:          gitlab.Initializer,
 		config.ServiceProviderTypeQuay:            quay.Initializer,
 		config.ServiceProviderTypeHostCredentials: hostcredentials.Initializer,
 	}
