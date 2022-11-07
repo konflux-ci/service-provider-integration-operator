@@ -15,15 +15,14 @@ package oauth
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"html/template"
 	"net/http"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/gorilla/handlers"
@@ -31,6 +30,7 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // OkHandler is a Handler implementation that responds only with http.StatusOK.
@@ -131,9 +131,9 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 // Like:
 // - Request logging
 // - CORS processing
-func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
-	return handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
+func MiddlewareHandler(reg prometheus.Registerer, allowedOrigins []string, h http.Handler) http.Handler {
+	return metrics.OAuthServiceInstrumentMetricHandler(reg, handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
 		handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
 			handlers.AllowCredentials(),
-			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h))
+			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h)))
 }
