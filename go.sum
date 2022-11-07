@@ -335,8 +335,9 @@ github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoD
 github.com/form3tech-oss/jwt-go v3.2.3+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/form3tech-oss/jwt-go v3.2.5+incompatible h1:/l4kBbb4/vGSsdtB5nUe8L7B9mImVMaBPw9L/0TBHU8=
 github.com/frankban/quicktest v1.10.0/go.mod h1:ui7WezCLWMWxVWr1GETZY3smRy0G4KWq9vcPtJmFl7Y=
-github.com/frankban/quicktest v1.13.0 h1:yNZif1OkDfNoDfb9zZa9aXIpejNR4F23Wely0c+Qdqk=
 github.com/frankban/quicktest v1.13.0/go.mod h1:qLE0fzW0VuyUAJgPU19zByoIr0HtCHN/r/VLSOOIySU=
+github.com/frankban/quicktest v1.14.2 h1:SPb1KFFmM+ybpEjPUhCCkZOM5xlovT5UbrMvWnXyBns=
+github.com/frankban/quicktest v1.14.2/go.mod h1:mgiwOwqx65TmIk1wJ6Q7wvnVMocbUorkibMOrVTHZps=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/fsnotify/fsnotify v1.5.1 h1:mZcQUHVQUQWoPXXtuf9yuEXKudkV2sx1E06UadKWpgI=
@@ -660,7 +661,7 @@ github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFb
 github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed h1:5upAirOpQc1Q53c0bnx2ufif5kANL7bfZWcc6VJWJd8=
 github.com/hashicorp/cap v0.2.1-0.20220727210936-60cd1534e220 h1:Vgv3jG0kicczshK+lOHWJ9OososZjnjSu1YslqofFYY=
 github.com/hashicorp/consul/api v1.1.0/go.mod h1:VmuI/Lkw1nC05EYQWNKwWGbkg+FbDBtguAZLlVdkD9Q=
-github.com/hashicorp/consul/api v1.14.0 h1:Y64GIJ8hYTu+tuGekwO4G4ardXoiCivX9wv1iP/kihk=
+github.com/hashicorp/consul/api v1.15.2 h1:3Q/pDqvJ7udgt/60QOOW/p/PeKioQN+ncYzzCdN2av0=
 github.com/hashicorp/consul/sdk v0.1.1/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
 github.com/hashicorp/consul/sdk v0.11.0 h1:HRzj8YSCln2yGgCumN5CL8lYlD3gBurnervJRJAZyC4=
 github.com/hashicorp/consul/sdk v0.11.0/go.mod h1:yPkX5Q6CsxTFMjQQDJwzeNmUUF5NUGGbrDsv9wTb8cw=
@@ -768,8 +769,8 @@ github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+lJfyTc=
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/hashicorp/hcl v1.0.1-vault-3 h1:V95v5KSTu6DB5huDSKiq4uAfILEuNigK/+qPET6H/Mg=
-github.com/hashicorp/hcl v1.0.1-vault-3/go.mod h1:XYhtn6ijBSAj6n4YqAaf7RBPS4I06AItNorpy+MoQNM=
+github.com/hashicorp/hcl v1.0.1-vault-5 h1:kI3hhbbyzr4dldA8UdTb7ZlVVlI2DACdCfz31RPDgJM=
+github.com/hashicorp/hcl v1.0.1-vault-5/go.mod h1:XYhtn6ijBSAj6n4YqAaf7RBPS4I06AItNorpy+MoQNM=
 github.com/hashicorp/hcp-sdk-go v0.22.0 h1:LWkLOkJFYWSojBM3IkwvYK6nrwrL+p4Fw8zEaoCQG10=
 github.com/hashicorp/hcp-sdk-go v0.22.0/go.mod h1:mM3nYdVHuv2X2tv88MGVKRf/o2k3zF8jUZSMkwICQ28=
 github.com/hashicorp/jsonapi v0.0.0-20210826224640-ee7dae0fb22d h1:9ARUJJ1VVynB176G1HCwleORqCaXm/Vx0uUi0dL26I0=
@@ -795,8 +796,8 @@ github.com/hashicorp/raft-snapshot v1.0.4 h1:EuDuayAJPdiDmVk1ygTDnG2zDzrs0/6/yBu
 github.com/hashicorp/raft-snapshot v1.0.4/go.mod h1:5sL9eUn72lH5DzsFIJ9jaysITbHksSSszImWSOTC8Ic=
 github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/JwenrHc=
 github.com/hashicorp/serf v0.9.7 h1:hkdgbqizGQHuU5IPqYM1JdSMV8nKfpuOnZYXssk9muY=
-github.com/hashicorp/vault v1.12.0 h1:/6YabFw6NNFZh/yLoJ0jyCMIHi8HRL/63QkXhofYbds=
-github.com/hashicorp/vault v1.12.0/go.mod h1:hgb+4qQ3gWPaSoVJLQCbM3lz4bXhvX8LiEHD1Avld+U=
+github.com/hashicorp/vault v1.12.1 h1:jlj890PIKnLLCAr8R6j44jQpO6CNbNKU8XZ7omTNYgk=
+github.com/hashicorp/vault v1.12.1/go.mod h1:TczTL21v70gAd4Y0Pj+U2CiInrmPLNJGgUqDZZQXviE=
 github.com/hashicorp/vault-plugin-auth-alicloud v0.13.0 h1:qQTzTw5qrnQurdE5nuXebltQ0JLJprxm5X8Lg4tCfd4=
 github.com/hashicorp/vault-plugin-auth-azure v0.12.0 h1:hhL5qOgIvzIYwROp6Sgg4KNBJPu6bbIdKtdIKpZp2tE=
 github.com/hashicorp/vault-plugin-auth-centrify v0.13.0 h1:IbtgJAY3EFyY+8n9A3QMn3MDGsvfQKDdH60r8G/C0nA=
@@ -811,7 +812,7 @@ github.com/hashicorp/vault-plugin-database-elasticsearch v0.12.0 h1:g+jD35qUZlDc
 github.com/hashicorp/vault-plugin-database-mongodbatlas v0.8.0 h1:wx/9Dh9YGGU7GiijwRfwPFBlWdmBEdf6n2VhgTdRtJU=
 github.com/hashicorp/vault-plugin-database-redis v0.1.0 h1:fDT32ZphGdvVdenvieWb+ZjWmCOHFtZ1Qjv581BloHw=
 github.com/hashicorp/vault-plugin-database-redis-elasticache v0.1.0 h1:qwDcp1vdlT0Io0x5YjtvhXtndfQB66jnDICg7NHxKQk=
-github.com/hashicorp/vault-plugin-database-snowflake v0.6.0 h1:T13MXwD0xKA2vKGIdHdv17UOlm03zzR+q2MCLv+q/bM=
+github.com/hashicorp/vault-plugin-database-snowflake v0.6.1 h1:jnWNKqRmRXNpXOC4FvAOXHxPKAmDZRVS+d5fcbRQ/Xw=
 github.com/hashicorp/vault-plugin-mock v0.16.1 h1:5QQvSUHxDjEEbrd2REOeacqyJnCLPD51IQzy71hx8P0=
 github.com/hashicorp/vault-plugin-secrets-ad v0.14.0 h1:64qTDXSj3tw1li7lWh13OJoYIbJ/dp9F0kWdHo6vBiU=
 github.com/hashicorp/vault-plugin-secrets-alicloud v0.13.0 h1:eWDAAvZsKHhnXF8uCiyF/wDqT57fflCs54PTIolONBo=
@@ -832,8 +833,8 @@ github.com/hashicorp/vault/api/auth/approle v0.3.0/go.mod h1:hm51TbjzUkPO0Y17wkr
 github.com/hashicorp/vault/api/auth/kubernetes v0.3.0 h1:HkaCmTKzcgLa2tjdiAid1rbmyQNmQGHfnmvIIM2WorY=
 github.com/hashicorp/vault/api/auth/kubernetes v0.3.0/go.mod h1:l1B4MGtLc+P37MabBQiIhP3qd9agj0vqhETmaQjjC/Y=
 github.com/hashicorp/vault/sdk v0.6.0/go.mod h1:+DRpzoXIdMvKc88R4qxr+edwy/RvH5QK8itmxLiDHLc=
-github.com/hashicorp/vault/sdk v0.6.1-0.20221010215534-6545e24b6023 h1:8fzBxqzx59FBVyvUAXmDsMhdOf8NQO+ZJO8chMWHHno=
-github.com/hashicorp/vault/sdk v0.6.1-0.20221010215534-6545e24b6023/go.mod h1:h25xhm657j/WX0QYIK43fGeEzaQ4zG/A55vRe+09Q2U=
+github.com/hashicorp/vault/sdk v0.6.1-0.20221012172514-e12bdc5ce648 h1:5A5oRgiYh4+9gheLmKyaUyn7FU4amYL17F+xNbZEceI=
+github.com/hashicorp/vault/sdk v0.6.1-0.20221012172514-e12bdc5ce648/go.mod h1:h25xhm657j/WX0QYIK43fGeEzaQ4zG/A55vRe+09Q2U=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 h1:O/pT5C1Q3mVXMyuqg7yuAWUg/jMZR1/0QTzTRdNR6Uw=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443/go.mod h1:bEpDU35nTu0ey1EXjwNwPjI9xErAsoOCmcMb9GKvyxo=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=

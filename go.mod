@@ -15,12 +15,12 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/hashicorp/vault v1.12.0
+	github.com/hashicorp/vault v1.12.1
 	github.com/hashicorp/vault-plugin-secrets-kv v0.13.3
 	github.com/hashicorp/vault/api v1.8.1
 	github.com/hashicorp/vault/api/auth/approle v0.3.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
-	github.com/hashicorp/vault/sdk v0.6.1-0.20221010215534-6545e24b6023
+	github.com/hashicorp/vault/sdk v0.6.1-0.20221012172514-e12bdc5ce648
 	github.com/kcp-dev/kcp/pkg/apis v0.9.1
 	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.3
 	github.com/migueleliasweb/go-github-mock v0.0.13
@@ -98,6 +98,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/frankban/quicktest v1.14.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.20.0 // indirect
@@ -158,7 +159,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/hcl v1.0.1-vault-3 // indirect
+	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/hashicorp/hcp-sdk-go v0.22.0 // indirect
 	github.com/hashicorp/mdns v1.0.4 // indirect
 	github.com/hashicorp/raft v1.3.10 // indirect
