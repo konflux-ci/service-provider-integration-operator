@@ -15,11 +15,12 @@ package oauth
 
 import (
 	"fmt"
+	"html/template"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-	"html/template"
-	"net/http"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
