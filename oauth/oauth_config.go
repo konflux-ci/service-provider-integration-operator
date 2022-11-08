@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
@@ -35,6 +36,7 @@ const (
 	oauthCfgSecretFieldClientSecret = "clientSecret"
 	oauthCfgSecretFieldAuthUrl      = "authUrl"
 	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
+	oauthCfgSecretFieldBaseUrl      = "baseUrl"
 )
 
 var (
@@ -88,8 +90,31 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 	}
 
 	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
-	if len(secrets.Items) == 1 {
-		return true, &secrets.Items[0], nil
+
+	if len(secrets.Items) > 0 {
+		spUrlHost, urlParseErr := url.Parse(info.ServiceProviderUrl)
+		if urlParseErr != nil {
+			return false, nil, fmt.Errorf("failed to parse service provider url: %w", urlParseErr)
+		}
+		var oauthSecretWithoutHost *corev1.Secret
+
+		// go through all found oauth secret configs
+		for _, oauthSecret := range secrets.Items {
+			// if we find one labeled for sp host, we take it
+			if spHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
+				if spHost == spUrlHost.Host {
+					return true, &oauthSecret, nil
+				}
+			} else { // if we found one without host label, we save it for later
+				oauthSecretWithoutHost = oauthSecret.DeepCopy()
+			}
+		}
+		// if no config for sp host was found, just return non-host one, or nothing
+		if oauthSecretWithoutHost != nil {
+			return true, oauthSecretWithoutHost, nil
+		} else {
+			return false, nil, nil
+		}
 	} else {
 		return false, nil, nil
 	}
