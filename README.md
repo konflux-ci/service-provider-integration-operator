@@ -328,10 +328,15 @@ kubectl get secret token-secret -o yaml
 
 The currently supported list of providers and token kinds is following:
 
-### Github
+### GitHub
 
  - OAuth token via user authentication flow
  - Personal access token via manual upload
+
+### GitLab
+
+- OAuth token via user authentication flow
+- Personal access token via manual upload
 
 ### Quay
 

@@ -27,6 +27,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
+	ServiceProviderTypeGitLab          ServiceProviderType = "GitLab"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 
 	MetricsNamespace = "redhat_appstudio"

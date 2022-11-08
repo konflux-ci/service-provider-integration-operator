@@ -82,6 +82,7 @@ type ServiceProviderType string
 const (
 	ServiceProviderTypeGitHub          ServiceProviderType = "GitHub"
 	ServiceProviderTypeQuay            ServiceProviderType = "Quay"
+	ServiceProviderTypeGitLab          ServiceProviderType = "GitLab"
 	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
 )
 
@@ -125,6 +126,7 @@ const (
 	PermissionAreaRepositoryMetadata PermissionArea = "repositoryMetadata"
 	PermissionAreaWebhooks           PermissionArea = "webhooks"
 	PermissionAreaUser               PermissionArea = "user"
+	PermissionAreaRegistry           PermissionArea = "registry"
 )
 
 // SPIAccessTokenStatus defines the observed state of SPIAccessToken
