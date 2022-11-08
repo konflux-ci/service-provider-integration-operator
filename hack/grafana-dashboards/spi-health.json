@@ -620,7 +620,7 @@
             "axisLabel": "req/s",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
+            "drawStyle": "line",
             "fillOpacity": 18,
             "gradientMode": "none",
             "hideFrom": {
@@ -724,6 +724,7 @@
       "type": "timeseries"
     }
   ],
+  "refresh": false,
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],
@@ -731,13 +732,13 @@
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "SPI Health",
   "uid": "4548e673020f19361d9517f41a7ebf3447547f24",
-  "version": 5,
+  "version": 7,
   "weekStart": ""
 }
