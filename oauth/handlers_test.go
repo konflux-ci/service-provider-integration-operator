@@ -20,12 +20,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/testutil"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -473,44 +470,6 @@ func TestMiddlewareHandlerCors(t *testing.T) {
 	if allowOrigin := rr.Header().Get("Access-Control-Allow-Origin"); allowOrigin != "https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com" {
 		t.Errorf("handler returned wrong header \"Access-Control-Allow-Origin\": got %v want %v",
 			allowOrigin, "https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com")
-	}
-
-}
-
-func TestMetrics(t *testing.T) {
-	reg := prometheus.NewRegistry()
-
-	// Create a request to pass to our handler.
-	req, err := http.NewRequest("GET", "github/authenticate?state=eyJ0b2tlbk5hbWUiOiJnZW5lcmF0ZWQtc3BpLWFjY2Vzcy10b2tlbi1rNHByaiIsInRva2VuTmFtZXNwYWNlIjoiZGVmYXVsdCIsInRva2VuS2NwV29ya3NwYWNlIjoiIiwic2NvcGVzIjpbInJlcG8iXSwic2VydmljZVByb3ZpZGVyVHlwZSI6IkdpdEh1YiIsInNlcnZpY2VQcm92aWRlclVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbSJ9", nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36")
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler(reg, []string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "http:://acme.com"}, http.HandlerFunc(OkHandler))
-
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
-
-	// Check the status code is what we expect.
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
-	expected := `
-		#  HELP spi_oauth_service_requests_total Total number of spi oauth service requests by HTTP code.
-		# TYPE spi_oauth_service_requests_total counter
-		spi_oauth_service_requests_total{code="200",method="get"} 1
-`
-	//expected := ``
-
-	if err := testutil.GatherAndCompare(reg, strings.NewReader(expected), "spi_oauth_service_requests_total"); err != nil {
-		t.Fatal(err)
 	}
 
 }

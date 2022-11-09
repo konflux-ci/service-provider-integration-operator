@@ -15,10 +15,17 @@ func OAuthServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http
 			Namespace: config.MetricsNamespace,
 			Subsystem: config.MetricsSubsystem,
 			Name:      "oauth_service_requests_total",
-			Help:      "Total number of spi oauth service requests by HTTP code.",
+			Help:      "The request counts to OAuth service categorized by HTTP method status code.",
 		},
 		[]string{"code", "method"},
 	)
-	reg.MustRegister(reqCounter)
-	return promhttp.InstrumentHandlerCounter(reqCounter, handler)
+	duration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "oauth_service_response_time_seconds",
+		Help:      "The response time of OAuth service requests categorized by HTTP method and status code",
+	}, []string{"code", "method"})
+
+	reg.MustRegister(reqCounter, duration)
+	return promhttp.InstrumentHandlerDuration(duration, promhttp.InstrumentHandlerCounter(reqCounter, handler))
 }
