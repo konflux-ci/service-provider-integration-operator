@@ -718,6 +718,19 @@
           "legendFormat": "{{method}} {{code}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_oauth_service_response_time_seconds_bucket[$__rate_interval])))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "99% responses below",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "OAuth Service Request",
