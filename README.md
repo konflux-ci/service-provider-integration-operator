@@ -4,6 +4,26 @@
 
 A Kubernetes controller/operator that manages service provider integration tasks.
 
+### Intention
+The Service Provider Integration aims to provide a service-provider-neutral way (as much as reasonable) of obtaining authentication tokens so that tools accessing 
+the service provider do not have to deal with the intricacies of obtaining the access tokens from the different service providers.
+The caller creates an `SPIAccessTokenBinding` object in a Kubernetes namespace where they specify the repository to which they require access and the required permissions 
+in the repo. The caller also specifies the target `Secret` to which they want the access token to the repository to be persisted. 
+The caller then watches the `SPIAccessTokenBinding` and reacts to its status changing by either initiating the provided OAuth flow or using the created Secret object. 
+Additionally, SPI provides an HTTP endpoint for manually uploading the access token for a certain `SPIAccessToken` object. Therefore, 
+the user doesn’t have to go through OAuth flow for tokens that they manually provide the access token for.
+
+### High level view
+There are 2 main components. SPI HTTP API which is required for parts of the workflow that require direct user interaction and SPI CRDs (and a controller manager for them).
+The custom resources are meant to be used by the eventual Consumers of the secrets that require access tokens to communicate with service providers.
+Therefore, the main audience of SPI is the Consumers of the secrets. In the case of App Studio, this is most probably going to be HAS and/or HAC.
+Because SPI requires user interaction for a part of its functionality, HAC will need to interface with the SPI REST API so that authenticated requests can be made to 
+the cluster and the service providers.
+SPI will not provide any user-facing UI on its own. 
+Instead, for stuff that will need user interaction, it will provide links to its REST API that will either consume supplied data or redirect to a service provider (in case of OAuth flow).
+
+
+
 OAuth service is now part of this repository ([documentation](/doc/OAUTH.md)).
 
 ## Building & Testing
@@ -277,6 +297,12 @@ All that is left for the setup is to restart the oauth service and operator to l
 kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=0
 kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=1
 ```
+
+### Requirements on the Service Providers
+For the OAuth workflow to work, SPI needs to be registered as an Oauth application within all service providers that it will need to interact with.
+Note that the integration also includes the “redirect_uri”, i.e. the target URL to which the OAuth flow will be redirected upon completion.
+In addition, the SPI REST API will need to be configured with the `Client ID` and `Client Secret` for each such OAuth app in every Service Provider.
+
 
 ### Go through the OAuth flow manually
 
