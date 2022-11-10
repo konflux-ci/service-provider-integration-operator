@@ -17,8 +17,6 @@ package oauth
 import (
 	"net/http"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -35,7 +33,6 @@ var (
 		},
 		[]string{"code", "method"},
 	)
-	oauthmetricLog = ctrl.Log.WithName("oauthmetric")
 )
 
 // HttpServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
