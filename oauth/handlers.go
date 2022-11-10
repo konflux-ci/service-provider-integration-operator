@@ -19,7 +19,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,9 +147,9 @@ func BypassHandler(mainHandler http.Handler, bypassPathPrefixes []string, bypass
 // - Service metrics
 // - Request logging
 // - CORS processing
-func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
+func MiddlewareHandler(reg prometheus.Registerer, allowedOrigins []string, h http.Handler) http.Handler {
 
-	middlewareHandler := metrics.OAuthServiceInstrumentMetricHandler(metrics.Registry,
+	middlewareHandler := HttpServiceInstrumentMetricHandler(reg,
 		handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
 			handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
 				handlers.AllowCredentials(),

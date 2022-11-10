@@ -20,8 +20,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,6 +35,11 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logs.InitDevelLoggers()
+	os.Exit(m.Run())
+}
 
 func TestOkHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
@@ -411,7 +421,7 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler([]string{"https://console.dev.redhat.com", "https://prod.foo.redhat.com"}, http.HandlerFunc(OkHandler))
+	handler := MiddlewareHandler(prometheus.NewRegistry(), []string{"https://console.dev.redhat.com", "https://prod.foo.redhat.com"}, http.HandlerFunc(OkHandler))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -454,7 +464,7 @@ func TestMiddlewareHandlerCors(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler([]string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "http:://acme.com"}, http.HandlerFunc(OkHandler))
+	handler := MiddlewareHandler(prometheus.NewRegistry(), []string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "http:://acme.com"}, http.HandlerFunc(OkHandler))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.

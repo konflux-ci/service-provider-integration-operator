@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metrics
+package oauth
 
 import (
 	"net/http"
 
+	"github.com/davecgh/go-spew/spew"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
-// OAuthServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
-// incoming HTTP request and store it in prometheus.Registerer.
-func OAuthServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) http.Handler {
-	reqCounter := promauto.NewCounterVec(
+var (
+	// HttpServiceRequestCountMetric is the metric that collects the request counts for OAuth Service.
+	HttpServiceRequestCountMetric = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: config.MetricsNamespace,
 			Subsystem: config.MetricsSubsystem,
@@ -35,7 +36,15 @@ func OAuthServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http
 		},
 		[]string{"code", "method"},
 	)
+	oauthmetricLog = ctrl.Log.WithName("oauthmetric")
+)
 
-	reg.MustRegister(reqCounter)
-	return promhttp.InstrumentHandlerCounter(reqCounter, handler)
+// HttpServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
+// incoming HTTP request and store it in prometheus.Registerer.
+func HttpServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) http.Handler {
+	oauthmetricLog.Info("<<<<<<<<<<<<<>>>>>>>>>>>>")
+	oauthmetricLog.Info("Register", "reg", spew.Sprint(reg), "reqCounter", spew.Sprint(HttpServiceRequestCountMetric))
+
+	reg.MustRegister(HttpServiceRequestCountMetric)
+	return promhttp.InstrumentHandlerCounter(HttpServiceRequestCountMetric, handler)
 }

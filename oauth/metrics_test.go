@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metrics
+package oauth
 
 import (
 	"net/http"
@@ -24,12 +24,9 @@ import (
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 )
 
-func OkHandler(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
 func TestMetricRequestTotal(t *testing.T) {
 	reg := prometheus.NewRegistry()
+	HttpServiceRequestCountMetric.Reset()
 
 	// Create a request to pass to our handler.
 	req, err := http.NewRequest("GET", "github/authenticate?state=eyJ0b2tlbk5hbWUiOiJnZW5lcmF0ZWQtc3BpLWFjY2Vzcy10b2tlbi1rNHByaiIsInRva2VuTmFtZXNwYWNlIjoiZGVmYXVsdCIsInRva2VuS2NwV29ya3NwYWNlIjoiIiwic2NvcGVzIjpbInJlcG8iXSwic2VydmljZVByb3ZpZGVyVHlwZSI6IkdpdEh1YiIsInNlcnZpY2VQcm92aWRlclVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbSJ9", nil)
@@ -40,7 +37,7 @@ func TestMetricRequestTotal(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handler := OAuthServiceInstrumentMetricHandler(reg, http.HandlerFunc(OkHandler))
+	handler := HttpServiceInstrumentMetricHandler(reg, http.HandlerFunc(OkHandler))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
