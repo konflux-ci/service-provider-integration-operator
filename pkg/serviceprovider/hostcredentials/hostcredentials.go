@@ -65,10 +65,6 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string
 
 var _ serviceprovider.ConstructorFunc = newHostCredentialsProvider
 
-func (g *HostCredentialsProvider) GetOAuthEndpoint() string {
-	return ""
-}
-
 func (g *HostCredentialsProvider) GetBaseUrl() string {
 	base, err := serviceprovider.GetHostWithScheme(g.repoUrl)
 	if err != nil {

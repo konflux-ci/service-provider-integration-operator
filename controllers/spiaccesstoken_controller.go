@@ -315,10 +315,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 	}
-	oauthBaseUrl := sp.GetOAuthEndpoint()
-	if len(oauthBaseUrl) == 0 {
-		return "", nil
-	}
+	oauthBaseUrl := r.Configuration.BaseUrl + "/oauth/authenticate"
 
 	kcpWorkspace := ""
 	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {

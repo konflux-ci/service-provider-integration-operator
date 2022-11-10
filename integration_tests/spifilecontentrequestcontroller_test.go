@@ -30,9 +30,6 @@ var _ = Describe("Create without token data", func() {
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
-		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-			return "test-provider://test"
-		}
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "filerequest-",

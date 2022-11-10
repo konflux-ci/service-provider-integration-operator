@@ -96,9 +96,6 @@ var _ = Describe("Status", func() {
 		ITest.TestServiceProvider.Reset()
 		origBaseUrl = ITest.OperatorConfiguration.BaseUrl
 		ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
-		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-			return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
-		}
 
 		createdToken = &api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{

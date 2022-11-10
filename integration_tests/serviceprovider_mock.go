@@ -32,7 +32,6 @@ type TestServiceProvider struct {
 	GetBaseUrlImpl            func() string
 	OAuthScopesForImpl        func(permissions *api.Permissions) []string
 	GetTypeImpl               func() api.ServiceProviderType
-	GetOauthEndpointImpl      func() string
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
@@ -82,13 +81,6 @@ func (t TestServiceProvider) GetType() api.ServiceProviderType {
 	return t.GetTypeImpl()
 }
 
-func (t TestServiceProvider) GetOAuthEndpoint() string {
-	if t.GetOauthEndpointImpl == nil {
-		return ""
-	}
-	return t.GetOauthEndpointImpl()
-}
-
 func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	if t.MapTokenImpl == nil {
 		return serviceprovider.AccessTokenMapper{}, nil
@@ -110,7 +102,6 @@ func (t *TestServiceProvider) Reset() {
 	t.GetBaseUrlImpl = nil
 	t.OAuthScopesForImpl = nil
 	t.GetTypeImpl = nil
-	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil
 	t.CheckRepositoryAccessImpl = nil
 	t.MapTokenImpl = nil

@@ -44,12 +44,16 @@ import (
 
 var _ = Describe("Controller", func() {
 
-	prepareAnonymousState := func() string {
-		ret, err := oauthstate.Encode(&oauthstate.OAuthInfo{
+	getAnonymousState := func() *oauthstate.OAuthInfo {
+		return &oauthstate.OAuthInfo{
 			TokenName:      "mytoken",
 			TokenNamespace: IT.Namespace,
 			Scopes:         []string{"a", "b"},
-		})
+		}
+	}
+
+	prepareAnonymousState := func() string {
+		ret, err := oauthstate.Encode(getAnonymousState())
 		Expect(err).NotTo(HaveOccurred())
 		return ret
 	}
@@ -129,7 +133,7 @@ var _ = Describe("Controller", func() {
 		c := prepareController(g)
 
 		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c.Authenticate(w, r)
+			c.Authenticate(w, r, getAnonymousState())
 		})).ServeHTTP(res, req)
 
 		return c, spiState, res
@@ -145,7 +149,7 @@ var _ = Describe("Controller", func() {
 		c := prepareController(g)
 
 		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c.Authenticate(w, r)
+			c.Authenticate(w, r, getAnonymousState())
 		})).ServeHTTP(res, req)
 
 		return c, spiState, res
@@ -294,7 +298,7 @@ var _ = Describe("Controller", func() {
 				}
 
 				IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r)
+					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r, getAnonymousState())
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))
@@ -347,7 +351,7 @@ var _ = Describe("Controller", func() {
 				}
 
 				IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r)
+					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r, getAnonymousState())
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))

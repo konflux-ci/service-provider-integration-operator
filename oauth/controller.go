@@ -19,6 +19,8 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
@@ -34,10 +36,10 @@ var (
 type Controller interface {
 	// Authenticate handles the initial OAuth request. It should validate that the request is authenticated in Kubernetes
 	// compose the authenticated OAuth state and return a redirect to the service-provider OAuth endpoint with the state.
-	Authenticate(w http.ResponseWriter, r *http.Request)
+	Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
 
 	// Callback finishes the OAuth flow. It handles the final redirect from the OAuth flow of the service provider.
-	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request)
+	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
 }
 
 // oauthFinishResult is an enum listing the possible results of authentication during the commonController.finishOAuthExchange

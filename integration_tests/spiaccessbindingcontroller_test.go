@@ -91,9 +91,6 @@ var _ = Describe("Create binding", func() {
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
 		createdBinding, createdToken = createStandardPair("create-test")
-		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-			return "test-provider://acme"
-		}
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
 
 		//dummy update to cause reconciliation

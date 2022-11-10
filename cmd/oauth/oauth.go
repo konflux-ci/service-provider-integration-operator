@@ -137,7 +137,6 @@ func main() {
 	router.HandleFunc("/ready", oauth.OkHandler).Methods("GET")
 	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
 	router.HandleFunc("/login", authenticator.Login).Methods("POST")
-	router.NewRoute().Path("/{type}/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 	router.NewRoute().Path("/token/{kcpWorkspace}/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 
@@ -147,21 +146,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, sp := range cfg.ServiceProviders {
-		setupLog.V(1).Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", sp.ServiceProviderBaseUrl)
+	oauthRouter, err := oauth.NewRouter(&setupLog, oauth.RouterConfiguration{
+		OAuthServiceConfiguration: cfg,
+		Authenticator:             authenticator,
+		StateStorage:              stateStorage,
+		K8sClient:                 cl,
+		TokenStorage:              strg,
+		RedirectTemplate:          redirectTpl,
+	})
 
-		controller, err := oauth.FromConfiguration(cfg, sp, authenticator, stateStorage, cl, strg, redirectTpl)
-		if err != nil {
-			setupLog.Error(err, "failed to initialize controller")
-		}
+	router.NewRoute().Path("/oauth/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.NewRoute().Path("/oauth/callback").Handler(oauthRouter.Callback())
+	router.NewRoute().Path("/oauth/authenticate").Handler(oauthRouter.Authenticate())
 
-		prefix := strings.ToLower(string(sp.ServiceProviderType))
-
-		router.Handle(fmt.Sprintf("/%s/authenticate", prefix), http.HandlerFunc(controller.Authenticate)).Methods("GET", "POST")
-		router.Handle(fmt.Sprintf("/%s/callback", prefix), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			controller.Callback(r.Context(), w, r)
-		})).Methods("GET")
-	}
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
 		Addr: args.ServiceAddr,
