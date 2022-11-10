@@ -620,7 +620,7 @@
             "axisLabel": "req/s",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
+            "drawStyle": "line",
             "fillOpacity": 18,
             "gradientMode": "none",
             "hideFrom": {
@@ -628,7 +628,7 @@
               "tooltip": false,
               "viz": false
             },
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 0,
             "pointSize": 5,
             "scaleDistribution": {
