@@ -9,6 +9,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
+// OAuthServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
+// incoming HTTP request and store it in prometheus.Registerer.
 func OAuthServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) http.Handler {
 	reqCounter := promauto.NewCounterVec(
 		prometheus.CounterOpts{

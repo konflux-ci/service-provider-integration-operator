@@ -494,7 +494,6 @@ func TestBypassHandlerFollowBypass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	//when
 	testHandler.ServeHTTP(rr, req)
@@ -512,7 +511,6 @@ func TestBypassHandlerNotFollowBypass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	//when
 	testHandler.ServeHTTP(rr, req)

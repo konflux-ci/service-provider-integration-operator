@@ -10,8 +10,6 @@ import (
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 )
 
-// OkHandler is a Handler implementation that responds only with http.StatusOK.
-// Typically, used for liveness and readiness probes
 func OkHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -45,7 +43,6 @@ func TestMetricRequestTotal(t *testing.T) {
 		# TYPE redhat_appstudio_spi_oauth_service_requests_total counter
 		redhat_appstudio_spi_oauth_service_requests_total{code="200",method="get"} 1
 `
-	//expected := ``
 
 	if err := prometheusTest.GatherAndCompare(reg, strings.NewReader(expected), "redhat_appstudio_spi_oauth_service_requests_total"); err != nil {
 		t.Fatal(err)
