@@ -146,8 +146,17 @@ func BypassHandler(bypassPathPrefixes []string, mainHandler, bypassHandler http.
 // - Request logging
 // - CORS processing
 func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
-	return BypassHandler([]string{"/health", "/ready"}, metrics.OAuthServiceInstrumentMetricHandler(metrics.Registry, handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
-		handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
-			handlers.AllowCredentials(),
-			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h))), h)
+
+	middlewareHandler := metrics.OAuthServiceInstrumentMetricHandler(metrics.Registry,
+		handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
+			handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
+				handlers.AllowCredentials(),
+				handlers.AllowedHeaders([]string{
+					"Accept",
+					"Accept-Language",
+					"Content-Language",
+					"Origin",
+					"Authorization"}))(h)))
+
+	return BypassHandler([]string{"/health", "/ready"}, middlewareHandler, h)
 }
