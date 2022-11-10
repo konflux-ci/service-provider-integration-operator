@@ -17,7 +17,6 @@ package oauth
 import (
 	"net/http"
 
-	"github.com/davecgh/go-spew/spew"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,9 +41,6 @@ var (
 // HttpServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
 // incoming HTTP request and store it in prometheus.Registerer.
 func HttpServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) http.Handler {
-	oauthmetricLog.Info("<<<<<<<<<<<<<>>>>>>>>>>>>")
-	oauthmetricLog.Info("Register", "reg", spew.Sprint(reg), "reqCounter", spew.Sprint(HttpServiceRequestCountMetric))
-
 	reg.MustRegister(HttpServiceRequestCountMetric)
 	return promhttp.InstrumentHandlerCounter(HttpServiceRequestCountMetric, handler)
 }
