@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -472,4 +473,51 @@ func TestMiddlewareHandlerCors(t *testing.T) {
 			allowOrigin, "https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com")
 	}
 
+}
+
+// Simple counter server
+type Counter struct {
+	mu sync.Mutex // protects n
+	n  int
+}
+
+func (ctr *Counter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ctr.mu.Lock()
+	defer ctr.mu.Unlock()
+	ctr.n++
+}
+func TestBypassHandlerFollowBypass(t *testing.T) {
+	//given
+	mainHandler := new(Counter)
+	bypassHandler := new(Counter)
+	testHandler := BypassHandler([]string{"/path1", "/path2"}, mainHandler, bypassHandler)
+	req, err := http.NewRequest("GET", "/path2", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	rr := httptest.NewRecorder()
+	//when
+	testHandler.ServeHTTP(rr, req)
+	//then
+	assert.Equal(t, 0, mainHandler.n)
+	assert.Equal(t, 1, bypassHandler.n)
+}
+
+func TestBypassHandlerNotFollowBypass(t *testing.T) {
+	//given
+	mainHandler := new(Counter)
+	bypassHandler := new(Counter)
+	testHandler := BypassHandler([]string{"/path1", "/path2"}, mainHandler, bypassHandler)
+	req, err := http.NewRequest("POST", "/ping", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	rr := httptest.NewRecorder()
+	//when
+	testHandler.ServeHTTP(rr, req)
+	//then
+	assert.Equal(t, 1, mainHandler.n)
+	assert.Equal(t, 0, bypassHandler.n)
 }

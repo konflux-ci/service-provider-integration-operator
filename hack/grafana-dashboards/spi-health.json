@@ -620,7 +620,7 @@
             "axisLabel": "req/s",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
+            "drawStyle": "bars",
             "fillOpacity": 18,
             "gradientMode": "none",
             "hideFrom": {
@@ -737,7 +737,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": false,
+  "refresh": "5s",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],

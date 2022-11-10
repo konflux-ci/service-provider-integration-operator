@@ -15,15 +15,14 @@ package oauth
 
 import (
 	"fmt"
-	"html/template"
-	"net/http"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
+	"html/template"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
+	"strings"
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/gorilla/handlers"
@@ -128,13 +127,27 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 	}
 }
 
+func BypassHandler(bypassPathPrefixes []string, mainHandler, bypassHandler http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, bypassPath := range bypassPathPrefixes {
+			if strings.HasPrefix(r.URL.Path, bypassPath) {
+				bypassHandler.ServeHTTP(w, r)
+				return
+			}
+		}
+		mainHandler.ServeHTTP(w, r)
+	})
+}
+
 // MiddlewareHandler is a Handler that composed couple of different responsibilities.
 // Like:
+// - Metrics
 // - Request logging
 // - CORS processing
 func MiddlewareHandler(reg prometheus.Registerer, allowedOrigins []string, h http.Handler) http.Handler {
-	return metrics.OAuthServiceInstrumentMetricHandler(reg, handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
+	return BypassHandler([]string{"/health", "/ready"}, metrics.OAuthServiceInstrumentMetricHandler(reg, handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
 		handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
 			handlers.AllowCredentials(),
-			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h)))
+			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h))), h)
 }
