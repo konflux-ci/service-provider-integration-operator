@@ -127,8 +127,9 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 	}
 }
 
-func BypassHandler(bypassPathPrefixes []string, mainHandler, bypassHandler http.Handler) http.Handler {
-
+// BypassHandler is a Handler that redirects a request that has URL with certain prefix to a bypassHandler
+// all remaining requests are redirected to mainHandler.
+func BypassHandler(mainHandler http.Handler, bypassPathPrefixes []string, bypassHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, bypassPath := range bypassPathPrefixes {
 			if strings.HasPrefix(r.URL.Path, bypassPath) {
@@ -142,7 +143,7 @@ func BypassHandler(bypassPathPrefixes []string, mainHandler, bypassHandler http.
 
 // MiddlewareHandler is a Handler that composed couple of different responsibilities.
 // Like:
-// - Metrics
+// - Service metrics
 // - Request logging
 // - CORS processing
 func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
@@ -158,5 +159,5 @@ func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
 					"Origin",
 					"Authorization"}))(h)))
 
-	return BypassHandler([]string{"/health", "/ready"}, middlewareHandler, h)
+	return BypassHandler(middlewareHandler, []string{"/health", "/ready"}, h)
 }

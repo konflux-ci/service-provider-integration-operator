@@ -489,7 +489,7 @@ func TestBypassHandlerFollowBypass(t *testing.T) {
 	//given
 	mainHandler := new(Counter)
 	bypassHandler := new(Counter)
-	testHandler := BypassHandler([]string{"/path1", "/path2"}, mainHandler, bypassHandler)
+	testHandler := BypassHandler(mainHandler, []string{"/path1", "/path2"}, bypassHandler)
 	req, err := http.NewRequest("GET", "/path2", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -507,7 +507,7 @@ func TestBypassHandlerNotFollowBypass(t *testing.T) {
 	//given
 	mainHandler := new(Counter)
 	bypassHandler := new(Counter)
-	testHandler := BypassHandler([]string{"/path1", "/path2"}, mainHandler, bypassHandler)
+	testHandler := BypassHandler(mainHandler, []string{"/path1", "/path2"}, bypassHandler)
 	req, err := http.NewRequest("POST", "/ping", nil)
 	if err != nil {
 		t.Fatal(err)
