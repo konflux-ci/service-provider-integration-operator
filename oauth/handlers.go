@@ -15,13 +15,14 @@ package oauth
 
 import (
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"html/template"
-	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/gorilla/handlers"

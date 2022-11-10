@@ -170,7 +170,7 @@ func main() {
 		ReadTimeout:       time.Second * 15,
 		ReadHeaderTimeout: time.Second * 15,
 		IdleTimeout:       time.Second * 60,
-		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, strings.Split(args.AllowedOrigins, ","), router)),
+		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(strings.Split(args.AllowedOrigins, ","), router)),
 	}
 
 	// Run our server in a goroutine so that it doesn't block.

@@ -1,12 +1,13 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 // OkHandler is a Handler implementation that responds only with http.StatusOK.
