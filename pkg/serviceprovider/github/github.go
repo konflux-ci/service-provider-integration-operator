@@ -49,6 +49,7 @@ type Github struct {
 	httpClient      rest.HTTPClient
 	tokenStorage    tokenstorage.TokenStorage
 	ghClientBuilder githubClientBuilder
+	fileUrlResolver fileUrlResolver
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -81,6 +82,10 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
+		fileUrlResolver: fileUrlResolver{
+			httpClient:      httpClient,
+			ghClientBuilder: ghClientBuilder,
+		},
 	}
 
 	return github, nil
@@ -94,6 +99,10 @@ func (g *Github) GetOAuthEndpoint() string {
 
 func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
+}
+
+func (g *Github) GetFileDownloadUrl(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+	return g.fileUrlResolver.Resolve(ctx, repoUrl, filepath, ref, token)
 }
 
 func (g *Github) GetType() api.ServiceProviderType {

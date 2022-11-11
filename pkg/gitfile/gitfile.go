@@ -18,32 +18,21 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net/http"
-
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var secretDataEmptyError = stderrors.New("error reading the secret: data is empty")
 
-// GetFileContents is a main entry function allowing to retrieve file content from the SCM provider.
-// It expects three file location parameters, from which the repository URL and path to the file are mandatory,
-// and optional Git reference for the branch/tags/commitIds.
-// Function type parameter is a callback used when user authentication is needed in order to retrieve the file,
-// that function will be called with the URL to OAuth service, where user need to be redirected.
-func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient http.Client, namespace, secret, repoUrl, filepath, ref string) (io.ReadCloser, error) {
+// GetFileContents is a function allowing to retrieve file content from the SCM provider.
+func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient http.Client, fileUrl string, namespace, secret string) (io.ReadCloser, error) {
+	req, _ := http.NewRequestWithContext(ctx, "GET", fileUrl, nil)
 	authHeaders, err := buildAuthHeader(ctx, k8sClient, namespace, secret)
 	if err != nil {
 		return nil, err
 	}
-	fileUrl, err := detect(ctx, httpClient, repoUrl, filepath, ref, authHeaders)
-	if err != nil {
-		return nil, fmt.Errorf("error detecting file download URL: %w", err)
-	}
-
-	req, _ := http.NewRequestWithContext(ctx, "GET", fileUrl, nil)
 	for k, v := range authHeaders {
 		req.Header.Add(k, v)
 	}

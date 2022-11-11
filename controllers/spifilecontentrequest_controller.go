@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"io"
 	"net/http"
 	"time"
@@ -51,11 +52,12 @@ const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-li
 var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
 
 type SPIFileContentRequestReconciler struct {
-	Configuration *opconfig.OperatorConfiguration
-	K8sClient     client.Client
-	Scheme        *runtime.Scheme
-	HttpClient    *http.Client
-	finalizers    finalizer.Finalizers
+	Configuration          *opconfig.OperatorConfiguration
+	K8sClient              client.Client
+	Scheme                 *runtime.Scheme
+	HttpClient             *http.Client
+	ServiceProviderFactory serviceprovider.Factory
+	finalizers             finalizer.Finalizers
 }
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
@@ -182,7 +184,25 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
-			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
+			sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl)
+			if err != nil {
+				lg.Error(err, "unable to get the service provider")
+				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+				return ctrl.Result{}, nil
+			}
+			token := &api.SPIAccessToken{}
+			err = r.K8sClient.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: binding.Status.LinkedAccessTokenName}, token)
+			if err != nil {
+				lg.Error(err, "unable to fetch the token")
+				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
+			}
+			url, err := sp.GetFileDownloadUrl(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)
+			if err != nil {
+				lg.Error(err, "unable to calculate the file download URL")
+				return ctrl.Result{}, fmt.Errorf("unable to calculate the file download URL: %w", err)
+			}
+			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, url, request.Namespace, binding.Status.SyncedObjectRef.Name)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)

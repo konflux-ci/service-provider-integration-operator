@@ -14,7 +14,7 @@
 //go:build !release
 // +build !release
 
-package gitfile
+package github
 
 import "net/http"
 

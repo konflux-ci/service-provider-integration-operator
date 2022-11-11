@@ -24,7 +24,6 @@ import (
 
 	"k8s.io/utils/strings/slices"
 
-	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -114,6 +113,10 @@ func (g Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api
 
 func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
+}
+
+func (g *Gitlab) GetFileDownloadUrl(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
+	return "", serviceprovider.FileNotSupportedError{}
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {

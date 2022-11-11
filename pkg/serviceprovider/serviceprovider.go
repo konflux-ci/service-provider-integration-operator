@@ -49,6 +49,10 @@ type ServiceProvider interface {
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
 
+	// GetFileDownloadUrl constructs the raw file content URL from provided Git repository, filepath and optional ref.
+	// FileNotSupported error is thrown for provider which does not support Git storage (like Quay)
+	GetFileDownloadUrl(ctc context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error)
+
 	// OAuthScopesFor translates all the permissions into a list of service-provider-specific scopes. This method
 	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
 	// needed is just a translation of permissions into scopes.
@@ -193,4 +197,11 @@ func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) Acce
 		ExpiredAfter:            &tokenData.Expiry,
 		Scopes:                  scopes,
 	}
+}
+
+type FileNotSupportedError struct {
+}
+
+func (f FileNotSupportedError) Error() string {
+	return "this provider does not supports file retrieving"
 }

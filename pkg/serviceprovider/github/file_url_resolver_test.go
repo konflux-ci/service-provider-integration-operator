@@ -1,28 +1,16 @@
-// Copyright (c) 2022 Red Hat, Inc.
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package gitfile
+package github
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetFileHead(t *testing.T) {
@@ -49,7 +37,23 @@ func TestGetFileHead(t *testing.T) {
 		}),
 	}
 
-	r1, err := detect(context.TODO(), *client, "https://github.com/foo-user/foo-repo", "myfile", "HEAD", map[string]string{})
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   client,
+		tokenStorage: ts,
+	}
+
+	resolver := fileUrlResolver{client, githubClientBuilder}
+	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -81,7 +85,23 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		}),
 	}
 
-	r1, err := detect(context.TODO(), *client, "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", map[string]string{})
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   client,
+		tokenStorage: ts,
+	}
+
+	resolver := fileUrlResolver{client, githubClientBuilder}
+	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -112,8 +132,23 @@ func TestGetFileOnBranch(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
 		}),
 	}
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   client,
+		tokenStorage: ts,
+	}
 
-	r1, err := detect(context.TODO(), *client, "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", map[string]string{})
+	resolver := fileUrlResolver{client, githubClientBuilder}
+	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -146,7 +181,23 @@ func TestGetFileOnCommitId(t *testing.T) {
 		}),
 	}
 
-	r1, err := detect(context.TODO(), *client, "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", map[string]string{})
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   client,
+		tokenStorage: ts,
+	}
+
+	resolver := fileUrlResolver{client, githubClientBuilder}
+	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -168,9 +219,25 @@ func TestGetUnexistingFile(t *testing.T) {
 		}),
 	}
 
-	_, err := detect(context.TODO(), *client, "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", map[string]string{})
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   client,
+		tokenStorage: ts,
+	}
+
+	resolver := fileUrlResolver{client, githubClientBuilder}
+	_, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
 	if err == nil {
 		t.Error("error expected")
 	}
-	assert.Equal(t, "detection failed: unexpected status code from GitHub API: 404. Response: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/reference/repos#get-repository-content\"}", fmt.Sprint(err))
+	assert.Equal(t, "unexpected status code from GitHub API: 404. Response: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/reference/repos#get-repository-content\"}", fmt.Sprint(err))
 }
