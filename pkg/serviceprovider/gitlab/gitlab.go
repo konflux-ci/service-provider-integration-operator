@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xanzy/go-gitlab"
 	http "net/http"
 	"net/url"
 	"strings"

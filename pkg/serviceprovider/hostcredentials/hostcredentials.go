@@ -77,6 +77,10 @@ func (g *HostCredentialsProvider) GetBaseUrl() string {
 	return base
 }
 
+func (g *HostCredentialsProvider) GetFileDownloadUrl(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
+	return "", serviceprovider.FileNotSupportedError{}
+}
+
 func (g *HostCredentialsProvider) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeHostCredentials
 }
