@@ -122,7 +122,7 @@ func TestFromRepoUrl(t *testing.T) {
 		Probe: struct {
 			ProbeFunc
 		}{
-			ProbeFunc: func(cl *http.Client, url string) (string, error) {
+			ProbeFunc: func(cl *http.Client, url string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error) {
 				return "https://base-url.com", nil
 			},
 		},
@@ -146,7 +146,7 @@ func TestFromRepoUrl(t *testing.T) {
 		TokenStorage: nil,
 	}
 
-	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo")
+	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo", "namespace")
 	assert.NoError(t, err)
 	assert.Equal(t, mockSP, sp)
 }

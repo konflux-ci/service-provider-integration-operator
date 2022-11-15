@@ -14,18 +14,21 @@
 
 package serviceprovider
 
-import "net/http"
+import (
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"net/http"
+)
 
 // Probe is a simple function that can determine whether a URL can be handled by a certain service
 // provider.
 type Probe interface {
 	// Examine returns the base url of the service provider, if the provided URL can be handled by that provider or
 	// an empty string if it cannot. The provided http client can be used to perform requests against the URL if needed.
-	Examine(cl *http.Client, url string) (string, error)
+	Examine(cl *http.Client, url string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error)
 }
 
 // ProbeFunc provides the Probe implementation for compatible functions
-type ProbeFunc func(*http.Client, string) (string, error)
+type ProbeFunc func(*http.Client, string, map[string]config.ServiceProviderType) (string, error)
 
 // Constructor is able to produce a new service provider instance using data from the provided Factory and
 // the base URL of the service provider.
@@ -49,8 +52,8 @@ type Initializer struct {
 var _ Probe = ProbeFunc(nil)
 var _ Constructor = ConstructorFunc(nil)
 
-func (p ProbeFunc) Examine(cl *http.Client, url string) (string, error) {
-	return p(cl, url)
+func (p ProbeFunc) Examine(cl *http.Client, url string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error) {
+	return p(cl, url, serviceProviderBaseUrls)
 }
 
 func (c ConstructorFunc) Construct(factory *Factory, baseUrl string) (ServiceProvider, error) {

@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/xanzy/go-gitlab"
 	http "net/http"
-	"net/url"
 	"strings"
 
 	"k8s.io/utils/strings/slices"
 
-	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -303,18 +303,12 @@ type gitlabProbe struct{}
 
 var _ serviceprovider.Probe = (*gitlabProbe)(nil)
 
-// Examine checks whether the URL host contains gitlab as a substring.
-// Note that parsing url without scheme, such as "gitlab.etc/whatever" results in empty host which
-// this function discriminates against.
-// TODO: In the future, this method should compare the repoUrl to base urls of all configured gitlab service providers.
-func (p gitlabProbe) Examine(_ *http.Client, repoUrl string) (string, error) {
-	parsed, err := url.Parse(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse repoUrl: %w", err)
-	}
+func (p gitlabProbe) Examine(_ *http.Client, repoUrl string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error) {
 
-	if strings.Contains(parsed.Host, "gitlab") {
-		return parsed.Scheme + "://" + parsed.Host, nil
+	for spUrl, spType := range serviceProviderBaseUrls {
+		if strings.Contains(repoUrl, spUrl) && spType == config.ServiceProviderTypeGitLab {
+			return spUrl, nil
+		}
 	}
 	return "", nil
 }

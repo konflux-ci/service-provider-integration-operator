@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"net/http"
 	"strings"
 
@@ -356,7 +357,7 @@ type quayProbe struct{}
 
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
-func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
+func (q quayProbe) Examine(_ *http.Client, url string, _ map[string]config.ServiceProviderType) (string, error) {
 	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, "quay.io") {
 		return quayUrlBase, nil
 	} else {
