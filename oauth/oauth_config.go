@@ -94,40 +94,41 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 
 	if len(secrets.Items) < 1 {
 		return false, nil, nil
-	} else {
-		spUrlHost, urlParseErr := url.Parse(info.ServiceProviderUrl)
-		if urlParseErr != nil {
-			return false, nil, fmt.Errorf("failed to parse service provider url: %w", urlParseErr)
-		}
-		var oauthSecretWithoutHost *corev1.Secret
-		var oauthSecretWithHost *corev1.Secret
+	}
 
-		// go through all found oauth secret configs
-		for _, oauthSecret := range secrets.Items {
-			// if we find one labeled for sp host, we take it
-			if spHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
-				if spHost == spUrlHost.Host {
-					if oauthSecretWithHost != nil {
-						return false, nil, errMultipleMatchingSecrets
-					}
-					oauthSecretWithHost = oauthSecret.DeepCopy()
-				}
-			} else { // if we found one without host label, we save it for later
-				if oauthSecretWithoutHost != nil {
+	spUrlHost, urlParseErr := url.Parse(info.ServiceProviderUrl)
+	if urlParseErr != nil {
+		return false, nil, fmt.Errorf("failed to parse service provider url: %w", urlParseErr)
+	}
+	var oauthSecretWithoutHost *corev1.Secret
+	var oauthSecretWithHost *corev1.Secret
+
+	// go through all found oauth secret configs
+	for _, oauthSecret := range secrets.Items {
+		// if we find one labeled for sp host, we take it
+		if spHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
+			if spHost == spUrlHost.Host {
+				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
 					return false, nil, errMultipleMatchingSecrets
 				}
-				oauthSecretWithoutHost = oauthSecret.DeepCopy()
+				oauthSecretWithHost = oauthSecret.DeepCopy()
 			}
-		}
-
-		if oauthSecretWithHost != nil {
-			return true, oauthSecretWithHost, nil
-		} else if oauthSecretWithoutHost != nil {
-			return true, oauthSecretWithoutHost, nil
-		} else {
-			return false, nil, nil
+		} else { // if we found one without host label, we save it for later
+			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
+				return false, nil, errMultipleMatchingSecrets
+			}
+			oauthSecretWithoutHost = oauthSecret.DeepCopy()
 		}
 	}
+
+	if oauthSecretWithHost != nil {
+		return true, oauthSecretWithHost, nil
+	} else if oauthSecretWithoutHost != nil {
+		return true, oauthSecretWithoutHost, nil
+	} else {
+		return false, nil, nil
+	}
+
 }
 
 func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
