@@ -95,9 +95,3 @@ func TimeTrack(log logr.Logger, start time.Time, name string) {
 func TimeTrackWithLazyLogger(loggerGetter func() logr.Logger, start time.Time, name string) {
 	TimeTrack(loggerGetter(), start, name)
 }
-
-func LazyGet(logger *logr.Logger) func() logr.Logger {
-	return func() logr.Logger {
-		return *logger
-	}
-}

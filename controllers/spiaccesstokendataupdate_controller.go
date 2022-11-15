@@ -25,10 +25,6 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
-	"k8s.io/apimachinery/pkg/util/uuid"
-
-	"github.com/go-logr/logr"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -73,9 +69,8 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 
-	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
-	lg.V(logs.DebugLevel).Info("starting reconciliation")
-	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenDataUpdate")
+	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
 
 	update := api.SPIAccessTokenDataUpdate{}
 

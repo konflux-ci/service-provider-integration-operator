@@ -33,8 +33,6 @@ import (
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/uuid"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -109,7 +107,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
-			log.Log.V(logs.DebugLevel).Info("enqueueing reconciliation of bindings due to token change", "token_name", o.GetName(), "namespace", o.GetNamespace(), "requests", requests)
+
 			return requests
 		})).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
@@ -125,7 +123,6 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 					"SecretName", o.GetName(), "SecretNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
-			log.Log.V(logs.DebugLevel).Info("enqueueing reconciliation of bindings due to secret change", "secret_name", o.GetName(), "namespace", o.GetNamespace(), "requests", requests)
 			return requests
 		})).
 		Complete(r)
@@ -161,7 +158,7 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 
-	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
+	lg := log.FromContext(ctx)
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenBinding")
 
@@ -238,43 +235,21 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	ctx = log.IntoContext(ctx, lg)
 
-	access, err := sp.CheckRepositoryAccess(ctx, r.Client, &api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{
-			RepoUrl:     binding.Spec.RepoUrl,
-			Permissions: binding.Spec.Permissions,
-		},
-	})
-	if err != nil {
-		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonRepositoryAnalysis, err)
-		return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", err)
-	}
-
 	var token *api.SPIAccessToken
-	if access.Accessible && access.Accessibility == api.SPIAccessCheckAccessibilityPublic {
-		binding.Status.LinkedAccessTokenName = ""
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseNoTokenNeeded
-		binding.Status.SyncedObjectRef = api.TargetObjectRef{}
+	var matching bool
+	token, matching, err = r.linkToken(ctx, sp, &binding)
+	if err != nil {
+		lg.Error(err, "unable to link the token")
+		return ctrl.Result{}, fmt.Errorf("failed to link the token: %w", err)
+	}
+	lg = lg.WithValues("linked_to", token.Name)
+	if !matching && token.Status.Phase == api.SPIAccessTokenPhaseReady {
+		// the token that we are linked to is ready but doesn't match the criteria of the binding.
+		// We can't do much here - the user granted the token the access we requested, but we still don't match
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		binding.Status.OAuthUrl = ""
-		if err = r.updateBindingStatusSuccess(ctx, &binding); err != nil {
-			lg.Error(err, "failed to update status")
-			return ctrl.Result{}, err
-		}
-	} else {
-		var matching bool
-		token, matching, err = r.linkToken(ctx, sp, &binding)
-		if err != nil {
-			lg.Error(err, "unable to link the token")
-			return ctrl.Result{}, fmt.Errorf("failed to link the token: %w", err)
-		}
-		lg = lg.WithValues("linked_to", token.Name)
-		if !matching && token.Status.Phase == api.SPIAccessTokenPhaseReady {
-			// the token that we are linked to is ready but doesn't match the criteria of the binding.
-			// We can't do much here - the user granted the token the access we requested, but we still don't match
-			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-			binding.Status.OAuthUrl = ""
-			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
-			return ctrl.Result{}, nil
-		}
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
+		return ctrl.Result{}, nil
 	}
 
 	origSyncedObject := binding.Status.SyncedObjectRef

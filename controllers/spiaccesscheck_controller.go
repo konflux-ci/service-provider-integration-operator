@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/uuid"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -56,10 +53,8 @@ type SPIAccessCheckReconciler struct {
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 
-	lg := log.FromContext(ctx).WithValues("reconcile_id", uuid.NewUUID())
-	lg.V(logs.DebugLevel).Info("starting reconciliation")
-
-	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessCheck")
+	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
 
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {

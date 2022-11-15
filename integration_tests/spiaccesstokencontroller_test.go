@@ -17,13 +17,10 @@ package integrationtests
 import (
 	"context"
 	stderrors "errors"
-	"fmt"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -39,45 +36,35 @@ import (
 )
 
 var _ = Describe("Create without token data", func() {
-	var createdBinding *api.SPIAccessTokenBinding
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
-		log.Log.Info("Create without token data [BeforeEach] ----->")
 		ITest.TestServiceProvider.Reset()
-		createdBinding, createdToken = createStandardPair("create-test")
-		By(fmt.Sprintf("testing on token '%s' and binding '%s'", createdToken.Name, createdBinding.Name))
+		_, createdToken = createStandardPair("create-test")
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
-		log.Log.Info("<----- Create without token data [BeforeEach]")
 	})
 
 	var _ = AfterEach(func() {
-		log.Log.Info("Create without token data [AfterEach] ----->")
-		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-		log.Log.Info("<----- Create without token data [AfterEach]")
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
 	It("sets up the finalizers", func() {
-		log.Log.Info("Create without token data sets up the finalizers ----->")
 		Eventually(func(g Gomega) {
 			token := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
 			g.Expect(token.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-bindings"))
 			g.Expect(token.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/token-storage"))
 		}).Should(Succeed())
-		log.Log.Info("<----- Create without token data sets up the finalizers")
 	})
 
 	It("doesn't auto-create the token data", func() {
-		log.Log.Info("Create without token data doesn't auto-create the token data ----->")
 		accessToken := &api.SPIAccessToken{}
 		Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), accessToken)).To(Succeed())
 
 		tokenData, err := ITest.TokenStorage.Get(ITest.Context, accessToken)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(tokenData).To(BeNil())
-		log.Log.Info("<----- Create without token data doesn't auto-create the token data")
 	})
 
 	It("have the upload URL set", func() {
@@ -169,44 +156,37 @@ var _ = Describe("Status", func() {
 })
 
 var _ = Describe("Token data disappears", func() {
-	var createdBinding *api.SPIAccessTokenBinding
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
-		log.Log.Info("Token data disappears [BeforeEach] ----->")
 		ITest.TestServiceProvider.Reset()
+		_, createdToken = createStandardPair("data-test")
+		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+
+		Expect(ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
+			AccessToken: "access",
+		})).To(Succeed())
+
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
 			Username:             "alois",
 			UserId:               "42",
 			Scopes:               []string{},
 			ServiceProviderState: []byte("state"),
 		})
-		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
-
-		createdBinding, createdToken = createStandardPair("data-test")
-		By(fmt.Sprintf("testing on token '%s' and binding '%s'", createdToken.Name, createdBinding.Name))
-
-		Expect(ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
-			AccessToken: "access",
-		})).To(Succeed())
 
 		Eventually(func(g Gomega) {
 			currentToken := &api.SPIAccessToken{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
 			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
 		}).Should(Succeed())
-		log.Log.Info("<----- Token data disappears [BeforeEach]")
 	})
 
 	AfterEach(func() {
-		log.Log.Info("Token data disappears [AfterEach] ----->")
-		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-		log.Log.Info("<----- Token data disappears [AfterEach]")
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
 	It("flips token back to awaiting phase when data disappears", func() {
-		log.Log.Info("Token data disappears flips token back to awaiting phase when data disappears ----->")
 		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
 		Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
@@ -216,7 +196,6 @@ var _ = Describe("Token data disappears", func() {
 			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 			g.Expect(currentToken.Status.TokenMetadata).To(BeNil())
 		}).Should(Succeed())
-		log.Log.Info("<----- Token data disappears flips token back to awaiting phase when data disappears")
 	})
 })
 
@@ -225,24 +204,18 @@ var _ = Describe("Delete token", func() {
 	var createdToken *api.SPIAccessToken
 
 	BeforeEach(func() {
-		log.Log.Info("Delete token [BeforeEach] ----->")
 		ITest.TestServiceProvider.Reset()
 		createdBinding, createdToken = createStandardPair("delete-test")
-		By(fmt.Sprintf("testing on token '%s' and binding '%s'", createdToken.Name, createdBinding.Name))
 		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
-		log.Log.Info("<----- Delete token [BeforeEach]")
 	})
 
 	AfterEach(func() {
-		log.Log.Info("Delete token [AfterEach] ----->")
-		Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-		Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-		log.Log.Info("<----- Delete token [AfterEach]")
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
 	When("there are linked bindings", func() {
 		It("doesn't happen", func() {
-			log.Log.Info("Delete token when there are linked bindings doesn't happen ----->")
 			token := &api.SPIAccessToken{}
 			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
 
@@ -252,12 +225,10 @@ var _ = Describe("Delete token", func() {
 			time.Sleep(1 * time.Second)
 			Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(token), token)).To(Succeed())
 			Expect(token.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-bindings"))
-			log.Log.Info("<----- Delete token when there are linked bindings doesn't happen")
 		})
 	})
 
 	It("deletes token data from storage", func() {
-		log.Log.Info("Delete token deletes token data from storage ----->")
 		// store the token data
 		err := ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
 			AccessToken: "42",
@@ -281,7 +252,6 @@ var _ = Describe("Delete token", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(data).To(BeNil())
 		}).Should(Succeed())
-		log.Log.Info("<----- Delete token deletes token data from storage")
 	})
 
 	It("should delete the synced token in awaiting state", func() {
@@ -334,28 +304,21 @@ var _ = Describe("Delete token", func() {
 })
 
 var _ = Describe("Phase", func() {
-	var createdBinding *api.SPIAccessTokenBinding
 	var createdToken *api.SPIAccessToken
 
 	Context("with valid SP url", func() {
 		BeforeEach(func() {
-			log.Log.Info("Phase with valid SP url [BeforeEach] ----->")
 			ITest.TestServiceProvider.Reset()
-			createdBinding, createdToken = createStandardPair("phase-test")
-			By(fmt.Sprintf("testing on token '%s' and binding '%s'", createdToken.Name, createdBinding.Name))
+			_, createdToken = createStandardPair("phase-test")
 			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
-			log.Log.Info("<----- Phase with valid SP url [BeforeEach]")
 		})
 
 		AfterEach(func() {
-			log.Log.Info("Phase with valid SP url [AfterEach] ----->")
-			Expect(ITest.Client.Delete(ITest.Context, createdBinding)).To(Succeed())
-			Expect(ITest.Client.Delete(ITest.Context, createdToken)).To(Succeed())
-			log.Log.Info("<----- Phase with valid SP url [AfterEach]")
+			Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+			Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 		})
 
 		It("defaults to AwaitingTokenData", func() {
-			log.Log.Info("Phase with valid SP url defaults to AwaitingTokenData ----->")
 			Eventually(func(g Gomega) {
 				token := &api.SPIAccessToken{}
 				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
@@ -363,12 +326,10 @@ var _ = Describe("Phase", func() {
 				g.Expect(token.Status.ErrorReason).To(BeEmpty())
 				g.Expect(token.Status.ErrorMessage).To(BeEmpty())
 			}).Should(Succeed())
-			log.Log.Info("<----- Phase with valid SP url defaults to AwaitingTokenData")
 		})
 
 		When("metadata is persisted", func() {
 			BeforeEach(func() {
-				log.Log.Info("Phase with valid SP url when metadata is persisted [BeforeEach] ----->")
 				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "user",
 					UserId:               "42",
@@ -388,11 +349,9 @@ var _ = Describe("Phase", func() {
 					token.Annotations = map[string]string{"foo": "bar"}
 					g.Expect(ITest.Client.Update(ITest.Context, token)).To(Succeed())
 				}).Should(Succeed())
-				log.Log.Info("<----- Phase with valid SP url when metadata is persisted [BeforeEach]")
 			})
 
 			It("flips to ready", func() {
-				log.Log.Info("Phase with valid SP url when metadata is persisted flips to ready ----->")
 				Eventually(func(g Gomega) {
 					token := &api.SPIAccessToken{}
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
@@ -400,13 +359,11 @@ var _ = Describe("Phase", func() {
 					g.Expect(token.Status.ErrorReason).To(BeEmpty())
 					g.Expect(token.Status.ErrorMessage).To(BeEmpty())
 				}).Should(Succeed())
-				log.Log.Info("<----- Phase with valid SP url when metadata is persisted flips to ready")
 			})
 		})
 
 		When("metadata fails to persist due to invalid token", func() {
 			It("flips to Invalid", func() {
-				log.Log.Info("Phase with valid SP url when metadata fails to persist due to invalid token flips to Invalid ----->")
 				ITest.TestServiceProvider.PersistMetadataImpl = func(ctx context.Context, c client.Client, token *api.SPIAccessToken) error {
 					return sperrors.ServiceProviderHttpError{StatusCode: 401, Response: "the token is invalid"}
 				}
@@ -419,12 +376,10 @@ var _ = Describe("Phase", func() {
 					g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
 				})
 			})
-			log.Log.Info("<----- Phase with valid SP url when metadata fails to persist due to invalid token flips to Invalid")
 		})
 
 		When("service provider doesn't support some permissions", func() {
 			It("flips to Invalid", func() {
-				log.Log.Info("Phase with valid SP url when service provider doesn't support some permissions flips to Invalid ----->")
 				ITest.TestServiceProvider.ValidateImpl = func(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 					return serviceprovider.ValidationResult{
 						ScopeValidation: []error{stderrors.New("nah")},
@@ -438,7 +393,6 @@ var _ = Describe("Phase", func() {
 					g.Expect(token.Status.ErrorReason).To(Equal(api.SPIAccessTokenErrorReasonUnsupportedPermissions))
 					g.Expect(token.Status.ErrorMessage).NotTo(BeEmpty())
 				})
-				log.Log.Info("<----- Phase with valid SP url when service provider doesn't support some permissions flips to Invalid")
 			})
 		})
 	})
@@ -446,7 +400,6 @@ var _ = Describe("Phase", func() {
 	Context("returns common provider with random SP url", func() {
 		var otherToken *api.SPIAccessToken
 		BeforeEach(func() {
-			log.Log.Info("Phase returns common provider with random SP url [BeforeEach] ----->")
 			ITest.TestServiceProvider.Reset()
 
 			otherBinding := &api.SPIAccessTokenBinding{
@@ -475,18 +428,15 @@ var _ = Describe("Phase", func() {
 				g.Expect(otherToken.Status.Phase).NotTo(BeEmpty())
 				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://not-baseurl"))
 			}).Should(Succeed())
-			log.Log.Info("<----- Phase returns common provider with random SP url [BeforeEach]")
 		})
 
 		It("defaults to AwaitingTokenData with common type", func() {
-			log.Log.Info("Phase returns common provider with random SP url defaults to AwaitingTokenData with common type ----->")
 			Eventually(func(g Gomega) {
 				g.Expect(otherToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 				g.Expect(otherToken.Status.ErrorReason).To(BeEmpty())
 				g.Expect(otherToken.Status.ErrorMessage).To(BeEmpty())
 				g.Expect(otherToken.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
 			}).Should(Succeed())
-			log.Log.Info("<----- Phase returns common provider with random SP url defaults to AwaitingTokenData with common type")
 		})
 	})
 })

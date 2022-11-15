@@ -17,9 +17,6 @@ package integrationtests
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -43,100 +40,69 @@ type TestServiceProvider struct {
 }
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	lg := log.FromContext(ctx)
 	if t.CheckRepositoryAccessImpl == nil {
-		lg.V(logs.DebugLevel).Info("empty impl of CheckRepositoryAccess called")
 		return &api.SPIAccessCheckStatus{}, nil
 	}
-	ret, err := t.CheckRepositoryAccessImpl(ctx, cl, accessCheck)
-	lg.V(logs.DebugLevel).Info("assigned impl of CheckRepositoryAccess called", "result", ret, "error", err)
-	return ret, err
+	return t.CheckRepositoryAccessImpl(ctx, cl, accessCheck)
 }
 
 func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	lg := log.FromContext(ctx)
 	if t.LookupTokenImpl == nil {
-		lg.V(logs.DebugLevel).Info("empty impl of LookupToken called")
 		return nil, nil
 	}
-	ret, err := t.LookupTokenImpl(ctx, cl, binding)
-	lg.V(logs.DebugLevel).Info("assigned impl of LookupToken called", "result", ret, "error", err)
-	return ret, err
+	return t.LookupTokenImpl(ctx, cl, binding)
 }
 
 func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
-	lg := log.FromContext(ctx)
 	if t.PersistMetadataImpl == nil {
-		lg.V(logs.DebugLevel).Info("empty impl of PersistMetadata called")
 		return nil
 	}
 
-	err := t.PersistMetadataImpl(ctx, cl, token)
-	lg.V(logs.DebugLevel).Info("assigned impl of PersistMetadata called", "error", err)
-	return err
+	return t.PersistMetadataImpl(ctx, cl, token)
 }
 
 func (t TestServiceProvider) GetBaseUrl() string {
 	if t.GetBaseUrlImpl == nil {
-		log.Log.V(logs.DebugLevel).Info("empty impl of GetBaseUrl called")
 		return "test-provider://base"
 	}
-	ret := t.GetBaseUrlImpl()
-	log.Log.V(logs.DebugLevel).Info("assigned impl of GetBaseUrl called", "result", ret)
-	return ret
+	return t.GetBaseUrlImpl()
 }
 
 func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []string {
 	if t.OAuthScopesForImpl == nil {
-		log.Log.V(logs.DebugLevel).Info("empty impl of OAuthScopesFor called")
 		return []string{}
 	}
-	ret := t.OAuthScopesForImpl(permissions)
-	log.Log.V(logs.DebugLevel).Info("assigned impl of OAuthScopesFor", "result", ret)
-	return ret
+	return t.OAuthScopesForImpl(permissions)
 }
 
 func (t TestServiceProvider) GetType() api.ServiceProviderType {
 	if t.GetTypeImpl == nil {
-		log.Log.V(logs.DebugLevel).Info("empty impl of GetType called")
 		return "TestServiceProvider"
 	}
-	ret := t.GetTypeImpl()
-	log.Log.V(logs.DebugLevel).Info("assigned impl of GetType", "result", ret)
-	return ret
+	return t.GetTypeImpl()
 }
 
 func (t TestServiceProvider) GetOAuthEndpoint() string {
 	if t.GetOauthEndpointImpl == nil {
-		log.Log.V(logs.DebugLevel).Info("empty impl of GetOAuthEndpoint called")
 		return ""
 	}
-	ret := t.GetOauthEndpointImpl()
-	log.Log.V(logs.DebugLevel).Info("assigned impl of GetOAuthEndpoint called", "result", ret)
-	return ret
+	return t.GetOauthEndpointImpl()
 }
 
 func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
-	lg := log.FromContext(ctx)
 	if t.MapTokenImpl == nil {
-		lg.V(logs.DebugLevel).Info("empty impl of MapToken called")
 		return serviceprovider.AccessTokenMapper{}, nil
 	}
-	ret, err := t.MapTokenImpl(ctx, binding, token, tokenData)
-	log.Log.V(logs.DebugLevel).Info("assigned impl of MapToken called", "result", ret, "error", err)
-	return ret, err
+
+	return t.MapTokenImpl(ctx, binding, token, tokenData)
 }
 
 func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
-	lg := log.FromContext(ctx)
 	if t.ValidateImpl == nil {
-		lg.V(logs.DebugLevel).Info("empty impl of Validate called")
 		return serviceprovider.ValidationResult{}, nil
 	}
 
-	ret, err := t.ValidateImpl(ctx, validated)
-	log.Log.V(logs.DebugLevel).Info("assigned impl of Validate called", "result", ret, "error", err)
-	return ret, err
+	return t.ValidateImpl(ctx, validated)
 }
 
 func (t *TestServiceProvider) Reset() {
@@ -165,7 +131,6 @@ func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Con
 
 		freshToken := &api.SPIAccessToken{}
 		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
-			log.FromContext(ctx).Error(err, "failed to get the concrete token configured by the test from the cluster", "expected_token", client.ObjectKeyFromObject(*tokenPointer))
 			return nil, err
 		}
 		return []api.SPIAccessToken{*freshToken}, nil
