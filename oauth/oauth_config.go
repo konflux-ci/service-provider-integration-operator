@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
@@ -35,10 +36,12 @@ const (
 	oauthCfgSecretFieldClientSecret = "clientSecret"
 	oauthCfgSecretFieldAuthUrl      = "authUrl"
 	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
+	oauthCfgSecretFieldBaseUrl      = "baseUrl"
 )
 
 var (
-	missingFieldError = errors.New("missing mandatory field in oauth configuration")
+	errMissingField            = errors.New("missing mandatory field in oauth configuration")
+	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -88,24 +91,57 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 	}
 
 	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
-	if len(secrets.Items) == 1 {
-		return true, &secrets.Items[0], nil
+
+	if len(secrets.Items) < 1 {
+		return false, nil, nil
+	}
+
+	spUrlHost, urlParseErr := url.Parse(info.ServiceProviderUrl)
+	if urlParseErr != nil {
+		return false, nil, fmt.Errorf("failed to parse service provider url: %w", urlParseErr)
+	}
+	var oauthSecretWithoutHost *corev1.Secret
+	var oauthSecretWithHost *corev1.Secret
+
+	// go through all found oauth secret configs
+	for _, oauthSecret := range secrets.Items {
+		// if we find one labeled for sp host, we take it
+		if spHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
+			if spHost == spUrlHost.Host {
+				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
+					return false, nil, errMultipleMatchingSecrets
+				}
+				oauthSecretWithHost = oauthSecret.DeepCopy()
+			}
+		} else { // if we found one without host label, we save it for later
+			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
+				return false, nil, errMultipleMatchingSecrets
+			}
+			oauthSecretWithoutHost = oauthSecret.DeepCopy()
+		}
+	}
+
+	if oauthSecretWithHost != nil {
+		return true, oauthSecretWithHost, nil
+	} else if oauthSecretWithoutHost != nil {
+		return true, oauthSecretWithoutHost, nil
 	} else {
 		return false, nil, nil
 	}
+
 }
 
 func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
 	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, missingFieldError)
+		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, errMissingField)
 	}
 
 	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
 		oauthCfg.ClientSecret = string(clientSecret)
 	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, missingFieldError)
+		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, errMissingField)
 	}
 
 	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has {
