@@ -27,7 +27,7 @@ import (
 
 func TestVaultLogin_Renewal(t *testing.T) {
 
-	cluster, ts, roleId, secretId := CreateTestVaultTokenStorageWithAuth(t)
+	cluster, ts, roleId, secretId := CreateTestVaultTokenStorageWithAuthAndMetrics(t, nil)
 	defer cluster.Cleanup()
 
 	rootClient := cluster.Cores[0].Client

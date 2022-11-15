@@ -22,6 +22,14 @@ import (
 	"net/http"
 	"time"
 
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +38,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
+
+var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeQuay)
 
 type metadataProvider struct {
 	tokenStorage     tokenstorage.TokenStorage
@@ -40,6 +50,40 @@ type metadataProvider struct {
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 var invalidRepoUrl = errors.New("invalid repository URL")
+
+// registered in newQuay function
+var entityFetchMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Namespace:   config.MetricsNamespace,
+	Subsystem:   config.MetricsSubsystem,
+	Name:        "quay_single_repo_metadata_fetch_seconds",
+	Help:        "Measures the overall time to load all the metadata for a single repository or organization per token",
+	ConstLabels: nil,
+	Buckets:     nil,
+}, []string{"failure"})
+
+// pre-create the individual metrics for each label value for perf reasons
+var entityFetchSuccessMetric = entityFetchMetric.WithLabelValues("false")
+var entityFetchFailureMetric = entityFetchMetric.WithLabelValues("true")
+
+func entityFetchTimer() metrics.ValueTimer3[*RepositoryMetadata, bool, error] {
+	return metrics.NewValueTimer3[*RepositoryMetadata, bool, error](metrics.ValueObserverFunc3[*RepositoryMetadata, bool, error](func(m *RepositoryMetadata, cached bool, err error, dur float64) {
+		if err == nil {
+			if m != nil && !cached {
+				// only collect the success if there was any metadata actually fetched. If there was no error and no
+				// metadata fetched, there must have been no token therefore it makes no sense to even talk about
+				// metadata fetching.
+				// We're also not measuring the time it takes to look up the metadata in the cache.
+				entityFetchSuccessMetric.Observe(dur)
+			}
+		} else {
+			entityFetchFailureMetric.Observe(dur)
+		}
+	}))
+}
+
+func init() {
+	k8sMetrics.Registry.MustRegister(entityFetchMetric)
+}
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
@@ -96,7 +140,13 @@ type RepositoryMetadata struct {
 
 // FetchRepo is the iterative version of Fetch used internally in the Quay service provider. It takes care of both
 // fetching and caching of the data on per-repository basis.
-func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata RepositoryMetadata, err error) {
+func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (*RepositoryMetadata, error) {
+	timer := entityFetchTimer()
+	metadata, _, err := timer.ObserveValuesAndDuration(p.doFetchRepo(ctx, repoUrl, token))
+	return metadata, err
+}
+
+func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata *RepositoryMetadata, cached bool, err error) {
 	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
 	lg.Info("fetching repository metadata")
@@ -135,6 +185,8 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 		lg.Info("no token data found")
 		return
 	}
+
+	ctx = httptransport.ContextWithMetrics(ctx, metricsConfig)
 
 	orgOrUser, repo, _ := splitToOrganizationAndRepositoryAndVersion(repoUrl)
 	if orgOrUser == "" || repo == "" {
@@ -180,6 +232,8 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 	var orgChanged, repoChanged bool
 	var orgRecord, repoRecord EntityRecord
 
+	cached = false
+
 	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the organization metadata")
@@ -199,12 +253,17 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 			lg.Error(err, "failed to persist the metadata changes")
 			return
 		}
+	} else {
+		// neither org, nor repo cache records changed, so this was read from the cache.
+		cached = true
 	}
 
-	return RepositoryMetadata{
+	metadata = &RepositoryMetadata{
 		Repository:   repoRecord,
 		Organization: orgRecord,
-	}, nil
+	}
+
+	return
 }
 
 // helper types for getEntityRecord parameters
@@ -223,7 +282,7 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, tokenData *api.To
 	if !present || time.Now().After(time.Unix(rec.LastRefreshTime, 0).Add(p.ttl)) {
 		lg.Info("entity metadata stale, reloading")
 
-		var repoRec *EntityRecord
+		var entityRec *EntityRecord
 
 		var loginInfo LoginTokenInfo
 		loginInfo, err = loginInfoFn()
@@ -232,20 +291,20 @@ func (p metadataProvider) getEntityRecord(ctx context.Context, tokenData *api.To
 			return
 		}
 
-		repoRec, err = fetchFn(ctx, p.httpClient, key, tokenData, loginInfo)
+		entityRec, err = fetchFn(ctx, p.httpClient, key, tokenData, loginInfo)
 		if err != nil {
 			lg.Error(err, "failed to fetch the metadata entity")
 			return
 		}
 
-		if repoRec == nil {
-			repoRec = &EntityRecord{}
+		if entityRec == nil {
+			entityRec = &EntityRecord{}
 		}
 
-		repoRec.LastRefreshTime = time.Now().Unix()
+		entityRec.LastRefreshTime = time.Now().Unix()
 
-		cache[key] = *repoRec
-		rec = *repoRec
+		cache[key] = *entityRec
+		rec = *entityRec
 		changed = true
 		lg.Info("metadata entity fetched successfully")
 	} else {

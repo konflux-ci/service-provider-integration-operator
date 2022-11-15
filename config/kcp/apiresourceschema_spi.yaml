@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110932.spiaccesschecks.appstudio.redhat.com
+  name: v202210061159.spiaccesschecks.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -104,7 +104,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110932.spiaccesstokenbindings.appstudio.redhat.com
+  name: v202210061159.spiaccesstokenbindings.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -295,7 +295,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110932.spiaccesstokendataupdates.appstudio.redhat.com
+  name: v202210061159.spiaccesstokendataupdates.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -350,7 +350,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208110932.spiaccesstokens.appstudio.redhat.com
+  name: v202210061159.spiaccesstokens.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -472,6 +472,87 @@ spec:
           - errorMessage
           - errorReason
           - oAuthUrl
+          - phase
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202210061159.spifilecontentrequests.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: SPIFileContentRequest
+    listKind: SPIFileContentRequestList
+    plural: spifilecontentrequests
+    singular: spifilecontentrequest
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            filePath:
+              description: FilePath defines target file path inside repository
+              type: string
+            ref:
+              description: Ref defines target git reference (tag/branch/commit)
+              type: string
+            repoUrl:
+              description: RepoUrl defines target file repository
+              type: string
+          required:
+          - filePath
+          - repoUrl
+          type: object
+        status:
+          properties:
+            content:
+              description: Content encoded target file content
+              type: string
+            contentEncoding:
+              description: ContentEncoding encoding used for file content
+              type: string
+            errorMessage:
+              description: ErrorMessage defines error message if file request failed
+              type: string
+            linkedBindingName:
+              description: LinkedBindingName name of the binding used for repository
+                authentication
+              type: string
+            oAuthUrl:
+              description: OAuthUrl URL to authenticate into target repository using
+                OAuth
+              type: string
+            phase:
+              description: Phase of the current file request
+              type: string
+            tokenUploadUrl:
+              description: TokenUploadUrl URL to perform manual upload of the token
+                to access target repository
+              type: string
+          required:
+          - linkedBindingName
           - phase
           type: object
       type: object

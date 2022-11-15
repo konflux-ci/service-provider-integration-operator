@@ -19,23 +19,20 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
 	"github.com/google/go-github/v45/github"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub)
+
 // AllAccessibleRepos lists all the repositories accessible by the current user
-type AllAccessibleRepos struct {
-	Viewer struct {
-		Repositories struct {
-			Nodes []struct {
-				ViewerPermission string `json:"viewerPermission"`
-				Url              string `json:"url"`
-			} `json:"nodes"`
-		} `json:"repositories"`
-	} `json:"viewer"`
-}
+type AllAccessibleRepos struct{}
 
 func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.Client, accessToken string, state *TokenState) error {
 
@@ -48,6 +45,9 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 		}
 	}
 	lg.V(logs.DebugLevel).Info("Fetching metadata request")
+
+	ctx = httptransport.ContextWithMetrics(ctx, metricsConfig)
+
 	// list all repositories for the authenticated user
 	opt := &github.RepositoryListOptions{}
 	opt.ListOptions.PerPage = 100

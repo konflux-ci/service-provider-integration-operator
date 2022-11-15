@@ -15,7 +15,12 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -28,12 +33,16 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
-		HttpClient:       http.DefaultClient,
+		HttpClient:       &http.Client{Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: http.DefaultTransport}},
 		Initializers:     initializers,
 		TokenStorage:     ts,
 	}
 
 	var err error
+
+	if err = serviceprovider.RegisterCommonMetrics(metrics.Registry); err != nil {
+		return fmt.Errorf("failed to register the metrics with k8s metrics registry: %w", err)
+	}
 
 	if err = (&SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
@@ -66,6 +75,15 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		Scheme:                 mgr.GetScheme(),
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&SPIFileContentRequestReconciler{
+		K8sClient:     mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		HttpClient:    spf.HttpClient,
+		Configuration: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

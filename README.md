@@ -4,18 +4,38 @@
 
 A Kubernetes controller/operator that manages service provider integration tasks.
 
-OAuth service is now part of this repository ([documentation](OAUTH.md)). 
+### Intention
+The Service Provider Integration aims to provide a service-provider-neutral way (as much as reasonable) of obtaining authentication tokens so that tools accessing 
+the service provider do not have to deal with the intricacies of obtaining the access tokens from the different service providers.
+The caller creates an `SPIAccessTokenBinding` object in a Kubernetes namespace where they specify the repository to which they require access and the required permissions 
+in the repo. The caller also specifies the target `Secret` to which they want the access token to the repository to be persisted. 
+The caller then watches the `SPIAccessTokenBinding` and reacts to its status changing by either initiating the provided OAuth flow or using the created Secret object. 
+Additionally, SPI provides an HTTP endpoint for manually uploading the access token for a certain `SPIAccessToken` object. Therefore, 
+the user doesn’t have to go through OAuth flow for tokens that they manually provide the access token for.
+
+### High level view
+There are 2 main components. SPI HTTP API which is required for parts of the workflow that require direct user interaction and SPI CRDs (and a controller manager for them).
+The custom resources are meant to be used by the eventual Consumers of the secrets that require access tokens to communicate with service providers.
+Therefore, the main audience of SPI is the Consumers of the secrets. In the case of App Studio, this is most probably going to be HAS and/or HAC.
+Because SPI requires user interaction for a part of its functionality, HAC will need to interface with the SPI REST API so that authenticated requests can be made to 
+the cluster and the service providers.
+SPI will not provide any user-facing UI on its own. 
+Instead, for stuff that will need user interaction, it will provide links to its REST API that will either consume supplied data or redirect to a service provider (in case of OAuth flow).
+
+
+
+OAuth service is now part of this repository ([documentation](/doc/OAUTH.md)).
 
 ## Building & Testing
 This project provides a `Makefile` to run all the usual development tasks. If you simply run `make` without any arguments, you'll get a list of available "targets".
 
-To build the project one needs to invoke:
+To build the project one needs to invoke (builds both `operator` and `oauth` binaries into `bin/` folder):
 
 ```
 make build
 ```
 
-To test the code:
+To test the code (!tests requires running cluster in kubectl context):
 
 ```
 make test
@@ -28,7 +48,7 @@ make docker-build
 ```
 
 This will make a docker images called `quay.io/redhat-appstudio/service-provider-integration-operator:next` and `quay.io/redhat-appstudio/service-provider-integration-oauth:next` which might or might not be what you want.
-To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable (see [Makefile](Makefile) for more granular options), e.g.:
+To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable, e.g.:
 
 ```
 SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-build
@@ -44,6 +64,8 @@ The image being pushed can again be modified using the environment variable:
 ```
 SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-push
 ```
+
+To set precise image names, one can use `SPIO_IMG` for operator image and `SPIS_IMG` for oauth image (see [Makefile](Makefile) for more details).
 
 Before you push a PR to the repository, it is recommended to run an overall validity check of the codebase. This will
 run the formatting check, static code analysis and all the tests:
@@ -139,6 +161,7 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --token-ttl             | TOKENLIFETIMEDURATION       | 120h    | Access token lifetime in hours, minutes or seconds. Examples:  "3h",  "5h30m40s" etc.                                                                                            |
 | --binding-ttl           | BINDINGLIFETIMEDURATION     | 2h      | Access token binding lifetime in hours, minutes or seconds. Examples: "3h", "5h30m40s" etc.                                                                                      |
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
+| --file-request-ttl      | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
 | --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
 | --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
@@ -225,23 +248,23 @@ Then we can install our CRDs:
 make install
 ```
 
-Next, we're ready to build and push the custom operator image:
+Next, we're ready to build and push the custom operator and oauth images:
 ```
-make docker-build docker-push SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE>
+make docker-build docker-push SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
 Next step is to deploy the operator and oauth service along with all other Kubernetes objects to the cluster.
-This step assumes that you also want to use a custom image of the SPI OAuth service. If you want to use the
-default one, just don't specify the `SPIS_IMG` env var below.
+This step assumes that you also want to use a custom image for both SPI OAuth service and Operator. If you want to use the
+default one, specify just the `SPIS_IMG` or `SPIO_IMG` env var below.
 
 On OpenShift use:
 ```
-make deploy SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+make deploy SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
-On Kubernetes/Minikube use:
+On Minikube use:
 ```
-make deploy_k8s SPIO_IMG=<MY-CUSTOM-OPERATOR-IMAGE> SPIS_IMG=<MY-CUSTOM-OAUTH-SERVICE-IMAGE>
+make deploy_minikube SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
 Next, comes the manual part. We need to set the external domain of the ingress/route of the OAuth service and reconfigure
@@ -274,6 +297,12 @@ All that is left for the setup is to restart the oauth service and operator to l
 kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=0
 kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service --replicas=1
 ```
+
+### Requirements on the Service Providers
+For the OAuth workflow to work, SPI needs to be registered as an Oauth application within all service providers that it will need to interact with.
+Note that the integration also includes the “redirect_uri”, i.e. the target URL to which the OAuth flow will be redirected upon completion.
+In addition, the SPI REST API will need to be configured with the `Client ID` and `Client Secret` for each such OAuth app in every Service Provider.
+
 
 ### Go through the OAuth flow manually
 
@@ -325,10 +354,15 @@ kubectl get secret token-secret -o yaml
 
 The currently supported list of providers and token kinds is following:
 
-### Github
+### GitHub
 
  - OAuth token via user authentication flow
  - Personal access token via manual upload
+
+### GitLab
+
+- OAuth token via user authentication flow
+- Personal access token via manual upload
 
 ### Quay
 
@@ -379,3 +413,69 @@ Note that both `username` and `access_token` fields are mandatory.
 `204` response indicates that credentials successfully uploaded and stored.
 Please note that SPI service didn't perform any specific validity checks 
 for the user provided credentials, so it's assumed user provides a correct data.  
+
+
+## Retrieving file content from SCM repository
+There is dedicated controller for file content requests, which can be performed by putting
+a `SPIFileContentRequest` CR in the namespace, as follows: 
+
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  filePath: hack/boilerplate.go.txt
+
+```
+Controller then generates SPIAccessTokenBinding and waiting for it to be ready/injected.
+Once binding became ready, controller fetches requested content using credentials from injected secret. A successful attempt will result in base64 encoded file content
+appearing in the `status.content` field on the `SPIFileContentRequest` CR.
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  filePath: hack/boilerplate.go.txt
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+status:
+  content: LyoKQ29weXJpZ2h0IDIw....==
+  contentEncoding: base64
+  linkedBindingName: ""
+  phase: Delivered
+```
+
+
+At this stage, file request CR-s are intended to be single-used, so no further content refresh 
+or accessibility checks must be expected. A new CR instance should be used to re-request the content.
+  
+Currently, the file retrievals are limited to GitHub repositories only, and files size up to 2 Megabytes.
+Default lifetime for file content requests is 30 min and can be changed via operator configuration parameter.
+
+
+## User OAuth configuration
+
+In situations when OAuth configuration of SPI does not fit user's use case (like on-prem installations), one may define their own OAuth service provider configuration using a Kubernetes secret:
+```yaml
+...
+metadata:
+  labels:
+    spi.appstudio.redhat.com/service-provider-type: GitHub
+data:
+  clientId: ...
+  clientSecret: ...
+  authUrl: ...
+  tokenUrl: ...
+
+```
+Such secret must be labeled with `spi.appstudio.redhat.com/service-provider-type` label with value of service provider name (`GitHub`, `Quay`).
+Data of the secret must contain `clientId` and `clientSecret` keys.
+`authUrl` and `tokenUrl` are optional, if not set, default values for the service provider are used.
+
+The secret must live in same namespace as `SPIAccessToken` and used authorization token must have permissions to `list` and `get` secrets in such namespace.
+If matching secret is found, it is used for oauth flow. In other cases, default SPI configuration is used.
+If format of the user's oauth configuration secret is not valid, oauth flow will fail with a descriptive error.

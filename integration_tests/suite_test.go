@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -68,6 +70,7 @@ type IntegrationTest struct {
 	HostCredsServiceProvider TestServiceProvider
 	VaultTestCluster         *vault.TestCluster
 	OperatorConfiguration    *opconfig.OperatorConfiguration
+	MetricsRegistry          *prometheus.Registry
 }
 
 var ITest IntegrationTest
@@ -95,6 +98,8 @@ var _ = BeforeSuite(func() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	ITest.Context = ctx
 	ITest.Cancel = cancel
+
+	ITest.MetricsRegistry = prometheus.NewPedanticRegistry()
 
 	By("bootstrapping test environment")
 	testEnv := &envtest.Environment{
@@ -181,6 +186,7 @@ var _ = BeforeSuite(func() {
 		AccessCheckTtl:        10 * time.Second,
 		AccessTokenTtl:        10 * time.Second,
 		AccessTokenBindingTtl: 10 * time.Second,
+		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
 	}
 
@@ -197,7 +203,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuth(GinkgoT())
+	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuthAndMetrics(GinkgoT(), ITest.MetricsRegistry)
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{

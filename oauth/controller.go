@@ -66,6 +66,15 @@ func FromConfiguration(fullConfig OAuthServiceConfiguration, spConfig config.Ser
 		endpoint = github.Endpoint
 	case config.ServiceProviderTypeQuay:
 		endpoint = quayEndpoint
+	case config.ServiceProviderTypeGitLab:
+		if spConfig.ServiceProviderBaseUrl == "" {
+			endpoint = gitlabEndpoint
+		} else {
+			endpoint = oauth2.Endpoint{
+				AuthURL:  spConfig.ServiceProviderBaseUrl + "/oauth/authorize",
+				TokenURL: spConfig.ServiceProviderBaseUrl + "/oauth/token",
+			}
+		}
 	default:
 		return nil, notImplementedError
 	}

@@ -20,7 +20,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -51,6 +54,7 @@ func TestMain(m *testing.M) {
 
 func TestStorage(t *testing.T) {
 	cluster, storage := CreateTestVaultTokenStorage(t)
+	assert.NoError(t, storage.Initialize(context.Background()))
 	defer cluster.Cleanup()
 
 	test := func(ctx context.Context) {
@@ -75,11 +79,11 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("kcp", func(t *testing.T) {
-		test(logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace")))
+		test(infrastructure.InitKcpContext(context.Background(), "test_workspace"))
 	})
 
 	t.Run("token accessible only in it's workspace", func(t *testing.T) {
-		workspaceCtx := logicalcluster.WithCluster(context.Background(), logicalcluster.New("test_workspace"))
+		workspaceCtx := infrastructure.InitKcpContext(context.Background(), "test_workspace")
 
 		err := storage.Store(workspaceCtx, testSpiAccessToken, testToken)
 		assert.NoError(t, err)
@@ -88,7 +92,7 @@ func TestStorage(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, gettedToken)
 
-		gettedToken, err = storage.Get(logicalcluster.WithCluster(context.Background(), logicalcluster.New("another_workspace")), testSpiAccessToken)
+		gettedToken, err = storage.Get(infrastructure.InitKcpContext(context.Background(), "another_workspace"), testSpiAccessToken)
 		assert.NoError(t, err)
 		assert.Nil(t, gettedToken)
 
@@ -162,4 +166,17 @@ func TestParseToken(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Nil(t, token)
 	})
+}
+
+func TestMetricCollection(t *testing.T) {
+	ctx := context.Background()
+	cluster, storage, _, _ := CreateTestVaultTokenStorageWithAuthAndMetrics(t, prometheus.NewPedanticRegistry())
+	assert.NoError(t, storage.Initialize(ctx))
+	defer cluster.Cleanup()
+
+	_, err := storage.Get(ctx, testSpiAccessToken)
+	assert.NoError(t, err)
+
+	assert.Greater(t, prometheusTest.CollectAndCount(vaultRequestCountMetric), 0)
+	assert.Greater(t, prometheusTest.CollectAndCount(vaultResponseTimeMetric), 0)
 }

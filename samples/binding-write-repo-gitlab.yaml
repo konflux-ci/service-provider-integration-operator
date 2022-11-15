@@ -1,0 +1,13 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: binding-read-repository
+spec:
+  permissions:
+    required:
+      - type: rw
+        area: repository
+  repoUrl: https://gitlab.com/user/test
+  secret:
+    name: token-read-repository
+    type: kubernetes.io/basic-auth
