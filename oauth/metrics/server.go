@@ -52,7 +52,7 @@ func init() {
 func ServeMetrics(ctx context.Context, address string) {
 	setupLog := ctrl.Log.WithName("metrics")
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(Registry, promhttp.Handler()))
+	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 	server := &http.Server{Addr: address,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout:      time.Second * 15,
