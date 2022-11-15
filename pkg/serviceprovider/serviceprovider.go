@@ -150,6 +150,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 
 func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[string]config.ServiceProviderType, error) {
 	secretList := &corev1.SecretList{}
+	// TODO: list by all types of service providers
 	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.MatchingLabels{
 		api.ServiceProviderTypeLabel: "",
 	})
