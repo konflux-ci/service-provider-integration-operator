@@ -1,8 +1,8 @@
-name: golangci-lint
+name: linter
 on:
   pull_request:
 jobs:
-  golangci:
+  golangci-lint:
     name: golangci
     runs-on: ubuntu-latest
     steps:
