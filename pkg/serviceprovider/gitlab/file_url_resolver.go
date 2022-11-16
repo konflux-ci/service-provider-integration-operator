@@ -47,7 +47,11 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 	}
 	lg := log.FromContext(ctx)
 	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
-	file, resp, err := glClient.RepositoryFiles.GetFile(m["owner"]+"/"+m["project"], filepath, &gitlab.GetFileOptions{Ref: &ref})
+	var opts *gitlab.GetFileOptions = nil
+	if ref != "" {
+		opts = &gitlab.GetFileOptions{Ref: &ref}
+	}
+	file, resp, err := glClient.RepositoryFiles.GetFile(m["owner"]+"/"+m["project"], filepath, opts)
 	if err != nil {
 		bytes, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))

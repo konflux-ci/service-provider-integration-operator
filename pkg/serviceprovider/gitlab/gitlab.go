@@ -118,8 +118,8 @@ func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
 }
 
-func (g *Gitlab) GetFileDownloadUrl(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
-	return "", serviceprovider.FileNotSupportedError{}
+func (g *Gitlab) GetFileDownloadUrl(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+	return g.fileUrlResolver.Resolve(ctx, repoUrl, filepath, ref, token)
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {

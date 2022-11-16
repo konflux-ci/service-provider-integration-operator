@@ -5,4 +5,4 @@ metadata:
   namespace: default
 spec:
   repoUrl: https://gitlab.com/mshaposhnik/proj1
-  filePath: foo/bar.txt
+  filePath: README.md
