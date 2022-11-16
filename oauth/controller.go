@@ -16,10 +16,12 @@ package oauth
 import (
 	"context"
 	"errors"
-	"html/template"
+	"fmt"
 	"net/http"
 
+	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -34,10 +36,10 @@ var (
 type Controller interface {
 	// Authenticate handles the initial OAuth request. It should validate that the request is authenticated in Kubernetes
 	// compose the authenticated OAuth state and return a redirect to the service-provider OAuth endpoint with the state.
-	Authenticate(w http.ResponseWriter, r *http.Request)
+	Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
 
 	// Callback finishes the OAuth flow. It handles the final redirect from the OAuth flow of the service provider.
-	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request)
+	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
 }
 
 // oauthFinishResult is an enum listing the possible results of authentication during the commonController.finishOAuthExchange
@@ -50,43 +52,62 @@ const (
 	oauthFinishError
 )
 
-// FromConfiguration is a factory function to create instances of the Controller based on the service provider
-// configuration.
-func FromConfiguration(fullConfig OAuthServiceConfiguration, spConfig config.ServiceProviderConfiguration, authenticator *Authenticator, stateStorage *StateStorage, cl AuthenticatingClient, storage tokenstorage.TokenStorage, redirectTemplate *template.Template) (Controller, error) {
+func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
 	ts := &tokenstorage.NotifyingTokenStorage{
-		Client:       cl,
-		TokenStorage: storage,
+		Client:       cfg.K8sClient,
+		TokenStorage: cfg.TokenStorage,
 	}
 
-	var endpoint oauth2.Endpoint
+	controller := &commonController{
+		K8sClient:               cfg.K8sClient,
+		TokenStorage:            ts,
+		BaseUrl:                 cfg.BaseUrl,
+		Authenticator:           cfg.Authenticator,
+		StateStorage:            cfg.StateStorage,
+		RedirectTemplate:        cfg.RedirectTemplate,
+		ServiceProviderInstance: map[string]oauthConfiguration{},
+		ServiceProviderType:     spType,
+	}
 
-	switch spConfig.ServiceProviderType {
-	case config.ServiceProviderTypeGitHub:
-		endpoint = github.Endpoint
-	case config.ServiceProviderTypeQuay:
-		endpoint = quayEndpoint
-	case config.ServiceProviderTypeGitLab:
-		if spConfig.ServiceProviderBaseUrl == "" {
-			endpoint = gitlabEndpoint
-		} else {
-			endpoint = oauth2.Endpoint{
-				AuthURL:  spConfig.ServiceProviderBaseUrl + "/oauth/authorize",
-				TokenURL: spConfig.ServiceProviderBaseUrl + "/oauth/token",
-			}
+	for _, sp := range cfg.ServiceProviders {
+		if sp.ServiceProviderType != spType {
+			continue
 		}
-	default:
-		return nil, notImplementedError
+
+		baseUrl, errBaseUrl := determineBaseUrl(sp.ServiceProviderType, sp.ServiceProviderBaseUrl)
+		if errBaseUrl != nil {
+			return nil, fmt.Errorf("failed to initialize service provider: %w", errBaseUrl)
+		}
+
+		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", baseUrl)
+		if _, alreadyHasBaseUrl := controller.ServiceProviderInstance[baseUrl]; alreadyHasBaseUrl {
+			return nil, fmt.Errorf("service provider '%s' with base url '%s' already initialized", spType, baseUrl)
+		}
+
+		var endpoint oauth2.Endpoint
+		switch sp.ServiceProviderType {
+		case config.ServiceProviderTypeGitHub:
+			endpoint = github.Endpoint
+		case config.ServiceProviderTypeQuay:
+			endpoint = quayEndpoint
+		case config.ServiceProviderTypeGitLab:
+			if sp.ServiceProviderBaseUrl == "" {
+				endpoint = gitlabEndpoint
+			} else {
+				endpoint = oauth2.Endpoint{
+					AuthURL:  sp.ServiceProviderBaseUrl + "/oauth/authorize",
+					TokenURL: sp.ServiceProviderBaseUrl + "/oauth/token",
+				}
+			}
+		default:
+			return nil, notImplementedError
+		}
+		controller.ServiceProviderInstance[baseUrl] = oauthConfiguration{
+			Config:   sp,
+			Endpoint: endpoint,
+		}
 	}
 
-	return &commonController{
-		Config:           spConfig,
-		K8sClient:        cl,
-		TokenStorage:     ts,
-		Endpoint:         endpoint,
-		BaseUrl:          fullConfig.BaseUrl,
-		Authenticator:    authenticator,
-		StateStorage:     stateStorage,
-		RedirectTemplate: redirectTemplate,
-	}, nil
+	return controller, nil
 }

@@ -132,36 +132,42 @@ func main() {
 	sessionManager.Cookie.Secure = true
 	authenticator := oauth.NewAuthenticator(sessionManager, cl)
 	stateStorage := oauth.NewStateStorage(sessionManager)
-	//static routes first
+
+	// service state routes
 	router.HandleFunc("/health", oauth.OkHandler).Methods("GET")
 	router.HandleFunc("/ready", oauth.OkHandler).Methods("GET")
-	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
+
+	// auth
 	router.HandleFunc("/login", authenticator.Login).Methods("POST")
-	router.NewRoute().Path("/{type}/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+
+	// token upload
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 	router.NewRoute().Path("/token/{kcpWorkspace}/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 
-	redirectTpl, err := template.ParseFiles("static/redirect_notice.html")
-	if err != nil {
-		setupLog.Error(err, "failed to parse the redirect notice HTML template")
+	// oauth
+	redirectTpl, templateErr := template.ParseFiles("static/redirect_notice.html")
+	if templateErr != nil {
+		setupLog.Error(templateErr, "failed to parse the redirect notice HTML template")
+		os.Exit(1)
+	}
+	oauthRouter, routerErr := oauth.NewRouter(&setupLog, oauth.RouterConfiguration{
+		OAuthServiceConfiguration: cfg,
+		Authenticator:             authenticator,
+		StateStorage:              stateStorage,
+		K8sClient:                 cl,
+		TokenStorage:              strg,
+		RedirectTemplate:          redirectTpl,
+	})
+	if routerErr != nil {
+		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
 	}
 
-	for _, sp := range cfg.ServiceProviders {
-		setupLog.V(1).Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", sp.ServiceProviderBaseUrl)
+	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
+	router.NewRoute().Path("/oauth/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.NewRoute().Path("/oauth/callback").Handler(oauthRouter.Callback())
+	router.NewRoute().Path("/oauth/authenticate").Handler(oauthRouter.Authenticate())
 
-		controller, err := oauth.FromConfiguration(cfg, sp, authenticator, stateStorage, cl, strg, redirectTpl)
-		if err != nil {
-			setupLog.Error(err, "failed to initialize controller")
-		}
-
-		prefix := strings.ToLower(string(sp.ServiceProviderType))
-
-		router.Handle(fmt.Sprintf("/%s/authenticate", prefix), http.HandlerFunc(controller.Authenticate)).Methods("GET", "POST")
-		router.Handle(fmt.Sprintf("/%s/callback", prefix), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			controller.Callback(r.Context(), w, r)
-		})).Methods("GET")
-	}
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
 		Addr: args.ServiceAddr,

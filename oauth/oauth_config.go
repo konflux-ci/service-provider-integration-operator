@@ -50,8 +50,10 @@ var (
 func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
 	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
 
+	oauthConfig := c.ServiceProviderInstance[info.ServiceProviderUrl]
+
 	oauthCfg := &oauth2.Config{
-		Endpoint:    c.Endpoint,
+		Endpoint:    oauthConfig.Endpoint,
 		RedirectURL: c.redirectUrl(),
 	}
 
@@ -69,8 +71,8 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		}
 	} else {
 		lg.V(logs.DebugLevel).Info("using default oauth config")
-		oauthCfg.ClientID = c.Config.ClientId
-		oauthCfg.ClientSecret = c.Config.ClientSecret
+		oauthCfg.ClientID = oauthConfig.Config.ClientId
+		oauthCfg.ClientSecret = oauthConfig.Config.ClientSecret
 		return oauthCfg, nil
 	}
 }
@@ -80,7 +82,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 
 	secrets := &corev1.SecretList{}
 	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(info.TokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(c.Config.ServiceProviderType),
+		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
 			lg.Info("user is not able to list or get secrets")

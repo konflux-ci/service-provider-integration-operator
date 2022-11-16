@@ -43,25 +43,24 @@ var (
 
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
-	Config           config.ServiceProviderConfiguration
-	K8sClient        AuthenticatingClient
-	TokenStorage     tokenstorage.TokenStorage
-	Endpoint         oauth2.Endpoint
-	BaseUrl          string
-	RedirectTemplate *template.Template
-	Authenticator    *Authenticator
-	StateStorage     *StateStorage
+	K8sClient               AuthenticatingClient
+	TokenStorage            tokenstorage.TokenStorage
+	RedirectTemplate        *template.Template
+	Authenticator           *Authenticator
+	StateStorage            *StateStorage
+	BaseUrl                 string
+	ServiceProviderType     config.ServiceProviderType
+	ServiceProviderInstance map[string]oauthConfiguration
 }
 
-// exchangeState is the state that we're sending out to the SP after checking the anonymous oauth state produced by
-// the operator as the initial OAuth URL. Notice that the state doesn't contain any sensitive information.
-type exchangeState struct {
-	oauthstate.OAuthInfo
+type oauthConfiguration struct {
+	Config   config.ServiceProviderConfiguration
+	Endpoint oauth2.Endpoint
 }
 
 // exchangeResult this the result of the OAuth exchange with all the data necessary to store the token into the storage
 type exchangeResult struct {
-	exchangeState
+	oauthstate.OAuthInfo
 	result              oauthFinishResult
 	token               *oauth2.Token
 	authorizationHeader string
@@ -69,22 +68,15 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return strings.TrimSuffix(c.BaseUrl, "/") + "/" + strings.ToLower(string(c.Config.ServiceProviderType)) + "/callback"
+	return strings.TrimSuffix(c.BaseUrl, "/") + "/" + strings.ToLower(string(c.ServiceProviderType)) + "/callback"
 }
 
-func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) {
+func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
 	ctx := r.Context()
 	lg := log.FromContext(ctx)
 
 	defer logs.TimeTrack(lg, time.Now(), "/authenticate")
 
-	stateString := r.FormValue("state")
-
-	state, err := oauthstate.ParseOAuthInfo(stateString)
-	if err != nil {
-		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "failed to decode the OAuth state", err)
-		return
-	}
 	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 	token, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
@@ -113,16 +105,13 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	keyedState := exchangeState{
-		OAuthInfo: state,
-	}
 
-	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state)
+	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
 	if oauthConfigErr != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
 		return
 	}
-	oauthCfg.Scopes = keyedState.Scopes
+	oauthCfg.Scopes = state.Scopes
 
 	templateData := struct {
 		Url string
@@ -137,11 +126,11 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/callback")
 
-	exchange, err := c.finishOAuthExchange(ctx, r)
+	exchange, err := c.finishOAuthExchange(ctx, r, state)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "error in Service Provider token exchange", err)
 		return
@@ -168,7 +157,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 
 // finishOAuthExchange implements the bulk of the Callback function. It returns the token, if obtained, the decoded
 // state from the oauth flow, if available, and the result of the authentication.
-func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request) (exchangeResult, error) {
+func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request, state *oauthstate.OAuthInfo) (exchangeResult, error) {
 	// TODO support the implicit flow here, too?
 
 	// check that the state is correct
@@ -177,7 +166,6 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to unveil token state: %w", err)
 	}
 
-	state := &exchangeState{}
 	err = oauthstate.ParseInto(stateString, state)
 	if err != nil {
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
@@ -191,7 +179,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	ctx = WithAuthIntoContext(k8sToken, ctx)
 
 	// the state is ok, let's retrieve the token from the service provider
-	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, &state.OAuthInfo)
+	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
 	if oauthConfigErr != nil {
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to obtain oauth configuration: %w", oauthConfigErr)
 	}
@@ -206,7 +194,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to finish the OAuth exchange: %w", err)
 	}
 	return exchangeResult{
-		exchangeState:       *state,
+		OAuthInfo:           *state,
 		result:              oauthFinishAuthenticated,
 		token:               token,
 		authorizationHeader: k8sToken,
@@ -236,7 +224,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	return nil
 }
 
-func (c *commonController) checkIdentityHasAccess(ctx context.Context, state oauthstate.OAuthInfo) (bool, error) {
+func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oauthstate.OAuthInfo) (bool, error) {
 	review := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &v1.ResourceAttributes{

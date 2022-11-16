@@ -91,10 +91,6 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 
 var _ serviceprovider.ConstructorFunc = newQuay
 
-func (g *Quay) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/quay/authenticate"
-}
-
 func (g *Quay) GetBaseUrl() string {
 	return quayUrlBase
 }
