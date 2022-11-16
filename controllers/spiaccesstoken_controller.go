@@ -54,7 +54,6 @@ import (
 )
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
-
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
 
 var (
