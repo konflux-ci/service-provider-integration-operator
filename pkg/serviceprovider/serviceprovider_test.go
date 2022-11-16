@@ -18,7 +18,13 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
@@ -122,7 +128,7 @@ func TestFromRepoUrl(t *testing.T) {
 		Probe: struct {
 			ProbeFunc
 		}{
-			ProbeFunc: func(cl *http.Client, url string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error) {
+			ProbeFunc: func(cl *http.Client, url string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
 				return "https://base-url.com", nil
 			},
 		},
@@ -136,9 +142,13 @@ func TestFromRepoUrl(t *testing.T) {
 		SupportsManualUploadOnlyMode: true,
 	}
 
+	scheme := runtime.NewScheme()
+	utilruntime.Must(v1.AddToScheme(scheme))
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
+
 	fact := Factory{
 		Configuration:    &opconfig.OperatorConfiguration{},
-		KubernetesClient: nil,
+		KubernetesClient: cl,
 		HttpClient:       nil,
 		Initializers: map[config.ServiceProviderType]Initializer{
 			config.ServiceProviderTypeQuay: mockInit,
@@ -149,4 +159,86 @@ func TestFromRepoUrl(t *testing.T) {
 	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo", "namespace")
 	assert.NoError(t, err)
 	assert.Equal(t, mockSP, sp)
+}
+
+func TestGetBaseUrlsFromConfigs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(v1.AddToScheme(scheme))
+	ctx := context.TODO()
+
+	secretNamespace := "test-namespace"
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithLists(&v1.SecretList{
+		Items: []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-different-namespace",
+					Namespace: "different-namespace",
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderHostLabel: "should.not.be.found",
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-github",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderHostLabel: "github.secret.url",
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-quay",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
+						api.ServiceProviderHostLabel: "quay.secret.url",
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-gitlab",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitLab),
+						api.ServiceProviderHostLabel: "gitlab.secret.url",
+					},
+				},
+			},
+		},
+	}).Build()
+	factory := Factory{
+		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
+			ServiceProviders: []config.ServiceProviderConfiguration{{
+				ServiceProviderType:    "GitHub",
+				ServiceProviderBaseUrl: "https://some.github.url",
+			}, {
+				ServiceProviderType:    "Quay",
+				ServiceProviderBaseUrl: "https://some.quay.url",
+			}, {
+				ServiceProviderType:    "GitLab",
+				ServiceProviderBaseUrl: "https://some.gitlab.url",
+			}},
+		}},
+		KubernetesClient: cl,
+		HttpClient:       nil,
+		Initializers:     nil,
+		TokenStorage:     nil,
+	}
+
+	//when
+	baseUrls, err := factory.getBaseUrlsFromConfigs(ctx, secretNamespace)
+
+	//then
+	assert.NoError(t, err)
+	assert.Len(t, baseUrls, 3)
+	for providerType, urls := range baseUrls {
+		assert.Len(t, urls, 3)
+		assert.Contains(t, urls, "https://some."+strings.ToLower(string(providerType))+".url")
+		assert.Contains(t, urls, strings.ToLower(string(providerType))+".secret.url")
+	}
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub], PUBLIC_GITHUB_URL)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay], PUBLIC_QUAY_URL)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab], PUBLIC_GITLAB_URL)
 }

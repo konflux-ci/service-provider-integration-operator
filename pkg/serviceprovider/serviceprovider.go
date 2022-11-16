@@ -17,8 +17,9 @@ package serviceprovider
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"net/http"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -31,6 +32,10 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const PUBLIC_GITHUB_URL = "https://github.com"
+const PUBLIC_QUAY_URL = "https://quay.io"
+const PUBLIC_GITLAB_URL = "https://gitlab.com"
 
 // ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
@@ -92,7 +97,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
-	tryInitialize := func(initializer Initializer, serviceProviderBaseUrls map[string]config.ServiceProviderType) ServiceProvider {
+	tryInitialize := func(initializer Initializer, serviceProviderBaseUrls map[config.ServiceProviderType][]string) ServiceProvider {
 		probe := initializer.Probe
 		ctor := initializer.Constructor
 		if probe == nil || ctor == nil {
@@ -148,30 +153,36 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	return hostCredentialProvider, nil
 }
 
-func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[string]config.ServiceProviderType, error) {
+func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
 	secretList := &corev1.SecretList{}
-	// TODO: list by all types of service providers
-	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.MatchingLabels{
-		api.ServiceProviderTypeLabel: "",
+	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
+		api.ServiceProviderTypeLabel,
 	})
 	if listErr != nil {
 		return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
 	}
 
-	baseUrls := make(map[string]config.ServiceProviderType)
+	// We need to add all known service provider urls as they might not be filled out in shared config.
+	// In case they are, it does not cause issue.
+	allBaseUrls := make(map[config.ServiceProviderType][]string)
+	allBaseUrls[config.ServiceProviderTypeGitHub] = []string{PUBLIC_GITHUB_URL}
+	allBaseUrls[config.ServiceProviderTypeQuay] = []string{PUBLIC_QUAY_URL}
+	allBaseUrls[config.ServiceProviderTypeGitLab] = []string{PUBLIC_GITLAB_URL}
+
 	for _, spConfig := range f.Configuration.SharedConfiguration.ServiceProviders {
 		if spConfig.ServiceProviderBaseUrl != "" {
-			baseUrls[spConfig.ServiceProviderBaseUrl] = spConfig.ServiceProviderType
+			allBaseUrls[spConfig.ServiceProviderType] = append(allBaseUrls[spConfig.ServiceProviderType], spConfig.ServiceProviderBaseUrl)
 		}
 	}
 
 	for _, secret := range secretList.Items {
 		if baseUrl, hasLabel := secret.ObjectMeta.Labels[api.ServiceProviderHostLabel]; hasLabel {
-			baseUrls[baseUrl] = config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel])
+			spType := config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel])
+			allBaseUrls[spType] = append(allBaseUrls[spType], baseUrl)
 		}
 	}
 
-	return baseUrls, nil
+	return allBaseUrls, nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {

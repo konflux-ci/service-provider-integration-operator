@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 func TestQuayProbe_Examine(t *testing.T) {
 	probe := quayProbe{}
 	test := func(t *testing.T, url string, expectedMatch bool) {
-		baseUrl, err := probe.Examine(nil, url)
+		baseUrl, err := probe.Examine(nil, url, nil)
 		expectedBaseUrl := ""
 		if expectedMatch {
 			expectedBaseUrl = "https://quay.io"

@@ -18,10 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/xanzy/go-gitlab"
-	http "net/http"
-	"strings"
 
 	"k8s.io/utils/strings/slices"
 
@@ -303,12 +304,12 @@ type gitlabProbe struct{}
 
 var _ serviceprovider.Probe = (*gitlabProbe)(nil)
 
-func (p gitlabProbe) Examine(_ *http.Client, repoUrl string, serviceProviderBaseUrls map[string]config.ServiceProviderType) (string, error) {
-
-	for spUrl, spType := range serviceProviderBaseUrls {
-		// TODO: this needs to be more robust as there might be cases where one url contains 'https://' and the other does not
-		if strings.Contains(repoUrl, spUrl) && spType == config.ServiceProviderTypeGitLab {
-			return spUrl, nil
+func (p gitlabProbe) Examine(_ *http.Client, repoUrl string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
+	for _, baseUrl := range serviceProviderBaseUrls[config.ServiceProviderTypeGitLab] {
+		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
+		baseUrlTrimmed := strings.TrimPrefix(baseUrl, "https://")
+		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
+			return "https://" + baseUrlTrimmed, nil
 		}
 	}
 	return "", nil
