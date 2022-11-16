@@ -17,13 +17,13 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/gorilla/handlers"
@@ -31,6 +31,7 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // OkHandler is a Handler implementation that responds only with http.StatusOK.
@@ -127,13 +128,37 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 	}
 }
 
+// BypassHandler is a Handler that redirects a request that has URL with certain prefix to a bypassHandler
+// all remaining requests are redirected to mainHandler.
+func BypassHandler(mainHandler http.Handler, bypassPathPrefixes []string, bypassHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, bypassPath := range bypassPathPrefixes {
+			if strings.HasPrefix(r.URL.Path, bypassPath) {
+				bypassHandler.ServeHTTP(w, r)
+				return
+			}
+		}
+		mainHandler.ServeHTTP(w, r)
+	})
+}
+
 // MiddlewareHandler is a Handler that composed couple of different responsibilities.
 // Like:
+// - Service metrics
 // - Request logging
 // - CORS processing
-func MiddlewareHandler(allowedOrigins []string, h http.Handler) http.Handler {
-	return handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
-		handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
-			handlers.AllowCredentials(),
-			handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "Authorization"}))(h))
+func MiddlewareHandler(reg prometheus.Registerer, allowedOrigins []string, h http.Handler) http.Handler {
+
+	middlewareHandler := HttpServiceInstrumentMetricHandler(reg,
+		handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
+			handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
+				handlers.AllowCredentials(),
+				handlers.AllowedHeaders([]string{
+					"Accept",
+					"Accept-Language",
+					"Content-Language",
+					"Origin",
+					"Authorization"}))(h)))
+
+	return BypassHandler(middlewareHandler, []string{"/health", "/ready"}, h)
 }

@@ -284,8 +284,6 @@ func TestObtainOauthConfig(t *testing.T) {
 		utilruntime.Must(v1.AddToScheme(scheme))
 		ctx := context.TODO()
 
-		//secretNamespace := "test-secretConfigNamespace"
-
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
@@ -440,6 +438,166 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, oauthCfg)
+	})
+}
+
+func TestMultipleProviders(t *testing.T) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(v1.AddToScheme(scheme))
+	ctx := context.TODO()
+
+	secretNamespace := "test-secretConfigNamespace"
+
+	oauthState := &oauthstate2.OAuthInfo{
+		TokenNamespace:      secretNamespace,
+		ServiceProviderType: config.ServiceProviderTypeGitHub,
+		ServiceProviderUrl:  "https://blabol.eh/",
+	}
+
+	test := func(t *testing.T, oauthConfigSecrets []v1.Secret, shouldFind bool, findSecretName string, shouldError bool) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithLists(&v1.SecretList{
+			Items: oauthConfigSecrets,
+		}).Build()
+
+		ctrl := commonController{
+			Config: config.ServiceProviderConfiguration{
+				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			},
+			K8sClient: cl,
+		}
+
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		assert.Equal(t, shouldFind, found, "should find the secret")
+		if shouldError {
+			assert.Error(t, err, "should error")
+		} else {
+			assert.NoError(t, err, "should not error")
+		}
+		if shouldFind {
+			assert.NotNil(t, secret)
+			assert.Equal(t, findSecretName, secret.Name)
+		}
+	}
+
+	t.Run("find secret with host", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+					},
+				},
+			},
+		}, true, "oauth-config-secret-hosted", false)
+	})
+
+	t.Run("if no secret host match, use default", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "different-host.eh",
+					},
+				},
+			},
+		}, true, "oauth-config-secret", false)
+	})
+
+	t.Run("if no secret host match or default, not-found", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "different-host.eh",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "another-different-host.eh",
+					},
+				},
+			},
+		}, false, "", false)
+	})
+
+	t.Run("multiple secrets with same host should error", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+					},
+				},
+			},
+		}, false, "", true)
+	})
+
+	t.Run("multiple secrets defaults without host should fail", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+					},
+				},
+			},
+		}, false, "", true)
 	})
 }
 
