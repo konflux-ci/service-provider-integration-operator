@@ -52,6 +52,7 @@ type Gitlab struct {
 	tokenStorage     tokenstorage.TokenStorage
 	glClientBuilder  gitlabClientBuilder
 	baseUrl          string
+	fileUrlResolver  fileUrlResolver
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -89,6 +90,7 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		httpClient:       factory.HttpClient,
 		glClientBuilder:  glClientBuilder,
 		baseUrl:          baseUrl,
+		fileUrlResolver:  NewGitlabFileUrlResolver(factory.HttpClient, glClientBuilder, baseUrl),
 	}, nil
 }
 
