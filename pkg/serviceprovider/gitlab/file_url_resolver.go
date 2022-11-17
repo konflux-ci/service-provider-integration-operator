@@ -7,7 +7,6 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/xanzy/go-gitlab"
-	"io"
 	"net/http"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,14 +46,20 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 	}
 	lg := log.FromContext(ctx)
 	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
-	var opts *gitlab.GetFileOptions = nil
+
+	var refOption gitlab.GetFileMetaDataOptions
+
+	//ref is required, need to set ir retrieve it
 	if ref != "" {
-		opts = &gitlab.GetFileOptions{Ref: &ref}
+		refOption = gitlab.GetFileMetaDataOptions{Ref: gitlab.String(ref)}
+	} else {
+		refOption = gitlab.GetFileMetaDataOptions{Ref: gitlab.String("HEAD")}
 	}
-	file, resp, err := glClient.RepositoryFiles.GetFile(m["owner"]+"/"+m["project"], filepath, opts)
+
+	file, resp, err := glClient.RepositoryFiles.GetFileMetaData(m["owner"]+"/"+m["project"], filepath, &refOption)
 	if err != nil {
-		bytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))
+		// unfortunately, GitLab library closes the response body, so it is cannot be read
+		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)
 	}
 
 	if file.Size > maxFileSizeLimit {
@@ -62,9 +67,9 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 		return "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}
 	return fmt.Sprintf(
-		f.baseUrl+"/projects/%s/repository/files/%s/raw?ref=%s",
+		f.baseUrl+"/api/v4/projects/%s/repository/files/%s/raw?ref=%s",
 		gitlab.PathEscape(m["owner"]+"/"+m["project"]),
 		gitlab.PathEscape(filepath),
-		ref,
+		*refOption.Ref,
 	), nil
 }

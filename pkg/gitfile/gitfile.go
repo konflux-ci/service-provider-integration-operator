@@ -15,8 +15,8 @@ package gitfile
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	"net/http"
@@ -24,7 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var secretDataEmptyError = stderrors.New("error reading the secret: data is empty")
+var (
+	secretDataEmptyError   = errors.New("error reading the secret: data is empty")
+	failedFileRequestError = errors.New("file request failed, unexpected status")
+)
 
 // GetFileContents is a function allowing to retrieve file content from the SCM provider.
 func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient http.Client, fileUrl string, namespace, secret string) (io.ReadCloser, error) {
@@ -39,6 +42,9 @@ func GetFileContents(ctx context.Context, k8sClient client.Client, httpClient ht
 	response, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file content: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w. Status code: %d. Message: %s", failedFileRequestError, response.StatusCode, response.Body)
 	}
 	return response.Body, nil
 }
