@@ -43,7 +43,7 @@ The caller then watches the `SPIAccessTokenBinding` and reacts to its status cha
 Additionally, SPI provides an HTTP endpoint for manually uploading the access token for a certain `SPIAccessToken` object. Therefore,
 the user doesn’t have to go through OAuth flow for tokens that they manually provide the access token for.
 
-q### Architecture
+### Architecture
 There are 2 main components. SPI HTTP API which is required for parts of the workflow that require direct user interaction and SPI CRDs (and a controller manager for them).
 The custom resources are meant to be used by the eventual Consumers of the secrets that require access tokens to communicate with service providers.
 Therefore, the main audience of SPI is the Consumers of the secrets. In the case of App Studio, this is most probably going to be HAS and/or HAC.
