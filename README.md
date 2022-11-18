@@ -8,7 +8,7 @@ A Kubernetes controller/operator that manages service provider integration tasks
 
 - [About](#About)
 - [Architecture](#Architecture)
-- [High level view](#High level view)
+- [High level view](#High-level-view)
 - [Service Provider Integration Glossary](#service-provider-integration-glossary)
     * [User](#user)
     * [SPI Controller Manager](#spi-controller-manager)
