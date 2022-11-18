@@ -99,10 +99,6 @@ func (q *Quay) GetBaseUrl() string {
 	return quayUrlBase
 }
 
-func (q *Quay) GetFileDownloadUrl(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
-	return "", serviceprovider.FileNotSupportedError{}
-}
-
 func (q *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }

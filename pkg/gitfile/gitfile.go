@@ -16,10 +16,11 @@ package gitfile
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
-	corev1 "k8s.io/api/core/v1"
 	"net/http"
+
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

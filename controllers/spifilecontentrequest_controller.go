@@ -19,10 +19,11 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -191,15 +192,22 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
 				return ctrl.Result{}, nil
 			}
+			downloadableSp, ok := sp.(serviceprovider.Downloadable)
+			if !ok {
+				r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
+				return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
+			}
+
 			token := &api.SPIAccessToken{}
 			err = r.K8sClient.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: binding.Status.LinkedAccessTokenName}, token)
 			if err != nil {
 				lg.Error(err, "unable to fetch the token")
 				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
 			}
-			url, err := sp.GetFileDownloadUrl(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)
+			url, err := downloadableSp.GetFileDownloadUrl(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)
 			if err != nil {
-				lg.Error(err, "unable to calculate the file download URL")
+				lg.Error(err, "fail to calculate the file download URL")
+				r.updateFileRequestStatusError(ctx, &request, err)
 				return ctrl.Result{}, fmt.Errorf("unable to calculate the file download URL: %w", err)
 			}
 			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, url, request.Namespace, binding.Status.SyncedObjectRef.Name)
@@ -212,6 +220,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error reading file content: %w", err)
 			}
+			request.Status.OAuthUrl = ""
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered

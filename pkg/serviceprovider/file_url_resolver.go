@@ -2,6 +2,7 @@ package serviceprovider
 
 import (
 	"context"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
