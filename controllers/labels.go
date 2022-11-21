@@ -14,4 +14,4 @@
 
 package controllers
 
-const SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //nolint:gosec // false positive, this is no private data
+const SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //#nosec G101 -- false positive, this is not a private data
