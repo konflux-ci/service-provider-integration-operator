@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -358,7 +356,7 @@ type quayProbe struct{}
 
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
-func (q quayProbe) Examine(_ *http.Client, url string, _ map[config.ServiceProviderType][]string) (string, error) {
+func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, "quay.io") {
 		return quayUrlBase, nil
 	} else {

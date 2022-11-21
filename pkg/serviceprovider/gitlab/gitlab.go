@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/xanzy/go-gitlab"
 
 	"k8s.io/utils/strings/slices"
@@ -39,6 +38,7 @@ import (
 var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
+var probeNotImplementedError = errors.New("gitLab probe not implemented")
 
 // Temp
 var notGitlabUrlError = errors.New("not a gitlab repository url")
@@ -304,13 +304,6 @@ type gitlabProbe struct{}
 
 var _ serviceprovider.Probe = (*gitlabProbe)(nil)
 
-func (p gitlabProbe) Examine(_ *http.Client, repoUrl string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
-	for _, baseUrl := range serviceProviderBaseUrls[config.ServiceProviderTypeGitLab] {
-		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
-		baseUrlTrimmed := strings.TrimPrefix(baseUrl, "https://")
-		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
-			return "https://" + baseUrlTrimmed, nil
-		}
-	}
-	return "", nil
+func (p gitlabProbe) Examine(_ *http.Client, _ string) (string, error) {
+	return "", probeNotImplementedError
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -97,30 +98,8 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
-	tryInitialize := func(initializer Initializer, serviceProviderBaseUrls map[config.ServiceProviderType][]string) ServiceProvider {
-		probe := initializer.Probe
-		ctor := initializer.Constructor
-		if probe == nil || ctor == nil {
-			return nil
-		}
 
-		baseUrl, err := probe.Examine(f.HttpClient, repoUrl, serviceProviderBaseUrls)
-		if err != nil {
-			return nil
-		}
-
-		if baseUrl != "" {
-			sp, err := ctor.Construct(f, baseUrl)
-			if err != nil {
-				return nil
-			}
-
-			return sp
-		}
-		return nil
-	}
-
-	serviceProviderBaseUrls, err := f.getBaseUrlsFromConfigs(ctx, namespace)
+	serviceProvidersBaseUrls, err := f.getBaseUrlsFromConfigs(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -130,14 +109,14 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 		if !ok {
 			continue
 		}
-		if sp := tryInitialize(initializer, serviceProviderBaseUrls); sp != nil {
+		if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[spc.ServiceProviderType]); sp != nil {
 			return sp, nil
 		}
 	}
 
-	for _, initializer := range f.Initializers {
+	for serviceProviderType, initializer := range f.Initializers {
 		if initializer.SupportsManualUploadOnlyMode {
-			if sp := tryInitialize(initializer, serviceProviderBaseUrls); sp != nil {
+			if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[serviceProviderType]); sp != nil {
 				return sp, nil
 			}
 		}
@@ -163,7 +142,7 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	}
 
 	// We need to add all known service provider urls as they might not be filled out in shared config.
-	// In case they are, it does not cause issue.
+	// In case they are, adding them does not cause an issue.
 	allBaseUrls := make(map[config.ServiceProviderType][]string)
 	allBaseUrls[config.ServiceProviderTypeGitHub] = []string{PUBLIC_GITHUB_URL}
 	allBaseUrls[config.ServiceProviderTypeQuay] = []string{PUBLIC_QUAY_URL}
@@ -183,6 +162,39 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	}
 
 	return allBaseUrls, nil
+}
+
+func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {
+	probe := initializer.Probe
+	ctor := initializer.Constructor
+	if probe == nil || ctor == nil {
+		return nil
+	}
+
+	baseUrl := ""
+	for _, providerBaseUrl := range baseUrlsForProvider {
+		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
+		baseUrlTrimmed := strings.TrimPrefix(providerBaseUrl, "https://")
+		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
+			baseUrl = "https://" + baseUrlTrimmed
+			break
+		}
+	}
+	if baseUrl == "" {
+		var err error
+		if baseUrl, err = probe.Examine(f.HttpClient, repoUrl); err != nil {
+			return nil
+		}
+	}
+
+	if baseUrl != "" {
+		sp, err := ctor.Construct(f, baseUrl)
+		if err != nil {
+			return nil
+		}
+		return sp
+	}
+	return nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {

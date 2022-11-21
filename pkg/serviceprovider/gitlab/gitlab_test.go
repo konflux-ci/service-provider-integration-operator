@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
@@ -324,33 +322,4 @@ func mockK8sClient() client.WithWatch {
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(token).Build()
-}
-
-func TestExamine(t *testing.T) {
-	probe := gitlabProbe{}
-	urlWithProtocol := "https://with.gitlab.url"
-	urlWoutProtocol := "without.gitlab.url"
-	urls := make(map[config.ServiceProviderType][]string)
-	urls[config.ServiceProviderTypeGitLab] = []string{urlWithProtocol, urlWoutProtocol}
-
-	test := func(repoUrl string, expectedFoundBaseUrl string) {
-		t.Run("expects base URL: "+expectedFoundBaseUrl, func(t *testing.T) {
-
-			baseUrl, err := probe.Examine(nil, repoUrl, urls)
-			assert.NoError(t, err)
-			assert.Equal(t, expectedFoundBaseUrl, baseUrl)
-		})
-	}
-
-	test("with.gitlab.url/repo/path", urlWithProtocol)
-	test("https://with.gitlab.url/with/repo/path", urlWithProtocol)
-
-	test("without.gitlab.url/with/path", "https://"+urlWoutProtocol)
-	test("https://without.gitlab.url/with/path", "https://"+urlWoutProtocol)
-
-	//change the config so that only matching url is under GitHub
-	urls[config.ServiceProviderTypeGitLab] = []string{}
-	urls[config.ServiceProviderTypeGitHub] = []string{"https://some.gitlab.url"}
-
-	test("https://some.gitlab.url/path/repo", "")
 }

@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -128,7 +129,7 @@ func TestFromRepoUrl(t *testing.T) {
 		Probe: struct {
 			ProbeFunc
 		}{
-			ProbeFunc: func(cl *http.Client, url string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
+			ProbeFunc: func(cl *http.Client, url string) (string, error) {
 				return "https://base-url.com", nil
 			},
 		},
@@ -241,4 +242,61 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub], PUBLIC_GITHUB_URL)
 	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay], PUBLIC_QUAY_URL)
 	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab], PUBLIC_GITLAB_URL)
+}
+
+func TestInitializeServiceProvider(t *testing.T) {
+	factory := Factory{}
+	urlWithProtocol := "https://with.service.url"
+	urlWoutProtocol := "without.service.url"
+
+	test := func(repoUrl string, expectedSPBaseUrl string, baseUrls []string) {
+		mockSP := struct {
+			ServiceProvider
+		}{}
+
+		initializer := Initializer{Probe: struct {
+			ProbeFunc
+		}{
+			ProbeFunc: func(cl *http.Client, url string) (string, error) {
+				assert.FailNow(t, "should not be called")
+				return "", nil
+			},
+		}, Constructor: struct {
+			ConstructorFunc
+		}{
+			ConstructorFunc: func(factory *Factory, baseUrl string) (ServiceProvider, error) {
+				assert.Equal(t, expectedSPBaseUrl, baseUrl)
+				return mockSP, nil
+			},
+		}}
+
+		t.Run("should create service provider with base URL: "+expectedSPBaseUrl, func(t *testing.T) {
+			sp := factory.initializeServiceProvider(initializer, repoUrl, baseUrls)
+			assert.NotNil(t, sp)
+			assert.Equal(t, mockSP, sp)
+		})
+	}
+
+	test("with.service.url/repo/path", urlWithProtocol, []string{urlWithProtocol})
+	test("https://with.service.url/with/repo/path", urlWithProtocol, []string{urlWithProtocol})
+
+	test("without.service.url/with/path", "https://"+urlWoutProtocol, []string{urlWoutProtocol})
+	test("https://without.service.url/with/path", "https://"+urlWoutProtocol, []string{urlWoutProtocol})
+
+	initializer := Initializer{Probe: struct {
+		ProbeFunc
+	}{
+		ProbeFunc: func(cl *http.Client, url string) (string, error) {
+			return "", fmt.Errorf("no urls matching found")
+		},
+	}, Constructor: struct {
+		ConstructorFunc
+	}{
+		ConstructorFunc: func(factory *Factory, baseUrl string) (ServiceProvider, error) {
+			assert.FailNow(t, "should not be called")
+			return nil, nil
+		},
+	}}
+	sp := factory.initializeServiceProvider(initializer, "another.service.url/with/path", []string{urlWithProtocol, urlWoutProtocol})
+	assert.Nil(t, sp)
 }

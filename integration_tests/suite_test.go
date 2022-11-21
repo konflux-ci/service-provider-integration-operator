@@ -154,7 +154,7 @@ var _ = BeforeSuite(func() {
 	ITest.NoPrivsClient = noPrivsClient
 
 	ITest.TestServiceProvider = TestServiceProvider{}
-	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
+	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
 		if strings.HasPrefix(baseUrl, "test-provider://") {
 			return "test-provider://baseurl", nil
 		}
@@ -221,16 +221,16 @@ var _ = BeforeSuite(func() {
 	// in the cluster.
 	err = controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, strg, map[config.ServiceProviderType]serviceprovider.Initializer{
 		"TestServiceProvider": {
-			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
-				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl, serviceProviderBaseUrls)
+			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 			}),
 			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 				return ITest.TestServiceProvider, nil
 			}),
 		},
 		"HostCredentials": {
-			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string, serviceProviderBaseUrls map[config.ServiceProviderType][]string) (string, error) {
-				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl, serviceProviderBaseUrls)
+			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 			}),
 			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 				return ITest.HostCredsServiceProvider, nil

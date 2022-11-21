@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -279,7 +277,7 @@ type githubProbe struct{}
 
 var _ serviceprovider.Probe = (*githubProbe)(nil)
 
-func (g githubProbe) Examine(_ *http.Client, url string, _ map[config.ServiceProviderType][]string) (string, error) {
+func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
 	if strings.HasPrefix(url, "https://github.com") {
 		return "https://github.com", nil
 	} else {
