@@ -22,3 +22,5 @@ var gitlabEndpoint = oauth2.Endpoint{
 	AuthURL:  "https://gitlab.com/oauth/authorize",
 	TokenURL: "https://gitlab.com/oauth/token",
 }
+
+var gitlabUrlBaseHost = "gitlab.com"

@@ -18,13 +18,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 )
 
 var (
@@ -52,7 +52,7 @@ const (
 	oauthFinishError
 )
 
-func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
+func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg RouterConfiguration, defaultBaseUrlHost string, defaultEndpoint oauth2.Endpoint) (Controller, error) {
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
 	ts := &tokenstorage.NotifyingTokenStorage{
 		Client:       cfg.K8sClient,
@@ -75,9 +75,13 @@ func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg Rout
 			continue
 		}
 
-		baseUrl, errBaseUrl := determineBaseUrl(sp.ServiceProviderType, sp.ServiceProviderBaseUrl)
-		if errBaseUrl != nil {
-			return nil, fmt.Errorf("failed to initialize service provider: %w", errBaseUrl)
+		baseUrl := defaultBaseUrlHost
+		if sp.ServiceProviderBaseUrl != "" {
+			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
+			if parseUrlErr != nil {
+				return nil, fmt.Errorf("failed to parse service provider url: %w", parseUrlErr)
+			}
+			baseUrl = baseUrlParsed.Host
 		}
 
 		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", baseUrl)
@@ -85,24 +89,14 @@ func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg Rout
 			return nil, fmt.Errorf("service provider '%s' with base url '%s' already initialized", spType, baseUrl)
 		}
 
-		var endpoint oauth2.Endpoint
-		switch sp.ServiceProviderType {
-		case config.ServiceProviderTypeGitHub:
-			endpoint = github.Endpoint
-		case config.ServiceProviderTypeQuay:
-			endpoint = quayEndpoint
-		case config.ServiceProviderTypeGitLab:
-			if sp.ServiceProviderBaseUrl == "" {
-				endpoint = gitlabEndpoint
-			} else {
-				endpoint = oauth2.Endpoint{
-					AuthURL:  sp.ServiceProviderBaseUrl + "/oauth/authorize",
-					TokenURL: sp.ServiceProviderBaseUrl + "/oauth/token",
-				}
+		endpoint := defaultEndpoint
+		if sp.ServiceProviderBaseUrl != "" {
+			endpoint = oauth2.Endpoint{
+				AuthURL:  sp.ServiceProviderBaseUrl + "/oauth/authorize",
+				TokenURL: sp.ServiceProviderBaseUrl + "/oauth/token",
 			}
-		default:
-			return nil, notImplementedError
 		}
+
 		controller.ServiceProviderInstance[baseUrl] = oauthConfiguration{
 			Config:   sp,
 			Endpoint: endpoint,

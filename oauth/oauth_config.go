@@ -50,14 +50,19 @@ var (
 func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
 	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
 
-	oauthConfig := c.ServiceProviderInstance[info.ServiceProviderUrl]
+	spUrl, urlParseErr := url.Parse(info.ServiceProviderUrl)
+	if urlParseErr != nil {
+		return nil, fmt.Errorf("failed to parse serviceprovider url: %w", urlParseErr)
+	}
+
+	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
 
 	oauthCfg := &oauth2.Config{
-		Endpoint:    oauthConfig.Endpoint,
+		Endpoint:    defaultOauthConfig.Endpoint,
 		RedirectURL: c.redirectUrl(),
 	}
 
-	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(ctx, info)
+	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(ctx, info.TokenNamespace, spUrl.Host)
 	if findErr != nil {
 		return nil, findErr
 	}
@@ -69,19 +74,21 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		} else {
 			return nil, fmt.Errorf("failed to create oauth config from the secret: %w", createOauthCfgErr)
 		}
-	} else {
+	} else if foundDefaultOauthConfig {
 		lg.V(logs.DebugLevel).Info("using default oauth config")
-		oauthCfg.ClientID = oauthConfig.Config.ClientId
-		oauthCfg.ClientSecret = oauthConfig.Config.ClientSecret
+		oauthCfg.ClientID = defaultOauthConfig.Config.ClientId
+		oauthCfg.ClientSecret = defaultOauthConfig.Config.ClientSecret
 		return oauthCfg, nil
+	} else {
+		return nil, fmt.Errorf("haven't found oauth configuration for service provider '%s' '%s'", info.ServiceProviderType, info.ServiceProviderUrl)
 	}
 }
 
-func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oauthstate.OAuthInfo) (bool, *corev1.Secret, error) {
-	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
+func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNamespace string, spHost string) (bool, *corev1.Secret, error) {
+	lg := log.FromContext(ctx).WithValues("spHost", spHost)
 
 	secrets := &corev1.SecretList{}
-	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(info.TokenNamespace), client.MatchingLabels{
+	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
 		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
@@ -98,18 +105,14 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, info *oaut
 		return false, nil, nil
 	}
 
-	spUrlHost, urlParseErr := url.Parse(info.ServiceProviderUrl)
-	if urlParseErr != nil {
-		return false, nil, fmt.Errorf("failed to parse service provider url: %w", urlParseErr)
-	}
 	var oauthSecretWithoutHost *corev1.Secret
 	var oauthSecretWithHost *corev1.Secret
 
 	// go through all found oauth secret configs
 	for _, oauthSecret := range secrets.Items {
 		// if we find one labeled for sp host, we take it
-		if spHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
-			if spHost == spUrlHost.Host {
+		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
+			if labelSpHost == spHost {
 				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
 					return false, nil, errMultipleMatchingSecrets
 				}

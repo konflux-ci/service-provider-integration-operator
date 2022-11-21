@@ -68,7 +68,7 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return strings.TrimSuffix(c.BaseUrl, "/") + "/" + strings.ToLower(string(c.ServiceProviderType)) + "/callback"
+	return strings.TrimSuffix(c.BaseUrl, "/") + "/oauth/callback"
 }
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {

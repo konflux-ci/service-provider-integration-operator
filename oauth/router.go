@@ -10,6 +10,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,6 +42,31 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
+type serviceProviderDefaults struct {
+	spType   config.ServiceProviderType
+	endpoint oauth2.Endpoint
+	baseUrl  string
+}
+
+// these are default values for all service providers we support
+var spDefaults = []serviceProviderDefaults{
+	{
+		spType:   config.ServiceProviderTypeGitHub,
+		endpoint: github.Endpoint,
+		baseUrl:  "github.com",
+	},
+	{
+		spType:   config.ServiceProviderTypeQuay,
+		endpoint: quayEndpoint,
+		baseUrl:  quayUrlBaseHost,
+	},
+	{
+		spType:   config.ServiceProviderTypeGitLab,
+		endpoint: gitlabEndpoint,
+		baseUrl:  gitlabUrlBaseHost,
+	},
+}
+
 func NewRouter(lg *logr.Logger, cfg RouterConfiguration) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
@@ -47,34 +74,15 @@ func NewRouter(lg *logr.Logger, cfg RouterConfiguration) (*Router, error) {
 		stateStorage: cfg.StateStorage,
 	}
 
-	for _, spType := range []config.ServiceProviderType{config.ServiceProviderTypeGitHub, config.ServiceProviderTypeQuay, config.ServiceProviderTypeGitLab} {
-		if controller, initControllerErr := InitController(lg, spType, cfg); initControllerErr == nil {
-			router.controllers[spType] = controller
+	for _, sp := range spDefaults {
+		if controller, initControllerErr := InitController(lg, sp.spType, cfg, sp.baseUrl, sp.endpoint); initControllerErr == nil {
+			router.controllers[sp.spType] = controller
 		} else {
-			return nil, fmt.Errorf("failed to initialize controller '%s': %w", spType, initControllerErr)
+			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.spType, initControllerErr)
 		}
 	}
 
 	return router, nil
-}
-
-func determineBaseUrl(serviceProviderType config.ServiceProviderType, baseUrlFromConfig string) (string, error) {
-	if baseUrlFromConfig != "" {
-		return baseUrlFromConfig, nil
-	}
-
-	switch serviceProviderType {
-	case config.ServiceProviderTypeGitHub:
-		return "github.com", nil
-	case config.ServiceProviderTypeQuay:
-		return "quay.io", nil
-	case config.ServiceProviderTypeGitLab:
-		return "gitlab.com", nil
-	case config.ServiceProviderTypeHostCredentials:
-		return "", fmt.Errorf("can't use host credentials provider for oauth")
-	default:
-		return "", fmt.Errorf("failed to determine service provider base url")
-	}
 }
 
 func (r *Router) Callback() *CallbackRoute {
