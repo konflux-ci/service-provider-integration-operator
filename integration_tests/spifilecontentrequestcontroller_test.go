@@ -214,7 +214,7 @@ var _ = Describe("Request is removed", func() {
 
 })
 
-var _ = Describe("With binding is ready but provider not supported file downloads", func() {
+var _ = Describe("With binding is ready but provider not supports file downloads", func() {
 	var createdRequest *api.SPIFileContentRequest
 
 	BeforeEach(func() {

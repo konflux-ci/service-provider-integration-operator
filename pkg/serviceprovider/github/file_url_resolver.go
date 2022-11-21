@@ -39,6 +39,9 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 	}
 	lg := log.FromContext(ctx)
 	ghClient, err := f.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	if err != nil {
+		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
+	}
 	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, m["owner"], m["repo"], filepath, &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
 		bytes, _ := io.ReadAll(resp.Body)

@@ -4,5 +4,5 @@ metadata:
   name: test-file-content-request
   namespace: default
 spec:
-  repoUrl: https://foobar.com/mshaposhnik/proj1
-  filePath: foo/bar.txt
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  filePath: hack/boilerplate.go.txt

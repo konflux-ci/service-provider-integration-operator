@@ -47,6 +47,9 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 	}
 	lg := log.FromContext(ctx)
 	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
+	}
 
 	var refOption gitlab.GetFileMetaDataOptions
 
