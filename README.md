@@ -8,7 +8,7 @@ A Kubernetes controller/operator that manages service provider integration tasks
 
 - [About](#About)
 - [Architecture](#architecture)
-- [Service Provider Integration Glossary](#service-provider-integration-glossary)
+- [Glossary](#glossary)
     * [User](#user)
     * [SPI Controller Manager](#spi-controller-manager)
     * [SPI OAuth Service](#spi-oauth-service)
@@ -52,7 +52,7 @@ the cluster and the service providers.
 SPI will not provide any user-facing UI on its own.
 Instead, for stuff that will need user interaction, it will provide links to its REST API that will either consume supplied data or redirect to a service provider (in case of OAuth flow).
 
-## Service Provider Integration Glossary
+## Glossary
 
 ### User
 A user is understood to have identity in the Kubernetes cluster and has some RBAC rules associated with it that gives it permissions to create at least `SPIAccessTokenBinding` and `SPIAccessToken` CRs.
