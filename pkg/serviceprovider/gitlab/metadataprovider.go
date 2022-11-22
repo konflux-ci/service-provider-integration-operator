@@ -42,7 +42,7 @@ type metadataProvider struct {
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
-const gitlabOAuthTokenInfoPath = "oauth/token/info" //nolint:gosec // no security risk, just an API endpoint
+const gitlabOAuthTokenInfoPath = "oauth/token/info" //#nosec G101 -- no security risk, just an API endpoint
 const gitlabPatInfoPath = "personal_access_tokens/self"
 
 var gitlabNonOkError = errors.New("GitLab responded with non-ok status code")

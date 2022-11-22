@@ -56,7 +56,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
-const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //nolint:gosec
+const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //#nosec G101 -- false positive, this is not a private data
 
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
