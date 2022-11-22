@@ -131,7 +131,7 @@ func TestMapToken(t *testing.T) {
 					},
 					{
 						Type: api.PermissionTypeReadWrite,
-						Area: api.PermissionAreaRepository,
+						Area: api.PermissionAreaRegistry,
 					},
 				},
 				AdditionalScopes: []string{string(ScopeOrgAdmin)},
@@ -205,37 +205,37 @@ func TestQuay_OAuthScopesFor(t *testing.T) {
 	t.Run("empty", hasDefault(api.Permissions{}))
 	t.Run("read-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeRead,
 		},
 	}}))
 	t.Run("write-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeWrite,
 		},
 	}}))
 	t.Run("read-write-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeReadWrite,
 		},
 	}}))
 	t.Run("read-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeRead,
 		},
 	}}))
 	t.Run("write-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeWrite,
 		},
 	}}))
 	t.Run("read-write-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeReadWrite,
 		},
 	}}))
