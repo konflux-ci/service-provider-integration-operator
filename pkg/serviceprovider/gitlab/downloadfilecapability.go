@@ -18,11 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/xanzy/go-gitlab"
-	"net/http"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
