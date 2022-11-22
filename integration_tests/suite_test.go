@@ -28,8 +28,6 @@ import (
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	"github.com/hashicorp/vault/vault"
-
 	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -58,25 +56,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-type IntegrationTest struct {
-	Client                   client.Client
-	NoPrivsClient            client.Client
-	TestEnvironment          *envtest.Environment
-	Context                  context.Context
-	TokenStorage             tokenstorage.TokenStorage
-	Cancel                   context.CancelFunc
-	TestServiceProviderProbe serviceprovider.Probe
-	TestServiceProvider      TestServiceProvider
-	HostCredsServiceProvider TestServiceProvider
-	VaultTestCluster         *vault.TestCluster
-	OperatorConfiguration    *opconfig.OperatorConfiguration
-	MetricsRegistry          *prometheus.Registry
-}
-
-var ITest IntegrationTest
-
-var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
-
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -92,8 +71,6 @@ var _ = BeforeSuite(func() {
 	}
 	logs.InitDevelLoggers()
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	ITest = IntegrationTest{}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	ITest.Context = ctx
@@ -204,7 +181,6 @@ var _ = BeforeSuite(func() {
 
 	var strg tokenstorage.TokenStorage
 	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuthAndMetrics(GinkgoT(), ITest.MetricsRegistry)
-	Expect(err).NotTo(HaveOccurred())
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
 		Client:       cl,

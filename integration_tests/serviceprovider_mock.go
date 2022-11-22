@@ -39,6 +39,8 @@ type TestServiceProvider struct {
 	CustomizeReset            func(provider *TestServiceProvider)
 }
 
+var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
+
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	if t.CheckRepositoryAccessImpl == nil {
 		return &api.SPIAccessCheckStatus{}, nil
