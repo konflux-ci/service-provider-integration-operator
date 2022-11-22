@@ -78,60 +78,43 @@ var _ = Describe("Create without token data", func() {
 
 var _ = Describe("Status", func() {
 	var createdToken *api.SPIAccessToken
-	var origBaseUrl string
 	var origOAuthUrl string
 	var origUploadUrl string
 
-	triggerReconciliation := func() {
-		Eventually(func(g Gomega) {
-			// trigger the update of the token to force the reconciliation
-			currentToken := &api.SPIAccessToken{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
-			currentToken.Annotations = map[string]string{"random-anno": string(uuid.NewUUID())}
-			g.Expect(ITest.Client.Update(ITest.Context, currentToken)).To(Succeed())
-		}).Should(Succeed())
+	testSetup := TestSetup{
+		ToCreate: TestObjects{
+			Tokens: []*api.SPIAccessToken{
+				StandardTestToken("status-update-test"),
+			}},
+		Behavior: ITestBehavior{
+			BeforeObjectsCreated: func() {
+				ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
+				ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
+					return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+				}
+			},
+		},
 	}
-
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-		origBaseUrl = ITest.OperatorConfiguration.BaseUrl
-		ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
-		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-			return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
-		}
+		testSetup.BeforeEach()
+		Expect(testSetup.InCluster.Tokens).To(HaveLen(1))
+		createdToken = testSetup.InCluster.Tokens[0]
 
-		createdToken = &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "status-update-test",
-				Namespace:    "default",
-			},
-			Spec: api.SPIAccessTokenSpec{
-				ServiceProviderUrl: "test-provider://",
-			},
-		}
-
-		Expect(ITest.Client.Create(ITest.Context, createdToken)).To(Succeed())
-
-		Eventually(func(g Gomega) {
-			currentToken := &api.SPIAccessToken{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
-			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
-			origOAuthUrl = currentToken.Status.OAuthUrl
-			origUploadUrl = currentToken.Status.UploadUrl
-			g.Expect(origOAuthUrl).NotTo(BeEmpty())
-			g.Expect(origUploadUrl).NotTo(BeEmpty())
-		}).Should(Succeed())
+		Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
+		origOAuthUrl = createdToken.Status.OAuthUrl
+		origUploadUrl = createdToken.Status.UploadUrl
+		Expect(origOAuthUrl).NotTo(BeEmpty())
+		Expect(origUploadUrl).NotTo(BeEmpty())
 	})
 
 	AfterEach(func() {
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
-		ITest.OperatorConfiguration.BaseUrl = origBaseUrl
+		testSetup.AfterEach()
 	})
 
 	It("updates the OAuth URL when the base url changes in the config", func() {
 		ITest.OperatorConfiguration.BaseUrl = "https://completely-random-" + string(uuid.NewUUID())
 
-		triggerReconciliation()
+		TriggerReconciliation(createdToken)
 
 		Eventually(func(g Gomega) {
 			currentToken := &api.SPIAccessToken{}
@@ -144,7 +127,7 @@ var _ = Describe("Status", func() {
 	It("updates the upload URL when the base url changes in the config", func() {
 		ITest.OperatorConfiguration.BaseUrl = "https://completely-random-" + string(uuid.NewUUID())
 
-		triggerReconciliation()
+		TriggerReconciliation(createdToken)
 
 		Eventually(func(g Gomega) {
 			currentToken := &api.SPIAccessToken{}
@@ -158,32 +141,36 @@ var _ = Describe("Status", func() {
 var _ = Describe("Token data disappears", func() {
 	var createdToken *api.SPIAccessToken
 
+	testSetup := TestSetup{
+		ToCreate: TestObjects{
+			Tokens: []*api.SPIAccessToken{
+				StandardTestToken("data-test"),
+			},
+		},
+		Behavior: ITestBehavior{
+			AfterObjectsCreated: func(objects TestObjects) {
+				token := objects.Tokens[0]
+				Expect(ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
+					AccessToken: "access",
+				})).To(Succeed())
+				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					Username:             "alois",
+					UserId:               "42",
+					Scopes:               []string{},
+					ServiceProviderState: []byte("state"),
+				})
+			},
+		},
+	}
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-		_, createdToken = createStandardPair("data-test")
-		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+		testSetup.BeforeEach()
 
-		Expect(ITest.TokenStorage.Store(ITest.Context, createdToken, &api.Token{
-			AccessToken: "access",
-		})).To(Succeed())
-
-		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
-			Username:             "alois",
-			UserId:               "42",
-			Scopes:               []string{},
-			ServiceProviderState: []byte("state"),
-		})
-
-		Eventually(func(g Gomega) {
-			currentToken := &api.SPIAccessToken{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), currentToken)).To(Succeed())
-			g.Expect(currentToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
-		}).Should(Succeed())
+		createdToken = testSetup.InCluster.Tokens[0]
+		Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
 	})
 
 	AfterEach(func() {
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+		testSetup.AfterEach()
 	})
 
 	It("flips token back to awaiting phase when data disappears", func() {
@@ -203,15 +190,26 @@ var _ = Describe("Delete token", func() {
 	var createdBinding *api.SPIAccessTokenBinding
 	var createdToken *api.SPIAccessToken
 
+	testSetup := TestSetup{
+		ToCreate: TestObjects{
+			Bindings: []*api.SPIAccessTokenBinding{StandardTestBinding("delete-test")},
+		},
+		Behavior: ITestBehavior{
+			AfterObjectsCreated: func(objects TestObjects) {
+				ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+			},
+		},
+	}
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-		createdBinding, createdToken = createStandardPair("delete-test")
-		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+		testSetup.BeforeEach()
+		Expect(testSetup.InCluster.Tokens).To(HaveLen(1))
+		Expect(testSetup.InCluster.Bindings).To(HaveLen(1))
+		createdBinding = testSetup.InCluster.Bindings[0]
+		createdToken = testSetup.InCluster.Tokens[0]
 	})
 
 	AfterEach(func() {
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+		testSetup.AfterEach()
 	})
 
 	When("there are linked bindings", func() {
