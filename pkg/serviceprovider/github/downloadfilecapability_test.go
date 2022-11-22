@@ -31,9 +31,9 @@ import (
 func TestGetFileHead(t *testing.T) {
 	githubReached := false
 	mockResponse, _ := json.Marshal(map[string]interface{}{
-		"name":         "myfile",
-		"size":         582,
-		"download_url": "https://raw.githubusercontent.com/foo-user/foo-repo/HEAD/myfile",
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
 	})
 
 	client := &http.Client{
@@ -67,21 +67,21 @@ func TestGetFileHead(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := fileUrlResolver{client, githubClientBuilder}
-	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", &api.SPIAccessToken{})
+	fileCapability := downloadFileCapability{client, githubClientBuilder}
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, githubReached)
-	assert.Equal(t, "https://raw.githubusercontent.com/foo-user/foo-repo/HEAD/myfile", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetFileHeadGitSuffix(t *testing.T) {
 	githubReached := false
 	mockResponse, _ := json.Marshal(map[string]interface{}{
-		"name":         "myfile",
-		"size":         582,
-		"download_url": "https://raw.githubusercontent.com/foo-user/foo-repo/HEAD/myfile",
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
 	})
 
 	client := &http.Client{
@@ -115,21 +115,21 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := fileUrlResolver{client, githubClientBuilder}
-	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", &api.SPIAccessToken{})
+	fileCapability := downloadFileCapability{client, githubClientBuilder}
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, githubReached)
-	assert.Equal(t, "https://raw.githubusercontent.com/foo-user/foo-repo/HEAD/myfile", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetFileOnBranch(t *testing.T) {
 	githubReached := false
 	mockResponse, _ := json.Marshal(map[string]interface{}{
-		"name":         "myfile",
-		"size":         582,
-		"download_url": "https://raw.githubusercontent.com/foo-user/foo-repo/v0.1.0/myfile",
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
 	})
 
 	client := &http.Client{
@@ -162,22 +162,22 @@ func TestGetFileOnBranch(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := fileUrlResolver{client, githubClientBuilder}
-	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", &api.SPIAccessToken{})
+	fileCapability := downloadFileCapability{client, githubClientBuilder}
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, githubReached)
-	assert.Equal(t, "https://raw.githubusercontent.com/foo-user/foo-repo/v0.1.0/myfile", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetFileOnCommitId(t *testing.T) {
 
 	githubReached := false
 	mockResponse, _ := json.Marshal(map[string]interface{}{
-		"name":         "myfile",
-		"size":         582,
-		"download_url": "https://raw.githubusercontent.com/foo-user/foo-repo/efaf08a367921ae130c524db4a531b7696b7d967/myfile",
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
 	})
 
 	client := &http.Client{
@@ -211,13 +211,13 @@ func TestGetFileOnCommitId(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := fileUrlResolver{client, githubClientBuilder}
-	r1, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
+	fileCapability := downloadFileCapability{client, githubClientBuilder}
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, githubReached)
-	assert.Equal(t, "https://raw.githubusercontent.com/foo-user/foo-repo/efaf08a367921ae130c524db4a531b7696b7d967/myfile", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetUnexistingFile(t *testing.T) {
@@ -249,8 +249,8 @@ func TestGetUnexistingFile(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := fileUrlResolver{client, githubClientBuilder}
-	_, err := resolver.Resolve(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
+	fileCapability := downloadFileCapability{client, githubClientBuilder}
+	_, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
 	if err == nil {
 		t.Error("error expected")
 	}

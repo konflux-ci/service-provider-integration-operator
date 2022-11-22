@@ -15,7 +15,9 @@
 package gitlab
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +31,11 @@ import (
 
 func TestGetFileHead(t *testing.T) {
 	gitlabReached := false
+	mockResponse, _ := json.Marshal(map[string]interface{}{
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
+	})
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -36,13 +43,9 @@ func TestGetFileHead(t *testing.T) {
 				gitlabReached = true
 				return &http.Response{
 					StatusCode: 200,
-					Header: http.Header{
-						"content-type":  {"application/json"},
-						"x-gitlab-ref":  {"main"},
-						"x-gitlab-size": {"6192"},
-					},
-					Body:    ioutil.NopCloser(strings.NewReader("")),
-					Request: r,
+					Header:     http.Header{},
+					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Request:    r,
 				}, nil
 			}
 
@@ -65,30 +68,31 @@ func TestGetFileHead(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := NewGitlabFileUrlResolver(client, gitlabClientBuilder, "https://fake.github.com")
-	r1, err := resolver.Resolve(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "", &api.SPIAccessToken{})
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, gitlabReached)
-	assert.Equal(t, "https://fake.github.com/api/v4/projects/foo-user%2Ffoo-repo/repository/files/myfile/raw?ref=HEAD", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetFileHeadGitSuffix(t *testing.T) {
 	gitlabReached := false
+	mockResponse, _ := json.Marshal(map[string]interface{}{
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
+	})
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL.String() == "https://fake.github.com/api/v4/projects/foo-user%2Ffoo-repo/repository/files/myfile?ref=HEAD" {
 				gitlabReached = true
 				return &http.Response{
 					StatusCode: 200,
-					Header: http.Header{
-						"content-type":  {"application/json"},
-						"x-gitlab-ref":  {"main"},
-						"x-gitlab-size": {"6192"},
-					},
-					Body:    ioutil.NopCloser(strings.NewReader("")),
-					Request: r,
+					Header:     http.Header{},
+					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Request:    r,
 				}, nil
 			}
 
@@ -111,17 +115,22 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := NewGitlabFileUrlResolver(client, gitlabClientBuilder, "https://fake.github.com")
-	r1, err := resolver.Resolve(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "", &api.SPIAccessToken{})
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, gitlabReached)
-	assert.Equal(t, "https://fake.github.com/api/v4/projects/foo-user%2Ffoo-repo/repository/files/myfile/raw?ref=HEAD", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetFileOnBranch(t *testing.T) {
 	githubReached := false
+	mockResponse, _ := json.Marshal(map[string]interface{}{
+		"name":    "myfile",
+		"size":    582,
+		"content": "abcdefg",
+	})
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -129,13 +138,9 @@ func TestGetFileOnBranch(t *testing.T) {
 				githubReached = true
 				return &http.Response{
 					StatusCode: 200,
-					Header: http.Header{
-						"content-type":  {"application/json"},
-						"x-gitlab-ref":  {"main"},
-						"x-gitlab-size": {"6192"},
-					},
-					Body:    ioutil.NopCloser(strings.NewReader("")),
-					Request: r,
+					Header:     http.Header{},
+					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Request:    r,
 				}, nil
 			}
 
@@ -157,13 +162,13 @@ func TestGetFileOnBranch(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := NewGitlabFileUrlResolver(client, gitlabClientBuilder, "https://fake.github.com")
-	r1, err := resolver.Resolve(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "v0.1.0", &api.SPIAccessToken{})
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "v0.1.0", &api.SPIAccessToken{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	assert.True(t, githubReached)
-	assert.Equal(t, "https://fake.github.com/api/v4/projects/foo-user%2Ffoo-repo/repository/files/myfile/raw?ref=v0.1.0", r1)
+	assert.Equal(t, "abcdefg", content)
 }
 
 func TestGetUnexistingFile(t *testing.T) {
@@ -195,8 +200,8 @@ func TestGetUnexistingFile(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	resolver := NewGitlabFileUrlResolver(client, gitlabClientBuilder, "https://fake.github.com")
-	_, err := resolver.Resolve(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
+	_, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{})
 	if err == nil {
 		t.Error("error expected")
 	}

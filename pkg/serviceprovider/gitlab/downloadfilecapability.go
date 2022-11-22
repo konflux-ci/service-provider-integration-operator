@@ -18,24 +18,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"regexp"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/xanzy/go-gitlab"
+	"net/http"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type fileUrlResolver struct {
+type downloadFileCapability struct {
 	httpClient      *http.Client
 	glClientBuilder gitlabClientBuilder
 	baseUrl         string
 	gitLabUrlRegexp *regexp.Regexp
 }
 
-func NewGitlabFileUrlResolver(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string) fileUrlResolver {
-	return fileUrlResolver{
+func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string) downloadFileCapability {
+	return downloadFileCapability{
 		httpClient:      httpClient,
 		glClientBuilder: glClientBuilder,
 		baseUrl:         baseUrl,
@@ -43,7 +42,7 @@ func NewGitlabFileUrlResolver(httpClient *http.Client, glClientBuilder gitlabCli
 	}
 }
 
-var _ serviceprovider.FileUrlResolver = (*fileUrlResolver)(nil)
+var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 
 var (
 	unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
@@ -52,7 +51,7 @@ var (
 
 var maxFileSizeLimit int = 2097152
 
-func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
 	gitLabURLRegexpNames := f.gitLabUrlRegexp.SubexpNames()
 	result := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
 	m := map[string]string{}
@@ -65,16 +64,16 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}
 
-	var refOption gitlab.GetFileMetaDataOptions
+	var refOption gitlab.GetFileOptions
 
 	//ref is required, need to set ir retrieve it
 	if ref != "" {
-		refOption = gitlab.GetFileMetaDataOptions{Ref: gitlab.String(ref)}
+		refOption = gitlab.GetFileOptions{Ref: gitlab.String(ref)}
 	} else {
-		refOption = gitlab.GetFileMetaDataOptions{Ref: gitlab.String("HEAD")}
+		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
 	}
 
-	file, resp, err := glClient.RepositoryFiles.GetFileMetaData(m["owner"]+"/"+m["project"], filepath, &refOption)
+	file, resp, err := glClient.RepositoryFiles.GetFile(m["owner"]+"/"+m["project"], filepath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
 		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)
@@ -84,10 +83,5 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 		lg.Error(err, "file size too big")
 		return "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}
-	return fmt.Sprintf(
-		f.baseUrl+"/api/v4/projects/%s/repository/files/%s/raw?ref=%s",
-		gitlab.PathEscape(m["owner"]+"/"+m["project"]),
-		gitlab.PathEscape(filepath),
-		*refOption.Ref,
-	), nil
+	return file.Content, nil
 }

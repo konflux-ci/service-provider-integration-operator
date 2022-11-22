@@ -18,22 +18,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"regexp"
-
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"io"
+	"net/http"
+	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type fileUrlResolver struct {
+type downloadFileCapability struct {
 	httpClient      *http.Client
 	ghClientBuilder githubClientBuilder
 }
 
-var _ serviceprovider.FileUrlResolver = (*fileUrlResolver)(nil)
+var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 
 var (
 	unexpectedStatusCodeError  = errors.New("unexpected status code from GitHub API")
@@ -41,15 +40,15 @@ var (
 	pathIsADirectoryError      = errors.New("provided path refers to a directory, not file")
 )
 
-var GithubURLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)(.git)?$`)
-var GithubURLRegexpNames = GithubURLRegexp.SubexpNames()
+var _URLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)(.git)?$`)
+var _URLRegexpNames = _URLRegexp.SubexpNames()
 var maxFileSizeLimit int = 2097152
 
-func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
-	result := GithubURLRegexp.FindAllStringSubmatch(repoUrl, -1)
+func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+	result := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
 	m := map[string]string{}
 	for i, n := range result[0] {
-		m[GithubURLRegexpNames[i]] = n
+		m[_URLRegexpNames[i]] = n
 	}
 	lg := log.FromContext(ctx)
 	ghClient, err := f.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
@@ -68,5 +67,10 @@ func (f fileUrlResolver) Resolve(ctx context.Context, repoUrl, filepath, ref str
 		lg.Error(err, "file size too big")
 		return "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}
-	return file.GetDownloadURL(), nil
+	content, err := file.GetContent()
+	if err != nil {
+		lg.Error(err, "file content reading error")
+		return "", fmt.Errorf("content reading error: %w", err)
+	}
+	return content, nil
 }

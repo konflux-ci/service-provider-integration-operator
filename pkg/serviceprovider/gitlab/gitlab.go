@@ -46,14 +46,14 @@ var notGitlabUrlError = errors.New("not a gitlab repository url")
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
-	Configuration    *opconfig.OperatorConfiguration
-	lookup           serviceprovider.GenericLookup
-	metadataProvider *metadataProvider
-	httpClient       rest.HTTPClient
-	tokenStorage     tokenstorage.TokenStorage
-	glClientBuilder  gitlabClientBuilder
-	baseUrl          string
-	fileUrlResolver  fileUrlResolver
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	metadataProvider       *metadataProvider
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	glClientBuilder        gitlabClientBuilder
+	baseUrl                string
+	downloadFileCapability downloadFileCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -86,12 +86,12 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 			MetadataCache:       &cache,
 			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
-		tokenStorage:     factory.TokenStorage,
-		metadataProvider: mp,
-		httpClient:       factory.HttpClient,
-		glClientBuilder:  glClientBuilder,
-		baseUrl:          baseUrl,
-		fileUrlResolver:  NewGitlabFileUrlResolver(factory.HttpClient, glClientBuilder, baseUrl),
+		tokenStorage:           factory.TokenStorage,
+		metadataProvider:       mp,
+		httpClient:             factory.HttpClient,
+		glClientBuilder:        glClientBuilder,
+		baseUrl:                baseUrl,
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
 	}, nil
 }
 
@@ -119,8 +119,8 @@ func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
 }
 
-func (g *Gitlab) GetFileDownloadUrl(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
-	return g.fileUrlResolver.Resolve(ctx, repoUrl, filepath, ref, token)
+func (g *Gitlab) GetDownloadFileCapability() downloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {

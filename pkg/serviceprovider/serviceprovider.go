@@ -170,13 +170,6 @@ type Matchable interface {
 	ObjNamespace() string
 }
 
-type Downloadable interface {
-	// GetFileDownloadUrl constructs the raw file content URL from provided Git repository, filepath and optional ref.
-	// FileDownloadNotSupportedError error is thrown if provider which does not support Git storage (like Quay)
-	// and does not implement this interface
-	GetFileDownloadUrl(ctc context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error)
-}
-
 var _ Matchable = (*api.SPIAccessCheck)(nil)
 var _ Matchable = (*api.SPIAccessTokenBinding)(nil)
 
@@ -200,11 +193,4 @@ func DefaultMapToken(tokenObject *api.SPIAccessToken, tokenData *api.Token) Acce
 		ExpiredAfter:            &tokenData.Expiry,
 		Scopes:                  scopes,
 	}
-}
-
-type FileDownloadNotSupportedError struct {
-}
-
-func (f FileDownloadNotSupportedError) Error() string {
-	return "provided repository URL does not supports file downloading"
 }

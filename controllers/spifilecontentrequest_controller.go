@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -30,8 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -192,8 +189,8 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
 				return ctrl.Result{}, nil
 			}
-			downloadableSp, ok := sp.(serviceprovider.Downloadable)
-			if !ok {
+			downloadableSp, ok := sp.(serviceprovider.ScmProvider)
+			if !ok || downloadableSp.GetDownloadFileCapability() == nil {
 				r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 				return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
 			}
@@ -204,25 +201,14 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				lg.Error(err, "unable to fetch the token")
 				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
 			}
-			url, err := downloadableSp.GetFileDownloadUrl(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)
-			if err != nil {
-				lg.Error(err, "fail to calculate the file download URL")
-				r.updateFileRequestStatusError(ctx, &request, err)
-				return ctrl.Result{}, fmt.Errorf("unable to calculate the file download URL: %w", err)
-			}
-			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, url, request.Namespace, binding.Status.SyncedObjectRef.Name)
+			contents, err := downloadableSp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
 			}
-			fileBytes, err := io.ReadAll(contents)
-			if err != nil {
-				r.updateFileRequestStatusError(ctx, &request, err)
-				return reconcile.Result{}, fmt.Errorf("error reading file content: %w", err)
-			}
 			request.Status.OAuthUrl = ""
 			request.Status.ContentEncoding = "base64"
-			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
+			request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 			if err = deleteSyncedBinding(ctx, r.K8sClient, &request); err != nil {
 				log.FromContext(ctx).Error(err, "failed to cleanup the binding, re-queueing it", "error", err)

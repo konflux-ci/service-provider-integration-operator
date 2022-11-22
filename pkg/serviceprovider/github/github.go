@@ -44,12 +44,12 @@ var (
 )
 
 type Github struct {
-	Configuration   *opconfig.OperatorConfiguration
-	lookup          serviceprovider.GenericLookup
-	httpClient      rest.HTTPClient
-	tokenStorage    tokenstorage.TokenStorage
-	ghClientBuilder githubClientBuilder
-	fileUrlResolver fileUrlResolver
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	ghClientBuilder        githubClientBuilder
+	downloadFileCapability downloadFileCapability
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -82,7 +82,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
-		fileUrlResolver: fileUrlResolver{
+		downloadFileCapability: downloadFileCapability{
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
 		},
@@ -101,8 +101,8 @@ func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
 }
 
-func (g *Github) GetFileDownloadUrl(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
-	return g.fileUrlResolver.Resolve(ctx, repoUrl, filepath, ref, token)
+func (g *Github) GetDownloadFileCapability() downloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Github) GetType() api.ServiceProviderType {
