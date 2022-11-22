@@ -190,7 +190,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, nil
 			}
 			downloadableSp, ok := sp.(serviceprovider.ScmProvider)
-			if !ok || downloadableSp.GetDownloadFileCapability() == nil {
+			if !ok {
 				r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 				return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
 			}

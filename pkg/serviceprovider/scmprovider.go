@@ -1,8 +1,8 @@
 package serviceprovider
 
 //ScmProvider is a marker interface for service providers, indicating that given SP is able to
-// perform an SCM-specific operations, such as file retrieving etc.
+// perform all listed SCM-specific operations, such as file retrieving or others.
 type ScmProvider interface {
-	// GetDownloadFileCapability non-nil returned value indicates given SCM provider is able to perform file download operation
+	// GetDownloadFileCapability returns download file capability
 	GetDownloadFileCapability() DownloadFileCapability
 }
