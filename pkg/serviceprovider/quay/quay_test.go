@@ -176,7 +176,7 @@ func TestValidate(t *testing.T) {
 
 	assert.Equal(t, 3, len(res.ScopeValidation))
 	assert.NotNil(t, res.ScopeValidation[0])
-	assert.Equal(t, "user-related permissions are not supported for Quay", res.ScopeValidation[0].Error())
+	assert.Equal(t, "unsupported permission area for Quay: 'user'", res.ScopeValidation[0].Error())
 	assert.NotNil(t, res.ScopeValidation[1])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
 	assert.NotNil(t, res.ScopeValidation[2])

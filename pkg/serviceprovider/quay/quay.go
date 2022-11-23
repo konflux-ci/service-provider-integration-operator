@@ -38,12 +38,12 @@ import (
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 var (
-	userRelatedPermissionsNotSupportedError = errors.New("user-related permissions are not supported for Quay")
-	unsupportedScopeError                   = errors.New("unsupported scope")
-	unknownScopeError                       = errors.New("unknown scope")
-	failedToParseRepoUrlError               = errors.New("failed to parse repository URL")
-	unexpectedStatusCodeError               = errors.New("unexpected status code")
-	noResponseError                         = errors.New("no response")
+	unsupportedAreaError      = errors.New("unsupported permission area for Quay")
+	unsupportedScopeError     = errors.New("unsupported scope")
+	unknownScopeError         = errors.New("unknown scope")
+	failedToParseRepoUrlError = errors.New("failed to parse repository URL")
+	unexpectedStatusCodeError = errors.New("unexpected status code")
+	noResponseError           = errors.New("no response")
 )
 
 type Quay struct {
@@ -147,15 +147,6 @@ func translateToQuayScopes(permission api.Permission) []string {
 			return []string{string(ScopePush)}
 		case api.PermissionTypeReadWrite:
 			return []string{string(ScopePull), string(ScopePush)}
-		}
-	case api.PermissionAreaUser:
-		switch permission.Type {
-		case api.PermissionTypeRead:
-			return []string{string(ScopeUserRead)}
-		case api.PermissionTypeWrite:
-			return []string{string(ScopeUserAdmin)}
-		case api.PermissionTypeReadWrite:
-			return []string{string(ScopeUserAdmin)}
 		}
 	}
 
@@ -329,11 +320,13 @@ func (q *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 	ret := serviceprovider.ValidationResult{}
 
-	userPermissionAreaRequested := false
 	for _, p := range validated.Permissions().Required {
-		if p.Area == api.PermissionAreaUser && !userPermissionAreaRequested {
-			ret.ScopeValidation = append(ret.ScopeValidation, userRelatedPermissionsNotSupportedError)
-			userPermissionAreaRequested = true
+		switch p.Area {
+		case api.PermissionAreaRegistry,
+			api.PermissionAreaRegistryMetadata:
+			continue
+		default:
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unsupportedAreaError, p.Area))
 		}
 	}
 
