@@ -38,15 +38,26 @@ import (
 var _ = Describe("Create without token data", func() {
 	var createdToken *api.SPIAccessToken
 
+	testSetup := TestSetup{
+		ToCreate: TestObjects{
+			Tokens: []*api.SPIAccessToken{
+				StandardTestToken("create-test"),
+			},
+		},
+		Behavior: ITestBehavior{
+			AfterObjectsCreated: func(objects TestObjects) {
+				ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+			},
+		},
+	}
+
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-		_, createdToken = createStandardPair("create-test")
-		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+		testSetup.BeforeEach()
+		createdToken = testSetup.InCluster.Tokens[0]
 	})
 
 	var _ = AfterEach(func() {
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
-		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+		testSetup.AfterEach()
 	})
 
 	It("sets up the finalizers", func() {
@@ -302,18 +313,22 @@ var _ = Describe("Delete token", func() {
 })
 
 var _ = Describe("Phase", func() {
-	var createdToken *api.SPIAccessToken
 
 	Context("with valid SP url", func() {
+		var createdToken *api.SPIAccessToken
+		testSetup := TestSetup{
+			ToCreate: TestObjects{Tokens: []*api.SPIAccessToken{StandardTestToken("phase-test")}},
+			Behavior: ITestBehavior{AfterObjectsCreated: func(objects TestObjects) {
+				ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+			}},
+		}
 		BeforeEach(func() {
-			ITest.TestServiceProvider.Reset()
-			_, createdToken = createStandardPair("phase-test")
-			ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+			testSetup.BeforeEach()
+			createdToken = testSetup.InCluster.Tokens[0]
 		})
 
 		AfterEach(func() {
-			Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
-			Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+			testSetup.AfterEach()
 		})
 
 		It("defaults to AwaitingTokenData", func() {
@@ -340,13 +355,7 @@ var _ = Describe("Phase", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				//force reconciliation
-				Eventually(func(g Gomega) {
-					token := &api.SPIAccessToken{}
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdToken), token)).To(Succeed())
-					token.Annotations = map[string]string{"foo": "bar"}
-					g.Expect(ITest.Client.Update(ITest.Context, token)).To(Succeed())
-				}).Should(Succeed())
+				testSetup.SettleWithCluster()
 			})
 
 			It("flips to ready", func() {
@@ -397,35 +406,26 @@ var _ = Describe("Phase", func() {
 
 	Context("returns common provider with random SP url", func() {
 		var otherToken *api.SPIAccessToken
+		testSetup := TestSetup{
+			ToCreate: TestObjects{Bindings: []*api.SPIAccessTokenBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "host-binding-",
+						Namespace:    "default",
+					},
+					Spec: api.SPIAccessTokenBindingSpec{
+						RepoUrl: "not-test-provider://foo",
+					},
+				}}},
+		}
 		BeforeEach(func() {
-			ITest.TestServiceProvider.Reset()
+			testSetup.BeforeEach()
+			binding := testSetup.InCluster.Bindings[0]
+			otherToken = testSetup.InCluster.Tokens[0]
 
-			otherBinding := &api.SPIAccessTokenBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "host-binding-",
-					Namespace:    "default",
-				},
-				Spec: api.SPIAccessTokenBindingSpec{
-					RepoUrl: "not-test-provider://foo",
-				},
-			}
-			ITest.TestServiceProvider.LookupTokenImpl = nil
-			Expect(ITest.Client.Create(ITest.Context, otherBinding)).To(Succeed())
-
-			Eventually(func(g Gomega) {
-				binding := &api.SPIAccessTokenBinding{}
-				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(otherBinding), binding)).To(Succeed())
-				g.Expect(binding.Status.LinkedAccessTokenName).NotTo(BeEmpty())
-				otherBinding = binding
-			}).Should(Succeed())
-			Eventually(func(g Gomega) {
-				otherToken = &api.SPIAccessToken{}
-				err := ITest.Client.Get(ITest.Context, client.ObjectKey{Name: otherBinding.Status.LinkedAccessTokenName, Namespace: otherBinding.Namespace}, otherToken)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(otherToken).NotTo(BeNil())
-				g.Expect(otherToken.Status.Phase).NotTo(BeEmpty())
-				g.Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://not-baseurl"))
-			}).Should(Succeed())
+			Expect(binding.Status.LinkedAccessTokenName).To(Equal(otherToken.Name))
+			Expect(otherToken.Status.Phase).NotTo(BeEmpty())
+			Expect(otherToken.Spec.ServiceProviderUrl).To(Equal("not-test-provider://not-baseurl"))
 		})
 
 		It("defaults to AwaitingTokenData with common type", func() {
