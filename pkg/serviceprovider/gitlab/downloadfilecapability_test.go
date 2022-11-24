@@ -17,6 +17,7 @@ package gitlab
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -34,7 +35,7 @@ func TestGetFileHead(t *testing.T) {
 	mockResponse, _ := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
-		"content": "abcdefg",
+		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
 
 	client := &http.Client{
