@@ -47,7 +47,10 @@ import (
 
 const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
 
-var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
+var (
+	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
+	noSuitableServiceProviderFound = stderrors.New("unable to find matchig service provider for the given URL")
+)
 
 type SPIFileContentRequestReconciler struct {
 	Configuration          *opconfig.OperatorConfiguration
@@ -198,7 +201,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				lg.Error(err, "unable to get the service provider")
 				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
 				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-				r.updateFileRequestStatusError(ctx, &request, fmt.Errorf("unable to find matchig service provider for the fiven URL"))
+				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 				return ctrl.Result{}, nil
 			}
 			downloadableSp, ok := sp.(serviceprovider.ScmProvider)
