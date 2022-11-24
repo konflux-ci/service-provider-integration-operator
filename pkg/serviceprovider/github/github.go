@@ -101,7 +101,7 @@ func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
 }
 
-func (g *Github) GetDownloadFileCapability() downloadFileCapability {
+func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
 }
 

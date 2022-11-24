@@ -16,6 +16,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -84,5 +85,9 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		lg.Error(err, "file size too big")
 		return "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}
-	return file.Content, nil
+	c, err := base64.StdEncoding.DecodeString(file.Content)
+	if err != nil {
+		return "", fmt.Errorf("unable to decode content: %w", err)
+	}
+	return string(c), nil
 }

@@ -207,6 +207,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
 			}
 			request.Status.OAuthUrl = ""
+			request.Status.ErrorMessage = ""
 			request.Status.ContentEncoding = "base64"
 			request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered

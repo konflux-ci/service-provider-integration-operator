@@ -119,7 +119,7 @@ func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
 }
 
-func (g *Gitlab) GetDownloadFileCapability() downloadFileCapability {
+func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
 }
 
