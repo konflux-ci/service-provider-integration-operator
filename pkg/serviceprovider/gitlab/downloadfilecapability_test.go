@@ -83,7 +83,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 	mockResponse, _ := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
-		"content": "abcdefg",
+		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -130,7 +130,7 @@ func TestGetFileOnBranch(t *testing.T) {
 	mockResponse, _ := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
-		"content": "abcdefg",
+		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
 
 	client := &http.Client{
