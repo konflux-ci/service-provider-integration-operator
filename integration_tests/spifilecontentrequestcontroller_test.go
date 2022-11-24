@@ -31,7 +31,7 @@ import (
 
 type testCapability struct{}
 
-func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
+func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
 	return "abcdefg", nil
 }
 

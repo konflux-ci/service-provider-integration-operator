@@ -43,9 +43,8 @@ var (
 
 var _URLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)(.git)?$`)
 var _URLRegexpNames = _URLRegexp.SubexpNames()
-var maxFileSizeLimit int = 2097152
 
-func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
 	submatches := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
 	matchesMap := map[string]string{}
 	for i, n := range submatches[0] {

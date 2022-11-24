@@ -29,5 +29,5 @@ func (f FileDownloadNotSupportedError) Error() string {
 
 //DownloadFileCapability indicates an ability of given SCM provider to download files from repository.
 type DownloadFileCapability interface {
-	DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error)
+	DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error)
 }

@@ -51,9 +51,7 @@ var (
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
 )
 
-var maxFileSizeLimit int = 2097152
-
-func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
 	gitLabURLRegexpNames := f.gitLabUrlRegexp.SubexpNames()
 	submatches := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
 	matchesMap := map[string]string{}
