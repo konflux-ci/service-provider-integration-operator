@@ -55,10 +55,10 @@ var maxFileSizeLimit int = 2097152
 
 func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
 	gitLabURLRegexpNames := f.gitLabUrlRegexp.SubexpNames()
-	result := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
-	m := map[string]string{}
-	for i, n := range result[0] {
-		m[gitLabURLRegexpNames[i]] = n
+	submatches := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
+	matchesMap := map[string]string{}
+	for i, n := range submatches[0] {
+		matchesMap[gitLabURLRegexpNames[i]] = n
 	}
 	lg := log.FromContext(ctx)
 	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
@@ -75,7 +75,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
 	}
 
-	file, resp, err := glClient.RepositoryFiles.GetFile(m["owner"]+"/"+m["project"], filepath, &refOption)
+	file, resp, err := glClient.RepositoryFiles.GetFile(matchesMap["owner"]+"/"+matchesMap["project"], filepath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
 		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)
@@ -85,9 +85,9 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		lg.Error(err, "file size too big")
 		return "", fmt.Errorf("%w: (%d)", fileSizeLimitExceededError, file.Size)
 	}
-	c, err := base64.StdEncoding.DecodeString(file.Content)
+	decoded, err := base64.StdEncoding.DecodeString(file.Content)
 	if err != nil {
 		return "", fmt.Errorf("unable to decode content: %w", err)
 	}
-	return string(c), nil
+	return string(decoded), nil
 }

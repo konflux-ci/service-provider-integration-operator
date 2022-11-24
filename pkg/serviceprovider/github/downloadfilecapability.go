@@ -46,17 +46,17 @@ var _URLRegexpNames = _URLRegexp.SubexpNames()
 var maxFileSizeLimit int = 2097152
 
 func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken) (string, error) {
-	result := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
-	m := map[string]string{}
-	for i, n := range result[0] {
-		m[_URLRegexpNames[i]] = n
+	submatches := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
+	matchesMap := map[string]string{}
+	for i, n := range submatches[0] {
+		matchesMap[_URLRegexpNames[i]] = n
 	}
 	lg := log.FromContext(ctx)
 	ghClient, err := f.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
-	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, m["owner"], m["repo"], filepath, &github.RepositoryContentGetOptions{Ref: ref})
+	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, matchesMap["owner"], matchesMap["repo"], filepath, &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
 		bytes, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))

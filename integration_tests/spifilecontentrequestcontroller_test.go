@@ -15,7 +15,11 @@
 package integrationtests
 
 import (
+	"context"
+	"encoding/base64"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,11 +29,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type testCapability struct{}
+
+func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken) (string, error) {
+	return "abcdefg", nil
+}
+
 var _ = Describe("Create without token data", func() {
 	var createdRequest *api.SPIFileContentRequest
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
+		ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
 		ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
 			return "test-provider://test"
 		}
@@ -74,7 +85,7 @@ var _ = Describe("With binding is in error", func() {
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
-
+		ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "filerequest-",
@@ -156,7 +167,7 @@ var _ = Describe("Request is removed", func() {
 
 	BeforeEach(func() {
 		ITest.TestServiceProvider.Reset()
-
+		ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "filerequest-",
@@ -214,12 +225,11 @@ var _ = Describe("Request is removed", func() {
 
 })
 
-var _ = Describe("With binding is ready but provider not supports file downloads", func() {
+var _ = Describe("With binding is ready", func() {
 	var createdRequest *api.SPIFileContentRequest
 
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-
+		ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "filerequest-",
@@ -266,12 +276,12 @@ var _ = Describe("With binding is ready but provider not supports file downloads
 		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
-	It("sets request into error too", func() {
+	It("sets request into delivered, too", func() {
 		Eventually(func(g Gomega) {
 			request := &api.SPIFileContentRequest{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
-			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
-			g.Expect(request.Status.ErrorMessage).To(HavePrefix("provided repository URL does not supports file downloading"))
+			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseDelivered))
+			g.Expect(request.Status.Content).To(Equal(base64.StdEncoding.EncodeToString([]byte("abcdefg"))))
 		}).Should(Succeed())
 	})
 
