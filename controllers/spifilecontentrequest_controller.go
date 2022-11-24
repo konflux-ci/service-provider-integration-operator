@@ -154,6 +154,13 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if request.Status.Phase == "" {
+		// check if the URL is processable, otherwise fail fast
+		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl)
+		_, ok := sp.(serviceprovider.ScmProvider)
+		if !ok {
+			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
+			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
+		}
 		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
 	} else if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
 		// already injected, nothing to do
@@ -161,6 +168,10 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if request.Status.LinkedBindingName == "" {
+		if request.Status.Phase == api.SPIFileContentRequestPhaseError {
+			//we failed even before binding was created. most probably URL is not supported, no reason to continue
+			return ctrl.Result{}, nil
+		}
 		if err := r.createAndLinkBinding(ctx, &request); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
 		}
