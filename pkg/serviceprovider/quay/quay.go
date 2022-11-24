@@ -96,6 +96,10 @@ func (g *Quay) GetBaseUrl() string {
 	return quayUrlBase
 }
 
+func (g *Quay) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + "/oauth/authenticate"
+}
+
 func (g *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }

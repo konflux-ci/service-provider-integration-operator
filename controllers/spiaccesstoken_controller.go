@@ -315,7 +315,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 	}
-	oauthBaseUrl := r.Configuration.BaseUrl + "/oauth/authenticate"
+	oauthBaseUrl := sp.GetOAuthEndpoint()
 	if len(oauthBaseUrl) == 0 {
 		return "", nil
 	}

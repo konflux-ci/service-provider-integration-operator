@@ -264,6 +264,10 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 	return strings.TrimPrefix(repoUrl, g.GetBaseUrl()), nil
 }
 
+func (g Gitlab) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + "/oauth/authenticate"
+}
+
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	return serviceprovider.DefaultMapToken(token, tokenData), nil
 }

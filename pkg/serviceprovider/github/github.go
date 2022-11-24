@@ -92,6 +92,10 @@ func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
 }
 
+func (g *Github) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + "/oauth/authenticate"
+}
+
 func (g *Github) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeGitHub
 }
