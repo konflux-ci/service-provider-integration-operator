@@ -49,7 +49,8 @@ const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-li
 
 var (
 	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
-	noSuitableServiceProviderFound = stderrors.New("unable to find matchig service provider for the given URL")
+	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
+	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
 )
 
 type SPIFileContentRequestReconciler struct {
@@ -173,7 +174,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	if request.Status.LinkedBindingName == "" {
 		if request.Status.Phase == api.SPIFileContentRequestPhaseError {
 			//we failed even before binding was created. most probably URL is not supported, no reason to continue
-			return ctrl.Result{}, nil
+			return ctrl.Result{Requeue: false}, nil
 		}
 		if err := r.createAndLinkBinding(ctx, &request); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
@@ -214,6 +215,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			err = r.K8sClient.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: binding.Status.LinkedAccessTokenName}, token)
 			if err != nil {
 				lg.Error(err, "unable to fetch the token")
+				r.updateFileRequestStatusError(ctx, &request, unableToFetchTokenError)
 				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
 			}
 			contents, err := downloadableSp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token)

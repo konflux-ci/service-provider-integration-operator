@@ -206,5 +206,5 @@ func TestGetUnexistingFile(t *testing.T) {
 	if err == nil {
 		t.Error("error expected")
 	}
-	assert.Equal(t, "unexpected status code from GitLab API: 404", fmt.Sprint(err))
+	assert.Equal(t, "unexpected status code from GitLab API: 404", err.Error())
 }
