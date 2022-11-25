@@ -103,6 +103,10 @@ func (q *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }
 
+func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return nil
+}
+
 func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
 	// We basically disregard any request for specific permissions and always require the max usable set of permissions

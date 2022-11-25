@@ -46,13 +46,14 @@ var notGitlabUrlError = errors.New("not a gitlab repository url")
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
-	Configuration    *opconfig.OperatorConfiguration
-	lookup           serviceprovider.GenericLookup
-	metadataProvider *metadataProvider
-	httpClient       rest.HTTPClient
-	tokenStorage     tokenstorage.TokenStorage
-	glClientBuilder  gitlabClientBuilder
-	baseUrl          string
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	metadataProvider       *metadataProvider
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	glClientBuilder        gitlabClientBuilder
+	baseUrl                string
+	downloadFileCapability downloadFileCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -85,11 +86,12 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 			MetadataCache:       &cache,
 			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
-		tokenStorage:     factory.TokenStorage,
-		metadataProvider: mp,
-		httpClient:       factory.HttpClient,
-		glClientBuilder:  glClientBuilder,
-		baseUrl:          baseUrl,
+		tokenStorage:           factory.TokenStorage,
+		metadataProvider:       mp,
+		httpClient:             factory.HttpClient,
+		glClientBuilder:        glClientBuilder,
+		baseUrl:                baseUrl,
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
 	}, nil
 }
 
@@ -115,6 +117,10 @@ func (g Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api
 
 func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
+}
+
+func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {

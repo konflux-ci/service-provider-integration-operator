@@ -70,6 +70,10 @@ type ServiceProvider interface {
 	//the service provider itself.
 	GetOAuthEndpoint() string
 
+	// GetDownloadFileCapability returns capability object for the providers which are able to download files from the repository
+	// or nil for those which are not
+	GetDownloadFileCapability() DownloadFileCapability
+
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
 	MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error)
