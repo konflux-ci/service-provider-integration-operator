@@ -221,6 +221,28 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// Migration logic for quay bindings that use repository or repository area.
+	permissionChange := false
+	if sp.GetType() == api.ServiceProviderTypeQuay {
+		for i, permission := range binding.Spec.Permissions.Required {
+			if permission.Area == api.PermissionAreaRepository {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistry
+				permissionChange = true
+			}
+			if permission.Area == api.PermissionAreaRepositoryMetadata {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistryMetadata
+				permissionChange = true
+			}
+		}
+	}
+	if permissionChange {
+		lg.Info("migrating old permission areas for quay", "binding", binding)
+		if err = r.Client.Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update binding with migrated permission areas: %w", err)
+		}
+	}
+	// End of migration block.
+
 	validation, err := sp.Validate(ctx, &binding)
 	if err != nil {
 		lg.Error(err, "failed to validate the object")
