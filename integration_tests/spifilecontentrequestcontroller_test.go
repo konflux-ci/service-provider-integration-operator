@@ -229,6 +229,7 @@ var _ = Describe("With binding is ready", func() {
 	var createdRequest *api.SPIFileContentRequest
 
 	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
 		ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
 		createdRequest = &api.SPIFileContentRequest{
 			ObjectMeta: metav1.ObjectMeta{
@@ -282,6 +283,67 @@ var _ = Describe("With binding is ready", func() {
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseDelivered))
 			g.Expect(request.Status.Content).To(Equal(base64.StdEncoding.EncodeToString([]byte("abcdefg"))))
+		}).Should(Succeed())
+	})
+})
+
+var _ = Describe("With binding is ready but provider doesn't support  downloads", func() {
+	var createdRequest *api.SPIFileContentRequest
+
+	BeforeEach(func() {
+		ITest.TestServiceProvider.Reset()
+		ITest.TestServiceProvider.DownloadFileCapability = nil
+		createdRequest = &api.SPIFileContentRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "filerequest-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIFileContentRequestSpec{
+				RepoUrl:  "test-provider://test",
+				FilePath: "foo/bar.txt",
+			},
+		}
+		Expect(ITest.Client.Create(ITest.Context, createdRequest)).To(Succeed())
+
+		token := &api.SPIAccessToken{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "status-updates-better-",
+				Namespace:    "default",
+				Annotations: map[string]string{
+					"dummy": "true",
+				},
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "test-provider://",
+			},
+		}
+
+		Expect(ITest.Client.Create(ITest.Context, token)).To(Succeed())
+
+		ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+			Username:             "alois",
+			UserId:               "42",
+			Scopes:               []string{},
+			ServiceProviderState: []byte("state"),
+		})
+		err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
+			AccessToken: "token",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+	})
+
+	var _ = AfterEach(func() {
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIFileContentRequest{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessTokenBinding{}, client.InNamespace("default"))).To(Succeed())
+		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
+	})
+
+	It("sets request into error, too", func() {
+		Eventually(func(g Gomega) {
+			request := &api.SPIFileContentRequest{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
+			g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
 		}).Should(Succeed())
 	})
 

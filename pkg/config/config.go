@@ -44,7 +44,7 @@ type OperatorCliArgs struct {
 	TokenMatchPolicy            TokenPolicy   `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
 	ApiExportName               string        `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
 	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
-	MaxFileDownloadSize         int           `arg:"--max-download-size, env" default:"2097152" help:"A maximum file size for file downloading from SCM capabilities supporting providers"`
+	MaxFileDownloadSize         int           `arg:"--max-download-size-bytes, env" default:"2097152" help:"A maximum file size in bytes for file downloading from SCM capabilities supporting providers"`
 }
 
 type OperatorConfiguration struct {

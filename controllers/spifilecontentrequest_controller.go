@@ -160,8 +160,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	if request.Status.Phase == "" {
 		// check if the URL is processable, otherwise fail fast
 		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl)
-		_, ok := sp.(serviceprovider.ScmProvider)
-		if !ok {
+		if sp.GetDownloadFileCapability() == nil {
 			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
 		}
@@ -205,8 +204,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 				return ctrl.Result{}, nil
 			}
-			downloadableSp, ok := sp.(serviceprovider.ScmProvider)
-			if !ok {
+			if sp.GetDownloadFileCapability() == nil {
 				r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 				return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
 			}
@@ -218,7 +216,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 				r.updateFileRequestStatusError(ctx, &request, unableToFetchTokenError)
 				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
 			}
-			contents, err := downloadableSp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token, r.Configuration.MaxFileDownloadSize)
+			contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token, r.Configuration.MaxFileDownloadSize)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
