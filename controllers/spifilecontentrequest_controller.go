@@ -159,7 +159,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 	if request.Status.Phase == "" {
 		// check if the URL is processable, otherwise fail fast
-		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl)
+		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
 		if sp.GetDownloadFileCapability() == nil {
 			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
@@ -196,7 +196,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
-			sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl)
+			sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
 			if err != nil {
 				lg.Error(err, "unable to get the service provider")
 				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
