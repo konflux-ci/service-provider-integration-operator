@@ -66,10 +66,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	} else {
 		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
 		oauthCfg = &oauth2.Config{
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  info.ServiceProviderUrl + "/oauth/authorize",
-				TokenURL: info.ServiceProviderUrl + "/oauth/token",
-			},
+			Endpoint:    createDefaultEndpoint(info.ServiceProviderUrl),
 			RedirectURL: c.redirectUrl(),
 		}
 	}
@@ -170,4 +167,11 @@ func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) 
 	}
 
 	return nil
+}
+
+func createDefaultEndpoint(spBaseUrl string) oauth2.Endpoint {
+	return oauth2.Endpoint{
+		AuthURL:  spBaseUrl + "/oauth/authorize",
+		TokenURL: spBaseUrl + "/oauth/token",
+	}
 }

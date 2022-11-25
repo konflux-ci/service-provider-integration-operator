@@ -91,10 +91,7 @@ func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg Rout
 
 		endpoint := defaultEndpoint
 		if sp.ServiceProviderBaseUrl != "" {
-			endpoint = oauth2.Endpoint{
-				AuthURL:  sp.ServiceProviderBaseUrl + "/oauth/authorize",
-				TokenURL: sp.ServiceProviderBaseUrl + "/oauth/token",
-			}
+			endpoint = createDefaultEndpoint(sp.ServiceProviderBaseUrl)
 		}
 
 		controller.ServiceProviderInstance[baseUrl] = oauthConfiguration{
