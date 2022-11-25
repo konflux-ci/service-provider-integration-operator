@@ -57,9 +57,21 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 
 	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
 
-	oauthCfg := &oauth2.Config{
-		Endpoint:    defaultOauthConfig.Endpoint,
-		RedirectURL: c.redirectUrl(),
+	var oauthCfg *oauth2.Config
+	if foundDefaultOauthConfig {
+		oauthCfg = &oauth2.Config{
+			Endpoint:    defaultOauthConfig.Endpoint,
+			RedirectURL: c.redirectUrl(),
+		}
+	} else {
+		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
+		oauthCfg = &oauth2.Config{
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  info.ServiceProviderUrl + "/oauth/authorize",
+				TokenURL: info.ServiceProviderUrl + "/oauth/token",
+			},
+			RedirectURL: c.redirectUrl(),
+		}
 	}
 
 	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(ctx, info.TokenNamespace, spUrl.Host)
@@ -149,11 +161,11 @@ func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) 
 		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, errMissingField)
 	}
 
-	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has {
+	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
 		oauthCfg.Endpoint.AuthURL = string(authUrl)
 	}
 
-	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has {
+	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
 		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
 	}
 
