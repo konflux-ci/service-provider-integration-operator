@@ -92,19 +92,19 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 
 var _ serviceprovider.ConstructorFunc = newQuay
 
-func (g *Quay) GetBaseUrl() string {
-	return quayUrlBase
+func (g *Quay) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + "/quay/authenticate"
 }
 
-func (g *Quay) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/oauth/authenticate"
+func (g *Quay) GetBaseUrl() string {
+	return quayUrlBase
 }
 
 func (g *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }
 
-func (g *Quay) OAuthScopesFor(ps *api.Permissions) []string {
+func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
 	// We basically disregard any request for specific permissions and always require the max usable set of permissions
 	// because we cannot change that set later due to a bug in Quay OAuth impl:
@@ -163,8 +163,8 @@ func translateToQuayScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+func (q *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+	tokens, err := q.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
@@ -176,8 +176,8 @@ func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.S
 	return &tokens[0], nil
 }
 
-func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
+func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
+	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)
 	}
 	return nil
@@ -299,13 +299,13 @@ func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token str
 	}
 }
 
-func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+func (q *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	lg := log.FromContext(ctx, "bindingName", binding.Name, "bindingNamespace", binding.Namespace)
 	lg.Info("mapping quay token")
 
 	mapper := serviceprovider.DefaultMapToken(token, tokenData)
 
-	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
+	repoMetadata, err := q.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
 		lg.Error(err, "failed to fetch repository metadata")
 		return serviceprovider.AccessTokenMapper{}, nil
