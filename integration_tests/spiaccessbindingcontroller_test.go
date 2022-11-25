@@ -171,6 +171,37 @@ var _ = Describe("Update binding", func() {
 		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
+	It("migrates old quay permission areas to new ones", func() {
+		ITest.TestServiceProvider.GetTypeImpl = func() api.ServiceProviderType {
+			return api.ServiceProviderTypeQuay
+		}
+		createdBinding = &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "invalid-quay-binding-",
+				Namespace:    "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				Permissions: api.Permissions{
+					Required: []api.Permission{{
+						Area: api.PermissionAreaRepository,
+					}, {
+						Area: api.PermissionAreaRepositoryMetadata,
+					}},
+				},
+				RepoUrl: "test-provider://test",
+			},
+		}
+		Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+		Eventually(func(g Gomega) {
+			binding := &api.SPIAccessTokenBinding{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+			g.Expect(binding.Spec.Permissions.Required[0].Area).To(Equal(api.PermissionAreaRegistry))
+			g.Expect(binding.Spec.Permissions.Required[1].Area).To(Equal(api.PermissionAreaRegistryMetadata))
+			g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
+			g.Expect(binding.Status.ErrorReason).To(BeEmpty())
+		}).Should(Succeed())
+	})
+
 	It("reverts updates to the linked token label", func() {
 		testTokenNameInStatus(createdBinding, Not(BeEmpty()))
 
