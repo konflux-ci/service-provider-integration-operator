@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -30,6 +33,10 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const PUBLIC_GITHUB_URL = "https://github.com"
+const PUBLIC_QUAY_URL = "https://quay.io"
+const PUBLIC_GITLAB_URL = "https://gitlab.com"
 
 // ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
@@ -87,45 +94,29 @@ type Factory struct {
 }
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
-func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvider, error) {
+func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
-	tryInitialize := func(initializer Initializer) ServiceProvider {
-		probe := initializer.Probe
-		ctor := initializer.Constructor
-		if probe == nil || ctor == nil {
-			return nil
-		}
 
-		baseUrl, err := probe.Examine(f.HttpClient, repoUrl)
-		if err != nil {
-			return nil
-		}
-
-		if baseUrl != "" {
-			sp, err := ctor.Construct(f, baseUrl)
-			if err != nil {
-				return nil
-			}
-
-			return sp
-		}
-		return nil
+	serviceProvidersBaseUrls, err := f.getBaseUrlsFromConfigs(ctx, namespace)
+	if err != nil {
+		return nil, err
 	}
+
 	for _, spc := range f.Configuration.ServiceProviders {
 		initializer, ok := f.Initializers[spc.ServiceProviderType]
 		if !ok {
 			continue
 		}
-		if sp := tryInitialize(initializer); sp != nil {
+		if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[spc.ServiceProviderType]); sp != nil {
 			return sp, nil
 		}
 	}
 
-	for _, initializer := range f.Initializers {
+	for serviceProviderType, initializer := range f.Initializers {
 		if initializer.SupportsManualUploadOnlyMode {
-			if sp := tryInitialize(initializer); sp != nil {
+			if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[serviceProviderType]); sp != nil {
 				return sp, nil
 			}
 		}
@@ -139,6 +130,71 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string) (ServiceProvi
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
 	return hostCredentialProvider, nil
+}
+
+func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
+	secretList := &corev1.SecretList{}
+	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
+		api.ServiceProviderTypeLabel,
+	})
+	if listErr != nil {
+		return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+	}
+
+	// We need to add all known service provider urls as they might not be filled out in shared config.
+	// In case they are, adding them does not cause an issue.
+	allBaseUrls := make(map[config.ServiceProviderType][]string)
+	allBaseUrls[config.ServiceProviderTypeGitHub] = []string{PUBLIC_GITHUB_URL}
+	allBaseUrls[config.ServiceProviderTypeQuay] = []string{PUBLIC_QUAY_URL}
+	allBaseUrls[config.ServiceProviderTypeGitLab] = []string{PUBLIC_GITLAB_URL}
+
+	for _, spConfig := range f.Configuration.SharedConfiguration.ServiceProviders {
+		if spConfig.ServiceProviderBaseUrl != "" {
+			allBaseUrls[spConfig.ServiceProviderType] = append(allBaseUrls[spConfig.ServiceProviderType], spConfig.ServiceProviderBaseUrl)
+		}
+	}
+
+	for _, secret := range secretList.Items {
+		if baseUrl, hasLabel := secret.ObjectMeta.Labels[api.ServiceProviderHostLabel]; hasLabel {
+			spType := config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel])
+			allBaseUrls[spType] = append(allBaseUrls[spType], baseUrl)
+		}
+	}
+
+	return allBaseUrls, nil
+}
+
+func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {
+	probe := initializer.Probe
+	ctor := initializer.Constructor
+	if probe == nil || ctor == nil {
+		return nil
+	}
+
+	baseUrl := ""
+	for _, providerBaseUrl := range baseUrlsForProvider {
+		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
+		baseUrlTrimmed := strings.TrimPrefix(providerBaseUrl, "https://")
+		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
+			baseUrl = "https://" + baseUrlTrimmed
+			break
+		}
+	}
+	if baseUrl == "" {
+		var err error
+		if baseUrl, err = probe.Examine(f.HttpClient, repoUrl); err != nil {
+			return nil
+		}
+	}
+
+	if baseUrl != "" {
+		sp, err := ctor.Construct(f, baseUrl)
+		if err != nil {
+			return nil
+		}
+		return sp
+	}
+	return nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
