@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	http "net/http"
-	"net/url"
+	"net/http"
 	"strings"
+
+	"github.com/xanzy/go-gitlab"
 
 	"k8s.io/utils/strings/slices"
 
-	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -38,6 +38,7 @@ import (
 var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
+var probeNotImplementedError = errors.New("gitLab probe not implemented")
 
 // Temp
 var notGitlabUrlError = errors.New("not a gitlab repository url")
@@ -45,13 +46,14 @@ var notGitlabUrlError = errors.New("not a gitlab repository url")
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
-	Configuration    *opconfig.OperatorConfiguration
-	lookup           serviceprovider.GenericLookup
-	metadataProvider *metadataProvider
-	httpClient       rest.HTTPClient
-	tokenStorage     tokenstorage.TokenStorage
-	glClientBuilder  gitlabClientBuilder
-	baseUrl          string
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	metadataProvider       *metadataProvider
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	glClientBuilder        gitlabClientBuilder
+	baseUrl                string
+	downloadFileCapability downloadFileCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -84,11 +86,12 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 			MetadataCache:       &cache,
 			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
-		tokenStorage:     factory.TokenStorage,
-		metadataProvider: mp,
-		httpClient:       factory.HttpClient,
-		glClientBuilder:  glClientBuilder,
-		baseUrl:          baseUrl,
+		tokenStorage:           factory.TokenStorage,
+		metadataProvider:       mp,
+		httpClient:             factory.HttpClient,
+		glClientBuilder:        glClientBuilder,
+		baseUrl:                baseUrl,
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
 	}, nil
 }
 
@@ -114,6 +117,10 @@ func (g Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api
 
 func (g Gitlab) GetBaseUrl() string {
 	return g.baseUrl
+}
+
+func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {
@@ -303,18 +310,6 @@ type gitlabProbe struct{}
 
 var _ serviceprovider.Probe = (*gitlabProbe)(nil)
 
-// Examine checks whether the URL host contains gitlab as a substring.
-// Note that parsing url without scheme, such as "gitlab.etc/whatever" results in empty host which
-// this function discriminates against.
-// TODO: In the future, this method should compare the repoUrl to base urls of all configured gitlab service providers.
-func (p gitlabProbe) Examine(_ *http.Client, repoUrl string) (string, error) {
-	parsed, err := url.Parse(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse repoUrl: %w", err)
-	}
-
-	if strings.Contains(parsed.Host, "gitlab") {
-		return parsed.Scheme + "://" + parsed.Host, nil
-	}
-	return "", nil
+func (p gitlabProbe) Examine(_ *http.Client, _ string) (string, error) {
+	return "", probeNotImplementedError
 }

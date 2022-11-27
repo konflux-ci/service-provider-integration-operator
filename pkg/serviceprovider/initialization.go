@@ -14,7 +14,9 @@
 
 package serviceprovider
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Probe is a simple function that can determine whether a URL can be handled by a certain service
 // provider.
