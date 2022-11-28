@@ -16,6 +16,8 @@ package integrationtests
 
 import (
 	"context"
+	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"reflect"
 	"time"
 
@@ -186,7 +188,20 @@ func TriggerReconciliation(object client.Object) {
 	Eventually(func(g Gomega) {
 		// trigger the update of the token to force the reconciliation
 		cpy := object.DeepCopyObject().(client.Object)
-		g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(object), cpy)).To(Succeed())
+		err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(object), cpy)
+		if errors.IsNotFound(err) {
+			// oh, well, it's gone, no way of reconciling it...
+			log.Log.V(logs.DebugLevel).Info("wanted to force reconciliation but object is gone",
+				"object", client.ObjectKeyFromObject(object),
+				"kind", object.GetObjectKind().GroupVersionKind().String())
+			return
+		}
+		log.Log.V(logs.DebugLevel).Info("forcing reconciliation",
+			"object", client.ObjectKeyFromObject(object),
+			"kind", object.GetObjectKind().GroupVersionKind().String())
+
+		Expect(err).NotTo(HaveOccurred())
+
 		annos := object.GetAnnotations()
 		if annos == nil {
 			annos = map[string]string{}
@@ -203,8 +218,14 @@ func TriggerReconciliation(object client.Object) {
 // method returns, the TestSetup.InCluster contains the objects of interest as they exist in the cluster after all
 // the reconciliation has been performed at least once with the reconfigured ITest.
 //
+// The `postCondition` is a (potentially `nil`) check that needs to succeed before we can claim the cluster reached the
+// desired state. If it is `nil`, then only the best effort is made to wait for the controllers to finish
+// the reconciliation (basically the only thing guaranteed is that the objects will have a status, i.e.
+// the reconciliation happened at least once).
+//
 // NOTE we're not doing anything with the metrics registry so far here...
-func (ts *TestSetup) BeforeEach() {
+func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
+	start := time.Now()
 	validateClusterEmpty()
 
 	ts.priorState = priorITestState{
@@ -235,20 +256,31 @@ func (ts *TestSetup) BeforeEach() {
 	}
 
 	// we don't need to force reconcile here, because we just created the objects so a reconciliation is running..
-	ts.settleWithCluster(false)
 
 	if ts.Behavior.AfterObjectsCreated != nil {
-		ts.Behavior.AfterObjectsCreated(ts.InCluster)
-
-		if !ts.Behavior.DontTriggerReconcileAfterObjectsCreated {
-			ts.settleWithCluster(true)
+		if ts.Behavior.DontTriggerReconcileAfterObjectsCreated {
+			ts.settleWithCluster(false, postCondition)
+			ts.Behavior.AfterObjectsCreated(ts.InCluster)
+		} else {
+			ts.settleWithCluster(false, nil)
+			ts.Behavior.AfterObjectsCreated(ts.InCluster)
+			ts.settleWithCluster(true, postCondition)
 		}
+	} else {
+		ts.settleWithCluster(false, postCondition)
 	}
 
-	log.Log.Info("============================================================================")
-	log.Log.Info("================ All objects created and cluster state settled =============")
-	log.Log.Info("=== For test: " + ginkgo.CurrentGinkgoTestDescription().FullTestText)
-	log.Log.Info("============================================================================")
+	log.Log.Info("=====")
+	log.Log.Info("=====")
+	log.Log.Info("=====")
+	log.Log.Info("=====")
+	log.Log.Info("===== All objects created and cluster state settled")
+	log.Log.Info("===== For test: " + ginkgo.CurrentGinkgoTestDescription().FullTestText)
+	log.Log.Info(fmt.Sprintf("===== Setup complete in %dms", time.Since(start).Milliseconds()))
+	log.Log.Info("=====")
+	log.Log.Info("=====")
+	log.Log.Info("=====")
+	log.Log.Info("=====")
 }
 
 // AfterEach cleans up all the objects from the cluster and reverts the behavior of ITest to what it was before the test
@@ -273,22 +305,22 @@ func (ts *TestSetup) AfterEach() {
 	validateClusterEmpty()
 }
 
-// SettleWithCluster triggers the reconciliation and waits for the cluster to settle again. This can be used after
+// ReconcileWithCluster triggers the reconciliation and waits for the cluster to settle again. This can be used after
 // a test or a nested Gomega.BeforeEach modifies the behavior and we need to re-sync and wait for the controllers to
 // accommodate for the changed behavior.
-func (ts *TestSetup) SettleWithCluster() {
-	ts.settleWithCluster(true)
+//
+// The `postCondition` is a (potentially `nil`) check that needs to succeed before we can claim the cluster reached the
+// desired state. If it is `nil`, then only the best effort is made to wait for the controllers to finish
+// the reconciliation (basically the only thing guaranteed is that the objects will have a status, i.e.
+// the reconciliation happened at least once).
+//
+// The `postCondition` can use the `testSetup.InCluster` to access the current state of the objects (which is being
+// updated during this call).
+func (ts *TestSetup) ReconcileWithCluster(postCondition func(Gomega)) {
+	ts.settleWithCluster(true, postCondition)
 }
 
-func (ts *TestSetup) settleWithCluster(forceReconcile bool) {
-	if forceReconcile {
-		forEach(ts.InCluster.Tokens, TriggerReconciliation)
-		forEach(ts.InCluster.Bindings, TriggerReconciliation)
-		forEach(ts.InCluster.Checks, TriggerReconciliation)
-		forEach(ts.InCluster.DataUpdates, TriggerReconciliation)
-		forEach(ts.InCluster.FileContentRequests, TriggerReconciliation)
-	}
-
+func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(Gomega)) {
 	waitForStatus := func() {
 		waitForStatus(&api.SPIAccessTokenList{}, convertTokens, emptyTokenStatus)
 		waitForStatus(&api.SPIAccessTokenBindingList{}, convertBindings, emptyBindingStatus)
@@ -313,7 +345,7 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool) {
 	var fileRequests []api.SPIFileContentRequest
 	var dataUpdates []api.SPIAccessTokenDataUpdate
 
-	loadFromCluster := func() {
+	rememberCurrentClusterState := func() {
 		tokens = fromPointerArray(ts.InCluster.Tokens)
 		bindings = fromPointerArray(ts.InCluster.Bindings)
 		checks = fromPointerArray(ts.InCluster.Checks)
@@ -321,10 +353,41 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool) {
 		dataUpdates = fromPointerArray(ts.InCluster.DataUpdates)
 	}
 
-	for {
-		loadFromCluster()
+	i := 0
+	var lastReconcile *time.Time
+	Eventually(func(g Gomega) {
+		i += 1
+
+		rememberCurrentClusterState()
+
+		// this loop is usually very fast, so we trigger the reconciliation the first time and then only every 2s to
+		// give the controllers some time to react.
+		if forceReconcile && (lastReconcile == nil || time.Since(*lastReconcile) > 2*time.Second) {
+			forEach(ts.InCluster.Tokens, TriggerReconciliation)
+			forEach(ts.InCluster.Bindings, TriggerReconciliation)
+			forEach(ts.InCluster.Checks, TriggerReconciliation)
+			forEach(ts.InCluster.DataUpdates, TriggerReconciliation)
+			forEach(ts.InCluster.FileContentRequests, TriggerReconciliation)
+			now := time.Now()
+			lastReconcile = &now
+		}
+
 		waitForStatus()
 		findAll()
+
+		// ok, so now we're in one of 2 possible states wrt reconciliation:
+		// 1) the reconciliation happened for the first time (the objects didn't have status, and we waited for
+		//    the controllers to fill it in,
+		// 2) the objects have already been reconciled before and we either forced reconciliation or not. We don't know
+		//    if any changes are yet to happen in the cluster as controllers react or if the reconciliation already
+		//    finished.
+		//
+		// Therefore, we can do just 2 things: we can monitor if any change has already happened in the cluster and
+		// check that the post condition is passing. Neither of those things actually guarantees that the reconciliation
+		// will have happened by the time we return from this method. But that's OK. If the caller wanted to trigger
+		// reconciliation, they most probably also have provided a post condition to check the desired changes have
+		// actually happened. If the caller didn't provide a post condition, they have been warned - we only offer
+		// waiting for reconciliation on the best effort basis.
 
 		if hasAnyChanged(toPointerArray(tokens), ts.InCluster.Tokens) ||
 			hasAnyChanged(toPointerArray(bindings), ts.InCluster.Bindings) ||
@@ -332,12 +395,24 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool) {
 			hasAnyChanged(toPointerArray(fileRequests), ts.InCluster.FileContentRequests) ||
 			hasAnyChanged(toPointerArray(dataUpdates), ts.InCluster.DataUpdates) {
 
+			if i%50 == 0 {
+				log.Log.Info("settling loop still seeing changes", "iteration", i, "test", ginkgo.CurrentGinkgoTestDescription().FullTestText)
+			}
+
 			time.Sleep(200 * time.Millisecond)
-			continue
+
+			// true here is the result of the if statement that we're nested in... We expect that to be false :)
+			g.Expect(true).To(BeFalse())
+			// the cluster state is still evolving, no need to bother with calling postCondition yet
+			return
 		}
 
-		break
-	}
+		if postCondition != nil {
+			postCondition(g)
+		}
+
+		i += 1
+	}).Should(Succeed())
 }
 
 func infiniteIfZero(dur time.Duration) time.Duration {
@@ -455,22 +530,17 @@ func deleteAll[T client.Object](objs []T) {
 }
 
 func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T, hasEmptyStatus func(T) bool) {
-	// inefficient but short :)
-Outer:
-	for {
-		Expect(ITest.Client.List(ITest.Context, list)).To(Succeed())
+	Eventually(func(g Gomega) {
+		g.Expect(ITest.Client.List(ITest.Context, list)).To(Succeed())
 		items := itemsFromList(list)
 		if len(items) == 0 {
 			return
 		}
+
 		for _, o := range items {
-			if hasEmptyStatus(o) {
-				time.Sleep(time.Second)
-				continue Outer
-			}
+			g.Expect(hasEmptyStatus(o)).To(BeFalse(), "%s/%s/%s has empty status", o.GetObjectKind().GroupVersionKind().String(), o.GetNamespace(), o.GetName())
 		}
-		break
-	}
+	}).Should(Succeed(), "failed to wait for status of objects %T", list)
 }
 
 func addAllExisting[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T) []T {
@@ -489,8 +559,13 @@ func hasAnyChanged[T client.Object](origs []T, news []T) bool {
 		return true
 	}
 
-	for i, o := range origs {
-		n := news[i]
+	origMap := map[client.ObjectKey]T{}
+	for _, o := range origs {
+		origMap[client.ObjectKeyFromObject(o)] = o
+	}
+
+	for _, n := range news {
+		o := origMap[client.ObjectKeyFromObject(n)]
 		if hasChanged(o, n) {
 			return true
 		}

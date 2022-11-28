@@ -15,6 +15,10 @@
 package integrationtests
 
 import (
+	"github.com/onsi/ginkgo"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"context"
 	"net/http"
 	"path/filepath"
@@ -236,4 +240,29 @@ var _ = AfterSuite(func() {
 		err := ITest.TestEnvironment.Stop()
 		Expect(err).NotTo(HaveOccurred())
 	}
+})
+
+var _ = BeforeEach(func() {
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText)
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+	log.Log.Info(">>>>>>>")
+})
+
+var _ = AfterEach(func() {
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<", "test", testDesc.FullTestText, "duration", testDesc.Duration, "failed", testDesc.Failed)
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<")
 })
