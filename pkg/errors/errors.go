@@ -46,7 +46,7 @@ func IsServiceProviderHttpError(err error) bool {
 
 func IsServiceProviderHttpInvalidAccessToken(err error) bool {
 	spe := &ServiceProviderHttpError{}
-	if !errors.As(err, &spe) {
+	if !errors.As(err, spe) {
 		return false
 	}
 
