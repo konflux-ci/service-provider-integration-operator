@@ -37,6 +37,7 @@ type TestServiceProvider struct {
 	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
 	CustomizeReset            func(provider *TestServiceProvider)
+	DownloadFileCapability    func() serviceprovider.DownloadFileCapability
 }
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -82,6 +83,13 @@ func (t TestServiceProvider) GetType() api.ServiceProviderType {
 	return t.GetTypeImpl()
 }
 
+func (t TestServiceProvider) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	if t.DownloadFileCapability == nil {
+		return nil
+	}
+	return t.DownloadFileCapability()
+}
+
 func (t TestServiceProvider) GetOAuthEndpoint() string {
 	if t.GetOauthEndpointImpl == nil {
 		return ""
@@ -115,6 +123,7 @@ func (t *TestServiceProvider) Reset() {
 	t.CheckRepositoryAccessImpl = nil
 	t.MapTokenImpl = nil
 	t.ValidateImpl = nil
+	t.DownloadFileCapability = nil
 	if t.CustomizeReset != nil {
 		t.CustomizeReset(t)
 	}
