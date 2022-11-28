@@ -105,8 +105,8 @@ type VaultStorageConfig struct {
 }
 
 type VaultCliArgs struct {
-	VaultHost                      string          `arg:"--vault-host, env" default:"http://spi-vault:8200" help:"Vault host URL. Default is internal kubernetes service."`
-	VaultInsecureTLS               bool            `arg:"--vault-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure vault tls connection."`
+	VaultHost                      string          `arg:"--vault-host, env" help:"Mandatory Vault host URL."`
+	VaultInsecureTLS               bool            `arg:"--vault-insecure-tls, env" default:"false" help:"Whether it allows 'insecure' TLS connection to Vault, 'true' is allowing untrusted certificate."`
 	VaultAuthMethod                VaultAuthMethod `arg:"--vault-auth-method, env" default:"approle" help:"Authentication method to Vault token storage. Options: 'kubernetes', 'approle'."`
 	VaultApproleRoleIdFilePath     string          `arg:"--vault-roleid-filepath, env" default:"/etc/spi/role_id" help:"Used with Vault approle authentication. Filepath with role_id."`
 	VaultApproleSecretIdFilePath   string          `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`

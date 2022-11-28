@@ -19,17 +19,16 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/gitfile"
 
 	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -48,14 +47,19 @@ import (
 
 const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
 
-var linkedBindingErrorStateError = stderrors.New("linked binding is in error state")
+var (
+	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
+	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
+	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
+)
 
 type SPIFileContentRequestReconciler struct {
-	Configuration *opconfig.OperatorConfiguration
-	K8sClient     client.Client
-	Scheme        *runtime.Scheme
-	HttpClient    *http.Client
-	finalizers    finalizer.Finalizers
+	Configuration          *opconfig.OperatorConfiguration
+	K8sClient              client.Client
+	Scheme                 *runtime.Scheme
+	HttpClient             *http.Client
+	ServiceProviderFactory serviceprovider.Factory
+	finalizers             finalizer.Finalizers
 }
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
@@ -154,6 +158,12 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if request.Status.Phase == "" {
+		// check if the URL is processable, otherwise fail fast
+		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
+		if sp.GetDownloadFileCapability() == nil {
+			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
+			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
+		}
 		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
 	} else if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
 		// already injected, nothing to do
@@ -161,6 +171,10 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if request.Status.LinkedBindingName == "" {
+		if request.Status.Phase == api.SPIFileContentRequestPhaseError {
+			//we failed even before binding was created. most probably URL is not supported, no reason to continue
+			return ctrl.Result{Requeue: false}, nil
+		}
 		if err := r.createAndLinkBinding(ctx, &request); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
 		}
@@ -182,18 +196,35 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
-			contents, err := gitfile.GetFileContents(ctx, r.K8sClient, *r.HttpClient, request.Namespace, binding.Status.SyncedObjectRef.Name, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref)
+			sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
+			if err != nil {
+				lg.Error(err, "unable to get the service provider")
+				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+				return ctrl.Result{}, nil
+			}
+			if sp.GetDownloadFileCapability() == nil {
+				r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
+				return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
+			}
+
+			token := &api.SPIAccessToken{}
+			err = r.K8sClient.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: binding.Status.LinkedAccessTokenName}, token)
+			if err != nil {
+				lg.Error(err, "unable to fetch the token")
+				r.updateFileRequestStatusError(ctx, &request, unableToFetchTokenError)
+				return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
+			}
+			contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token, r.Configuration.MaxFileDownloadSize)
 			if err != nil {
 				r.updateFileRequestStatusError(ctx, &request, err)
 				return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
 			}
-			fileBytes, err := io.ReadAll(contents)
-			if err != nil {
-				r.updateFileRequestStatusError(ctx, &request, err)
-				return reconcile.Result{}, fmt.Errorf("error reading file content: %w", err)
-			}
+			request.Status.OAuthUrl = ""
+			request.Status.ErrorMessage = ""
 			request.Status.ContentEncoding = "base64"
-			request.Status.Content = base64.StdEncoding.EncodeToString(fileBytes)
+			request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
 			request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 			if err = deleteSyncedBinding(ctx, r.K8sClient, &request); err != nil {
 				log.FromContext(ctx).Error(err, "failed to cleanup the binding, re-queueing it", "error", err)
