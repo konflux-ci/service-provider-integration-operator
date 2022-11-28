@@ -48,3 +48,16 @@ func HttpServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.
 	reg.MustRegister(HttpServiceRequestCountMetric)
 	return promhttp.InstrumentHandlerCounter(HttpServiceRequestCountMetric, handler)
 }
+
+type CompletedFlowMetricHandler struct {
+	spConfiguration config.ServiceProviderConfiguration
+	handler         http.Handler
+}
+
+func NewCompletedFlowMetricHandler(spConfiguration config.ServiceProviderConfiguration, handler http.Handler) *CompletedFlowMetricHandler {
+	return &CompletedFlowMetricHandler{spConfiguration: spConfiguration, handler: handler}
+}
+
+func (c *CompletedFlowMetricHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	c.handler.ServeHTTP(w, req)
+}

@@ -156,11 +156,10 @@ func main() {
 		}
 
 		prefix := strings.ToLower(string(sp.ServiceProviderType))
-
 		router.Handle(fmt.Sprintf("/%s/authenticate", prefix), http.HandlerFunc(controller.Authenticate)).Methods("GET", "POST")
-		router.Handle(fmt.Sprintf("/%s/callback", prefix), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		router.Handle(fmt.Sprintf("/%s/callback", prefix), oauth.NewCompletedFlowMetricHandler(sp, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			controller.Callback(r.Context(), w, r)
-		})).Methods("GET")
+		}))).Methods("GET")
 	}
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
