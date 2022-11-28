@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"os"
 	"os/signal"
@@ -46,6 +47,8 @@ func init() {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		// expose Go runtime metrics like GC stats, memory stats etc.
 		collectors.NewGoCollector(),
+		// OAuth flow statistic
+		oauth.OAuthFlowCompleteTimeMetric,
 	)
 }
 

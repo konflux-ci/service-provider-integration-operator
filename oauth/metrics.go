@@ -33,6 +33,13 @@ var (
 		},
 		[]string{"code", "method"},
 	)
+
+	OAuthFlowCompleteTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "oauth_flow_complete_time_seconds",
+		Help:      "The time needed to complete OAuth flow provider and status code",
+	}, []string{"provider", "status"})
 )
 
 // HttpServiceInstrumentMetricHandler is a http.Handler that collects statistical information about

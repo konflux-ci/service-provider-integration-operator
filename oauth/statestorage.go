@@ -19,6 +19,7 @@ import (
 	"errors"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,6 +29,10 @@ import (
 
 type StateStorage struct {
 	sessionManager *scs.SessionManager
+}
+type stateBucket struct {
+	realState string
+	createAt  time.Time
 }
 
 var (
@@ -40,6 +45,7 @@ const (
 )
 
 func (s StateStorage) VeilRealState(req *http.Request) (string, error) {
+
 	log := log.FromContext(req.Context())
 	state := req.URL.Query().Get("state")
 	if state == "" {
@@ -52,7 +58,7 @@ func (s StateStorage) VeilRealState(req *http.Request) (string, error) {
 		return "", err
 	}
 	log.V(logs.DebugLevel).Info("State veiled", "state", state, "veil", newState)
-	s.sessionManager.Put(req.Context(), newState, state)
+	s.sessionManager.Put(req.Context(), newState, stateBucket{realState: state, createAt: time.Now()})
 	return newState, nil
 }
 
@@ -63,9 +69,20 @@ func (s StateStorage) UnveilState(ctx context.Context, req *http.Request) (strin
 		log.Error(noStateError, "Request has no state parameter")
 		return "", noStateError
 	}
-	unveiledState := s.sessionManager.GetString(ctx, state)
-	log.V(logs.DebugLevel).Info("State unveiled", "veil", state, "unveiledState", unveiledState)
-	return unveiledState, nil
+	stBucket := s.sessionManager.Get(ctx, state).(stateBucket)
+	log.V(logs.DebugLevel).Info("State unveiled", "veil", state, "unveiledState", stBucket.realState)
+	return stBucket.realState, nil
+}
+
+func (s StateStorage) StateVailAt(ctx context.Context, req *http.Request) (time.Time, error) {
+	log := log.FromContext(ctx)
+	state := req.URL.Query().Get("state")
+	if state == "" {
+		log.Error(noStateError, "Request has no state parameter")
+		return time.Time{}, noStateError
+	}
+	stBucket := s.sessionManager.Get(ctx, state).(stateBucket)
+	return stBucket.createAt, nil
 }
 
 func randStringBytes(n int) (string, error) {
