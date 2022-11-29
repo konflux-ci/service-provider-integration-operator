@@ -304,17 +304,17 @@ func TestObtainOauthConfig(t *testing.T) {
 			BaseUrl:             "baseurl",
 		}
 
-		oauthInfo := &oauthstate2.OAuthInfo{}
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl: "http://bleh.eh",
+		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthInfo)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
-		assert.Equal(t, oauthCfg.ClientID, "eh?")
-		assert.Equal(t, oauthCfg.ClientSecret, "bleh?")
-		assert.Equal(t, oauthCfg.Endpoint.AuthURL, github.Endpoint.AuthURL)
-		assert.Equal(t, oauthCfg.Endpoint.TokenURL, github.Endpoint.TokenURL)
-		assert.Equal(t, oauthCfg.Endpoint.AuthStyle, github.Endpoint.AuthStyle)
+		assert.Equal(t, "eh?", oauthCfg.ClientID)
+		assert.Equal(t, "bleh?", oauthCfg.ClientSecret)
+		assert.Equal(t, github.Endpoint, oauthCfg.Endpoint)
 		assert.Contains(t, oauthCfg.RedirectURL, "baseurl")
 	})
 
@@ -363,17 +363,17 @@ func TestObtainOauthConfig(t *testing.T) {
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderUrl:  "http://bleh.eh",
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
+		expectedEndpoint := createDefaultEndpoint("http://bleh.eh")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
 		assert.Equal(t, oauthCfg.ClientID, "testclientid")
 		assert.Equal(t, oauthCfg.ClientSecret, "testclientsecret")
-		assert.Equal(t, oauthCfg.Endpoint.AuthURL, github.Endpoint.AuthURL)
-		assert.Equal(t, oauthCfg.Endpoint.TokenURL, github.Endpoint.TokenURL)
-		assert.Equal(t, oauthCfg.Endpoint.AuthStyle, github.Endpoint.AuthStyle)
+		assert.Equal(t, expectedEndpoint, oauthCfg.Endpoint)
 		assert.Contains(t, oauthCfg.RedirectURL, "baseurl")
 	})
 
@@ -482,7 +482,7 @@ func TestMultipleProviders(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, githubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, "blabol.eh")
 		assert.Equal(t, shouldFind, found, "should find the secret")
 		if shouldError {
 			assert.Error(t, err, "should error")
