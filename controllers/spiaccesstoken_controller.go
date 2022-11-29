@@ -20,8 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"github.com/go-logr/logr"
 	"time"
+
+	"github.com/go-logr/logr"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
