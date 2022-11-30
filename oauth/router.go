@@ -20,8 +20,6 @@ var unknownServiceProviderError = errors.New("unknown service provider")
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
 
-	// unused as of now, will be probably used when we handle
-	k8sClient    client.Client
 	stateStorage *StateStorage
 }
 
@@ -53,7 +51,7 @@ var spDefaults = []serviceProviderDefaults{
 	{
 		spType:   config.ServiceProviderTypeGitHub,
 		endpoint: github.Endpoint,
-		baseUrl:  "github.com",
+		baseUrl:  githubUrlBaseHost,
 	},
 	{
 		spType:   config.ServiceProviderTypeQuay,
@@ -70,7 +68,6 @@ var spDefaults = []serviceProviderDefaults{
 func NewRouter(lg *logr.Logger, cfg RouterConfiguration) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
-		k8sClient:    cfg.K8sClient,
 		stateStorage: cfg.StateStorage,
 	}
 
@@ -109,7 +106,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	state := &oauthstate.OAuthInfo{}
 	err = oauthstate.ParseInto(stateString, state)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to parse state string: %w", err)
 	}
 
 	controller := r.controllers[state.ServiceProviderType]

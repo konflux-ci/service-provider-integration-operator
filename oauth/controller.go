@@ -27,10 +27,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var (
-	notImplementedError = errors.New("not implemented yet")
-)
-
 // Controller implements the OAuth flow. There are specific implementations for each service provider type. These
 // are usually instances of the commonController with service-provider-specific configuration.
 type Controller interface {
@@ -50,6 +46,10 @@ const (
 	oauthFinishAuthenticated oauthFinishResult = iota
 	oauthFinishK8sAuthRequired
 	oauthFinishError
+)
+
+var (
+	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
 )
 
 func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg RouterConfiguration, defaultBaseUrlHost string, defaultEndpoint oauth2.Endpoint) (Controller, error) {
@@ -86,7 +86,7 @@ func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg Rout
 
 		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", baseUrl)
 		if _, alreadyHasBaseUrl := controller.ServiceProviderInstance[baseUrl]; alreadyHasBaseUrl {
-			return nil, fmt.Errorf("service provider '%s' with base url '%s' already initialized", spType, baseUrl)
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType, baseUrl)
 		}
 
 		endpoint := defaultEndpoint
