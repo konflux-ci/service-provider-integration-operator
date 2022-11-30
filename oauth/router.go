@@ -54,14 +54,12 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
-type serviceProviderDefaults struct {
+// all servide provider types we support, including default values
+var spDefaults = []*struct {
 	spType   config.ServiceProviderType
 	endpoint oauth2.Endpoint
 	baseUrl  string
-}
-
-// these are default values for all service providers we support
-var spDefaults = []serviceProviderDefaults{
+}{
 	{
 		spType:   config.ServiceProviderTypeGitHub,
 		endpoint: github.Endpoint,
