@@ -46,9 +46,11 @@ var _ = Describe("Controller", func() {
 
 	createAnonymousState := func() *oauthstate.OAuthInfo {
 		return &oauthstate.OAuthInfo{
-			TokenName:      "mytoken",
-			TokenNamespace: IT.Namespace,
-			Scopes:         []string{"a", "b"},
+			TokenName:           "mytoken",
+			TokenNamespace:      IT.Namespace,
+			Scopes:              []string{"a", "b"},
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderUrl:  "https://special.sp",
 		}
 	}
 
@@ -86,7 +88,7 @@ var _ = Describe("Controller", func() {
 		g.Expect(err).NotTo(HaveOccurred())
 		return &commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				githubUrlBaseHost: {
+				"special.sp": {
 					Config: config.ServiceProviderConfiguration{
 						ClientId:            "clientId",
 						ClientSecret:        "clientSecret",
@@ -200,7 +202,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/github/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
@@ -218,7 +220,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/github/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
