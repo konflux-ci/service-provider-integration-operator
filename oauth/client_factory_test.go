@@ -14,12 +14,7 @@
 package oauth
 
 import (
-	"context"
-	"net/http"
-	"net/url"
 	"testing"
-
-	"github.com/kcp-dev/logicalcluster/v2"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,42 +31,4 @@ func TestCreateClient(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, cl.Scheme().AllKnownTypes())
-}
-
-func TestKcpRoundtripper(t *testing.T) {
-	roundTripper := kcpWorkspaceRoundTripper{
-		next: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			return &http.Response{Request: r}, nil
-		}),
-	}
-
-	inputPath := "/some/path"
-
-	t.Run("no workspace does not update path", func(t *testing.T) {
-		req := &http.Request{
-			URL: &url.URL{Path: inputPath},
-		}
-		req = req.WithContext(context.TODO())
-		response, _ := roundTripper.RoundTrip(req)
-		assert.Equal(t, inputPath, response.Request.URL.Path)
-	})
-
-	t.Run("empty workspace does not update path", func(t *testing.T) {
-		req := &http.Request{
-			URL: &url.URL{Path: inputPath},
-		}
-		req = req.WithContext(logicalcluster.WithCluster(context.TODO(), logicalcluster.New("")))
-		response, _ := roundTripper.RoundTrip(req)
-		assert.Equal(t, inputPath, response.Request.URL.Path)
-	})
-
-	t.Run("some workspace updates path", func(t *testing.T) {
-		req := &http.Request{
-			URL: &url.URL{Path: inputPath},
-		}
-		req = req.WithContext(logicalcluster.WithCluster(context.TODO(), logicalcluster.New("some-kcp-workspace")))
-		response, _ := roundTripper.RoundTrip(req)
-		assert.NotEqual(t, inputPath, response.Request.URL.Path)
-		assert.Contains(t, response.Request.URL.Path, "some-kcp-workspace")
-	})
 }

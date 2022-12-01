@@ -21,8 +21,6 @@ require (
 	github.com/hashicorp/vault/api/auth/approle v0.3.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
 	github.com/hashicorp/vault/sdk v0.6.1-0.20221010215534-6545e24b6023
-	github.com/kcp-dev/kcp/pkg/apis v0.9.1
-	github.com/kcp-dev/logicalcluster/v2 v2.0.0-alpha.3
 	github.com/migueleliasweb/go-github-mock v0.0.13
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
@@ -34,16 +32,14 @@ require (
 	go.uber.org/zap v1.23.0
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.24.3
-	k8s.io/apiextensions-apiserver v0.24.3
-	k8s.io/apimachinery v0.24.3
-	k8s.io/client-go v0.24.3
+	k8s.io/api v0.25.0
+	k8s.io/apiextensions-apiserver v0.25.0
+	k8s.io/apimachinery v0.25.0
+	k8s.io/client-go v0.25.0
 	k8s.io/klog/v2 v2.80.1
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	sigs.k8s.io/controller-runtime v0.11.2
+	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
+	sigs.k8s.io/controller-runtime v0.13.1
 )
-
-replace sigs.k8s.io/controller-runtime => github.com/kcp-dev/controller-runtime v0.12.2-0.20220902130817-824b15a11b18
 
 require (
 	cloud.google.com/go v0.102.0 // indirect
@@ -53,8 +49,8 @@ require (
 	cloud.google.com/go/monitoring v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go v62.0.0+incompatible // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.24 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.18 // indirect
+	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.20 // indirect
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11 // indirect
 	github.com/Azure/go-autorest/autorest/azure/cli v0.4.5 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
@@ -93,12 +89,12 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dnaeon/go-vcr v1.2.0 // indirect
 	github.com/duosecurity/duo_api_golang v0.0.0-20190308151101-6c680f768e74 // indirect
-	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
+	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
-	github.com/fsnotify/fsnotify v1.5.1 // indirect
+	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.20.0 // indirect
 	github.com/go-openapi/errors v0.19.9 // indirect
@@ -175,7 +171,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/joyent/triton-go v1.7.1-0.20200416154420-6801d15b779f // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kcp-dev/apimachinery v0.0.0-20220803185518-868856d14e8a // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/keybase/go-crypto v0.0.0-20190403132359-d65b6b94177f // indirect
 	github.com/linode/linodego v0.7.1 // indirect
@@ -251,9 +246,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/component-base v0.24.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
-	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
+	k8s.io/component-base v0.25.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
+	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )

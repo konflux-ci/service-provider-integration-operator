@@ -30,9 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,11 +76,8 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIFileContentRequest{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			kcpWorkspace := logicalcluster.From(o)
-			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
-
 			fileRequests := &api.SPIFileContentRequestList{}
-			if err := r.K8sClient.List(ctx, fileRequests, client.InNamespace(o.GetNamespace())); err != nil {
+			if err := r.K8sClient.List(context.Background(), fileRequests, client.InNamespace(o.GetNamespace())); err != nil {
 				spiFileContentRequestLog.Error(err, "Unable to fetch file content requests list", "namespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
@@ -90,7 +85,6 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 			for _, fr := range fileRequests.Items {
 				if fr.Status.LinkedBindingName == o.GetName() {
 					ret = append(ret, reconcile.Request{
-						ClusterName: kcpWorkspace.String(),
 						NamespacedName: types.NamespacedName{
 							Name:      fr.Name,
 							Namespace: fr.Namespace,
@@ -109,7 +103,6 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 }
 
 func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
 	lg := log.FromContext(ctx)
 
 	request := api.SPIFileContentRequest{}

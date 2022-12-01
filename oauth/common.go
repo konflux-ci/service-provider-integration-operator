@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	v1 "k8s.io/api/authorization/v1"
@@ -85,7 +83,6 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "failed to decode the OAuth state", err)
 		return
 	}
-	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 	token, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
@@ -107,7 +104,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerType", string(state.ServiceProviderType), "providerUrl", state.ServiceProviderUrl, "kcpWorkspace", state.TokenKcpWorkspace)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerType", string(state.ServiceProviderType), "providerUrl", state.ServiceProviderUrl)
 	newStateString, err := c.StateStorage.VeilRealState(r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
@@ -146,7 +143,6 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "error in Service Provider token exchange", err)
 		return
 	}
-	ctx = infrastructure.InitKcpContext(ctx, exchange.TokenKcpWorkspace)
 
 	if exchange.result == oauthFinishK8sAuthRequired {
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "could not authenticate to Kubernetes", err)
@@ -158,7 +154,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to store token data to cluster", err)
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerType", string(exchange.ServiceProviderType), "providerUrl", exchange.ServiceProviderUrl, "kcpWorkspace", exchange.TokenKcpWorkspace)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerType", string(exchange.ServiceProviderType), "providerUrl", exchange.ServiceProviderUrl)
 	redirectLocation := r.FormValue("redirect_after_login")
 	if redirectLocation == "" {
 		redirectLocation = strings.TrimSuffix(c.BaseUrl, "/") + "/" + "callback_success"
@@ -182,7 +178,6 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	if err != nil {
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
 	}
-	ctx = infrastructure.InitKcpContext(ctx, state.TokenKcpWorkspace)
 
 	k8sToken, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
