@@ -104,6 +104,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup tokenUpload controller if configured
+	// Important: need NotifyingTokenStorage to reconsile related SPIAccessToken
+	notifyingStorage := tokenstorage.NotifyingTokenStorage{
+		Client:       mgr.GetClient(),
+		TokenStorage: strg,
+	}
+
+	if args.EnableTokenUpload {
+		if err = (&controllers.TokenUploadReconciler{
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			TokenStorage: notifyingStorage,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "failed to set up the TokenUpdate controller")
+			os.Exit(1)
+		}
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

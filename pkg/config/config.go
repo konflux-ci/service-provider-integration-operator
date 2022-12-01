@@ -45,6 +45,8 @@ type OperatorCliArgs struct {
 	ApiExportName               string        `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
 	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
 	MaxFileDownloadSize         int           `arg:"--max-download-size-bytes, env" default:"2097152" help:"A maximum file size in bytes for file downloading from SCM capabilities supporting providers"`
+
+	EnableTokenUpload bool `arg:"--enable-token-upload, env" default:"false" help:"Experimental: Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets."`
 }
 
 type OperatorConfiguration struct {
