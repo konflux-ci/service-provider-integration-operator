@@ -150,7 +150,7 @@ func main() {
 		setupLog.Error(templateErr, "failed to parse the redirect notice HTML template")
 		os.Exit(1)
 	}
-	oauthRouter, routerErr := oauth.NewRouter(&setupLog, oauth.RouterConfiguration{
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), oauth.RouterConfiguration{
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,

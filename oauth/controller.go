@@ -20,11 +20,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Controller implements the OAuth flow. There are specific implementations for each service provider type. These
@@ -52,7 +52,9 @@ var (
 	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
 )
 
-func InitController(lg *logr.Logger, spType config.ServiceProviderType, cfg RouterConfiguration, defaultBaseUrlHost string, defaultEndpoint oauth2.Endpoint) (Controller, error) {
+func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration, defaultBaseUrlHost string, defaultEndpoint oauth2.Endpoint) (Controller, error) {
+	lg := log.FromContext(ctx)
+
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
 	ts := &tokenstorage.NotifyingTokenStorage{
 		Client:       cfg.K8sClient,

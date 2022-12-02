@@ -15,12 +15,12 @@
 package oauth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 
-	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var unknownServiceProviderError = errors.New("unknown service provider")
+var errUnknownServiceProvider = errors.New("unknown service provider")
 
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
@@ -58,33 +58,33 @@ type RouterConfiguration struct {
 var spDefaults = []*struct {
 	spType   config.ServiceProviderType
 	endpoint oauth2.Endpoint
-	baseUrl  string
+	urlHost  string
 }{
 	{
 		spType:   config.ServiceProviderTypeGitHub,
 		endpoint: github.Endpoint,
-		baseUrl:  githubUrlBaseHost,
+		urlHost:  githubUrlBaseHost,
 	},
 	{
 		spType:   config.ServiceProviderTypeQuay,
 		endpoint: quayEndpoint,
-		baseUrl:  quayUrlBaseHost,
+		urlHost:  quayUrlBaseHost,
 	},
 	{
 		spType:   config.ServiceProviderTypeGitLab,
 		endpoint: gitlabEndpoint,
-		baseUrl:  gitlabUrlBaseHost,
+		urlHost:  gitlabUrlBaseHost,
 	},
 }
 
-func NewRouter(lg *logr.Logger, cfg RouterConfiguration) (*Router, error) {
+func NewRouter(ctx context.Context, cfg RouterConfiguration) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
 		stateStorage: cfg.StateStorage,
 	}
 
 	for _, sp := range spDefaults {
-		if controller, initControllerErr := InitController(lg, sp.spType, cfg, sp.baseUrl, sp.endpoint); initControllerErr == nil {
+		if controller, initControllerErr := InitController(ctx, sp.spType, cfg, sp.urlHost, sp.endpoint); initControllerErr == nil {
 			router.controllers[sp.spType] = controller
 		} else {
 			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.spType, initControllerErr)
@@ -123,7 +123,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 
 	controller := r.controllers[state.ServiceProviderType]
 	if controller == nil {
-		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", unknownServiceProviderError, state.ServiceProviderType, state.ServiceProviderUrl)
+		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProvider, state.ServiceProviderType, state.ServiceProviderUrl)
 	}
 
 	return controller, state, nil
