@@ -23,7 +23,26 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2/github"
 )
+
+var testSpDefaults = []ServiceProviderDefaults{
+	{
+		SpType:   config.ServiceProviderTypeGitHub,
+		Endpoint: github.Endpoint,
+		UrlHost:  GithubUrlBaseHost,
+	},
+	{
+		SpType:   config.ServiceProviderTypeQuay,
+		Endpoint: QuayEndpoint,
+		UrlHost:  QuayUrlBaseHost,
+	},
+	{
+		SpType:   config.ServiceProviderTypeGitLab,
+		Endpoint: GitlabEndpoint,
+		UrlHost:  GitlabUrlBaseHost,
+	},
+}
 
 func TestNewRouter(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
@@ -49,11 +68,11 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg)
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
 
 		assert.NotNil(t, router)
 		assert.NoError(t, err)
-		assert.Equal(t, len(spDefaults), len(router.controllers))
+		assert.Equal(t, len(testSpDefaults), len(router.controllers))
 	})
 
 	t.Run("fail with invalid sp url", func(t *testing.T) {
@@ -73,7 +92,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg)
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -102,7 +121,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg)
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -133,8 +152,41 @@ func TestFindController(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.TODO(), cfg)
+	router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
 	assert.NoError(t, err)
+
+	t.Run("fail when request unknown service provider", func(t *testing.T) {
+		spDefaults := []ServiceProviderDefaults{
+			{
+				SpType:   config.ServiceProviderTypeGitHub,
+				Endpoint: github.Endpoint,
+				UrlHost:  GithubUrlBaseHost,
+			},
+			{
+				SpType:   config.ServiceProviderTypeQuay,
+				Endpoint: QuayEndpoint,
+				UrlHost:  QuayUrlBaseHost,
+			},
+		}
+
+		router, err := NewRouter(context.TODO(), cfg, spDefaults)
+		assert.NoError(t, err)
+
+		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
+			ServiceProviderType: config.ServiceProviderTypeGitLab,
+		})
+		assert.NoError(t, stateErr)
+
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+		testReq.Form = url.Values{"state": []string{statestring}}
+
+		controller, state, err := router.findController(testReq, false)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
 
 	t.Run("fail with empty request", func(t *testing.T) {
 		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)

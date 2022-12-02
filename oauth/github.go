@@ -13,4 +13,4 @@
 
 package oauth
 
-var githubUrlBaseHost = "github.com"
+var GithubUrlBaseHost = "github.com"

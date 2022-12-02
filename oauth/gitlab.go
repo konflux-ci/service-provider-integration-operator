@@ -17,10 +17,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// gitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var gitlabEndpoint = oauth2.Endpoint{
+// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
+var GitlabEndpoint = oauth2.Endpoint{
 	AuthURL:  "https://gitlab.com/oauth/authorize",
 	TokenURL: "https://gitlab.com/oauth/token",
 }
 
-var gitlabUrlBaseHost = "gitlab.com"
+var GitlabUrlBaseHost = "gitlab.com"

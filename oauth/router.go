@@ -25,7 +25,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,40 +53,23 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
-// all servide provider types we support, including default values
-var spDefaults = []*struct {
-	spType   config.ServiceProviderType
-	endpoint oauth2.Endpoint
-	urlHost  string
-}{
-	{
-		spType:   config.ServiceProviderTypeGitHub,
-		endpoint: github.Endpoint,
-		urlHost:  githubUrlBaseHost,
-	},
-	{
-		spType:   config.ServiceProviderTypeQuay,
-		endpoint: quayEndpoint,
-		urlHost:  quayUrlBaseHost,
-	},
-	{
-		spType:   config.ServiceProviderTypeGitLab,
-		endpoint: gitlabEndpoint,
-		urlHost:  gitlabUrlBaseHost,
-	},
+type ServiceProviderDefaults struct {
+	SpType   config.ServiceProviderType
+	Endpoint oauth2.Endpoint
+	UrlHost  string
 }
 
-func NewRouter(ctx context.Context, cfg RouterConfiguration) (*Router, error) {
+func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []ServiceProviderDefaults) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
 		stateStorage: cfg.StateStorage,
 	}
 
 	for _, sp := range spDefaults {
-		if controller, initControllerErr := InitController(ctx, sp.spType, cfg, sp.urlHost, sp.endpoint); initControllerErr == nil {
-			router.controllers[sp.spType] = controller
+		if controller, initControllerErr := InitController(ctx, sp.SpType, cfg, sp.UrlHost, sp.Endpoint); initControllerErr == nil {
+			router.controllers[sp.SpType] = controller
 		} else {
-			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.spType, initControllerErr)
+			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.SpType, initControllerErr)
 		}
 	}
 

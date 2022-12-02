@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"golang.org/x/oauth2/github"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -150,14 +152,33 @@ func main() {
 		setupLog.Error(templateErr, "failed to parse the redirect notice HTML template")
 		os.Exit(1)
 	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), oauth.RouterConfiguration{
+	routerCfg := oauth.RouterConfiguration{
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
 		K8sClient:                 cl,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
-	})
+	}
+	// all servise provider types we support, including default values
+	serviceProviderDefaults := []oauth.ServiceProviderDefaults{
+		{
+			SpType:   config.ServiceProviderTypeGitHub,
+			Endpoint: github.Endpoint,
+			UrlHost:  oauth.GithubUrlBaseHost,
+		},
+		{
+			SpType:   config.ServiceProviderTypeQuay,
+			Endpoint: oauth.QuayEndpoint,
+			UrlHost:  oauth.QuayUrlBaseHost,
+		},
+		{
+			SpType:   config.ServiceProviderTypeGitLab,
+			Endpoint: oauth.GitlabEndpoint,
+			UrlHost:  oauth.GitlabUrlBaseHost,
+		},
+	}
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceProviderDefaults)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
