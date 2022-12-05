@@ -95,7 +95,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request) 
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
 			"and the API_SERVER environment variable points it to the incorrect Kubernetes API server. "+
-			"If SPI is running with Devsandbox Proxy or KCP, make sure this env var points to the Kubernetes API proxy,"+
+			"If SPI is running with Devsandbox Proxy, make sure this env var points to the Kubernetes API proxy,"+
 			" otherwise unset this variable. See more https://github.com/redhat-appstudio/infra-deployments/pull/264")
 		return
 	}
