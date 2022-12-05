@@ -74,7 +74,7 @@ func (s StateStorage) UnveilState(ctx context.Context, req *http.Request) (strin
 	return stBucket.realState, nil
 }
 
-func (s StateStorage) StateVailAt(ctx context.Context, req *http.Request) (time.Time, error) {
+func (s StateStorage) StateVeiledAt(ctx context.Context, req *http.Request) (time.Time, error) {
 	log := log.FromContext(ctx)
 	state := req.URL.Query().Get("state")
 	if state == "" {

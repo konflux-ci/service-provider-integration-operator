@@ -15,6 +15,9 @@
 package oauth
 
 import (
+	"github.com/alexedwards/scs/v2"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,4 +61,37 @@ func TestMetricRequestTotal(t *testing.T) {
 	if err := prometheusTest.GatherAndCompare(reg, strings.NewReader(expected), "redhat_appstudio_spi_oauth_service_requests_total"); err != nil {
 		t.Fatal(err)
 	}
+}
+
+//
+
+func TestCompletedFlowMetricHandler(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	OAuthFlowCompleteTimeMetric.Reset()
+
+	// Create a request to pass to our handler.
+	req, err := http.NewRequest("GET", "github/authenticate?state=eyJ0b2tlbk5hbWUiOiJnZW5lcmF0ZWQtc3BpLWFjY2Vzcy10b2tlbi1rNHByaiIsInRva2VuTmFtZXNwYWNlIjoiZGVmYXVsdCIsInRva2VuS2NwV29ya3NwYWNlIjoiIiwic2NvcGVzIjpbInJlcG8iXSwic2VydmljZVByb3ZpZGVyVHlwZSI6IkdpdEh1YiIsInNlcnZpY2VQcm92aWRlclVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbSJ9", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := NewCompletedFlowMetricHandler(reg, config.ServiceProviderConfiguration{ClientId: "id1", ClientSecret: "secret", ServiceProviderType: config.ServiceProviderTypeGitHub}, NewStateStorage(scs.New()), http.HandlerFunc(OkHandler))
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code is what we expect.
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	count, err := prometheusTest.GatherAndCount(reg, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+	assert.Equal(t, 1, count)
+	assert.NoError(t, err)
+
 }
