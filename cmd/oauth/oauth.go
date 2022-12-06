@@ -139,7 +139,6 @@ func main() {
 	router.HandleFunc("/login", authenticator.Login).Methods("POST")
 	router.NewRoute().Path("/{type}/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
-	router.NewRoute().Path("/token/{kcpWorkspace}/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 
 	redirectTpl, err := template.ParseFiles("static/redirect_notice.html")
 	if err != nil {
