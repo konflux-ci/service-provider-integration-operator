@@ -149,6 +149,10 @@ lint: ## Run the linter on the codebase
 
 check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
 
+ready: fmt fmt_license lint test	
+	go mod download
+	go mod tidy
+
 vet: ## Run go vet against code.
 	go vet ./...
 
