@@ -26,13 +26,11 @@ A Kubernetes controller/operator that manages service provider integration tasks
 - [User Guide](docs/USER.md)
 - [Contributing](docs/DEVELOP.md)
   - [Building & Testing](docs/DEVELOP.md#building---testing)
-      * [KCP](docs/DEVELOP.md#kcp)
       * [Out of cluster](docs/DEVELOP.md#out-of-cluster)
       * [In cluster](docs/DEVELOP.md#in-cluster)
   - [Debugging](docs/DEVELOP.md#debugging)
   - [Manual testing with custom images](docs/DEVELOP.md#manual-testing-with-custom-images)
       * [Requirements on the Service Providers](docs/DEVELOP.md#requirements-on-the-service-providers)
-      * [To test SPI on CPS/KCP cluster](docs/DEVELOP.md#to-test-spi-on-cps-kcp-cluster)
 - [License](LICENSE)
 
 ## About

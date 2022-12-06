@@ -46,11 +46,6 @@ run the formatting check, static code analysis and all the tests:
 make check
 ```
 
-### KCP
-We generate `APIResourceSchema`s and `APIExport` for KCP from our CRDs using `./hack/generate-kcp-api.sh` script or `make manifests-kcp`.
-These have to be updated on every CRD change and committed. `APIResourceSchema` is immutable in KCP, so we version it by putting datetime as a name prefix.
-
-
 ### Out of cluster
 There is a dedicated make target to run the operator locally:
 
@@ -158,13 +153,3 @@ kubectl -n spi-system scale deployment spi-controller-manager spi-oauth-service 
 For the OAuth workflow to work, SPI needs to be registered as an Oauth application within all service providers that it will need to interact with.
 Note that the integration also includes the “redirect_uri”, i.e. the target URL to which the OAuth flow will be redirected upon completion.
 In addition, the SPI REST API will need to be configured with the `Client ID` and `Client Secret` for each such OAuth app in every Service Provider.
-
-
-
-### To test SPI on CPS/KCP cluster
-
-1. make sure you have kcp tooling installed locally and up to date
-    - you can do it by cloning kcp repo and make install it -> `git clone https://github.com/kcp-dev/kcp && cd kcp && make install`
-2. On workload cluster `make deploy_vault_openshift`
-3. On workload cluster `export VAULT_HOST=https://$(oc get route/spi-vault --namespace=spi-vault -o=jsonpath={'.spec.host'})`
-4. On kcp `make deploy_vault_openshift`
