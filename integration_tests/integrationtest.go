@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -318,7 +319,30 @@ func (ts *TestSetup) AfterEach() {
 // The `postCondition` can use the `testSetup.InCluster` to access the current state of the objects (which is being
 // updated during this call).
 func (ts *TestSetup) ReconcileWithCluster(postCondition func(Gomega)) {
+	_, filename, line, _ := runtime.Caller(1)
+	log.Log.Info("////")
+	log.Log.Info("////")
+	log.Log.Info("////")
+	log.Log.Info("////")
+	log.Log.Info("//// Triggering reconciliation with cluster")
+	log.Log.Info("////", "file", filename, "line", line)
+	log.Log.Info("////")
+	log.Log.Info("////")
+	log.Log.Info("////")
+	log.Log.Info("////")
+
 	ts.settleWithCluster(true, postCondition)
+
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\ Finished reconciliation with cluster")
+	log.Log.Info("\\\\\\\\", "file", filename, "line", line)
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
+	log.Log.Info("\\\\\\\\")
 }
 
 func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(Gomega)) {
@@ -592,8 +616,10 @@ func hasChanged[T client.Object](a T, b T) bool {
 
 func toPointerArray[T any](arr []T) []*T {
 	ret := make([]*T, 0, len(arr))
-	for _, o := range arr {
-		ret = append(ret, &o)
+	for i, _ := range arr {
+		// we cannot use the second var from the range assignment here, because that is a single memory location for all
+		// elements. We'd therefore end up with an array of pointers to a single memory location.
+		ret = append(ret, &arr[i])
 	}
 
 	return ret
@@ -602,6 +628,8 @@ func toPointerArray[T any](arr []T) []*T {
 func fromPointerArray[T any](arr []*T) []T {
 	ret := make([]T, 0, len(arr))
 	for _, o := range arr {
+		// we're fine using "o" here as opposed to the situation in toPointerArray, because here we're effectively
+		// creating a copy of the object
 		ret = append(ret, *o)
 	}
 
