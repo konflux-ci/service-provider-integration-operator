@@ -24,10 +24,6 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
-	"github.com/kcp-dev/logicalcluster/v2"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -119,7 +115,6 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 
 	return []reconcile.Request{
 		{
-			ClusterName: logicalcluster.From(object).String(),
 			NamespacedName: types.NamespacedName{
 				Namespace: object.GetNamespace(),
 				Name:      tokenName,
@@ -131,8 +126,6 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
-
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
 
@@ -296,17 +289,9 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 		}
 	}
 
-	at.Status.UploadUrl = r.createUploadUrl(ctx, at)
+	at.Status.UploadUrl = fmt.Sprintf("%s/token/%s/%s", r.Configuration.BaseUrl, at.Namespace, at.Name)
 
 	return nil
-}
-
-func (r *SPIAccessTokenReconciler) createUploadUrl(ctx context.Context, at *api.SPIAccessToken) string {
-	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
-		return fmt.Sprintf("%s/token/%s/%s/%s", r.Configuration.BaseUrl, kcpWorkspaceName.String(), at.Namespace, at.Name)
-	} else {
-		return fmt.Sprintf("%s/token/%s/%s", r.Configuration.BaseUrl, at.Namespace, at.Name)
-	}
 }
 
 // oAuthUrlFor determines the OAuth flow initiation URL for given token.
@@ -320,15 +305,9 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		return "", nil
 	}
 
-	kcpWorkspace := ""
-	if kcpWorkspaceName, hasKcpWorkspace := logicalcluster.ClusterFromContext(ctx); hasKcpWorkspace {
-		kcpWorkspace = kcpWorkspaceName.String()
-	}
-
 	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
-		TokenKcpWorkspace:   kcpWorkspace,
 		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),

@@ -30,9 +30,6 @@ type OAuthInfo struct {
 	// TokenNamespace is the namespace of the SPIAccessToken object for which we are initiating the OAuth flow
 	TokenNamespace string `json:"tokenNamespace"`
 
-	// TokenKcpWorkspace is the KCP workspace where SPIAccessToken lives. It's empty in non-KCP environment
-	TokenKcpWorkspace string `json:"tokenKcpWorkspace"`
-
 	// Scopes is the list of the service-provider-specific scopes that we require in the service provider
 	Scopes []string `json:"scopes"`
 
