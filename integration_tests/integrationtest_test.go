@@ -17,6 +17,9 @@ package integrationtests
 import (
 	"testing"
 
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,4 +48,45 @@ func TestFromPointerArray(t *testing.T) {
 	assert.Equal(t, 1, arr[1].A)
 	assert.Equal(t, "", arr[0].B)
 	assert.Equal(t, "2", arr[1].B)
+}
+
+func TestFindDifferences(t *testing.T) {
+	ptrs1 := []*api.SPIAccessToken{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "a",
+				Namespace: "ns",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "b",
+				Namespace: "ns",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "u",
+			},
+		},
+	}
+	ptrs2 := []*api.SPIAccessToken{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "b",
+				Namespace: "ns",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "a",
+				Namespace: "ns",
+			},
+			Spec: api.SPIAccessTokenSpec{
+				ServiceProviderUrl: "u",
+			},
+		},
+	}
+
+	diff := findDifferences(ptrs1, ptrs2)
+
+	assert.NotEmpty(t, diff)
 }

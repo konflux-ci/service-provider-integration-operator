@@ -17,9 +17,11 @@ package integrationtests
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"runtime"
+	"strings"
 	"time"
+
+	"github.com/go-test/deep"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -414,14 +416,23 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		// actually happened. If the caller didn't provide a post condition, they have been warned - we only offer
 		// waiting for reconciliation on the best effort basis.
 
-		if hasAnyChanged(toPointerArray(tokens), ts.InCluster.Tokens) ||
-			hasAnyChanged(toPointerArray(bindings), ts.InCluster.Bindings) ||
-			hasAnyChanged(toPointerArray(checks), ts.InCluster.Checks) ||
-			hasAnyChanged(toPointerArray(fileRequests), ts.InCluster.FileContentRequests) ||
-			hasAnyChanged(toPointerArray(dataUpdates), ts.InCluster.DataUpdates) {
+		tokenDiffs := findDifferences(toPointerArray(tokens), ts.InCluster.Tokens)
+		bindingDiffs := findDifferences(toPointerArray(bindings), ts.InCluster.Bindings)
+		checkDiffs := findDifferences(toPointerArray(checks), ts.InCluster.Checks)
+		fileRequestDiffs := findDifferences(toPointerArray(fileRequests), ts.InCluster.FileContentRequests)
+		dataUpdateDiffs := findDifferences(toPointerArray(dataUpdates), ts.InCluster.DataUpdates)
 
+		if len(tokenDiffs) > 0 || len(bindingDiffs) > 0 || len(checkDiffs) > 0 || len(fileRequestDiffs) > 0 || len(dataUpdateDiffs) > 0 {
 			if i%50 == 0 {
-				log.Log.Info("settling loop still seeing changes", "iteration", i, "test", ginkgo.CurrentGinkgoTestDescription().FullTestText)
+				log.Log.Info("settling loop still seeing changes",
+					"iteration", i,
+					"test", ginkgo.CurrentGinkgoTestDescription().FullTestText,
+					"tokenDiffs", tokenDiffs,
+					"bindingDiffs", bindingDiffs,
+					"checkDiffs", checkDiffs,
+					"fileRequestDiffs", fileRequestDiffs,
+					"dataUpdateDiffs", dataUpdateDiffs,
+				)
 			}
 
 			time.Sleep(200 * time.Millisecond)
@@ -579,9 +590,11 @@ func addAllExisting[T client.Object, L client.ObjectList](list L, itemsFromList 
 	return existing
 }
 
-func hasAnyChanged[T client.Object](origs []T, news []T) bool {
+func findDifferences[T client.Object](origs []T, news []T) string {
+	var diffs []string
+
 	if len(origs) != len(news) {
-		return true
+		return "arrays have a different number of elements"
 	}
 
 	origMap := map[client.ObjectKey]T{}
@@ -590,16 +603,18 @@ func hasAnyChanged[T client.Object](origs []T, news []T) bool {
 	}
 
 	for _, n := range news {
-		o := origMap[client.ObjectKeyFromObject(n)]
-		if hasChanged(o, n) {
-			return true
+		key := client.ObjectKeyFromObject(n)
+		o := origMap[key]
+		diff := diff(o, n)
+		if len(diff) > 0 {
+			diffs = append(diffs, fmt.Sprintf("%v: {%s}", key, diff))
 		}
 	}
 
-	return false
+	return strings.Join(diffs, ", ")
 }
 
-func hasChanged[T client.Object](a T, b T) bool {
+func diff[T client.Object](a T, b T) string {
 	copyA := a.DeepCopyObject().(T)
 	copyB := b.DeepCopyObject().(T)
 
@@ -611,7 +626,7 @@ func hasChanged[T client.Object](a T, b T) bool {
 	copyB.SetResourceVersion("")
 	copyB.SetManagedFields(nil)
 
-	return !reflect.DeepEqual(copyA, copyB)
+	return strings.Join(deep.Equal(copyA, copyB), ", ")
 }
 
 func toPointerArray[T any](arr []T) []*T {
