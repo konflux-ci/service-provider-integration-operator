@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var errUnknownServiceProvider = errors.New("unknown service provider")
+var errUnknownServiceProviderType = errors.New("unknown service provider type")
 
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
@@ -105,7 +105,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 
 	controller := r.controllers[state.ServiceProviderType]
 	if controller == nil {
-		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProvider, state.ServiceProviderType, state.ServiceProviderUrl)
+		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderType, state.ServiceProviderUrl)
 	}
 
 	return controller, state, nil

@@ -23,4 +23,4 @@ var GitlabEndpoint = oauth2.Endpoint{
 	TokenURL: "https://gitlab.com/oauth/token",
 }
 
-var GitlabUrlBaseHost = "gitlab.com"
+var GitlabSaasHost = "gitlab.com"

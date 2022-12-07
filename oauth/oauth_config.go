@@ -40,9 +40,9 @@ const (
 )
 
 var (
-	errMissingField                     = errors.New("missing mandatory field in oauth configuration")
-	errMultipleMatchingSecrets          = errors.New("found multiple matching oauth config secrets")
-	errConfigNotFoundForServiceProvider = errors.New("haven't found oauth configuration for service provider")
+	errMissingField            = errors.New("missing mandatory field in oauth configuration")
+	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
+	errUnknownServiceProvider  = errors.New("haven't found oauth configuration for service provider")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -90,7 +90,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		oauthCfg.ClientSecret = defaultOauthConfig.Config.ClientSecret
 		return oauthCfg, nil
 	} else {
-		return nil, fmt.Errorf("%w '%s' url: '%s'", errConfigNotFoundForServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
+		return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
 	}
 }
 

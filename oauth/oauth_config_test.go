@@ -127,7 +127,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -149,7 +149,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -159,7 +159,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -181,7 +181,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -191,7 +191,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -213,7 +213,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -223,7 +223,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -239,7 +239,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			}}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -249,7 +249,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -262,7 +262,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			}}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -272,7 +272,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubUrlBaseHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
@@ -345,7 +345,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ClientId:               "eh?",
 						ClientSecret:           "bleh?",
@@ -403,7 +403,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ClientId:               "eh?",
 						ClientSecret:           "bleh?",
@@ -472,7 +472,7 @@ func TestMultipleProviders(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubUrlBaseHost: {
+				GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},

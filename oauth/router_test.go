@@ -30,7 +30,7 @@ var testSpDefaults = []ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeGitHub,
 		Endpoint: github.Endpoint,
-		UrlHost:  GithubUrlBaseHost,
+		UrlHost:  GithubSaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeQuay,
@@ -40,7 +40,7 @@ var testSpDefaults = []ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeGitLab,
 		Endpoint: GitlabEndpoint,
-		UrlHost:  GitlabUrlBaseHost,
+		UrlHost:  GitlabSaasHost,
 	},
 }
 
@@ -160,7 +160,7 @@ func TestFindController(t *testing.T) {
 			{
 				SpType:   config.ServiceProviderTypeGitHub,
 				Endpoint: github.Endpoint,
-				UrlHost:  GithubUrlBaseHost,
+				UrlHost:  GithubSaasHost,
 			},
 			{
 				SpType:   config.ServiceProviderTypeQuay,

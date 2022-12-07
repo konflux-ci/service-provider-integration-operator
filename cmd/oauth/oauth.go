@@ -165,7 +165,7 @@ func main() {
 		{
 			SpType:   config.ServiceProviderTypeGitHub,
 			Endpoint: github.Endpoint,
-			UrlHost:  oauth.GithubUrlBaseHost,
+			UrlHost:  oauth.GithubSaasHost,
 		},
 		{
 			SpType:   config.ServiceProviderTypeQuay,
@@ -175,7 +175,7 @@ func main() {
 		{
 			SpType:   config.ServiceProviderTypeGitLab,
 			Endpoint: oauth.GitlabEndpoint,
-			UrlHost:  oauth.GitlabUrlBaseHost,
+			UrlHost:  oauth.GitlabSaasHost,
 		},
 	}
 	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceProviderDefaults)
