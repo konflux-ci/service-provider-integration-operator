@@ -144,7 +144,6 @@ func main() {
 
 	// token upload
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
-	router.NewRoute().Path("/token/{kcpWorkspace}/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 
 	// oauth
 	redirectTpl, templateErr := template.ParseFiles("static/redirect_notice.html")

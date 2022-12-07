@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -37,7 +36,6 @@ import (
 )
 
 const vaultDataPathFormat = "spi/data/%s/%s"
-const vaultDataKcpPathFormat = "spi/data/%s/%s/%s"
 
 type vaultTokenStorage struct {
 	*vault.Client
@@ -195,7 +193,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		"data": token,
 	}
 	lg := log.FromContext(ctx)
-	path := getVaultPath(ctx, owner)
+	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 	s, err := v.Client.Logical().WriteWithContext(ctx, path, data)
@@ -217,7 +215,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := getVaultPath(ctx, owner)
+	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
 	secret, err := v.Client.Logical().ReadWithContext(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
@@ -286,19 +284,11 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := getVaultPath(ctx, owner)
+	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
 	s, err := v.Client.Logical().DeleteWithContext(ctx, path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
 	}
 	log.FromContext(ctx).V(logs.DebugLevel).Info("deleted", "secret", s)
 	return nil
-}
-
-func getVaultPath(ctx context.Context, owner *api.SPIAccessToken) string {
-	if workspace, ok := logicalcluster.ClusterFromContext(ctx); ok {
-		return fmt.Sprintf(vaultDataKcpPathFormat, workspace, owner.Namespace, owner.Name)
-	} else {
-		return fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
-	}
 }
