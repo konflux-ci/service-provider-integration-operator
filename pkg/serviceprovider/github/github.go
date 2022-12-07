@@ -93,12 +93,12 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 
 var _ serviceprovider.ConstructorFunc = newGithub
 
-func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/github/authenticate"
-}
-
 func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
+}
+
+func (g *Github) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + "/oauth/authenticate"
 }
 
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
