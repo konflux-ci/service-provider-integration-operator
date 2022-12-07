@@ -456,6 +456,44 @@ func TestObtainOauthConfig(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, oauthCfg)
 	})
+
+	t.Run("invalid url fails", func(t *testing.T) {
+		ctrl := commonController{}
+
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl: ":::",
+		}
+
+		oauthCfg, err := ctrl.obtainOauthConfig(context.TODO(), oauthInfo)
+
+		assert.Error(t, err)
+		assert.Nil(t, oauthCfg)
+	})
+
+	t.Run("found nothing returns error", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		utilruntime.Must(v1.AddToScheme(scheme))
+		ctx := context.TODO()
+
+		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		ctrl := commonController{
+			ServiceProviderInstance: map[string]oauthConfiguration{},
+			ServiceProviderType:     config.ServiceProviderTypeGitHub,
+			K8sClient:               cl,
+			BaseUrl:                 "baseurl",
+		}
+
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl:  "http://bleh.eh",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+		}
+
+		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthInfo)
+
+		assert.Error(t, err)
+		assert.Nil(t, oauthCfg)
+	})
 }
 
 func TestMultipleProviders(t *testing.T) {
