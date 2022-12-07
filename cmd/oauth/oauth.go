@@ -169,7 +169,7 @@ func main() {
 		{
 			SpType:   config.ServiceProviderTypeQuay,
 			Endpoint: oauth.QuayEndpoint,
-			UrlHost:  oauth.QuayUrlBaseHost,
+			UrlHost:  oauth.QuaySaasHost,
 		},
 		{
 			SpType:   config.ServiceProviderTypeGitLab,

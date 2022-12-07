@@ -36,7 +36,6 @@ const (
 	oauthCfgSecretFieldClientSecret = "clientSecret"
 	oauthCfgSecretFieldAuthUrl      = "authUrl"
 	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
-	oauthCfgSecretFieldBaseUrl      = "baseUrl"
 )
 
 var (
@@ -58,18 +57,14 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 
 	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
 
-	var oauthCfg *oauth2.Config
+	oauthCfg := &oauth2.Config{
+		RedirectURL: c.redirectUrl(),
+	}
 	if foundDefaultOauthConfig {
-		oauthCfg = &oauth2.Config{
-			Endpoint:    defaultOauthConfig.Endpoint,
-			RedirectURL: c.redirectUrl(),
-		}
+		oauthCfg.Endpoint = defaultOauthConfig.Endpoint
 	} else {
 		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
-		oauthCfg = &oauth2.Config{
-			Endpoint:    createDefaultEndpoint(info.ServiceProviderUrl),
-			RedirectURL: c.redirectUrl(),
-		}
+		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
 	}
 
 	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(ctx, info.TokenNamespace, spUrl.Host)
@@ -84,14 +79,16 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		} else {
 			return nil, fmt.Errorf("failed to create oauth config from the secret: %w", createOauthCfgErr)
 		}
-	} else if foundDefaultOauthConfig {
+	}
+
+	if foundDefaultOauthConfig {
 		lg.V(logs.DebugLevel).Info("using default oauth config")
 		oauthCfg.ClientID = defaultOauthConfig.Config.ClientId
 		oauthCfg.ClientSecret = defaultOauthConfig.Config.ClientSecret
 		return oauthCfg, nil
-	} else {
-		return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
 	}
+
+	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
 }
 
 func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNamespace string, spHost string) (bool, *corev1.Secret, error) {

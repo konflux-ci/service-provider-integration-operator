@@ -30,20 +30,24 @@ import (
 
 var errUnknownServiceProviderType = errors.New("unknown service provider type")
 
+// Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
 
 	stateStorage *StateStorage
 }
 
+// CallbackRoute route for /oauth/callback requests
 type CallbackRoute struct {
 	router *Router
 }
 
+// AuthenticateRoute route for /oauth/authenticate requests
 type AuthenticateRoute struct {
 	router *Router
 }
 
+// RouterConfiguration configuration needed to create new Router
 type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator    *Authenticator
@@ -53,6 +57,7 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
+// ServiceProviderDefaults configuration containing default values used to initialize supported service providers
 type ServiceProviderDefaults struct {
 	SpType   config.ServiceProviderType
 	Endpoint oauth2.Endpoint

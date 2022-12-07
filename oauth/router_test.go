@@ -35,7 +35,7 @@ var testSpDefaults = []ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeQuay,
 		Endpoint: QuayEndpoint,
-		UrlHost:  QuayUrlBaseHost,
+		UrlHost:  QuaySaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeGitLab,
@@ -165,7 +165,7 @@ func TestFindController(t *testing.T) {
 			{
 				SpType:   config.ServiceProviderTypeQuay,
 				Endpoint: QuayEndpoint,
-				UrlHost:  QuayUrlBaseHost,
+				UrlHost:  QuaySaasHost,
 			},
 		}
 

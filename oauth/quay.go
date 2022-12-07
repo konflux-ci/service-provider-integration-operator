@@ -23,4 +23,4 @@ var QuayEndpoint = oauth2.Endpoint{
 	TokenURL: "https://quay.io/oauth/access_token",
 }
 
-var QuayUrlBaseHost = "quay.io"
+var QuaySaasHost = "quay.io"
