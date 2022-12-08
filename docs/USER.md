@@ -308,7 +308,7 @@ status:
 At this stage, file request CR-s are intended to be single-used, so no further content refresh
 or accessibility checks must be expected. A new CR instance should be used to re-request the content.
 
-Currently, the file retrievals are limited to GitHub repositories only, and files size up to 2 Megabytes.
+Currently, the file retrievals are limited to GitHub & GitLab repositories only, and files size up to 2 Megabytes.
 Default lifetime for file content requests is 30 min and can be changed via operator configuration parameter.
 
 

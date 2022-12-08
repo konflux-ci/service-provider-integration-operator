@@ -25,10 +25,7 @@ import (
 
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
@@ -97,10 +94,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			kcpWorkspace := logicalcluster.From(o)
-			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
-
-			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
 			if err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
@@ -110,10 +104,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return requests
 		})).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			kcpWorkspace := logicalcluster.From(o)
-			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
-
-			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == o.GetName()
 
 			})
@@ -134,7 +125,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
 
 // filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
-func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
+func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
 	bindings := &api.SPIAccessTokenBindingList{}
 	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list bindings in the namespace %s, error: %w", namespace, err)
@@ -143,7 +134,6 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 	for _, b := range bindings.Items {
 		if matchingFunc(b) {
 			ret = append(ret, reconcile.Request{
-				ClusterName: kcpWorkspace,
 				NamespacedName: types.NamespacedName{
 					Name:      b.Name,
 					Namespace: b.Namespace,
@@ -155,8 +145,6 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
-
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
 
@@ -361,7 +349,7 @@ func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPI
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
 // The status of the binding is immediately persisted with an error if the service provider cannot be determined.
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
-	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl)
+	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)

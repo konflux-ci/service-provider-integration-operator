@@ -61,7 +61,8 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-const quayUrlBase = "https://quay.io"
+const quayUrlBaseHost = "quay.io"
+const quayUrlBase = "https://" + quayUrlBaseHost
 const quayApiUrlBase = quayUrlBase + "/api/v1"
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -101,6 +102,10 @@ func (q *Quay) GetBaseUrl() string {
 
 func (q *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
+}
+
+func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return nil
 }
 
 func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {

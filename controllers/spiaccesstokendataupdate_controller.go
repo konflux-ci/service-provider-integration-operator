@@ -23,8 +23,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -67,8 +65,6 @@ func (r *SPIAccessTokenDataUpdateReconciler) SetupWithManager(mgr ctrl.Manager) 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
-
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenData")
 

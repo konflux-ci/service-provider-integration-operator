@@ -44,12 +44,18 @@ import (
 
 var _ = Describe("Controller", func() {
 
+	createAnonymousState := func() *oauthstate.OAuthInfo {
+		return &oauthstate.OAuthInfo{
+			TokenName:           "mytoken",
+			TokenNamespace:      IT.Namespace,
+			Scopes:              []string{"a", "b"},
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderUrl:  "https://special.sp",
+		}
+	}
+
 	prepareAnonymousState := func() string {
-		ret, err := oauthstate.Encode(&oauthstate.OAuthInfo{
-			TokenName:      "mytoken",
-			TokenNamespace: IT.Namespace,
-			Scopes:         []string{"a", "b"},
-		})
+		ret, err := oauthstate.Encode(createAnonymousState())
 		Expect(err).NotTo(HaveOccurred())
 		return ret
 	}
@@ -81,18 +87,22 @@ var _ = Describe("Controller", func() {
 		tmpl, err := template.ParseFiles("../static/redirect_notice.html")
 		g.Expect(err).NotTo(HaveOccurred())
 		return &commonController{
-			Config: config.ServiceProviderConfiguration{
-				ClientId:            "clientId",
-				ClientSecret:        "clientSecret",
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				"special.sp": {
+					Config: config.ServiceProviderConfiguration{
+						ClientId:            "clientId",
+						ClientSecret:        "clientSecret",
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+					Endpoint: oauth2.Endpoint{
+						AuthURL:   "https://special.sp/login",
+						TokenURL:  "https://special.sp/toekn",
+						AuthStyle: oauth2.AuthStyleAutoDetect,
+					},
+				},
 			},
-			K8sClient:    IT.Client,
-			TokenStorage: IT.TokenStorage,
-			Endpoint: oauth2.Endpoint{
-				AuthURL:   "https://special.sp/login",
-				TokenURL:  "https://special.sp/toekn",
-				AuthStyle: oauth2.AuthStyleAutoDetect,
-			},
+			K8sClient:        IT.Client,
+			TokenStorage:     IT.TokenStorage,
 			BaseUrl:          "https://spi.on.my.machine",
 			Authenticator:    prepareAuthenticator(g),
 			RedirectTemplate: tmpl,
@@ -129,7 +139,7 @@ var _ = Describe("Controller", func() {
 		c := prepareController(g)
 
 		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c.Authenticate(w, r)
+			c.Authenticate(w, r, createAnonymousState())
 		})).ServeHTTP(res, req)
 
 		return c, spiState, res
@@ -145,7 +155,7 @@ var _ = Describe("Controller", func() {
 		c := prepareController(g)
 
 		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c.Authenticate(w, r)
+			c.Authenticate(w, r, createAnonymousState())
 		})).ServeHTTP(res, req)
 
 		return c, spiState, res
@@ -192,7 +202,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/github/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
@@ -210,7 +220,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/github/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
@@ -294,7 +304,7 @@ var _ = Describe("Controller", func() {
 				}
 
 				IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r)
+					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r, createAnonymousState())
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))
@@ -347,7 +357,7 @@ var _ = Describe("Controller", func() {
 				}
 
 				IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r)
+					controller.Callback(context.WithValue(r.Context(), oauth2.HTTPClient, ctxVal), w, r, createAnonymousState())
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))

@@ -123,10 +123,11 @@ func TestFindOauthConfigSecret(t *testing.T) {
 	t.Run("no secrets", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 		ctrl := commonController{
-			K8sClient: cl,
+			K8sClient:           cl,
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, &oauthstate2.OAuthInfo{})
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -147,18 +148,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
-		}
-
-		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -179,18 +180,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
-		}
-
-		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -211,18 +212,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
-		}
-
-		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -237,18 +238,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				}, "nenene", fmt.Errorf("test err"))
 			}}).Build()
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
-		}
-
-		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -260,18 +261,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewBadRequest("nenenene")
 			}}).Build()
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
-		}
-
-		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
@@ -287,28 +288,33 @@ func TestObtainOauthConfig(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ClientId:               "eh?",
-				ClientSecret:           "bleh?",
-				ServiceProviderType:    config.ServiceProviderTypeGitHub,
-				ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				"bleh.eh": {
+					Config: config.ServiceProviderConfiguration{
+						ClientId:               "eh?",
+						ClientSecret:           "bleh?",
+						ServiceProviderType:    config.ServiceProviderTypeGitHub,
+						ServiceProviderBaseUrl: "http://bleh.eh",
+					},
+					Endpoint: github.Endpoint,
+				},
 			},
-			K8sClient: cl,
-			Endpoint:  github.Endpoint,
-			BaseUrl:   "baseurl",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
+			BaseUrl:             "baseurl",
 		}
 
-		oauthState := &oauthstate2.OAuthInfo{}
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl: "http://bleh.eh",
+		}
 
-		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
+		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthInfo)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
-		assert.Equal(t, oauthCfg.ClientID, "eh?")
-		assert.Equal(t, oauthCfg.ClientSecret, "bleh?")
-		assert.Equal(t, oauthCfg.Endpoint.AuthURL, github.Endpoint.AuthURL)
-		assert.Equal(t, oauthCfg.Endpoint.TokenURL, github.Endpoint.TokenURL)
-		assert.Equal(t, oauthCfg.Endpoint.AuthStyle, github.Endpoint.AuthStyle)
+		assert.Equal(t, "eh?", oauthCfg.ClientID)
+		assert.Equal(t, "bleh?", oauthCfg.ClientSecret)
+		assert.Equal(t, github.Endpoint, oauthCfg.Endpoint)
 		assert.Contains(t, oauthCfg.RedirectURL, "baseurl")
 	})
 
@@ -338,31 +344,36 @@ func TestObtainOauthConfig(t *testing.T) {
 		}).Build()
 
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ClientId:               "eh?",
-				ClientSecret:           "bleh?",
-				ServiceProviderType:    config.ServiceProviderTypeGitHub,
-				ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ClientId:               "eh?",
+						ClientSecret:           "bleh?",
+						ServiceProviderType:    config.ServiceProviderTypeGitHub,
+						ServiceProviderBaseUrl: "http://bleh.eh",
+					},
+					Endpoint: github.Endpoint,
+				},
 			},
-			K8sClient: cl,
-			Endpoint:  github.Endpoint,
-			BaseUrl:   "baseurl",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
+			BaseUrl:             "baseurl",
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderUrl:  "http://bleh.eh",
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
+		expectedEndpoint := createDefaultEndpoint("http://bleh.eh")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
 		assert.Equal(t, oauthCfg.ClientID, "testclientid")
 		assert.Equal(t, oauthCfg.ClientSecret, "testclientsecret")
-		assert.Equal(t, oauthCfg.Endpoint.AuthURL, github.Endpoint.AuthURL)
-		assert.Equal(t, oauthCfg.Endpoint.TokenURL, github.Endpoint.TokenURL)
-		assert.Equal(t, oauthCfg.Endpoint.AuthStyle, github.Endpoint.AuthStyle)
+		assert.Equal(t, expectedEndpoint, oauthCfg.Endpoint)
 		assert.Contains(t, oauthCfg.RedirectURL, "baseurl")
 	})
 
@@ -391,15 +402,20 @@ func TestObtainOauthConfig(t *testing.T) {
 		}).Build()
 
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ClientId:               "eh?",
-				ClientSecret:           "bleh?",
-				ServiceProviderType:    config.ServiceProviderTypeGitHub,
-				ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ClientId:               "eh?",
+						ClientSecret:           "bleh?",
+						ServiceProviderType:    config.ServiceProviderTypeGitHub,
+						ServiceProviderBaseUrl: "http://bleh.eh",
+					},
+					Endpoint: github.Endpoint,
+				},
 			},
-			K8sClient: cl,
-			Endpoint:  github.Endpoint,
-			BaseUrl:   "baseurl",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
+			BaseUrl:             "baseurl",
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
@@ -426,7 +442,8 @@ func TestObtainOauthConfig(t *testing.T) {
 			}}).Build()
 
 		ctrl := commonController{
-			K8sClient: cl,
+			K8sClient:           cl,
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
@@ -435,6 +452,44 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
+
+		assert.Error(t, err)
+		assert.Nil(t, oauthCfg)
+	})
+
+	t.Run("invalid url fails", func(t *testing.T) {
+		ctrl := commonController{}
+
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl: ":::",
+		}
+
+		oauthCfg, err := ctrl.obtainOauthConfig(context.TODO(), oauthInfo)
+
+		assert.Error(t, err)
+		assert.Nil(t, oauthCfg)
+	})
+
+	t.Run("found nothing returns error", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		utilruntime.Must(v1.AddToScheme(scheme))
+		ctx := context.TODO()
+
+		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		ctrl := commonController{
+			ServiceProviderInstance: map[string]oauthConfiguration{},
+			ServiceProviderType:     config.ServiceProviderTypeGitHub,
+			K8sClient:               cl,
+			BaseUrl:                 "baseurl",
+		}
+
+		oauthInfo := &oauthstate2.OAuthInfo{
+			ServiceProviderUrl:  "http://bleh.eh",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+		}
+
+		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthInfo)
 
 		assert.Error(t, err)
 		assert.Nil(t, oauthCfg)
@@ -448,25 +503,24 @@ func TestMultipleProviders(t *testing.T) {
 
 	secretNamespace := "test-secretConfigNamespace"
 
-	oauthState := &oauthstate2.OAuthInfo{
-		TokenNamespace:      secretNamespace,
-		ServiceProviderType: config.ServiceProviderTypeGitHub,
-		ServiceProviderUrl:  "https://blabol.eh/",
-	}
-
 	test := func(t *testing.T, oauthConfigSecrets []v1.Secret, shouldFind bool, findSecretName string, shouldError bool) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithLists(&v1.SecretList{
 			Items: oauthConfigSecrets,
 		}).Build()
 
 		ctrl := commonController{
-			Config: config.ServiceProviderConfiguration{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderInstance: map[string]oauthConfiguration{
+				GithubSaasHost: {
+					Config: config.ServiceProviderConfiguration{
+						ServiceProviderType: config.ServiceProviderTypeGitHub,
+					},
+				},
 			},
-			K8sClient: cl,
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, oauthState)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, "blabol.eh")
 		assert.Equal(t, shouldFind, found, "should find the secret")
 		if shouldError {
 			assert.Error(t, err, "should error")

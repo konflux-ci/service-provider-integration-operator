@@ -103,10 +103,6 @@ help: ## Display this help.
 
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(MAKE) manifests-kcp
-
-manifests-kcp:	## Generate KCP APIResourceSchema from CRDs
-	hack/generate-kcp-api.sh
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -228,20 +224,6 @@ deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deplo
 	VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "openshift"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
-deploy_kcp: ensure-tmp manifests kustomize
-	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
-	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
-	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
-
-deploy_kcp_openshift: ensure-tmp manifests kustomize
-	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
-	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
-	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp_openshift"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
-
 undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_k8s/k8s | kubectl delete -f -
@@ -249,10 +231,6 @@ undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster spe
 undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
-
-undeploy_kcp:
-	if [ ! -d ${TEMP_DIR}/deployment_kcp ]; then echo "No deployment files found in .tmp/deployment_kcp"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_kcp/kcp | kubectl delete -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -
