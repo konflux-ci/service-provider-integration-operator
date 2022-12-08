@@ -15,10 +15,13 @@
 package logs
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"strconv"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -74,10 +77,16 @@ func setFlagIfNotEmptyOrPanic(fs *flag.FlagSet, name, value string) {
 
 // TimeTrack used to time any function
 // Example:
-//  {
-//    defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
-//  }
+//
+//	{
+//	  defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
+//	}
 func TimeTrack(log logr.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.V(DebugLevel).Info(fmt.Sprintf("Time took to %s", name), "time", elapsed)
+}
+
+// AuditLog returns logger prepared with audit markers
+func AuditLog(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx, "audit", "true")
 }

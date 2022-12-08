@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -136,14 +134,14 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			AccessToken: string(s.Data["tokenData"]),
 		}
 
-		oauth.AuditLog(ctx).Info("manual token upload initiated", s.Namespace, accessToken.Name)
+		logs.AuditLog(ctx).Info("manual token upload initiated", s.Namespace, accessToken.Name)
 		err = r.TokenStorage.Store(ctx, &accessToken, &token)
 		if err != nil {
 			logError(ctx, s, fmt.Errorf("Token storing failed: %w", err), r, lg)
-			oauth.AuditLog(ctx).Error(err, "manual token upload failed", s.Namespace, accessToken.Name)
+			logs.AuditLog(ctx).Error(err, "manual token upload failed", s.Namespace, accessToken.Name)
 			continue
 		}
-		oauth.AuditLog(ctx).Info("manual token upload completed", s.Namespace, accessToken.Name)
+		logs.AuditLog(ctx).Info("manual token upload completed", s.Namespace, accessToken.Name)
 
 		tryDeleteEvent(ctx, s.Name, req.Namespace, r, lg)
 

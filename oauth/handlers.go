@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,7 +65,7 @@ func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
 		Title:   errorMsg,
 		Message: errorDescription,
 	}
-	AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
+	logs.AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
 	tmpl, _ := template.ParseFiles("../static/callback_error.html")
 
 	err := tmpl.Execute(w, data)
