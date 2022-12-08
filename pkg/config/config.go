@@ -44,8 +44,7 @@ type OperatorCliArgs struct {
 	TokenMatchPolicy            TokenPolicy   `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
 	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
 	MaxFileDownloadSize         int           `arg:"--max-download-size-bytes, env" default:"2097152" help:"A maximum file size in bytes for file downloading from SCM capabilities supporting providers"`
-
-	EnableTokenUpload bool `arg:"--enable-token-upload, env" default:"false" help:"Experimental: Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets."`
+	EnableTokenUpload           bool          `arg:"--enable-token-upload, env" default:"false" help:"Experimental: Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets."`
 }
 
 type OperatorConfiguration struct {
