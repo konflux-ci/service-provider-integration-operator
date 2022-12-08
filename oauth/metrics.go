@@ -20,7 +20,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strconv"
 	"time"
 )
 
@@ -41,8 +40,8 @@ var (
 		Subsystem: config.MetricsSubsystem,
 		Name:      "oauth_flow_complete_time_seconds",
 		Help:      "The time needed to complete OAuth flow provider and status code",
-		Buckets:   prometheus.ExponentialBuckets(1, 4, 8),
-	}, []string{"provider", "status"})
+		Buckets:   []float64{1, 5, 10, 15, 30, 60, 300},
+	}, []string{"type", "url"})
 )
 
 // HttpServiceInstrumentMetricHandler is a http.Handler that collects statistical information about
@@ -95,13 +94,13 @@ func NewCompletedFlowMetricHandler(reg prometheus.Registerer, spConfiguration co
 
 func (c *CompletedFlowMetricHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log := log.FromContext(req.Context())
-	log.Info("CompletedFlowMetricHandler ServeHTTP")
+	log.Info("CompletedFlowMetricHandler ServeHTTP", "Id", c.spConfiguration.ClientId)
 	statusWriter := NewStatusHeaderResponseWriter(w)
 	c.handler.ServeHTTP(statusWriter, req)
 	veiledAt, err := c.stateStorage.StateVeiledAt(req.Context(), req)
 	if err != nil {
 		log.Error(err, "Unknown state")
 	}
-	OAuthFlowCompleteTimeMetric.WithLabelValues(string(c.spConfiguration.ServiceProviderType), strconv.Itoa(statusWriter.StatusCode)).Observe(time.Since(veiledAt).Seconds())
+	OAuthFlowCompleteTimeMetric.WithLabelValues(string(c.spConfiguration.ServiceProviderType), c.spConfiguration.ClientId).Observe(time.Since(veiledAt).Seconds())
 
 }
