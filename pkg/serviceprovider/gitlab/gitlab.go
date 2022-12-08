@@ -272,7 +272,7 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 }
 
 func (g Gitlab) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/gitlab/authenticate"
+	return g.Configuration.BaseUrl + "/oauth/authenticate"
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
