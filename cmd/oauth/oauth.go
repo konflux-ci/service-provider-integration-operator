@@ -36,6 +36,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
+	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
@@ -184,9 +185,9 @@ func main() {
 	}
 
 	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
-	router.NewRoute().Path(oauth.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
-	router.NewRoute().Path(oauth.CallBackRoutePath).Handler(oauthRouter.Callback())
-	router.NewRoute().Path(oauth.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
+	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
+	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
