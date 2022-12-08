@@ -6,10 +6,8 @@ metadata:
 spec:
   permissions:
     required:
-      - type: rw
-        area: repository
       - type: r
-        area: user
+        area: repository
   repoUrl: https://github.com/spi-test-org-1/spi-org-test-repo-1
   secret:
     type: kubernetes.io/basic-auth
