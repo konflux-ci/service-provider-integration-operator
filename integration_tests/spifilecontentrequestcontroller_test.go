@@ -63,18 +63,19 @@ var _ = Describe("Create without token data", func() {
 		Expect(ITest.Client.DeleteAllOf(ITest.Context, &api.SPIAccessToken{}, client.InNamespace("default"))).To(Succeed())
 	})
 
-	It("have the status awaiting set", func() {
+	It("have the status awaiting binding set", func() {
+		Eventually(func(g Gomega) {
+			request := &api.SPIFileContentRequest{}
+			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
+			g.Expect(request.Status.Phase == api.SPIFileContentRequestPhaseAwaitingBinding).To(BeTrue())
+		}).Should(Succeed())
+	})
+
+	It("have the upload and OAUth URLs set and status changed to awaiting token", func() {
 		Eventually(func(g Gomega) {
 			request := &api.SPIFileContentRequest{}
 			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.Phase == api.SPIFileContentRequestPhaseAwaitingTokenData).To(BeTrue())
-		}).Should(Succeed())
-	})
-
-	It("have the upload and OAUth URLs set", func() {
-		Eventually(func(g Gomega) {
-			request := &api.SPIFileContentRequest{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdRequest), request)).To(Succeed())
 			g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
 			g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty())
 		}).Should(Succeed())

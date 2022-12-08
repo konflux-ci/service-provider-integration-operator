@@ -164,7 +164,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
 		}
-		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
+		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingBinding
 	} else if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
 		// already injected, nothing to do
 		return ctrl.Result{}, nil
@@ -193,6 +193,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 		//binding not injected yet, let's just synchronize URL's and that's it
 		if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
+			request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
 			request.Status.OAuthUrl = binding.Status.OAuthUrl
 			request.Status.TokenUploadUrl = binding.Status.UploadUrl
 		} else if binding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
