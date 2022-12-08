@@ -18,9 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"strings"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 
 	"github.com/xanzy/go-gitlab"
 
