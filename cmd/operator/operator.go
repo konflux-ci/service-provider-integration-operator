@@ -25,8 +25,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -152,18 +150,7 @@ func createManager(ctx context.Context, args opconfig.OperatorCliArgs) (manager.
 	}
 	restConfig := ctrl.GetConfigOrDie()
 
-	var mgr manager.Manager
-	var err error
-	if isKcp, isKcpErr := infrastructure.IsKcp(restConfig); isKcpErr == nil {
-		if isKcp {
-			mgr, err = infrastructure.NewKcpManager(ctx, restConfig, options, args.ApiExportName)
-		} else {
-			mgr, err = ctrl.NewManager(restConfig, options)
-		}
-	} else {
-		err = isKcpErr
-	}
-
+	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager %w", err)
 	}

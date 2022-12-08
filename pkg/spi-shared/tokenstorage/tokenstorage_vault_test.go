@@ -20,8 +20,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
-
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 
@@ -57,54 +55,21 @@ func TestStorage(t *testing.T) {
 	assert.NoError(t, storage.Initialize(context.Background()))
 	defer cluster.Cleanup()
 
-	test := func(ctx context.Context) {
-		err := storage.Store(ctx, testSpiAccessToken, testToken)
-		assert.NoError(t, err)
+	ctx := context.TODO()
+	err := storage.Store(ctx, testSpiAccessToken, testToken)
+	assert.NoError(t, err)
 
-		gettedToken, err := storage.Get(ctx, testSpiAccessToken)
-		assert.NoError(t, err)
-		assert.NotNil(t, gettedToken)
-		assert.EqualValues(t, testToken, gettedToken)
+	gettedToken, err := storage.Get(ctx, testSpiAccessToken)
+	assert.NoError(t, err)
+	assert.NotNil(t, gettedToken)
+	assert.EqualValues(t, testToken, gettedToken)
 
-		err = storage.Delete(ctx, testSpiAccessToken)
-		assert.NoError(t, err)
+	err = storage.Delete(ctx, testSpiAccessToken)
+	assert.NoError(t, err)
 
-		gettedToken, err = storage.Get(ctx, testSpiAccessToken)
-		assert.NoError(t, err)
-		assert.Nil(t, gettedToken)
-	}
-
-	t.Run("single cluster", func(t *testing.T) {
-		test(context.TODO())
-	})
-
-	t.Run("kcp", func(t *testing.T) {
-		test(infrastructure.InitKcpContext(context.Background(), "test_workspace"))
-	})
-
-	t.Run("token accessible only in it's workspace", func(t *testing.T) {
-		workspaceCtx := infrastructure.InitKcpContext(context.Background(), "test_workspace")
-
-		err := storage.Store(workspaceCtx, testSpiAccessToken, testToken)
-		assert.NoError(t, err)
-
-		gettedToken, err := storage.Get(context.TODO(), testSpiAccessToken)
-		assert.NoError(t, err)
-		assert.Nil(t, gettedToken)
-
-		gettedToken, err = storage.Get(infrastructure.InitKcpContext(context.Background(), "another_workspace"), testSpiAccessToken)
-		assert.NoError(t, err)
-		assert.Nil(t, gettedToken)
-
-		gettedToken, err = storage.Get(workspaceCtx, testSpiAccessToken)
-		assert.NoError(t, err)
-		assert.NotNil(t, gettedToken)
-		assert.EqualValues(t, testToken, gettedToken)
-
-		err = storage.Delete(workspaceCtx, testSpiAccessToken)
-		assert.NoError(t, err)
-	})
-
+	gettedToken, err = storage.Get(ctx, testSpiAccessToken)
+	assert.NoError(t, err)
+	assert.Nil(t, gettedToken)
 }
 
 func TestParseToken(t *testing.T) {
