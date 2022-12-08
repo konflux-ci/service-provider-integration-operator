@@ -113,7 +113,7 @@ var _ = Describe("Controller", func() {
 	loginFlow := func(g Gomega) (*Authenticator, *httptest.ResponseRecorder) {
 		token := grabK8sToken(g)
 
-		// This is the setup for the HTTP call to /github/authenticate
+		// This is the setup for the HTTP call to /oauth/authenticate
 		req := httptest.NewRequest("POST", "/", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		res := httptest.NewRecorder()

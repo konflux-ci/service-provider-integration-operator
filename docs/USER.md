@@ -184,7 +184,7 @@ curl -v -k $OAUTH_URL 2>&1 | grep 'location: ' | cut -d' ' -f3
 This gave us the link to the actual service provider (github) that we can use in the browser to approve and finish
 the OAuth flow.
 
-Upon returning from that OAuth flow, you should end up back on the SPI endpoint on the `.../github/callback` URL.
+Upon returning from that OAuth flow, you should end up back on the SPI endpoint on the `.../oauth/callback` URL.
 This concludes the flow and you should be able to see the secret configured in the binding with the requested data:
 
 ```
