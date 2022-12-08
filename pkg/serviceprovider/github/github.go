@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"strings"
 
@@ -98,7 +99,7 @@ func (g *Github) GetBaseUrl() string {
 }
 
 func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/oauth/authenticate"
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {

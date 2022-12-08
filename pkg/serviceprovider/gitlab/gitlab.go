@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"strings"
 
@@ -272,7 +273,7 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 }
 
 func (g Gitlab) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/oauth/authenticate"
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {

@@ -184,9 +184,9 @@ func main() {
 	}
 
 	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
-	router.NewRoute().Path("/oauth/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
-	router.NewRoute().Path("/oauth/callback").Handler(oauthRouter.Callback())
-	router.NewRoute().Path("/oauth/authenticate").Handler(oauthRouter.Authenticate())
+	router.NewRoute().Path(oauth.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.NewRoute().Path(oauth.CallBackRoutePath).Handler(oauthRouter.Callback())
+	router.NewRoute().Path(oauth.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{

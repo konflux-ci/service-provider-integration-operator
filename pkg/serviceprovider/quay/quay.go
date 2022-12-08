@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"strings"
 
@@ -93,7 +94,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 var _ serviceprovider.ConstructorFunc = newQuay
 
 func (q *Quay) GetOAuthEndpoint() string {
-	return q.Configuration.BaseUrl + "/quay/authenticate"
+	return q.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (q *Quay) GetBaseUrl() string {

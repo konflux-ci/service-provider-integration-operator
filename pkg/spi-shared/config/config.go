@@ -67,7 +67,7 @@ type SharedConfiguration struct {
 	ServiceProviders []ServiceProviderConfiguration
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
-	// service providers in the form of `${BASE_URL}/${SP_TYPE}/callback` (e.g. my-host/github/callback).
+	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
 	BaseUrl string
 }
 

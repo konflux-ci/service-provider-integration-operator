@@ -28,7 +28,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var errUnknownServiceProviderType = errors.New("unknown service provider type")
+var (
+	errUnknownServiceProviderType = errors.New("unknown service provider type")
+	CallBackRoutePath             = "/oauth/callback"
+	AuthenticateRoutePath         = "/oauth/authenticate"
+)
 
 // Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
