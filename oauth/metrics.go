@@ -41,6 +41,7 @@ var (
 		Subsystem: config.MetricsSubsystem,
 		Name:      "oauth_flow_complete_time_seconds",
 		Help:      "The time needed to complete OAuth flow provider and status code",
+		Buckets:   prometheus.ExponentialBuckets(1, 4, 8),
 	}, []string{"provider", "status"})
 )
 
@@ -89,7 +90,6 @@ type CompletedFlowMetricHandler struct {
 }
 
 func NewCompletedFlowMetricHandler(reg prometheus.Registerer, spConfiguration config.ServiceProviderConfiguration, stateStorage *StateStorage, handler http.Handler) *CompletedFlowMetricHandler {
-	reg.MustRegister(OAuthFlowCompleteTimeMetric)
 	return &CompletedFlowMetricHandler{spConfiguration: spConfiguration, stateStorage: stateStorage, handler: handler}
 }
 

@@ -30,10 +30,6 @@ import (
 type StateStorage struct {
 	sessionManager *scs.SessionManager
 }
-type stateBucket struct {
-	realState string
-	createAt  time.Time
-}
 
 var (
 	noStateError                = errors.New("request has no `state` parameter")
@@ -47,18 +43,23 @@ const (
 func (s StateStorage) VeilRealState(req *http.Request) (string, error) {
 
 	log := log.FromContext(req.Context())
+	log.Info("VeilRealState1")
 	state := req.URL.Query().Get("state")
 	if state == "" {
 		log.Error(noStateError, "Request has no state parameter")
 		return "", noStateError
 	}
+	log.Info("VeilRealState2")
 	newState, err := randStringBytes(32)
 	if err != nil {
 
 		return "", err
 	}
 	log.V(logs.DebugLevel).Info("State veiled", "state", state, "veil", newState)
-	s.sessionManager.Put(req.Context(), newState, stateBucket{realState: state, createAt: time.Now()})
+	log.Info("VeilRealState3")
+	s.sessionManager.Put(req.Context(), newState, state)
+	s.sessionManager.Put(req.Context(), newState+"-createdAt", time.Now().Unix())
+	log.Info("VeilRealState4")
 	return newState, nil
 }
 
@@ -69,9 +70,10 @@ func (s StateStorage) UnveilState(ctx context.Context, req *http.Request) (strin
 		log.Error(noStateError, "Request has no state parameter")
 		return "", noStateError
 	}
-	stBucket := s.sessionManager.Get(ctx, state).(stateBucket)
-	log.V(logs.DebugLevel).Info("State unveiled", "veil", state, "unveiledState", stBucket.realState)
-	return stBucket.realState, nil
+	unveiledState := s.sessionManager.GetString(ctx, state)
+	log.V(logs.DebugLevel).Info("State unveiled", "veil", state, "unveiledState", unveiledState)
+	return unveiledState, nil
+
 }
 
 func (s StateStorage) StateVeiledAt(ctx context.Context, req *http.Request) (time.Time, error) {
@@ -81,8 +83,9 @@ func (s StateStorage) StateVeiledAt(ctx context.Context, req *http.Request) (tim
 		log.Error(noStateError, "Request has no state parameter")
 		return time.Time{}, noStateError
 	}
-	stBucket := s.sessionManager.Get(ctx, state).(stateBucket)
-	return stBucket.createAt, nil
+	createdAt := s.sessionManager.GetInt64(ctx, state+"-createdAt")
+
+	return time.Unix(createdAt, 0), nil
 }
 
 func randStringBytes(n int) (string, error) {

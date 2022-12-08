@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/stretchr/testify/assert"
@@ -76,6 +77,7 @@ func Test_ShouldUnveilState(t *testing.T) {
 	res := httptest.NewRecorder()
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sessionManager.Put(r.Context(), oAuthState, spiState)
+		sessionManager.Put(r.Context(), oAuthState+"-createdAt", time.Now().Unix())
 	})).ServeHTTP(res, httptest.NewRequest("GET", "/", nil))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s", oAuthState), nil)
@@ -85,6 +87,9 @@ func Test_ShouldUnveilState(t *testing.T) {
 	//when
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		originalSpiState, err := storage.UnveilState(r.Context(), r)
+		time, err2 := storage.StateVeiledAt(r.Context(), r)
+		assert.NotNil(t, time)
+		assert.Nil(t, err2)
 		assert.NoError(t, err)
 		assert.Equal(t, spiState, originalSpiState)
 

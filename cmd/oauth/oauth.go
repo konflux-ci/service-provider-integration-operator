@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"golang.org/x/oauth2/github"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
