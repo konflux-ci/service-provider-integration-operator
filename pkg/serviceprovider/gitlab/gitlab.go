@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	"github.com/xanzy/go-gitlab"
 
 	"k8s.io/utils/strings/slices"
@@ -272,7 +274,7 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 }
 
 func (g Gitlab) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/oauth/authenticate"
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
