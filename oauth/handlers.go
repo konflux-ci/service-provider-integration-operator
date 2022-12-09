@@ -21,7 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -91,9 +90,6 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 		vars := mux.Vars(r)
 		tokenObjectName := vars["name"]
 		tokenObjectNamespace := vars["namespace"]
-		if tokenObjectKcpWorkspace, hasKcpWorkspace := vars["kcpWorkspace"]; hasKcpWorkspace {
-			ctx = infrastructure.InitKcpContext(ctx, tokenObjectKcpWorkspace)
-		}
 
 		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {
 			LogDebugAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "Incorrect service deployment. Token name and namespace can't be omitted or empty.")

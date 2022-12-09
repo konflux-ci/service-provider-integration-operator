@@ -13,11 +13,13 @@ serviceProviders:
 - type: <service_provider_type>
   clientId: <service_provider_client_id>
   clientSecret: <service_provider_secret>
+  baseUrl: <service_provider_url>
 ```
 
-- `<service_provider_type>` - type of the service provider. This must be one of the supported values: GitHub, Quay
+- `<service_provider_type>` - type of the service provider. This must be one of the supported values: `GitHub`, `Quay`, `GitLab`
 - `<service_provider_client_id>` - client ID of the OAuth application
 - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
+- `<service_provider_url>` - optional field used for service providers running on custom domains (other than public saas). Example: `https://my-gitlab-sp.io`
 
 
 _To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_

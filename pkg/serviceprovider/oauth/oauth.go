@@ -1,4 +1,5 @@
-// Copyright (c) 2021 Red Hat, Inc.
+//
+// Copyright (c) 2022 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,14 +14,9 @@
 
 package oauth
 
-import (
-	"golang.org/x/oauth2"
+// Constants that are used both in the operator and OAuth service
+// Placed here to keep only a reference to operator packages in OAuth service and not vice versa.
+var (
+	CallBackRoutePath     = "/oauth/callback"
+	AuthenticateRoutePath = "/oauth/authenticate"
 )
-
-// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var GitlabEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://gitlab.com/oauth/authorize",
-	TokenURL: "https://gitlab.com/oauth/token",
-}
-
-var GitlabSaasHost = "gitlab.com"

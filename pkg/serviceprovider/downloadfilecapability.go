@@ -1,3 +1,4 @@
+//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package serviceprovider
 
 import (
-	"golang.org/x/oauth2"
+	"context"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
-// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var GitlabEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://gitlab.com/oauth/authorize",
-	TokenURL: "https://gitlab.com/oauth/token",
+type FileDownloadNotSupportedError struct {
 }
 
-var GitlabSaasHost = "gitlab.com"
+func (f FileDownloadNotSupportedError) Error() string {
+	return "provided repository URL does not supports file downloading"
+}
+
+//DownloadFileCapability indicates an ability of given SCM provider to download files from repository.
+type DownloadFileCapability interface {
+	DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error)
+}

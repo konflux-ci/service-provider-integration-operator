@@ -11,16 +11,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+//go:build !release
+// +build !release
 
-import (
-	"golang.org/x/oauth2"
-)
+package github
 
-// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var GitlabEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://gitlab.com/oauth/authorize",
-	TokenURL: "https://gitlab.com/oauth/token",
+import "net/http"
+
+// fakeRoundTrip casts a function into a http.RoundTripper
+type fakeRoundTrip func(r *http.Request) (*http.Response, error)
+
+var _ http.RoundTripper = fakeRoundTrip(nil)
+
+func (f fakeRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
-
-var GitlabSaasHost = "gitlab.com"

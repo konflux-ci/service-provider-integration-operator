@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -61,7 +63,8 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-const quayUrlBase = "https://quay.io"
+const quayUrlBaseHost = "quay.io"
+const quayUrlBase = "https://" + quayUrlBaseHost
 const quayApiUrlBase = quayUrlBase + "/api/v1"
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -92,7 +95,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 var _ serviceprovider.ConstructorFunc = newQuay
 
 func (q *Quay) GetOAuthEndpoint() string {
-	return q.Configuration.BaseUrl + "/quay/authenticate"
+	return q.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (q *Quay) GetBaseUrl() string {
@@ -101,6 +104,10 @@ func (q *Quay) GetBaseUrl() string {
 
 func (q *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
+}
+
+func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return nil
 }
 
 func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {

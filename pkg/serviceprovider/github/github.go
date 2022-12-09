@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -44,11 +46,12 @@ var (
 )
 
 type Github struct {
-	Configuration   *opconfig.OperatorConfiguration
-	lookup          serviceprovider.GenericLookup
-	httpClient      rest.HTTPClient
-	tokenStorage    tokenstorage.TokenStorage
-	ghClientBuilder githubClientBuilder
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	ghClientBuilder        githubClientBuilder
+	downloadFileCapability downloadFileCapability
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -81,6 +84,10 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
+		downloadFileCapability: downloadFileCapability{
+			httpClient:      httpClient,
+			ghClientBuilder: ghClientBuilder,
+		},
 	}
 
 	return github, nil
@@ -88,12 +95,16 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 
 var _ serviceprovider.ConstructorFunc = newGithub
 
-func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/github/authenticate"
-}
-
 func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
+}
+
+func (g *Github) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
+}
+
+func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Github) GetType() api.ServiceProviderType {
