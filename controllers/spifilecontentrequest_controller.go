@@ -187,7 +187,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			}
 		}
 		//binding not yet fully ready to work with, let's try next time
-		if binding.Status.Phase == "" {
+		if binding.Status.Phase == "" || binding.Status.UploadUrl == "" {
 			return reconcile.Result{}, nil
 		}
 
