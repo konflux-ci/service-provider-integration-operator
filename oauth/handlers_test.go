@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -113,7 +114,7 @@ func TestCallbackSuccessHandler(t *testing.T) {
 func TestCallbackErrorHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/oauth/callback?error=foo&error_description=bar", nil)
+	req, err := http.NewRequest("GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,7 +414,7 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 func TestMiddlewareHandlerCorsPart(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/oauth/callback?error=foo&error_description=bar", nil)
+	req, err := http.NewRequest("GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
 	req.Header.Set("Origin", "https://prod.foo.redhat.com")
 	if err != nil {
 		t.Fatal(err)
@@ -444,7 +445,7 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 func TestMiddlewareHandlerCors(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("OPTIONS", "/oauth/authenticate?state=eyJhbGciO", nil)
+	req, err := http.NewRequest("OPTIONS", oauth.AuthenticateRoutePath+"?state=eyJhbGciO", nil)
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "c")
 	req.Header.Set("Access-Control-Request-Headers", "authorization")
