@@ -87,7 +87,6 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
 | --file-request-ttl      | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
-| --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
 | --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
 
 ### OAuth service configuration parameters
