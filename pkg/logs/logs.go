@@ -74,9 +74,10 @@ func setFlagIfNotEmptyOrPanic(fs *flag.FlagSet, name, value string) {
 
 // TimeTrack used to time any function
 // Example:
-//  {
-//    defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
-//  }
+//
+//	{
+//	  defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
+//	}
 func TimeTrack(log logr.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.V(DebugLevel).Info(fmt.Sprintf("Time took to %s", name), "time", elapsed)
