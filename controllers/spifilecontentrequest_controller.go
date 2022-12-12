@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -104,6 +106,8 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIFileContentRequest")
 
 	request := api.SPIFileContentRequest{}
 
