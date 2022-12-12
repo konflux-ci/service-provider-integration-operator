@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -127,7 +129,7 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessToken")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessToken")
 
 	at := api.SPIAccessToken{}
 
@@ -202,7 +204,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
-		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", uerr)
 		}
 		return ctrl.Result{}, nil
