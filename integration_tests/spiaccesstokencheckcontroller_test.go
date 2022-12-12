@@ -16,7 +16,6 @@ package integrationtests
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,46 +25,46 @@ import (
 )
 
 var _ = Describe("SPIAccessCheck", func() {
-	var createdCheck *api.SPIAccessCheck
+	testSetup := TestSetup{
+		ToCreate: TestObjects{
+			Checks: []*api.SPIAccessCheck{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:    "default",
+						GenerateName: "create-test-check",
+					},
+					Spec: api.SPIAccessCheckSpec{
+						RepoUrl: "test-provider://acme",
+					},
+				},
+			},
+		},
+
+		Behavior: ITestBehavior{
+			BeforeObjectsCreated: func() {
+				ITest.TestServiceProvider.CheckRepositoryAccessImpl = func(ctx context.Context, c client.Client, check *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+					return &api.SPIAccessCheckStatus{
+						Accessible:      true,
+						Accessibility:   api.SPIAccessCheckAccessibilityPublic,
+						Type:            "git",
+						ServiceProvider: "testProvider",
+						ErrorReason:     "",
+						ErrorMessage:    "",
+					}, nil
+				}
+			},
+		},
+	}
 
 	BeforeEach(func() {
-		ITest.TestServiceProvider.Reset()
-		ITest.TestServiceProvider.CheckRepositoryAccessImpl = func(ctx context.Context, c client.Client, check *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-			return &api.SPIAccessCheckStatus{
-				Accessible:      true,
-				Accessibility:   api.SPIAccessCheckAccessibilityPublic,
-				Type:            "git",
-				ServiceProvider: "testProvider",
-				ErrorReason:     "",
-				ErrorMessage:    "",
-			}, nil
-		}
-
-		createdCheck = &api.SPIAccessCheck{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "default",
-				GenerateName: "create-test-check",
-			},
-			Spec: api.SPIAccessCheckSpec{
-				RepoUrl: "test-provider://acme",
-			},
-		}
-		Expect(ITest.Client.Create(ITest.Context, createdCheck)).To(Succeed())
+		testSetup.BeforeEach(nil)
 	})
 
 	It("status is updated", func() {
-		Eventually(func(g Gomega) {
-			check := &api.SPIAccessCheck{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdCheck), check)).To(Succeed())
-			g.Expect(check).NotTo(BeNil())
-			g.Expect(check.Status.ServiceProvider).To(BeEquivalentTo("testProvider"))
-		}).WithTimeout(10 * time.Second).Should(Succeed())
+		Expect(testSetup.InCluster.Checks[0].Status.ServiceProvider).To(BeEquivalentTo("testProvider"))
 	})
 
 	AfterEach(func() {
-		Eventually(func(g Gomega) {
-			check := &api.SPIAccessCheck{}
-			g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdCheck), check)).Error()
-		})
+		testSetup.AfterEach()
 	})
 })
