@@ -172,9 +172,11 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			//we failed even before binding was created. most probably URL is not supported, no reason to continue
 			return ctrl.Result{Requeue: false}, nil
 		}
-		if err := r.createAndLinkBinding(ctx, &request); err != nil {
+		bindingName, err := r.createAndLinkBinding(ctx, &request)
+		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
 		}
+		lg = lg.WithValues("linked_binding", bindingName)
 	} else {
 		binding := &api.SPIAccessTokenBinding{}
 		if err := r.K8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
@@ -187,6 +189,8 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		if binding.Status.Phase == "" || binding.Status.UploadUrl == "" {
 			return reconcile.Result{}, nil
 		}
+
+		lg = lg.WithValues("linked_binding", binding.Name)
 
 		//binding not injected yet, let's just synchronize URL's and that's it
 		if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
@@ -245,7 +249,7 @@ func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(cr *api.SPI
 	return time.Until(cr.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
-func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) error {
+func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) (string, error) {
 	newBinding := &api.SPIAccessTokenBinding{
 		ObjectMeta: metav1.ObjectMeta{GenerateName: "file-retriever-binding-", Namespace: request.GetNamespace()},
 		Spec: api.SPIAccessTokenBindingSpec{
@@ -264,10 +268,10 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 		},
 	}
 	if err := r.K8sClient.Create(ctx, newBinding); err != nil {
-		return fmt.Errorf("failed to create token binding: %w", err)
+		return "", fmt.Errorf("failed to create token binding: %w", err)
 	}
 	request.Status.LinkedBindingName = newBinding.GetName()
-	return nil
+	return newBinding.Name, nil
 }
 
 func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *api.SPIFileContentRequest) error {
