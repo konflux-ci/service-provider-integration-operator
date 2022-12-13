@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
@@ -146,7 +148,7 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessTokenBinding")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenBinding")
 
 	binding := api.SPIAccessTokenBinding{}
 
@@ -223,6 +225,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}

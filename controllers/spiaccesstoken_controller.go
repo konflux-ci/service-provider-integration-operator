@@ -238,8 +238,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.updateTokenStatusSuccess(ctx, &at); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
-	lg.WithValues("phase_at_reconcile_end", at.Status.Phase).
-		V(logs.DebugLevel).Info("reconciliation finished successfully")
+
+	// this will get picked up by the time tracker
+	lg = lg.WithValues("phase_at_reconcile_end", at.Status.Phase)
 
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
 }

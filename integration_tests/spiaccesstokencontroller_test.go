@@ -401,6 +401,10 @@ var _ = Describe("SPIAccessToken", func() {
 				createdToken = testSetup.InCluster.Tokens[0]
 			})
 
+			AfterEach(func() {
+				testSetup.AfterEach()
+			})
+
 			It("defaults to AwaitingTokenData with common type", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
