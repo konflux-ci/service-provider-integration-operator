@@ -160,6 +160,22 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
 	}
 
+	sp, rerr := r.getServiceProvider(ctx, &binding)
+	if rerr != nil {
+		lg.Error(rerr, "unable to get the service provider")
+		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+		return ctrl.Result{}, nil
+	}
+
+	if checkQuayPermissionAreasMigration(&binding, sp.GetType()) {
+		lg.Info("migrating old permission areas for quay", "binding", binding)
+		if err := r.Client.Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update binding with migrated permission areas: %w", err)
+		}
+		return ctrl.Result{}, nil
+	}
+
 	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
 		"phase_at_reconcile_start", binding.Status.Phase)
 
@@ -199,14 +215,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if binding.Status.Phase == "" {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
-	}
-
-	sp, rerr := r.getServiceProvider(ctx, &binding)
-	if rerr != nil {
-		lg.Error(rerr, "unable to get the service provider")
-		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-		return ctrl.Result{}, nil
 	}
 
 	validation, err := sp.Validate(ctx, &binding)
@@ -318,6 +326,23 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+}
+
+func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
+	permissionChange := false
+	if spType == api.ServiceProviderTypeQuay {
+		for i, permission := range binding.Spec.Permissions.Required {
+			if permission.Area == api.PermissionAreaRepository {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistry
+				permissionChange = true
+			}
+			if permission.Area == api.PermissionAreaRepositoryMetadata {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistryMetadata
+				permissionChange = true
+			}
+		}
+	}
+	return permissionChange
 }
 
 func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
