@@ -151,6 +151,36 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			testSetup.AfterEach()
 		})
 
+		It("migrates old quay permission areas to new ones", func() {
+			ITest.TestServiceProvider.GetTypeImpl = func() api.ServiceProviderType {
+				return api.ServiceProviderTypeQuay
+			}
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "invalid-quay-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					Permissions: api.Permissions{
+						Required: []api.Permission{{
+							Area: api.PermissionAreaRepository,
+						}, {
+							Area: api.PermissionAreaRepositoryMetadata,
+						}},
+					},
+					RepoUrl: "test-provider://test",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
+				g.Expect(binding.Spec.Permissions.Required[0].Area).To(Equal(api.PermissionAreaRegistry))
+				g.Expect(binding.Spec.Permissions.Required[1].Area).To(Equal(api.PermissionAreaRegistryMetadata))
+				g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
+				g.Expect(binding.Status.ErrorReason).To(BeEmpty())
+			})
+		})
+
 		It("reverts updates to the linked token label", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				checkTokenNameInStatus(g, testSetup.InCluster.Bindings[0], Not(BeEmpty()))

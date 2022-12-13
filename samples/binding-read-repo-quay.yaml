@@ -6,7 +6,7 @@ spec:
   permissions:
     required:
       - type: r
-        area: repository
+        area: registry
   repoUrl: https://quay.io/unhook/unhook-tunnel
   secret:
     name: token-read-repository
