@@ -147,6 +147,69 @@ type TestObjects struct {
 	DataUpdates         []*api.SPIAccessTokenDataUpdate
 }
 
+func (to TestObjects) GetToken(key client.ObjectKey) *api.SPIAccessToken {
+	return findByKey(key, to.Tokens)
+}
+
+func (to TestObjects) GetTokensByNamePrefix(key client.ObjectKey) []*api.SPIAccessToken {
+	return matchByNamePrefix(key, to.Tokens)
+}
+
+func (to TestObjects) GetBinding(key client.ObjectKey) *api.SPIAccessTokenBinding {
+	return findByKey(key, to.Bindings)
+}
+
+func (to TestObjects) GetBindingsByNamePrefix(key client.ObjectKey) []*api.SPIAccessTokenBinding {
+	return matchByNamePrefix(key, to.Bindings)
+}
+
+func (to TestObjects) GetCheck(key client.ObjectKey) *api.SPIAccessCheck {
+	return findByKey(key, to.Checks)
+}
+
+func (to TestObjects) GetChecksByNamePrefix(key client.ObjectKey) []*api.SPIAccessCheck {
+	return matchByNamePrefix(key, to.Checks)
+}
+
+func (to TestObjects) GetFileContentRequest(key client.ObjectKey) *api.SPIFileContentRequest {
+	return findByKey(key, to.FileContentRequests)
+}
+
+func (to TestObjects) GetFileContentRequestsByNamePrefix(key client.ObjectKey) []*api.SPIFileContentRequest {
+	return matchByNamePrefix(key, to.FileContentRequests)
+}
+
+func (to TestObjects) GetDataUpdate(key client.ObjectKey) *api.SPIAccessTokenDataUpdate {
+	return findByKey(key, to.DataUpdates)
+}
+
+func (to TestObjects) GetDataUpdatesByNamePrefix(key client.ObjectKey) []*api.SPIAccessTokenDataUpdate {
+	return matchByNamePrefix(key, to.DataUpdates)
+}
+
+func findByKey[T client.Object](key client.ObjectKey, list []T) T {
+	for _, o := range list {
+		if o.GetName() == key.Name && o.GetNamespace() == key.Namespace {
+			return o
+		}
+	}
+
+	// this is nil, because we only ever use this with pointers because only those implement client.Object
+	var zero T
+	return zero
+}
+
+func matchByNamePrefix[T client.Object](key client.ObjectKey, list []T) []T {
+	var ret []T
+	for i, o := range list {
+		if strings.HasPrefix(o.GetName(), key.Name) && o.GetNamespace() == key.Namespace {
+			ret = append(ret, list[i])
+		}
+	}
+
+	return ret
+}
+
 // priorITestState is used internally to store the state of the ITest as it existed before the test. The ITest is
 // restored to this state in TestSetup.AfterEach. These are essentially just copies of the ITest objects.
 type priorITestState struct {
@@ -182,6 +245,19 @@ func StandardTestBinding(namePrefix string) *api.SPIAccessTokenBinding {
 		},
 		Spec: api.SPIAccessTokenBindingSpec{
 			RepoUrl: "test-provider://test",
+		},
+	}
+}
+
+func StandardFileRequest(namePrefix string) *api.SPIFileContentRequest {
+	return &api.SPIFileContentRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: namePrefix + "-filerequest-",
+			Namespace:    "default",
+		},
+		Spec: api.SPIFileContentRequestSpec{
+			RepoUrl:  "test-provider://test",
+			FilePath: "foo/bar.txt",
 		},
 	}
 }
@@ -230,7 +306,13 @@ func TriggerReconciliation(object client.Object) {
 // NOTE we're not doing anything with the metrics registry so far here...
 func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 	start := time.Now()
-	validateClusterEmpty()
+
+	// I've seen some timing issues where beforeeach seems to be executed in parallel with aftereach of the test before
+	// which would cause problems because we assume that the tests run sequentially. Let's just wait here a little, to
+	// try and clear that condition up.
+	Eventually(func(g Gomega) {
+		validateClusterEmpty(g)
+	}).Should(Succeed())
 
 	ts.priorState = priorITestState{
 		probe:             ITest.TestServiceProviderProbe,
@@ -291,11 +373,11 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 // started (to what BeforeEach stored).
 func (ts *TestSetup) AfterEach() {
 	// clean up all in the reverse direction to BeforeEach
-	deleteAll(ts.InCluster.DataUpdates)
-	deleteAll(ts.InCluster.FileContentRequests)
-	deleteAll(ts.InCluster.Checks)
-	deleteAll(ts.InCluster.Bindings)
-	deleteAll(ts.InCluster.Tokens)
+	deleteAll(newListDataUpdates, listLenDataUpdates, convertDataUpdates)
+	deleteAll(newListFiles, listLenFiles, convertFiles)
+	deleteAll(newListChecks, listLenChecks, convertChecks)
+	deleteAll(newListBindings, listLenBindings, convertBindings)
+	deleteAll(newListTokens, listLenTokens, convertTokens)
 
 	ts.InCluster = TestObjects{}
 
@@ -306,7 +388,9 @@ func (ts *TestSetup) AfterEach() {
 	// we're just changing the contents of the objects that the pointer is pointing to...
 	*ITest.OperatorConfiguration = ts.priorState.operatorConfig
 
-	validateClusterEmpty()
+	Eventually(func(g Gomega) {
+		validateClusterEmpty(g)
+	}).Should(Succeed())
 }
 
 // ReconcileWithCluster triggers the reconciliation and waits for the cluster to settle again. This can be used after
@@ -474,12 +558,28 @@ func emptyTokenStatus(t *api.SPIAccessToken) bool {
 	return t.Status.Phase == ""
 }
 
+func newListTokens() *api.SPIAccessTokenList {
+	return &api.SPIAccessTokenList{}
+}
+
+func listLenTokens(l *api.SPIAccessTokenList) int {
+	return len(l.Items)
+}
+
 func convertBindings(l *api.SPIAccessTokenBindingList) []*api.SPIAccessTokenBinding {
 	return toPointerArray(l.Items)
 }
 
 func emptyBindingStatus(t *api.SPIAccessTokenBinding) bool {
 	return t.Status.Phase == ""
+}
+
+func newListBindings() *api.SPIAccessTokenBindingList {
+	return &api.SPIAccessTokenBindingList{}
+}
+
+func listLenBindings(l *api.SPIAccessTokenBindingList) int {
+	return len(l.Items)
 }
 
 func convertChecks(l *api.SPIAccessCheckList) []*api.SPIAccessCheck {
@@ -490,6 +590,14 @@ func emptyCheckStatus(t *api.SPIAccessCheck) bool {
 	return t.Status.ServiceProvider == ""
 }
 
+func newListChecks() *api.SPIAccessCheckList {
+	return &api.SPIAccessCheckList{}
+}
+
+func listLenChecks(l *api.SPIAccessCheckList) int {
+	return len(l.Items)
+}
+
 func convertFiles(l *api.SPIFileContentRequestList) []*api.SPIFileContentRequest {
 	return toPointerArray(l.Items)
 }
@@ -498,38 +606,43 @@ func emptyFileStatus(t *api.SPIFileContentRequest) bool {
 	return t.Status.Phase == ""
 }
 
+func newListFiles() *api.SPIFileContentRequestList {
+	return &api.SPIFileContentRequestList{}
+}
+
+func listLenFiles(l *api.SPIFileContentRequestList) int {
+	return len(l.Items)
+}
+
 func convertDataUpdates(l *api.SPIAccessTokenDataUpdateList) []*api.SPIAccessTokenDataUpdate {
 	return toPointerArray(l.Items)
 }
 
-func emptyDataUpdateStatus(t *api.SPIAccessTokenDataUpdate) bool {
+func emptyDataUpdateStatus(_ *api.SPIAccessTokenDataUpdate) bool {
+	// the data updates don't have a status, so we return false here, saying that the "status" is already "filled in".
 	return false
 }
 
-func validateClusterEmpty() {
-	// TODO the rest of the testsuite leaves garbage in the cluster, so let's switch this off until everything is converted
-	//checkNoObjectsInCluster(&api.SPIAccessTokenList{}, func(l *api.SPIAccessTokenList) int {
-	//	return len(l.Items)
-	//})
-	//checkNoObjectsInCluster(&api.SPIAccessTokenBindingList{}, func(l *api.SPIAccessTokenBindingList) int {
-	//	return len(l.Items)
-	//})
-	//checkNoObjectsInCluster(&api.SPIAccessCheckList{}, func(l *api.SPIAccessCheckList) int {
-	//	return len(l.Items)
-	//})
-	//checkNoObjectsInCluster(&api.SPIAccessTokenDataUpdateList{}, func(l *api.SPIAccessTokenDataUpdateList) int {
-	//	return len(l.Items)
-	//})
-	//checkNoObjectsInCluster(&api.SPIFileContentRequestList{}, func(l *api.SPIFileContentRequestList) int {
-	//	return len(l.Items)
-	//})
+func newListDataUpdates() *api.SPIAccessTokenDataUpdateList {
+	return &api.SPIAccessTokenDataUpdateList{}
 }
 
-func checkNoObjectsInCluster[L client.ObjectList](list L, getLen func(l L) int) {
-	Eventually(func(g Gomega) {
-		g.Expect(ITest.Client.List(ITest.Context, list)).To(Succeed())
-		g.Expect(getLen(list)).To(BeZero())
-	}).Should(Succeed())
+func listLenDataUpdates(l *api.SPIAccessTokenDataUpdateList) int {
+	return len(l.Items)
+}
+
+func validateClusterEmpty(g Gomega) {
+	checkNoObjectsInCluster(g, newListTokens, listLenTokens)
+	checkNoObjectsInCluster(g, newListBindings, listLenBindings)
+	checkNoObjectsInCluster(g, newListChecks, listLenChecks)
+	checkNoObjectsInCluster(g, newListDataUpdates, listLenDataUpdates)
+	checkNoObjectsInCluster(g, newListFiles, listLenFiles)
+}
+
+func checkNoObjectsInCluster[L client.ObjectList](g Gomega, list func() L, getLen func(l L) int) {
+	l := list()
+	g.Expect(ITest.Client.List(ITest.Context, l)).To(Succeed())
+	g.Expect(getLen(l)).To(Equal(0))
 }
 
 func createAll[T client.Object](objs []T) []T {
@@ -543,26 +656,17 @@ func createAll[T client.Object](objs []T) []T {
 	return ret
 }
 
-func deleteAll[T client.Object](objs []T) {
-	for _, o := range objs {
-		Eventually(func(g Gomega) {
-			cpy := o.DeepCopyObject().(client.Object)
-			err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(o), cpy)
-			// tolerate if the object is no longer found because it was for example deleted during the test
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					g.Expect(err).To(Succeed())
-				}
-				return
-			}
-
-			err = ITest.Client.Delete(ITest.Context, cpy)
-			// tolerate if the object is no longer found because it was for example deleted during the test
-			if err != nil && !errors.IsNotFound(err) {
-				g.Expect(err).To(Succeed())
-			}
-		}).Should(Succeed())
-	}
+func deleteAll[T client.Object, L client.ObjectList](list func() L, getLen func(list L) int, getItems func(list L) []T) {
+	Eventually(func(g Gomega) {
+		l := list()
+		g.Expect(ITest.Client.List(ITest.Context, l)).To(Succeed())
+		for _, o := range getItems(l) {
+			g.Expect(ITest.Client.Delete(ITest.Context, o)).To(Succeed())
+		}
+	}).Should(Succeed())
+	Eventually(func(g Gomega) {
+		checkNoObjectsInCluster(g, list, getLen)
+	}).Should(Succeed())
 }
 
 func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T, hasEmptyStatus func(T) bool) {

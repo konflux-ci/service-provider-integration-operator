@@ -217,6 +217,19 @@ The currently supported list of providers and token kinds is following:
   Single token per namespace per host is stored.
   See details below.
 
+## Supported permission areas for providers
+[SPIAccessTokenBinding](#SPIAccessTokenBinding) uses permission area and permission type to infer provider-specific OAuth scopes
+that the linked [SPIAccessToken](#SPIAccessToken) should have. However, each provider offers a specific set of services and OAuth scopes. Thus,
+different permission areas are supported.
+
+| Provider | Supported areas                                  |
+|----------|--------------------------------------------------|
+| GitHub   | repository, repositoryMetadata, webhooks, user   |
+| GitLab   | repository, repositoryMetadata, user (read-only) |
+| Quay     | registry, registryMetadata                       |
+
+In case of Snyk and other providers that do not support OAuth, the permission area does not matter.
+
 
 ## Storing username and password credentials for any provider by it's URL
 
