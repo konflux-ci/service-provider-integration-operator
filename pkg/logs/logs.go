@@ -18,9 +18,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/hashicorp/go-hclog"
 
