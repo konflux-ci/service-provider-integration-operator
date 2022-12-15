@@ -18,10 +18,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"time"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -84,6 +83,22 @@ func setFlagIfNotEmptyOrPanic(fs *flag.FlagSet, name, value string) {
 func TimeTrack(log logr.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.V(DebugLevel).Info(fmt.Sprintf("Time took to %s", name), "time", elapsed)
+}
+
+// TimeTrackWithLazyLogger is very similar to TimeTrack. The only difference is that it obtains the logger lazily
+// which enables the caller to use the logger instance as assigned at the very end of the function being tracked.
+// Example:
+//
+//	{
+//	  lg := log.FromContext(ctx)
+//	  defer logs.TimeTrackWithLazyLogger(func() logr.Logger {return lg}, time.Now(), "this is hard work, man!")
+//	  lg = lg.WithValues("work", "really hard")
+//	  ...
+//	}
+//
+// The log message produced by the time tracker will contain the "work" => "really hard" key-value pair.
+func TimeTrackWithLazyLogger(loggerGetter func() logr.Logger, start time.Time, name string) {
+	TimeTrack(loggerGetter(), start, name)
 }
 
 // AuditLog returns logger prepared with audit markers

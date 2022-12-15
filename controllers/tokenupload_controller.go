@@ -59,11 +59,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	list := &corev1.SecretList{}
 
-	// list tokens labeled with "spi.appstudio.redhat.com/upload-secret"
+	// list secrets labeled with "spi.appstudio.redhat.com/upload-secret"
 	err := r.List(ctx, list, client.HasLabels{tokenSecretLabel})
 	if err != nil {
-		lg.Error(err, "Can not get list of secrets")
-		return ctrl.Result{}, fmt.Errorf("Can not get list of secrets: %w,", err)
+		lg.Error(err, "can not get list of secrets")
+		return ctrl.Result{}, fmt.Errorf("can not get list of secrets: %w,", err)
 	}
 
 	for i, s := range list.Items {
@@ -96,7 +96,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			providerUrl := s.Labels[providerUrlLabel]
 			// NOTE: it does not fit advanced policy of matching token!
 			// Do we need it as an SPI "API function" which take into account this policy?
-			tkn := findTokenByUrl(ctx, providerUrl, r, lg)
+			tkn := findTokenByUrl(ctx, providerUrl, s.Namespace, r, lg)
 			// create new SPIAccessToken if there are no for such provider instance (URL)
 			if tkn == nil {
 
@@ -137,7 +137,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		logs.AuditLog(ctx).Info("manual token upload initiated", s.Namespace, accessToken.Name)
 		err = r.TokenStorage.Store(ctx, &accessToken, &token)
 		if err != nil {
-			logError(ctx, s, fmt.Errorf("Token storing failed: %w", err), r, lg)
+			logError(ctx, s, fmt.Errorf("token storing failed: %w", err), r, lg)
 			logs.AuditLog(ctx).Error(err, "manual token upload failed", s.Namespace, accessToken.Name)
 			continue
 		}
@@ -200,7 +200,7 @@ func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUplo
 		lg.Error(err1, "Event creation failed for Secret: "+secret.Name)
 	}
 
-	log.Log.Error(err, "Secret upload failed:")
+	lg.Error(err, "Secret upload failed:")
 }
 
 func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenUploadReconciler, lg logr.Logger) {
@@ -216,10 +216,10 @@ func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenU
 	}
 }
 
-func findTokenByUrl(ctx context.Context, url string, r *TokenUploadReconciler, lg logr.Logger) *spi.SPIAccessToken {
+func findTokenByUrl(ctx context.Context, url string, ns string, r *TokenUploadReconciler, lg logr.Logger) *spi.SPIAccessToken {
 
 	list := spi.SPIAccessTokenList{}
-	err := r.List(ctx, &list)
+	err := r.List(ctx, &list, client.InNamespace(ns))
 	if err != nil {
 		lg.Error(err, "Can not get list of tokens ")
 		return nil

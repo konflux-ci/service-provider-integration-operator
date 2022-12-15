@@ -51,6 +51,7 @@ type SPIFileContentRequestStatus struct {
 type SPIFileContentRequestPhase string
 
 const (
+	SPIFileContentRequestPhaseAwaitingBinding   SPIFileContentRequestPhase = "AwaitingBinding"
 	SPIFileContentRequestPhaseAwaitingTokenData SPIFileContentRequestPhase = "AwaitingTokenData"
 	SPIFileContentRequestPhaseDelivered         SPIFileContentRequestPhase = "Delivered"
 	SPIFileContentRequestPhaseError             SPIFileContentRequestPhase = "Error"

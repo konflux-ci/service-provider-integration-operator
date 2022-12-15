@@ -7,7 +7,7 @@ spec:
   permissions:
     required:
       - type: rw
-        area: repository
+        area: registry
   repoUrl: https://quay.io/repository/redhat_emp1/spi-test
   secret:
     type: kubernetes.io/basic-auth

@@ -167,15 +167,16 @@ func NewValueTimer5[T any, U any, V any, W any, X any](observer ValueObserver5[T
 // wasn't there.
 //
 // E.g.:
-//   timer := metrics.NewValueTimer1[int](metrics.ValueObserverFunc1[int](func (val int, duration float64) {
-//     if val > 1 {
-//        counter.Inc()
-//     } else {
-//        histo.Observe(val)
-//     }
-//   }))
 //
-//   returnValue := timer.ObserverValuesAndDuration(expensiveCall())
+//	timer := metrics.NewValueTimer1[int](metrics.ValueObserverFunc1[int](func (val int, duration float64) {
+//	  if val > 1 {
+//	     counter.Inc()
+//	  } else {
+//	     histo.Observe(val)
+//	  }
+//	}))
+//
+//	returnValue := timer.ObserverValuesAndDuration(expensiveCall())
 func (o ValueTimer1[T]) ObserveValuesAndDuration(val T) T {
 	o.Observer.Observe(val, elapsedSeconds(o.startTime))
 	return val

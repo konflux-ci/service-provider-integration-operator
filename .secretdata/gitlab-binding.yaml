@@ -1,0 +1,14 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: spi-binding-gitlab
+spec:
+  repoUrl: https://gitlab.com
+  secret:
+    name: gitlab-secret
+    annotations:
+      tekton.dev/git-0: https://gitlab.com #!!!
+    type: kubernetes.io/basic-auth
+    # sa: saNameToGenerate
+
+

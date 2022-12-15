@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1beta1 contains API Schema definitions for the appstudio v1beta1 API group
-//+kubebuilder:object:generate=true
-//+groupName=appstudio.redhat.com
+// +kubebuilder:object:generate=true
+// +groupName=appstudio.redhat.com
 package v1beta1
 
 import (

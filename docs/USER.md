@@ -184,7 +184,7 @@ curl -v -k $OAUTH_URL 2>&1 | grep 'location: ' | cut -d' ' -f3
 This gave us the link to the actual service provider (github) that we can use in the browser to approve and finish
 the OAuth flow.
 
-Upon returning from that OAuth flow, you should end up back on the SPI endpoint on the `.../github/callback` URL.
+Upon returning from that OAuth flow, you should end up back on the SPI endpoint on the `.../oauth/callback` URL.
 This concludes the flow and you should be able to see the secret configured in the binding with the requested data:
 
 ```
@@ -216,6 +216,19 @@ The currently supported list of providers and token kinds is following:
 - Manual credentials upload only with both username and token required.
   Single token per namespace per host is stored.
   See details below.
+
+## Supported permission areas for providers
+[SPIAccessTokenBinding](#SPIAccessTokenBinding) uses permission area and permission type to infer provider-specific OAuth scopes
+that the linked [SPIAccessToken](#SPIAccessToken) should have. However, each provider offers a specific set of services and OAuth scopes. Thus,
+different permission areas are supported.
+
+| Provider | Supported areas                                  |
+|----------|--------------------------------------------------|
+| GitHub   | repository, repositoryMetadata, webhooks, user   |
+| GitLab   | repository, repositoryMetadata, user (read-only) |
+| Quay     | registry, registryMetadata                       |
+
+In case of Snyk and other providers that do not support OAuth, the permission area does not matter.
 
 
 ## Storing username and password credentials for any provider by it's URL

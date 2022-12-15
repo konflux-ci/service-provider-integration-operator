@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -98,7 +100,7 @@ func (g *Github) GetBaseUrl() string {
 }
 
 func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/oauth/authenticate"
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {

@@ -21,8 +21,7 @@ serviceProviders:
 - `<service_provider_secret>` - client secret of the OAuth application that the SPI uses to access the service provider
 - `<service_provider_url>` - optional field used for service providers running on custom domains (other than public saas). Example: `https://my-gitlab-sp.io`
 
-
-_To create OAuth application at GitHub, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)_
+_Note: See [Configuring Service Providers](#configuring-service-providers) for configuration on service provider side._
 
 The rest of the configuration is applied using the environment variables or command line arguments.
 
@@ -87,7 +86,6 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
 | --file-request-ttl      | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
 | --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
-| --kcp-api-export-name   | APIEXPORTNAME               | spi     | SPI ApiExport name used in KCP environment to configure controller with virtual workspace.                                                                                       |
 | --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
 
 ### OAuth service configuration parameters
@@ -104,6 +102,16 @@ are also applicable to the oauth service. The configmap for oauth-service-specif
 | --kube-insecure-tls | KUBEINSECURETLS      | false                                                            | Whether is allowed or not insecure kubernetes tls connection.                       |
 | --api-server        | API_SERVER           |                                                                  | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
 | --ca-path           | API_SERVER_CA_PATH   |                                                                  | The path to the CA certificate to use when connecting to the Kubernetes API server. |
+
+## [Configuring Service Providers](#configuring-service-providers)
+
+OAuth requires to create OAuth Application on Service Provider side. Service providers usually require to set:
+ - __application homepage URL__: URL of the root of main Route/Ingress to SPI OAuth Service. For minikube: `https://spi.<minikube_ip>.nip.io`, for openshift: `https://<name>-<namespace>.<cluster_host>`. Example for minikube: `https://spi.192.168.64.166.nip.io`.
+ - __application callback URL__: homepage URL + `/oauth/callback`. Example for minikube: `https://spi.192.168.64.166.nip.io/oauth/callback`.
+
+_To create OAuth application at:_
+ - __GitHub__, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)
+ - __GitLab__, follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
 
 ## Vault
 

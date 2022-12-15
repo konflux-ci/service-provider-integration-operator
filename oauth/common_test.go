@@ -31,6 +31,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -113,7 +114,7 @@ var _ = Describe("Controller", func() {
 	loginFlow := func(g Gomega) (*Authenticator, *httptest.ResponseRecorder) {
 		token := grabK8sToken(g)
 
-		// This is the setup for the HTTP call to /github/authenticate
+		// This is the setup for the HTTP call to /oauth/authenticate
 		req := httptest.NewRequest("POST", "/", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		res := httptest.NewRecorder()
@@ -202,7 +203,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine" + oauth.CallBackRoutePath))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
@@ -220,7 +221,7 @@ var _ = Describe("Controller", func() {
 		Expect(redirect.Host).To(Equal("special.sp"))
 		Expect(redirect.Path).To(Equal("/login"))
 		Expect(redirect.Query().Get("client_id")).To(Equal("clientId"))
-		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine/oauth/callback"))
+		Expect(redirect.Query().Get("redirect_uri")).To(Equal("https://spi.on.my.machine" + oauth.CallBackRoutePath))
 		Expect(redirect.Query().Get("response_type")).To(Equal("code"))
 		Expect(redirect.Query().Get("state")).NotTo(BeEmpty())
 		Expect(redirect.Query().Get("state")).NotTo(Equal(spiState))
