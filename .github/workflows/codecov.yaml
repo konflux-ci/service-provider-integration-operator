@@ -22,12 +22,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
-      - name: Install kcp tooling
-        run: |
-          git clone https://github.com/kcp-dev/kcp ~/kcp
-          cd ~/kcp
-          WHAT=./cmd/kubectl-kcp make install
+          go-version: 1.19
       - name: Start Minikube
         run: |
           curl -LO https://storage.googleapis.com/minikube/releases/v1.27.0/minikube-linux-amd64

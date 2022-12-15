@@ -1,6 +1,6 @@
 module github.com/redhat-appstudio/service-provider-integration-operator
 
-go 1.18
+go 1.19
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.0
@@ -8,6 +8,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
+	github.com/go-test/deep v1.0.8
 	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v45 v45.2.0
@@ -17,7 +18,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault v1.12.0
 	github.com/hashicorp/vault-plugin-secrets-kv v0.13.3
-	github.com/hashicorp/vault/api v1.8.1
+	github.com/hashicorp/vault/api v1.8.2
 	github.com/hashicorp/vault/api/auth/approle v0.3.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
 	github.com/hashicorp/vault/sdk v0.6.1-0.20221010215534-6545e24b6023
@@ -109,7 +110,6 @@ require (
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/go-test/deep v1.0.8 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

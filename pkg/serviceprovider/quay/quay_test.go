@@ -131,7 +131,7 @@ func TestMapToken(t *testing.T) {
 					},
 					{
 						Type: api.PermissionTypeReadWrite,
-						Area: api.PermissionAreaRepository,
+						Area: api.PermissionAreaRegistry,
 					},
 				},
 				AdditionalScopes: []string{string(ScopeOrgAdmin)},
@@ -176,7 +176,7 @@ func TestValidate(t *testing.T) {
 
 	assert.Equal(t, 3, len(res.ScopeValidation))
 	assert.NotNil(t, res.ScopeValidation[0])
-	assert.Equal(t, "user-related permissions are not supported for Quay", res.ScopeValidation[0].Error())
+	assert.Equal(t, "unsupported permission area for Quay: 'user'", res.ScopeValidation[0].Error())
 	assert.NotNil(t, res.ScopeValidation[1])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[1].Error())
 	assert.NotNil(t, res.ScopeValidation[2])
@@ -205,37 +205,37 @@ func TestQuay_OAuthScopesFor(t *testing.T) {
 	t.Run("empty", hasDefault(api.Permissions{}))
 	t.Run("read-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeRead,
 		},
 	}}))
 	t.Run("write-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeWrite,
 		},
 	}}))
 	t.Run("read-write-repo", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepository,
+			Area: api.PermissionAreaRegistry,
 			Type: api.PermissionTypeReadWrite,
 		},
 	}}))
 	t.Run("read-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeRead,
 		},
 	}}))
 	t.Run("write-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeWrite,
 		},
 	}}))
 	t.Run("read-write-meta", hasDefault(api.Permissions{Required: []api.Permission{
 		{
-			Area: api.PermissionAreaRepositoryMetadata,
+			Area: api.PermissionAreaRegistryMetadata,
 			Type: api.PermissionTypeReadWrite,
 		},
 	}}))

@@ -29,7 +29,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.19
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
@@ -55,12 +55,6 @@ jobs:
           mkdir -p ~/bin
           cp ~/cache/operator-sdk-${OPERATOR_SDK_VERSION} ~/bin/operator-sdk
           echo "$HOME/bin" >> $GITHUB_PATH
-      - name: Install kcp tooling
-        run: |
-          git clone https://github.com/kcp-dev/kcp ~/kcp
-          cd ~/kcp
-          git checkout release-0.9
-          WHAT=./cmd/kubectl-kcp make install
       - name: Cache go modules
         id: cache-mod
         uses: actions/cache@v3

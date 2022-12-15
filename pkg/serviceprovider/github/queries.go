@@ -39,7 +39,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "fetch all github repositories")
 	if accessToken == "" {
-		return sperrors.ServiceProviderHttpError{
+		return &sperrors.ServiceProviderHttpError{
 			StatusCode: 401,
 			Response:   "the access token is empty, service provider not contacted at all",
 		}

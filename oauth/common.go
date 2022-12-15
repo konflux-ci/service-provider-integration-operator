@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -66,7 +67,7 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return strings.TrimSuffix(c.BaseUrl, "/") + "/oauth/callback"
+	return strings.TrimSuffix(c.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
