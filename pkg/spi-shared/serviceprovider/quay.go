@@ -11,6 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package serviceprovider
 
-var GithubSaasHost = "github.com"
+import (
+	"golang.org/x/oauth2"
+)
+
+// QuayEndpoint is the OAuth endpoints specification of quay.io
+var QuayEndpoint = oauth2.Endpoint{
+	AuthURL:  "https://quay.io/oauth/authorize",
+	TokenURL: "https://quay.io/oauth/access_token",
+}
+
+var QuaySaasHost = "quay.io"

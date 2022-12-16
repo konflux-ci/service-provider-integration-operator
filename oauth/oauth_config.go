@@ -20,14 +20,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
-	kuberrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -39,9 +36,8 @@ const (
 )
 
 var (
-	errMissingField            = errors.New("missing mandatory field in oauth configuration")
-	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
-	errUnknownServiceProvider  = errors.New("haven't found oauth configuration for service provider")
+	errMissingField           = errors.New("missing mandatory field in oauth configuration")
+	errUnknownServiceProvider = errors.New("haven't found oauth configuration for service provider")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -67,7 +63,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
 	}
 
-	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(ctx, info.TokenNamespace, spUrl.Host)
+	found, oauthCfgSecret, findErr := config.FindServiceProviderConfigSecret(ctx, c.K8sClient, info.TokenNamespace, spUrl.Host, c.ServiceProviderType)
 	if findErr != nil {
 		return nil, findErr
 	}
@@ -89,58 +85,6 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	}
 
 	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
-}
-
-func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNamespace string, spHost string) (bool, *corev1.Secret, error) {
-	lg := log.FromContext(ctx).WithValues("spHost", spHost)
-
-	secrets := &corev1.SecretList{}
-	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType),
-	}); listErr != nil {
-		if kuberrors.IsForbidden(listErr) {
-			lg.Info("user is not able to list or get secrets")
-			return false, nil, nil
-		} else {
-			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
-		}
-	}
-
-	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
-
-	if len(secrets.Items) < 1 {
-		return false, nil, nil
-	}
-
-	var oauthSecretWithoutHost *corev1.Secret
-	var oauthSecretWithHost *corev1.Secret
-
-	// go through all found oauth secret configs
-	for _, oauthSecret := range secrets.Items {
-		// if we find one labeled for sp host, we take it
-		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
-			if labelSpHost == spHost {
-				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
-					return false, nil, errMultipleMatchingSecrets
-				}
-				oauthSecretWithHost = oauthSecret.DeepCopy()
-			}
-		} else { // if we found one without host label, we save it for later
-			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
-				return false, nil, errMultipleMatchingSecrets
-			}
-			oauthSecretWithoutHost = oauthSecret.DeepCopy()
-		}
-	}
-
-	if oauthSecretWithHost != nil {
-		return true, oauthSecretWithHost, nil
-	} else if oauthSecretWithoutHost != nil {
-		return true, oauthSecretWithoutHost, nil
-	} else {
-		return false, nil, nil
-	}
-
 }
 
 func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {

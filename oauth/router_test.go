@@ -22,6 +22,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2/github"
 )
@@ -30,17 +31,17 @@ var testSpDefaults = []ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeGitHub,
 		Endpoint: github.Endpoint,
-		UrlHost:  GithubSaasHost,
+		UrlHost:  serviceprovider.GithubSaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeQuay,
-		Endpoint: QuayEndpoint,
-		UrlHost:  QuaySaasHost,
+		Endpoint: serviceprovider.QuayEndpoint,
+		UrlHost:  serviceprovider.QuaySaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeGitLab,
-		Endpoint: GitlabEndpoint,
-		UrlHost:  GitlabSaasHost,
+		Endpoint: serviceprovider.GitlabEndpoint,
+		UrlHost:  serviceprovider.GitlabSaasHost,
 	},
 }
 
@@ -50,7 +51,7 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.ServiceProviderConfiguration{
+					ServiceProviders: []config.PersistedServiceProviderConfiguration{
 						{
 							ClientId:               "abc",
 							ClientSecret:           "cde",
@@ -80,7 +81,7 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.ServiceProviderConfiguration{
+					ServiceProviders: []config.PersistedServiceProviderConfiguration{
 						{
 							ClientId:               "abc",
 							ClientSecret:           "cde",
@@ -103,7 +104,7 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.ServiceProviderConfiguration{
+					ServiceProviders: []config.PersistedServiceProviderConfiguration{
 						{
 							ClientId:               "abc",
 							ClientSecret:           "cde",
@@ -134,7 +135,7 @@ func TestFindController(t *testing.T) {
 		OAuthServiceConfiguration: OAuthServiceConfiguration{
 			SharedConfiguration: config.SharedConfiguration{
 				BaseUrl: "http://spi",
-				ServiceProviders: []config.ServiceProviderConfiguration{
+				ServiceProviders: []config.PersistedServiceProviderConfiguration{
 					{
 						ClientId:               "abc",
 						ClientSecret:           "cde",
@@ -160,12 +161,12 @@ func TestFindController(t *testing.T) {
 			{
 				SpType:   config.ServiceProviderTypeGitHub,
 				Endpoint: github.Endpoint,
-				UrlHost:  GithubSaasHost,
+				UrlHost:  serviceprovider.GithubSaasHost,
 			},
 			{
 				SpType:   config.ServiceProviderTypeQuay,
-				Endpoint: QuayEndpoint,
-				UrlHost:  QuaySaasHost,
+				Endpoint: serviceprovider.QuayEndpoint,
+				UrlHost:  serviceprovider.QuaySaasHost,
 			},
 		}
 

@@ -211,7 +211,7 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 	}).Build()
 	factory := Factory{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
-			ServiceProviders: []config.ServiceProviderConfiguration{{
+			ServiceProviders: []config.PersistedServiceProviderConfiguration{{
 				ServiceProviderType:    "GitHub",
 				ServiceProviderBaseUrl: "https://some.github.url",
 			}, {

@@ -53,7 +53,7 @@ type commonController struct {
 }
 
 type oauthConfiguration struct {
-	Config   config.ServiceProviderConfiguration
+	Config   config.PersistedServiceProviderConfiguration
 	Endpoint oauth2.Endpoint
 }
 

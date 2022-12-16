@@ -11,16 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package serviceprovider
 
-import (
-	"golang.org/x/oauth2"
-)
-
-// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var GitlabEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://gitlab.com/oauth/authorize",
-	TokenURL: "https://gitlab.com/oauth/token",
-}
-
-var GitlabSaasHost = "gitlab.com"
+var GithubSaasHost = "github.com"

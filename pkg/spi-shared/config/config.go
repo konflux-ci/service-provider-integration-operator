@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,23 +58,23 @@ type CommonCliArgs struct {
 // consumption.
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []ServiceProviderConfiguration `yaml:"serviceProviders"`
+	ServiceProviders []PersistedServiceProviderConfiguration `yaml:"serviceProviders"`
 }
 
 // SharedConfiguration contains the specification of the known service providers as well as other configuration data shared
 // between the SPI OAuth service and the SPI operator
 type SharedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []ServiceProviderConfiguration
+	ServiceProviders []PersistedServiceProviderConfiguration
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
 	BaseUrl string
 }
 
-// ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
+// PersistedServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
 // mainly contains config.yaml of the OAuth application within the service provider.
-type ServiceProviderConfiguration struct {
+type PersistedServiceProviderConfiguration struct {
 	// ClientId is the client ID of the OAuth application that the SPI uses to access the service provider.
 	ClientId string `yaml:"clientId"`
 
@@ -90,6 +91,21 @@ type ServiceProviderConfiguration struct {
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
 	// for Quay, we require to know the organization for which the OAuth application is defined for.
 	Extra map[string]string `yaml:"extra,omitempty"`
+}
+
+type ServicePRoviderConfiguration struct {
+	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
+	ServiceProviderType ServiceProviderType
+
+	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
+	// types, like GitHub that only can have 1 well-known base URL.
+	ServiceProviderBaseUrl string
+
+	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
+	// for Quay, we require to know the organization for which the OAuth application is defined for.
+	Extra map[string]string
+
+	Oauth2Config oauth2.Config
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.

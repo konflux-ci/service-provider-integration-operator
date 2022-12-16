@@ -156,7 +156,7 @@ var _ = BeforeSuite(func() {
 
 	ITest.OperatorConfiguration = &opconfig.OperatorConfiguration{
 		SharedConfiguration: config.SharedConfiguration{
-			ServiceProviders: []config.ServiceProviderConfiguration{
+			ServiceProviders: []config.PersistedServiceProviderConfiguration{
 				{
 					ClientId:            "testClient",
 					ClientSecret:        "testSecret",

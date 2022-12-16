@@ -38,6 +38,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -165,17 +166,17 @@ func main() {
 		{
 			SpType:   config.ServiceProviderTypeGitHub,
 			Endpoint: github.Endpoint,
-			UrlHost:  oauth.GithubSaasHost,
+			UrlHost:  serviceprovider.GithubSaasHost,
 		},
 		{
 			SpType:   config.ServiceProviderTypeQuay,
-			Endpoint: oauth.QuayEndpoint,
-			UrlHost:  oauth.QuaySaasHost,
+			Endpoint: serviceprovider.QuayEndpoint,
+			UrlHost:  serviceprovider.QuaySaasHost,
 		},
 		{
 			SpType:   config.ServiceProviderTypeGitLab,
-			Endpoint: oauth.GitlabEndpoint,
-			UrlHost:  oauth.GitlabSaasHost,
+			Endpoint: serviceprovider.GitlabEndpoint,
+			UrlHost:  serviceprovider.GitlabSaasHost,
 		},
 	}
 	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceProviderDefaults)
