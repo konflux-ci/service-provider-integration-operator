@@ -59,6 +59,7 @@ When a 3rd party application requires access to a token, it creates an `SPIAcces
 
 | Name                                       | Type              | Description                                                                                                                                                                         | Example              | Immutable |
 |--------------------------------------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|-----------|
+| spec.lifetime                              | string            | Expected lifetime for given binging, which overrides default cluster-wide setting                                                                                                   | 5h10s,  '-1'         | false     |
 | spec.secret.name                           | string            | The name of the secret that should contain the token data once the data is available. If not specified, a random name is used.                                                      |                      | true      |
 | spec.secret.labels                         | map[string]string | The labels to be put on the created secret                                                                                                                                          | acme.com/for=app1    | false     |
 | spec.secret.annotations                    | map[string]string | The annotations to be put on the created secret                                                                                                                                     |                      | false     |
@@ -268,6 +269,26 @@ Note that both `username` and `access_token` fields are mandatory.
 `204` response indicates that credentials successfully uploaded and stored.
 Please note that SPI service didn't perform any specific validity checks
 for the user provided credentials, so it's assumed user provides a correct data.
+
+
+## Overriding default binding lifetime
+In general, bindings (and their dependant secrets) are not supposed to be long-lived. Their TTL in configurable globally, 
+and by default it is set to 2 hrs. But some tasks require more long-lived credentials to be available, so the creator of the binding
+may override the default setting by specifying `spec.lifetime` field of the binding.
+It is accepts any standard time periods, like `2h30m`, `90s` etc, except the negative values and values less than
+60 seconds, since they make not much sense. Exception is only `-1` value, which means infinite lifetime
+of the binding, in other words, binding can be deleted only by direct request to K8S.
+
+```
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIFileContentRequest
+metadata:
+  name: test-file-content-request
+  namespace: default
+spec:
+  repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
+  lifetime: '-1'
+```
 
 
 ## Retrieving file content from SCM repository

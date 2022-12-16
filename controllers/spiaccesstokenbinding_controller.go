@@ -203,7 +203,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	var expectedLifetimeDuration time.Duration
+	var expectedLifetimeDuration = r.Configuration.AccessTokenBindingTtl
 	var infiniteDuration = false
 	if binding.Spec.Lifetime != "" {
 		if binding.Spec.Lifetime == "-1" {
@@ -211,11 +211,10 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		} else {
 			expectedLifetimeDuration, err = time.ParseDuration(binding.Spec.Lifetime)
 			if err != nil || expectedLifetimeDuration.Seconds() < 60 {
-				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, fmt.Errorf("invalid binding lifetime specified. It either have wrong format, or value less than 60s, which is unprocessable: %s", expectedLifetimeDuration.String()))
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, fmt.Errorf("invalid binding lifetime specified. It either have wrong format, or value less than 60s, which is unprocessable: %s", expectedLifetimeDuration.String()))
+				return ctrl.Result{}, nil
 			}
 		}
-	} else {
-		expectedLifetimeDuration = r.Configuration.AccessTokenBindingTtl
 	}
 
 	// cleanup bindings by lifetime
@@ -343,7 +342,12 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		}
 	}
-	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+	if infiniteDuration {
+		// no need to re-schedule by any timeout
+		return ctrl.Result{}, nil
+	} else {
+		return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
+	}
 }
 
 func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
@@ -361,10 +365,6 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spTyp
 		}
 	}
 	return permissionChange
-}
-
-func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.

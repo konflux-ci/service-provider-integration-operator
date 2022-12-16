@@ -52,6 +52,7 @@ type SPIAccessTokenBindingErrorReason string
 
 const (
 	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType SPIAccessTokenBindingErrorReason = "UnknownServiceProviderType"
+	SPIAccessTokenBindingErrorReasonInvalidLifetime            SPIAccessTokenBindingErrorReason = "InvalidLifetime"
 	SPIAccessTokenBindingErrorReasonTokenLookup                SPIAccessTokenBindingErrorReason = "TokenLookup"
 	SPIAccessTokenBindingErrorReasonLinkedToken                SPIAccessTokenBindingErrorReason = "LinkedToken"
 	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
