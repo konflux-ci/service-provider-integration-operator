@@ -100,7 +100,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNames
 		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
-			lg.Info("user is not able to list or get secrets")
+			lg.Info("not enough permissions to list the secrets")
 			return false, nil, nil
 		} else {
 			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
