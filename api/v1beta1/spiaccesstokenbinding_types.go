@@ -26,6 +26,7 @@ type SPIAccessTokenBindingSpec struct {
 	RepoUrl     string      `json:"repoUrl"`
 	Permissions Permissions `json:"permissions,omitempty"`
 	Secret      SecretSpec  `json:"secret"`
+	Lifetime    string      `json:"lifetime,omitempty"`
 }
 
 // SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding

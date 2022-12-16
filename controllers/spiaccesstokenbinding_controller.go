@@ -201,9 +201,24 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	var expectedLifetimeDuration time.Duration
+	var infiniteDuration = false
+	if binding.Spec.Lifetime != "" {
+		if binding.Spec.Lifetime == "-1" {
+			infiniteDuration = true
+		} else {
+			expectedLifetimeDuration, err = time.ParseDuration(binding.Spec.Lifetime)
+			if err != nil || expectedLifetimeDuration.Seconds() < 60 {
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, fmt.Errorf("invalid binding lifetime specified. It either have wrong format, or value less than 60s, which is unprocessable: %s", expectedLifetimeDuration.String()))
+			}
+		}
+	} else {
+		expectedLifetimeDuration = r.Configuration.AccessTokenBindingTtl
+	}
+
 	// cleanup bindings by lifetime
 	bindingLifetime := time.Since(binding.CreationTimestamp.Time).Seconds()
-	if bindingLifetime > r.Configuration.AccessTokenBindingTtl.Seconds() {
+	if !infiniteDuration && bindingLifetime > expectedLifetimeDuration.Seconds() {
 		err := r.Client.Delete(ctx, &binding)
 		if err != nil {
 			lg.Error(err, "failed to cleanup binding on reaching the max lifetime", "error", err)
