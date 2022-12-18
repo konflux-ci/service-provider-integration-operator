@@ -57,6 +57,11 @@ type Quay struct {
 	BaseUrl          string
 }
 
+func (q *Quay) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	//TODO implement me
+	return token, nil
+}
+
 var Initializer = serviceprovider.Initializer{
 	Probe:                        quayProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newQuay),

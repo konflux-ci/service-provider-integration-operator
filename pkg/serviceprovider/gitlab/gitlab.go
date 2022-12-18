@@ -16,6 +16,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -56,6 +57,46 @@ type Gitlab struct {
 	glClientBuilder        gitlabClientBuilder
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
+}
+
+func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		g.baseUrl+"oauth/token?client_id="+clientId+
+			"&client_secret="+clientSecret+
+			"&refresh_token="+token.RefreshToken+
+			"&grant_type=refresh_token"+
+			"&redirect_uri="+g.GetOAuthEndpoint(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	var body []byte
+	_, err = resp.Body.Read(body)
+	if err != nil {
+		return nil, err
+	}
+	refreshResponse := struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		Expiry       uint64 `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+		CreationTime uint64 `json:"created_at"`
+	}{}
+
+	err = json.Unmarshal(body, &refreshResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.Token{
+		AccessToken:  refreshResponse.AccessToken,
+		TokenType:    refreshResponse.TokenType,
+		RefreshToken: refreshResponse.RefreshToken,
+		Expiry:       refreshResponse.Expiry,
+	}, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab

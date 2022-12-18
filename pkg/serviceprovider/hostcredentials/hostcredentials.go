@@ -37,6 +37,11 @@ type HostCredentialsProvider struct {
 	repoUrl       string
 }
 
+func (g *HostCredentialsProvider) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	//TODO implement me
+	return token, nil
+}
+
 // Note that given provider doesn't have any kind of probes, since it is used
 // as a fallback solution when no other specific providers matches by their known URL.
 

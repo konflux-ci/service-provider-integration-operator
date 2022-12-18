@@ -20,9 +20,11 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -239,6 +241,17 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
+	if at.Status.Phase == api.SPIAccessTokenPhaseReady && at.Status.TokenMetadata.Refresh {
+		if err := r.refreshToken(ctx, &at, sp); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+		at.Status.TokenMetadata.Refresh = false
+		if err := r.Update(ctx, &at); err != nil {
+			lg.Error(err, "failed to update to change refresh request")
+			return ctrl.Result{}, fmt.Errorf("failed to update to change refresh request: %w", err)
+		}
+	}
+
 	// this will get picked up by the time tracker
 	lg = lg.WithValues("phase_at_reconcile_end", at.Status.Phase)
 
@@ -320,6 +333,58 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	}
 
 	return oauthBaseUrl + "?state=" + state, nil
+}
+
+func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
+	token, err := r.TokenStorage.Get(ctx, at)
+	if err != nil {
+		return err
+	}
+	if token.RefreshToken == "" {
+		return nil
+	}
+
+	clientId, clientSecret, err := r.findCredentialsForToken(ctx, at)
+	if err != nil {
+		return fmt.Errorf("unable to find credentials for SPIAccessToken: %w", err)
+	}
+
+	refreshedToken, err := sp.RefreshToken(ctx, token, clientId, clientSecret)
+	if err != nil {
+		return err
+	}
+	if err := r.TokenStorage.Store(ctx, at, refreshedToken); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SPIAccessTokenReconciler) findCredentialsForToken(ctx context.Context, at *api.SPIAccessToken) (string, string, error) {
+	for _, spConfig := range r.Configuration.SharedConfiguration.ServiceProviders {
+		if strings.TrimPrefix(spConfig.ServiceProviderBaseUrl, "https://") == strings.TrimPrefix(at.Spec.ServiceProviderUrl, "https://") {
+			return spConfig.ClientId, spConfig.ClientSecret, nil
+		}
+	}
+	secretList := &corev1.SecretList{}
+	err := r.List(ctx, secretList, client.InNamespace(at.Namespace), client.MatchingLabels{
+		api.ServiceProviderHostLabel: strings.TrimPrefix(at.Spec.ServiceProviderUrl, "https://"),
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list oauth config secrets: %w", err)
+	}
+	if len(secretList.Items) > 1 {
+		return "", "", fmt.Errorf("found multiple service provider configuration secrets with the same service provider host label ")
+	}
+	if len(secretList.Items) < 1 {
+		return "", "", fmt.Errorf("no service provider configuration fitting the token found")
+	}
+
+	clientId, hasId := secretList.Items[0].Data["clientId"]
+	clientSecret, hasSecret := secretList.Items[0].Data["clientSecret"]
+	if !hasId || !hasSecret {
+		return "", "", fmt.Errorf("found service provider configuration secret fitting the token but it is missing credentials")
+	}
+	return string(clientId), string(clientSecret), nil
 }
 
 type linkedBindingsFinalizer struct {

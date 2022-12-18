@@ -54,6 +54,11 @@ type Github struct {
 	downloadFileCapability downloadFileCapability
 }
 
+func (g *Github) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	//TODO implement me
+	return token, nil
+}
+
 var Initializer = serviceprovider.Initializer{
 	Probe:                        githubProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newGithub),

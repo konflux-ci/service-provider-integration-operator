@@ -65,6 +65,8 @@ type TokenMetadata struct {
 	// provider. The operator is configured with a TTL for this information and automatically refreshes the metadata
 	// when it is needed but is found stale.
 	LastRefreshTime int64 `json:"lastRefreshTime"`
+	ExpirationTime  int64 `json:"expirationTime"`
+	Refresh         bool  `json:"refresh"`
 }
 
 // Permissions is a collection of operator-defined permissions (which are translated to service-provider-specific

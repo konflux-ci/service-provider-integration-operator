@@ -40,6 +40,11 @@ type TestServiceProvider struct {
 	DownloadFileCapability    func() serviceprovider.DownloadFileCapability
 }
 
+func (t TestServiceProvider) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	//TODO implement me
+	return nil, nil
+}
+
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
