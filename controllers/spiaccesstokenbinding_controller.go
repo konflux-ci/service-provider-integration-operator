@@ -380,6 +380,7 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spTyp
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 		return nil, fmt.Errorf("failed to find the service provider: %w", err)
 	}
@@ -403,6 +404,7 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 		serviceProviderUrl := sp.GetBaseUrl()
 		if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 			return nil, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
 		}
