@@ -213,10 +213,12 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			expectedLifetimeDuration, err = time.ParseDuration(binding.Spec.Lifetime)
 			if err != nil {
 				err = fmt.Errorf("invalid binding lifetime format specified: %w", err)
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, err)
 				return ctrl.Result{}, err
 			}
 			if expectedLifetimeDuration.Seconds() < 60 {
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, minimalBindingLifetimeError)
 				return ctrl.Result{}, minimalBindingLifetimeError
 			}
@@ -245,6 +247,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}
@@ -281,6 +284,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			if newToken == nil {
 				// the token that we are linked to is ready but doesn't match the criteria of the binding.
 				// We can't do much here - the user granted the token the access we requested, but we still don't match
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 				binding.Status.OAuthUrl = ""
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
 				return ctrl.Result{}, nil
