@@ -67,7 +67,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
-	minimalBindingLifetimeError     = stderrors.New("specified binding lifetime seems to be less than 60s, which is cannot be accepted")
+	minimalBindingLifetimeError     = stderrors.New("specified binding lifetime seems to be less than 60s, which cannot be accepted")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -204,8 +204,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	var expectedLifetimeDuration = r.Configuration.AccessTokenBindingTtl
-	var infiniteDuration = false
+	expectedLifetimeDuration := r.Configuration.AccessTokenBindingTtl
+	infiniteDuration := false
 	if binding.Spec.Lifetime != "" {
 		if binding.Spec.Lifetime == "-1" {
 			infiniteDuration = true
@@ -349,9 +349,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	if infiniteDuration {
 		// no need to re-schedule by any timeout
 		return ctrl.Result{}, nil
-	} else {
-		return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
 	}
+
+	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
 }
 
 func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {

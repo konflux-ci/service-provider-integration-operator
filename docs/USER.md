@@ -275,7 +275,7 @@ for the user provided credentials, so it's assumed user provides a correct data.
 In general, bindings (and their dependant secrets) are not supposed to be long-lived. Their TTL in configurable globally, 
 and by default it is set to 2 hrs. But some tasks require more long-lived credentials to be available, so the creator of the binding
 may override the default setting by specifying `spec.lifetime` field of the binding.
-It is accepts any standard time periods, like `2h30m`, `90s` etc, except the negative values and values less than
+It accepts any standard time periods, like `2h30m`, `90s` etc, except the negative values and values less than
 60 seconds, since they make not much sense. Exception is only `-1` value, which means infinite lifetime
 of the binding, in other words, binding can be deleted only by direct request to K8S.
 
