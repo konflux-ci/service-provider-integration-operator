@@ -290,6 +290,11 @@ func TriggerReconciliation(object client.Object) {
 		cpy.SetAnnotations(annos)
 		g.Expect(ITest.Client.Update(ITest.Context, cpy)).To(Succeed())
 	}).Should(Succeed())
+
+	log.Log.V(logs.DebugLevel).Info("update to force reconciliation succeeded",
+		"object", client.ObjectKeyFromObject(object),
+		"kind", object.GetObjectKind().GroupVersionKind().String())
+
 }
 
 // BeforeEach is where the magic happens. It first checks that the cluster is empty, then stores the configuration
@@ -433,11 +438,11 @@ func (ts *TestSetup) ReconcileWithCluster(postCondition func(Gomega)) {
 
 func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(Gomega)) {
 	waitForStatus := func() {
-		waitForStatus(&api.SPIAccessTokenList{}, convertTokens, emptyTokenStatus)
-		waitForStatus(&api.SPIAccessTokenBindingList{}, convertBindings, emptyBindingStatus)
-		waitForStatus(&api.SPIAccessCheckList{}, convertChecks, emptyCheckStatus)
-		waitForStatus(&api.SPIFileContentRequestList{}, convertFiles, emptyFileStatus)
-		waitForStatus(&api.SPIAccessTokenDataUpdateList{}, convertDataUpdates, emptyDataUpdateStatus)
+		waitForStatus(&api.SPIAccessTokenList{}, convertTokens, emptyTokenStatus, "phase")
+		waitForStatus(&api.SPIAccessTokenBindingList{}, convertBindings, emptyBindingStatus, "phase")
+		waitForStatus(&api.SPIAccessCheckList{}, convertChecks, emptyCheckStatus, "serviceProvider")
+		waitForStatus(&api.SPIFileContentRequestList{}, convertFiles, emptyFileStatus, "phase")
+		waitForStatus(&api.SPIAccessTokenDataUpdateList{}, convertDataUpdates, emptyDataUpdateStatus, "")
 	}
 
 	findAll := func() {
@@ -474,6 +479,17 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		// this loop is usually very fast, so we trigger the reconciliation the first time and then only every 2s to
 		// give the controllers some time to react.
 		if forceReconcile && (lastReconcile == nil || time.Since(*lastReconcile) > 2*time.Second) {
+			if lastReconcile != nil {
+				log.Log.Info("////")
+				log.Log.Info("////")
+				log.Log.Info("////")
+				log.Log.Info("////")
+				log.Log.Info("//// Reconciliation still in progress after (another) 2s. Triggering it again.")
+				log.Log.Info("////")
+				log.Log.Info("////")
+				log.Log.Info("////")
+				log.Log.Info("////")
+			}
 			forEach(ts.InCluster.Tokens, TriggerReconciliation)
 			forEach(ts.InCluster.Bindings, TriggerReconciliation)
 			forEach(ts.InCluster.Checks, TriggerReconciliation)
@@ -507,7 +523,11 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		dataUpdateDiffs := findDifferences(toPointerArray(dataUpdates), ts.InCluster.DataUpdates)
 
 		if len(tokenDiffs) > 0 || len(bindingDiffs) > 0 || len(checkDiffs) > 0 || len(fileRequestDiffs) > 0 || len(dataUpdateDiffs) > 0 {
-			if i%50 == 0 {
+			if i > 1 {
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
 				log.Log.Info("settling loop still seeing changes",
 					"iteration", i,
 					"test", ginkgo.CurrentGinkgoTestDescription().FullTestText,
@@ -517,6 +537,10 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 					"fileRequestDiffs", fileRequestDiffs,
 					"dataUpdateDiffs", dataUpdateDiffs,
 				)
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
+				log.Log.Info("~~~~")
 			}
 
 			time.Sleep(200 * time.Millisecond)
@@ -669,7 +693,7 @@ func deleteAll[T client.Object, L client.ObjectList](list func() L, getLen func(
 	}).Should(Succeed())
 }
 
-func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T, hasEmptyStatus func(T) bool) {
+func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T, hasEmptyStatus func(T) bool, significantStatusField string) {
 	Eventually(func(g Gomega) {
 		g.Expect(ITest.Client.List(ITest.Context, list)).To(Succeed())
 		items := itemsFromList(list)
@@ -678,7 +702,13 @@ func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList f
 		}
 
 		for _, o := range items {
-			g.Expect(hasEmptyStatus(o)).To(BeFalse(), "%s/%s/%s has empty status", o.GetObjectKind().GroupVersionKind().String(), o.GetNamespace(), o.GetName())
+			g.Expect(hasEmptyStatus(o)).To(BeFalse(),
+				"%s.%s/%s/%s has empty status.%s (used to detect if the status is empty)",
+				strings.ToLower(o.GetObjectKind().GroupVersionKind().Kind),
+				o.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+				o.GetNamespace(),
+				o.GetName(),
+				significantStatusField)
 		}
 	}).Should(Succeed(), "failed to wait for status of objects %T", list)
 }
