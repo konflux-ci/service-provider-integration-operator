@@ -484,7 +484,6 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 
 // updateBindingStatusError updates the status of the binding with the provided error
 func (r *SPIAccessTokenBindingReconciler) updateBindingStatusError(ctx context.Context, binding *api.SPIAccessTokenBinding, reason api.SPIAccessTokenBindingErrorReason, err error) {
-	binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 	binding.Status.ErrorMessage = err.Error()
 	binding.Status.ErrorReason = reason
 	if err := r.Client.Status().Update(ctx, binding); err != nil {
