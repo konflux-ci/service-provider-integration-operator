@@ -67,6 +67,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
+	invalidBindingLifetimeError     = stderrors.New("specified binding lifetime seems to be less than 60s, which is cannot be accepted")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -210,9 +211,13 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			infiniteDuration = true
 		} else {
 			expectedLifetimeDuration, err = time.ParseDuration(binding.Spec.Lifetime)
-			if err != nil || expectedLifetimeDuration.Seconds() < 60 {
-				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, fmt.Errorf("invalid binding lifetime specified. It either have wrong format, or value less than 60s, which is unprocessable: %s", expectedLifetimeDuration.String()))
-				return ctrl.Result{}, nil
+			if err != nil {
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, fmt.Errorf("invalid binding lifetime format specified: %s", err.Error()))
+				return ctrl.Result{}, err
+			}
+			if expectedLifetimeDuration.Seconds() < 60 {
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, invalidBindingLifetimeError)
+				return ctrl.Result{}, invalidBindingLifetimeError
 			}
 		}
 	}

@@ -38,7 +38,6 @@ spec:
             properties:
               lifetime:
                 type: string
-                description: Expected lifetime for given binging, which overrides default cluster-wide setting
               permissions:
                 description: Permissions is a collection of operator-defined permissions
                   (which are translated to service-provider-specific scopes) and potentially
