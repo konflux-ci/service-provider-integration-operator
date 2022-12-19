@@ -693,13 +693,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				}
 				Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
 
-				//testSetup.ReconcileWithCluster(func(g Gomega) {
-				//	binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
-				//	g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
-				//	g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
-				//	g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInvalidLifetime))
-				//	g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
-				//})
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
+					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+					g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+					g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInvalidLifetime))
+					g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
+				})
 			})
 		})
 

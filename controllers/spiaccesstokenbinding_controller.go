@@ -245,7 +245,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}
@@ -282,7 +281,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			if newToken == nil {
 				// the token that we are linked to is ready but doesn't match the criteria of the binding.
 				// We can't do much here - the user granted the token the access we requested, but we still don't match
-				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 				binding.Status.OAuthUrl = ""
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
 				return ctrl.Result{}, nil
@@ -378,7 +376,6 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spTyp
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 		return nil, fmt.Errorf("failed to find the service provider: %w", err)
 	}
@@ -402,7 +399,6 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 
 		serviceProviderUrl := sp.GetBaseUrl()
 		if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
-			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
 			return nil, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
 		}
@@ -482,6 +478,7 @@ func (r *SPIAccessTokenBindingReconciler) persistWithMatchingLabels(ctx context.
 
 // updateBindingStatusError updates the status of the binding with the provided error
 func (r *SPIAccessTokenBindingReconciler) updateBindingStatusError(ctx context.Context, binding *api.SPIAccessTokenBinding, reason api.SPIAccessTokenBindingErrorReason, err error) {
+	binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 	binding.Status.ErrorMessage = err.Error()
 	binding.Status.ErrorReason = reason
 	if err := r.Client.Status().Update(ctx, binding); err != nil {
