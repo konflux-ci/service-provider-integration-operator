@@ -23,7 +23,7 @@ import (
 // http client
 type authenticatingRoundTripperContextKeyType struct{}
 
-var authenticatingRoundTripperContextKey = authenticatingRoundTripperContextKeyType{}
+var AuthenticatingRoundTripperContextKey = authenticatingRoundTripperContextKeyType{}
 
 // AuthenticatingRoundTripper is a wrapper around an HTTP round tripper that add a bearer token from the context
 // (if any) before performing the request using the wrapped round tripper.
@@ -35,11 +35,11 @@ type AuthenticatingRoundTripper struct {
 // context is then used with the HTTP request in a client having the AuthenticatingRoundTripper as its transport, the
 // round tripper will insert this token into the Authorization header of the request.
 func WithBearerToken(ctx context.Context, bearerToken string) context.Context {
-	return context.WithValue(ctx, authenticatingRoundTripperContextKey, bearerToken)
+	return context.WithValue(ctx, AuthenticatingRoundTripperContextKey, bearerToken)
 }
 
 func (r AuthenticatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	token, ok := req.Context().Value(authenticatingRoundTripperContextKey).(string)
+	token, ok := req.Context().Value(AuthenticatingRoundTripperContextKey).(string)
 
 	if ok && token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
