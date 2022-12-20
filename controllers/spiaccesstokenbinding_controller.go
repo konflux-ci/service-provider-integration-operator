@@ -346,21 +346,21 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 // returns user specified binding lifetime or default binding lifetime or nil if set to infinite
 func bindingLifetime(r *SPIAccessTokenBindingReconciler, binding api.SPIAccessTokenBinding) (*time.Duration, error) {
-	expectedLifetimeDuration := r.Configuration.AccessTokenBindingTtl
-	if binding.Spec.Lifetime != "" {
-		if binding.Spec.Lifetime == "-1" {
-			return nil, nil
-		} else {
-			expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
-			if err != nil {
-				return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
-			}
-			if expectedLifetimeDuration.Seconds() < 60 {
-				return nil, minimalBindingLifetimeError
-			}
-		}
+	if binding.Spec.Lifetime == "" {
+		return &r.Configuration.AccessTokenBindingTtl, nil
+	}
+	if binding.Spec.Lifetime == "-1" {
+		return nil, nil
+	}
+	expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
+	}
+	if expectedLifetimeDuration.Seconds() < 60 {
+		return nil, minimalBindingLifetimeError
 	}
 	return &expectedLifetimeDuration, nil
+
 }
 
 func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
