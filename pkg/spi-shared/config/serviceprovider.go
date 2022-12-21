@@ -23,7 +23,7 @@ func FindServiceProviderConfigSecret(ctx context.Context, k8sClient client.Reade
 		v1beta1.ServiceProviderTypeLabel: string(spType),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
-			lg.Info("user is not able to list or get secrets")
+			lg.Info("not enough permissions to list the secrets")
 			return false, nil, nil
 		} else {
 			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)

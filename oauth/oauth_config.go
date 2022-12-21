@@ -36,8 +36,9 @@ const (
 )
 
 var (
-	errMissingField           = errors.New("missing mandatory field in oauth configuration")
-	errUnknownServiceProvider = errors.New("haven't found oauth configuration for service provider")
+	errMissingField            = errors.New("missing mandatory field in oauth configuration")
+	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
+	errUnknownServiceProvider  = errors.New("haven't found oauth configuration for service provider")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -63,7 +64,8 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
 	}
 
-	found, oauthCfgSecret, findErr := config.FindServiceProviderConfigSecret(ctx, c.K8sClient, info.TokenNamespace, spUrl.Host, c.ServiceProviderType)
+	noAuthCtx := WithAuthIntoContext("", ctx) // we want to use ServiceAccount to find the secret, so we need to use context without user's token
+	found, oauthCfgSecret, findErr := config.FindServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, spUrl.Host, c.ServiceProviderType)
 	if findErr != nil {
 		return nil, findErr
 	}

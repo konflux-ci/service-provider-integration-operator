@@ -17,6 +17,7 @@ rules:
   - create
   - update
   - get
+  - list
 - apiGroups:
   - appstudio.redhat.com
   resources:

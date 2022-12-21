@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	oauthstate2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
@@ -28,11 +29,13 @@ import (
 	"golang.org/x/oauth2/github"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -328,6 +331,69 @@ func TestObtainOauthConfig(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, oauthCfg)
 	})
+
+	t.Run("no auth in list secret request context", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		utilruntime.Must(v1.AddToScheme(scheme))
+
+		ctx := WithAuthIntoContext("token", context.TODO())
+
+		secretNamespace := "test-secretConfigNamespace"
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjectTracker(&mockTracker{
+			listImpl: func(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, ns string) (runtime.Object, error) {
+				return nil, errors.NewBadRequest("nenenene")
+			}}).Build()
+		testC := newTestClient(cl)
+		testC.inspectList = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) {
+			assert.Empty(t, ctx.Value(httptransport.AuthenticatingRoundTripperContextKey))
+		}
+
+		ctrl := commonController{
+			K8sClient:           testC,
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+		}
+
+		oauthState := &oauthstate2.OAuthInfo{
+			TokenNamespace:      secretNamespace,
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+		}
+
+		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
+
+		assert.Error(t, err)
+		assert.Nil(t, oauthCfg)
+	})
+}
+
+type testClient struct {
+	client.Reader
+	client.Writer
+	client.StatusClient
+
+	client client.Client
+
+	inspectList func(ctx context.Context, list client.ObjectList, opts ...client.ListOption)
+}
+
+func newTestClient(cl client.Client) *testClient {
+	return &testClient{client: cl}
+}
+
+func (c *testClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	return c.client.Get(ctx, key, obj, opts...)
+}
+
+func (c *testClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	c.inspectList(ctx, list, opts...)
+	return c.client.List(ctx, list, opts...)
+}
+
+func (c *testClient) Scheme() *runtime.Scheme {
+	return c.client.Scheme()
+}
+
+func (c *testClient) RESTMapper() meta.RESTMapper {
+	return c.client.RESTMapper()
 }
 
 type mockTracker struct {
