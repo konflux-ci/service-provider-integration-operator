@@ -90,9 +90,11 @@ var _ = Describe("Controller", func() {
 		return &commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				"special.sp": {
-					Config: config.PersistedServiceProviderConfiguration{
-						ClientId:            "clientId",
-						ClientSecret:        "clientSecret",
+					Config: config.ServiceProviderConfiguration{
+						Oauth2Config: oauth2.Config{
+							ClientID:     "clientId",
+							ClientSecret: "clientSecret",
+						},
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
 					Endpoint: oauth2.Endpoint{

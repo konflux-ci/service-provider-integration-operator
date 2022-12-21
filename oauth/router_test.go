@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
 
@@ -51,16 +52,20 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.PersistedServiceProviderConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							ClientId:               "abc",
-							ClientSecret:           "cde",
+							Oauth2Config: oauth2.Config{
+								ClientID:     "abc",
+								ClientSecret: "cde",
+							},
 							ServiceProviderType:    config.ServiceProviderTypeGitHub,
 							ServiceProviderBaseUrl: "https://test.sp",
 						},
 						{
-							ClientId:               "abc",
-							ClientSecret:           "cde",
+							Oauth2Config: oauth2.Config{
+								ClientID:     "abc",
+								ClientSecret: "cde",
+							},
 							ServiceProviderType:    config.ServiceProviderTypeQuay,
 							ServiceProviderBaseUrl: "https://test.sp",
 						},
@@ -81,10 +86,12 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.PersistedServiceProviderConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							ClientId:               "abc",
-							ClientSecret:           "cde",
+							Oauth2Config: oauth2.Config{
+								ClientID:     "abc",
+								ClientSecret: "cde",
+							},
 							ServiceProviderType:    config.ServiceProviderTypeGitHub,
 							ServiceProviderBaseUrl: ":::",
 						},
@@ -104,16 +111,20 @@ func TestNewRouter(t *testing.T) {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					BaseUrl: "http://spi",
-					ServiceProviders: []config.PersistedServiceProviderConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							ClientId:               "abc",
-							ClientSecret:           "cde",
+							Oauth2Config: oauth2.Config{
+								ClientID:     "abc",
+								ClientSecret: "cde",
+							},
 							ServiceProviderType:    config.ServiceProviderTypeGitHub,
 							ServiceProviderBaseUrl: "test.sp",
 						},
 						{
-							ClientId:               "123",
-							ClientSecret:           "234",
+							Oauth2Config: oauth2.Config{
+								ClientID:     "123",
+								ClientSecret: "234",
+							},
 							ServiceProviderType:    config.ServiceProviderTypeGitHub,
 							ServiceProviderBaseUrl: "test.sp",
 						},
@@ -135,16 +146,20 @@ func TestFindController(t *testing.T) {
 		OAuthServiceConfiguration: OAuthServiceConfiguration{
 			SharedConfiguration: config.SharedConfiguration{
 				BaseUrl: "http://spi",
-				ServiceProviders: []config.PersistedServiceProviderConfiguration{
+				ServiceProviders: []config.ServiceProviderConfiguration{
 					{
-						ClientId:               "abc",
-						ClientSecret:           "cde",
+						Oauth2Config: oauth2.Config{
+							ClientID:     "abc",
+							ClientSecret: "cde",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "https://test.sp",
 					},
 					{
-						ClientId:               "abc",
-						ClientSecret:           "cde",
+						Oauth2Config: oauth2.Config{
+							ClientID:     "abc",
+							ClientSecret: "cde",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeQuay,
 						ServiceProviderBaseUrl: "https://test.sp",
 					},

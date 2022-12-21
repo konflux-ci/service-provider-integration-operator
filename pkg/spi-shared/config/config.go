@@ -65,7 +65,7 @@ type persistedConfiguration struct {
 // between the SPI OAuth service and the SPI operator
 type SharedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []PersistedServiceProviderConfiguration
+	ServiceProviders []ServiceProviderConfiguration
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
@@ -93,7 +93,7 @@ type PersistedServiceProviderConfiguration struct {
 	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
-type ServicePRoviderConfiguration struct {
+type ServiceProviderConfiguration struct {
 	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
 	ServiceProviderType ServiceProviderType
 
@@ -112,7 +112,18 @@ type ServicePRoviderConfiguration struct {
 func (c persistedConfiguration) convert() SharedConfiguration {
 	conf := SharedConfiguration{}
 
-	conf.ServiceProviders = c.ServiceProviders
+	conf.ServiceProviders = make([]ServiceProviderConfiguration, len(conf.ServiceProviders))
+	for _, sp := range c.ServiceProviders {
+		newSp := ServiceProviderConfiguration{
+			ServiceProviderType:    sp.ServiceProviderType,
+			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
+			Extra:                  sp.Extra,
+		}
+		if sp.ClientId != "" && sp.ClientSecret != "" {
+			newSp.Oauth2Config = oauth2.Config{ClientID: sp.ClientId, ClientSecret: sp.ClientSecret}
+		}
+		conf.ServiceProviders = append(conf.ServiceProviders, newSp)
+	}
 	return conf
 }
 

@@ -127,9 +127,11 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				"bleh.eh": {
-					Config: config.PersistedServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+					Config: config.ServiceProviderConfiguration{
+						Oauth2Config: oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
@@ -183,9 +185,11 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				serviceprovider.GithubSaasHost: {
-					Config: config.PersistedServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+					Config: config.ServiceProviderConfiguration{
+						Oauth2Config: oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
@@ -241,9 +245,11 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				serviceprovider.GithubSaasHost: {
-					Config: config.PersistedServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+					Config: config.ServiceProviderConfiguration{
+						Oauth2Config: oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
