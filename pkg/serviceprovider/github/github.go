@@ -18,7 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"net/http"
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
@@ -38,6 +41,25 @@ import (
 )
 
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
+
+var publicRepoMetric = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Namespace: config.MetricsNamespace,
+	Subsystem: config.MetricsSubsystem,
+	Name:      "github_public_repo_check_seconds",
+	Help:      "Github public repo check",
+})
+
+var fetchesRepositoriesMetric = prometheus.NewHistogram(prometheus.HistogramOpts{
+	Namespace: config.MetricsNamespace,
+	Subsystem: config.MetricsSubsystem,
+	Name:      "github_fetch_repositories_seconds",
+	Help:      "Github fetch repositories",
+})
+
+func init() {
+	k8sMetrics.Registry.MustRegister(publicRepoMetric)
+	k8sMetrics.Registry.MustRegister(fetchesRepositoriesMetric)
+}
 
 var (
 	unableToParsePathError = errors.New("unable to parse path")
@@ -211,7 +233,8 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 			status.ErrorMessage = err.Error()
 			return status, err
 		}
-
+		timer := prometheus.NewTimer(fetchesRepositoriesMetric)
+		defer timer.ObserveDuration()
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
@@ -250,7 +273,8 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		lg.Error(reqErr, "failed to prepare request", "accessCheck", accessCheck.Spec)
 		return false, fmt.Errorf("error while constructing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, reqErr)
 	}
-
+	timer := prometheus.NewTimer(publicRepoMetric)
+	defer timer.ObserveDuration()
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
