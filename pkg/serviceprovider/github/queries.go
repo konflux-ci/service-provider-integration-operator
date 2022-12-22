@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub)
+var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_all_repo_metadata")
 
 // AllAccessibleRepos lists all the repositories accessible by the current user
 type AllAccessibleRepos struct{}
