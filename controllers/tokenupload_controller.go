@@ -42,9 +42,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const tokenSecretLabel = "spi.appstudio.redhat.com/upload-secret"
-const spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"
+const tokenSecretLabel = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+const spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"   //#nosec G101 -- false positive, this is not a token
 const providerUrlLabel = "spi.appstudio.redhat.com/providerUrl"
+
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
@@ -152,10 +155,15 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
 		WithEventFilter(createTokenPredicate()).
-		Complete(r)
+		Complete(r); err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+		return err
+	}
+	return nil
 }
 
 func createTokenPredicate() predicate.Predicate {
