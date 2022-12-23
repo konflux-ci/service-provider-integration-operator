@@ -43,10 +43,13 @@ import (
 )
 
 const (
-	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret"
-	spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"
+	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"    //#nosec G101 -- false positive, this is not a token
 	providerUrlLabel  = "spi.appstudio.redhat.com/providerUrl"
 )
+
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
@@ -154,10 +157,15 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
 		WithEventFilter(createTokenPredicate()).
-		Complete(r)
+		Complete(r); err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+		return err
+	}
+	return nil
 }
 
 func createTokenPredicate() predicate.Predicate {
@@ -199,7 +207,7 @@ func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUplo
 	err = r.Create(ctx, secretErrEvent)
 
 	if err != nil {
-		lg.Error(err1, "Event creation failed for Secret: "+secret.Name)
+		lg.Error(err, "Event creation failed for Secret: "+secret.Name)
 	}
 
 }
