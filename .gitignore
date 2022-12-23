@@ -1,6 +1,8 @@
 # Generated files
 .tmp/
 
+.secretdata/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

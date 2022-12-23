@@ -103,7 +103,7 @@ func main() {
 	}
 
 	// Setup tokenUpload controller if configured
-	// Important: need NotifyingTokenStorage to reconsile related SPIAccessToken
+	// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
 	notifyingStorage := tokenstorage.NotifyingTokenStorage{
 		Client:       mgr.GetClient(),
 		TokenStorage: strg,
