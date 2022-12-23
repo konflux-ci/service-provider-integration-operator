@@ -29,7 +29,7 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers map[sconfig.ServiceProviderType]serviceprovider.Initializer) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers map[sconfig.ServiceProviderType]serviceprovider.Initializer, enableTokenUpload bool) error {
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
@@ -87,6 +87,23 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		Configuration:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		return err
+	}
+
+	// Setup tokenUpload controller if configured
+	// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
+	notifyingStorage := tokenstorage.NotifyingTokenStorage{
+		Client:       mgr.GetClient(),
+		TokenStorage: ts,
+	}
+
+	if enableTokenUpload {
+		if err = (&TokenUploadReconciler{
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			TokenStorage: notifyingStorage,
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	return nil

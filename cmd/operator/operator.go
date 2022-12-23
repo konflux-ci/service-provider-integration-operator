@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -71,7 +70,7 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 	ctx = log.IntoContext(ctx, ctrl.Log)
 
-	mgr, mgrErr := createManager(ctx, args)
+	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
@@ -97,27 +96,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers()); err != nil {
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers(), args.EnableTokenUpload); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
-	}
-
-	// Setup tokenUpload controller if configured
-	// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
-	notifyingStorage := tokenstorage.NotifyingTokenStorage{
-		Client:       mgr.GetClient(),
-		TokenStorage: strg,
-	}
-
-	if args.EnableTokenUpload {
-		if err = (&controllers.TokenUploadReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: notifyingStorage,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "failed to set up the TokenUpdate controller")
-			os.Exit(1)
-		}
 	}
 
 	//+kubebuilder:scaffold:builder
@@ -138,7 +119,7 @@ func main() {
 	}
 }
 
-func createManager(ctx context.Context, args opconfig.OperatorCliArgs) (manager.Manager, error) {
+func createManager(args opconfig.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,

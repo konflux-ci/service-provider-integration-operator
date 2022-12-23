@@ -89,7 +89,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			err = r.Get(ctx, types.NamespacedName{Name: spiTokenName, Namespace: uploadSecret.Namespace}, &accessToken)
 
 			if err != nil {
-				logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %uploadSecret: %w ", spiTokenName, err), r, lg)
+				logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), r, lg)
 				continue
 			} else {
 				lg.V(logs.DebugLevel).Info("SPI Access Token found : " + accessToken.Name)
@@ -117,7 +117,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				}
 				err = r.Create(ctx, &accessToken)
 				if err != nil {
-					logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token for %uploadSecret: %w", providerUrl, err), r, lg)
+					logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token for %s: %w", providerUrl, err), r, lg)
 					continue
 				} else {
 					// this is the only place where we can get the name of just created SPIAccessToken
@@ -130,7 +130,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 
 		} else {
-			logError(ctx, uploadSecret, fmt.Errorf("Secret is invalid, it is labeled with %uploadSecret but neither %uploadSecret nor %uploadSecret label provided: %w", tokenSecretLabel, spiTokenNameLabel, providerUrlLabel, err), r, lg)
+			logError(ctx, uploadSecret, fmt.Errorf("secret is invalid, it is labeled with %s but neither %s nor %s label provided: %w", tokenSecretLabel, spiTokenNameLabel, providerUrlLabel, err), r, lg)
 			continue
 		}
 
