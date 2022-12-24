@@ -73,6 +73,9 @@ type OperatorConfiguration struct {
 
 	// A maximum file size for file downloading from SCM capabilities supporting providers
 	MaxFileDownloadSize int
+
+	// Enable Token Upload controller
+	EnableTokenUpload bool
 }
 
 func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
@@ -90,6 +93,7 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 	ret.TokenMatchPolicy = args.TokenMatchPolicy
 	ret.DeletionGracePeriod = args.DeletionGracePeriod
 	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
+	ret.EnableTokenUpload = args.EnableTokenUpload
 
 	return ret, nil
 }

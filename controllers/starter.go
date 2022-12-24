@@ -29,7 +29,7 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers map[sconfig.ServiceProviderType]serviceprovider.Initializer, enableTokenUpload bool) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers map[sconfig.ServiceProviderType]serviceprovider.Initializer) error {
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
@@ -96,7 +96,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		TokenStorage: ts,
 	}
 
-	if enableTokenUpload {
+	if cfg.EnableTokenUpload {
 		if err = (&TokenUploadReconciler{
 			Client:       mgr.GetClient(),
 			Scheme:       mgr.GetScheme(),

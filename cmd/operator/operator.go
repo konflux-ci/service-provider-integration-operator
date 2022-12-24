@@ -96,7 +96,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers(), args.EnableTokenUpload); err != nil {
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers()); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
