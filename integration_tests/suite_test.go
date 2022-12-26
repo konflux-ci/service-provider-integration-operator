@@ -216,7 +216,7 @@ var _ = BeforeSuite(func() {
 				return ITest.HostCredsServiceProvider, nil
 			}),
 		},
-	}, true)
+	})
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
