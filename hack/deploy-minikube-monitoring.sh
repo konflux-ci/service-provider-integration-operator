@@ -247,7 +247,7 @@ spec:
       editable: true
       jsonData:
         tlsSkipVerify: true
-        timeInterval: "5s"
+        timeInterval: "30s"
 EOF
 
 # id 3662

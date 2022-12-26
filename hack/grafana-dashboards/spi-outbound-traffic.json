@@ -139,9 +139,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "sum by(sp, status, hostname) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count[$__rate_interval]))",
+          "expr": "sum by(sp, status, hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count[$__rate_interval]))",
           "interval": "",
-          "legendFormat": "{{sp}} {{hostname}} {{status}}",
+          "legendFormat": "{{sp}} {{hostname}} {{status}} {{operation}}",
           "range": true,
           "refId": "A"
         },
@@ -151,7 +151,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "histogram_quantile(0.99, sum by(le, sp, status, hostname) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le, sp, status, hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_bucket[$__rate_interval])))",
           "hide": false,
           "legendFormat": "__auto",
           "range": true,

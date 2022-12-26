@@ -101,10 +101,12 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+### Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+### Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ### fmt: Runs go fmt against code
@@ -141,39 +143,48 @@ check_fmt:
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi
 
-lint: ## Run the linter on the codebase
+### Run the linter on the codebase
+lint:
   ifeq ($(shell command -v golangci-lint 2> /dev/null),)
 	  $(error "golangci-lint must be installed for this rule" && exit 1)
   endif
 	golangci-lint run
 
-check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
-
-vet: ## Run go vet against code.
+### Run go vet against code.
+vet:
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run unit tests
+### updates go.mod
+go.mod:
+	go mod download
+	go mod tidy
+
+check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
+
+ready: fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
+
+test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
-itest: manifests generate fmt vet envtest ## Run only integration tests.
+itest: manifests generate envtest ## Run only integration tests.
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./integration_tests/...
 
 
-itest_debug: manifests generate fmt vet envtest ## Start the integration tests in the debugger (suited for "remote debugging")
+itest_debug: manifests generate envtest ## Start the integration tests in the debugger (suited for "remote debugging")
 	$(shell rm ./debug.out)
 	$(shell touch ./debug.out)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests -- -test.v -test.run=TestSuite
 
 ##@ Build
 
-build: generate fmt vet ## Build manager binary.
+build: generate ## Build manager binary.
 	go build -o bin/ ./cmd/...
 
-run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
+run_as_current_user: manifests generate install ## Run a controller from your host as the current user in ~/.kubeconfig
 	go run ./cmd/operator/operator.go
 
-run: ensure-tmp manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+run: ensure-tmp manifests generate prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
 	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
