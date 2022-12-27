@@ -16,11 +16,12 @@ package metrics
 
 import (
 	"context"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
