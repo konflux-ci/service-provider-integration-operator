@@ -124,15 +124,14 @@ func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	statusWriter := NewStatusHeaderResponseWriter(wrt)
-	ctrl.Callback(req.Context(), statusWriter, req, state)
+	ctrl.Callback(req.Context(), wrt, req, state)
 
 	veiledAt, err := r.router.stateStorage.StateVeiledAt(req.Context(), req)
 	if err != nil {
 		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
 	}
 
-	OAuthFlowCompleteTimeMetric.WithLabelValues(string(state.ServiceProviderType), state.ServiceProviderUrl).Observe(time.Since(veiledAt).Seconds())
+	FlowCompleteTimeMetric.WithLabelValues(string(state.ServiceProviderType), state.ServiceProviderUrl).Observe(time.Since(veiledAt).Seconds())
 }
 
 func (r *AuthenticateRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {

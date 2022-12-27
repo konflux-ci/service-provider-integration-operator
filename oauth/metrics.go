@@ -19,8 +19,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 var (
@@ -35,11 +33,11 @@ var (
 		[]string{"code", "method"},
 	)
 
-	OAuthFlowCompleteTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	FlowCompleteTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
 		Name:      "oauth_flow_complete_time_seconds",
-		Help:      "The time needed to complete OAuth flow provider and status code",
+		Help:      "The time needed to complete OAuth flow",
 		Buckets:   []float64{1, 5, 10, 15, 30, 60, 300},
 	}, []string{"type", "url"})
 )
@@ -49,58 +47,4 @@ var (
 func HttpServiceInstrumentMetricHandler(reg prometheus.Registerer, handler http.Handler) http.Handler {
 	reg.MustRegister(HttpServiceRequestCountMetric)
 	return promhttp.InstrumentHandlerCounter(HttpServiceRequestCountMetric, handler)
-}
-
-type StatusHeaderResponseWriter struct {
-	wrapped    http.ResponseWriter
-	StatusCode int
-}
-
-func NewStatusHeaderResponseWriter(w http.ResponseWriter) *StatusHeaderResponseWriter {
-	return &StatusHeaderResponseWriter{
-		wrapped:    w,
-		StatusCode: 200,
-	}
-}
-
-func (w *StatusHeaderResponseWriter) Wrapped() http.ResponseWriter {
-	return w.wrapped
-}
-
-func (w *StatusHeaderResponseWriter) Header() http.Header {
-	return w.wrapped.Header()
-}
-
-func (w *StatusHeaderResponseWriter) Write(buf []byte) (int, error) {
-	return w.wrapped.Write(buf)
-}
-
-func (w *StatusHeaderResponseWriter) WriteHeader(statusCode int) {
-	w.wrapped.WriteHeader(statusCode)
-	w.StatusCode = statusCode
-}
-
-var _ http.ResponseWriter = &StatusHeaderResponseWriter{}
-
-type CompletedFlowMetricHandler struct {
-	spConfiguration config.ServiceProviderConfiguration
-	stateStorage    *StateStorage
-	handler         http.Handler
-}
-
-func NewCompletedFlowMetricHandler(reg prometheus.Registerer, spConfiguration config.ServiceProviderConfiguration, stateStorage *StateStorage, handler http.Handler) *CompletedFlowMetricHandler {
-	return &CompletedFlowMetricHandler{spConfiguration: spConfiguration, stateStorage: stateStorage, handler: handler}
-}
-
-func (c *CompletedFlowMetricHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log := log.FromContext(req.Context())
-	log.Info("CompletedFlowMetricHandler ServeHTTP", "Id", c.spConfiguration.ClientId)
-	statusWriter := NewStatusHeaderResponseWriter(w)
-	c.handler.ServeHTTP(statusWriter, req)
-	veiledAt, err := c.stateStorage.StateVeiledAt(req.Context(), req)
-	if err != nil {
-		log.Error(err, "Unknown state")
-	}
-	OAuthFlowCompleteTimeMetric.WithLabelValues(string(c.spConfiguration.ServiceProviderType), c.spConfiguration.ClientId).Observe(time.Since(veiledAt).Seconds())
-
 }

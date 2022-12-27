@@ -48,7 +48,7 @@ func init() {
 		// expose Go runtime metrics like GC stats, memory stats etc.
 		collectors.NewGoCollector(),
 		// OAuth flow statistic
-		oauth.OAuthFlowCompleteTimeMetric,
+		oauth.FlowCompleteTimeMetric,
 	)
 }
 
