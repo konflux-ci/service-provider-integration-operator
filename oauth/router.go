@@ -140,5 +140,6 @@ func (r *AuthenticateRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request
 		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
 		return
 	}
+
 	ctrl.Authenticate(wrt, req, state)
 }
