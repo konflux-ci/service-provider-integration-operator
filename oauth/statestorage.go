@@ -41,25 +41,20 @@ const (
 )
 
 func (s StateStorage) VeilRealState(req *http.Request) (string, error) {
-
 	log := log.FromContext(req.Context())
-	log.Info("VeilRealState1")
 	state := req.URL.Query().Get("state")
 	if state == "" {
 		log.Error(noStateError, "Request has no state parameter")
 		return "", noStateError
 	}
-	log.Info("VeilRealState2")
 	newState, err := randStringBytes(32)
 	if err != nil {
 
 		return "", err
 	}
 	log.V(logs.DebugLevel).Info("State veiled", "state", state, "veil", newState)
-	log.Info("VeilRealState3")
 	s.sessionManager.Put(req.Context(), newState, state)
 	s.sessionManager.Put(req.Context(), newState+"-createdAt", time.Now().Unix())
-	log.Info("VeilRealState4")
 	return newState, nil
 }
 
