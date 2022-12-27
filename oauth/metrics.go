@@ -39,7 +39,7 @@ var (
 		Subsystem: config.MetricsSubsystem,
 		Name:      "oauth_flow_complete_time_seconds",
 		Help:      "The time needed to complete OAuth flow",
-		Buckets:   []float64{1, 5, 10, 15, 30, 60, 300},
+		Buckets:   []float64{1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50, 60, 300},
 	}, []string{"type", "url"})
 )
 
