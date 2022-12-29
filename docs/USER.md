@@ -281,9 +281,9 @@ of the binding, in other words, binding can be deleted only by direct request to
 
 ```
 apiVersion: appstudio.redhat.com/v1beta1
-kind: SPIFileContentRequest
+kind: SPIAccessTokenBinding
 metadata:
-  name: test-file-content-request
+  name: test-binding
   namespace: default
 spec:
   repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator

@@ -67,7 +67,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
-	minimalBindingLifetimeError     = stderrors.New("specified binding lifetime seems to be less than 60s, which cannot be accepted")
+	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -346,21 +346,21 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 // returns user specified binding lifetime or default binding lifetime or nil if set to infinite
 func bindingLifetime(r *SPIAccessTokenBindingReconciler, binding api.SPIAccessTokenBinding) (*time.Duration, error) {
-	if binding.Spec.Lifetime == "" {
+	switch binding.Spec.Lifetime {
+	case "":
 		return &r.Configuration.AccessTokenBindingTtl, nil
-	}
-	if binding.Spec.Lifetime == "-1" {
+	case "-1":
 		return nil, nil
+	default:
+		expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
+		}
+		if expectedLifetimeDuration.Seconds() < 60 {
+			return nil, minimalBindingLifetimeError
+		}
+		return &expectedLifetimeDuration, nil
 	}
-	expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
-	if err != nil {
-		return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
-	}
-	if expectedLifetimeDuration.Seconds() < 60 {
-		return nil, minimalBindingLifetimeError
-	}
-	return &expectedLifetimeDuration, nil
-
 }
 
 func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
