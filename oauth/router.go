@@ -35,7 +35,7 @@ var errUnknownServiceProviderType = errors.New("unknown service provider type")
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
 
-	stateStorage *StateStorage
+	stateStorage StateStorage
 }
 
 // CallbackRoute route for /oauth/callback requests
@@ -52,7 +52,7 @@ type AuthenticateRoute struct {
 type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator    *Authenticator
-	StateStorage     *StateStorage
+	StateStorage     StateStorage
 	K8sClient        client.Client
 	TokenStorage     tokenstorage.TokenStorage
 	RedirectTemplate *template.Template
