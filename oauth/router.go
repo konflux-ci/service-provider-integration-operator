@@ -97,7 +97,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if veiled {
 		stateString, err = r.stateStorage.UnveilState(req.Context(), req)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("unknown or invalid state: %w", err)
 		}
 	} else {
 		stateString = req.FormValue("state")
