@@ -169,6 +169,7 @@ var _ = BeforeSuite(func() {
 		AccessTokenBindingTtl: 10 * time.Second,
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
+		EnableTokenUpload:     true,
 	}
 
 	// start webhook server using Manager
