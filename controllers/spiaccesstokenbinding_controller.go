@@ -67,6 +67,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
+	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -203,9 +204,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	expectedLifetimeDuration, err := bindingLifetime(r, binding)
+	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, err)
+		return ctrl.Result{}, fmt.Errorf("binding lifetime processing failed: %w", err)
+	}
+
 	// cleanup bindings by lifetime
 	bindingLifetime := time.Since(binding.CreationTimestamp.Time).Seconds()
-	if bindingLifetime > r.Configuration.AccessTokenBindingTtl.Seconds() {
+	if expectedLifetimeDuration != nil && bindingLifetime > expectedLifetimeDuration.Seconds() {
 		err := r.Client.Delete(ctx, &binding)
 		if err != nil {
 			lg.Error(err, "failed to cleanup binding on reaching the max lifetime", "error", err)
@@ -328,7 +336,31 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		}
 	}
-	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+	if expectedLifetimeDuration == nil {
+		// no need to re-schedule by any timeout
+		return ctrl.Result{}, nil
+	}
+
+	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
+}
+
+// returns user specified binding lifetime or default binding lifetime or nil if set to infinite
+func bindingLifetime(r *SPIAccessTokenBindingReconciler, binding api.SPIAccessTokenBinding) (*time.Duration, error) {
+	switch binding.Spec.Lifetime {
+	case "":
+		return &r.Configuration.AccessTokenBindingTtl, nil
+	case "-1":
+		return nil, nil
+	default:
+		expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
+		}
+		if expectedLifetimeDuration.Seconds() < 60 {
+			return nil, minimalBindingLifetimeError
+		}
+		return &expectedLifetimeDuration, nil
+	}
 }
 
 func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
@@ -346,10 +378,6 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spTyp
 		}
 	}
 	return permissionChange
-}
-
-func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod))
 }
 
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.

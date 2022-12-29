@@ -11,6 +11,7 @@ spec:
       - type: r
         area: webhooks
   repoUrl: https://github.com/revapi/revapi
+  lifetime: "-1"
   secret:
     name: token-secret
     type: kubernetes.io/basic-auth
