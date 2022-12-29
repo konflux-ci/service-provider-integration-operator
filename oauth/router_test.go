@@ -16,6 +16,7 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -270,6 +271,11 @@ func TestCallbackRoute(t *testing.T) {
 		count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
 		assert.Equal(t, 1, count)
 		assert.NoError(t, err)
+		problems, err := prometheusTest.GatherAndLint(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(problems), fmt.Sprintf("Unexpected lint problems:  %s ", problems))
+
 	})
 }
 
