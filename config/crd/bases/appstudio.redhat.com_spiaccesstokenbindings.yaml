@@ -36,6 +36,8 @@ spec:
           spec:
             description: SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
             properties:
+              lifetime:
+                type: string
               permissions:
                 description: Permissions is a collection of operator-defined permissions
                   (which are translated to service-provider-specific scopes) and potentially

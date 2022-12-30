@@ -26,6 +26,7 @@ type SPIAccessTokenBindingSpec struct {
 	RepoUrl     string      `json:"repoUrl"`
 	Permissions Permissions `json:"permissions,omitempty"`
 	Secret      SecretSpec  `json:"secret"`
+	Lifetime    string      `json:"lifetime,omitempty"`
 }
 
 // SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding
@@ -51,6 +52,7 @@ type SPIAccessTokenBindingErrorReason string
 
 const (
 	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType SPIAccessTokenBindingErrorReason = "UnknownServiceProviderType"
+	SPIAccessTokenBindingErrorReasonInvalidLifetime            SPIAccessTokenBindingErrorReason = "InvalidLifetime"
 	SPIAccessTokenBindingErrorReasonTokenLookup                SPIAccessTokenBindingErrorReason = "TokenLookup"
 	SPIAccessTokenBindingErrorReasonLinkedToken                SPIAccessTokenBindingErrorReason = "LinkedToken"
 	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
