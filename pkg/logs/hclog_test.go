@@ -89,6 +89,26 @@ func TestHCLogAdapter_Log(t *testing.T) {
 	})
 }
 
+func TestHCLogAdapter_GetLevel(t *testing.T) {
+	tests := []struct {
+		testLevel     zapcore.Level
+		expectedLevel hclog.Level
+	}{
+		{zapcore.DebugLevel, hclog.Debug},
+		{zapcore.InfoLevel, hclog.Info},
+		{zapcore.WarnLevel, hclog.Warn},
+		{zapcore.ErrorLevel, hclog.Error},
+		{zapcore.DPanicLevel, hclog.Error},
+		{zapcore.PanicLevel, hclog.Error},
+		{zapcore.FatalLevel, hclog.Error},
+	}
+	for _, tt := range tests {
+		withLogger(tt.testLevel, nil, func(logger *HCLogAdapter, logs *observer.ObservedLogs) {
+			assert.Equal(t, tt.expectedLevel, logger.GetLevel(), "Unexpected output %s-level from GetLevel method.", tt.expectedLevel)
+		})
+	}
+}
+
 func TestHCLogAdapter_ShouldDiscardOffLevel(t *testing.T) {
 	withLogger(zap.DebugLevel, nil, func(logger *HCLogAdapter, logs *observer.ObservedLogs) {
 		logger.Log(hclog.Off, "Message", "param", "pam-pam")
