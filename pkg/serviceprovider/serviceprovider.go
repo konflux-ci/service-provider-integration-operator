@@ -138,6 +138,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	return hostCredentialProvider, nil
 }
 
+// TODO: replace with GetAllServiceProviderConfigs
 func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
 	secretList := &corev1.SecretList{}
 	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
@@ -168,6 +169,35 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	}
 
 	return allBaseUrls, nil
+}
+
+func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace string) ([]config.ServiceProviderConfiguration, error) {
+	configurations := make([]config.ServiceProviderConfiguration, len(f.Configuration.SharedConfiguration.ServiceProviders))
+	copy(configurations, f.Configuration.SharedConfiguration.ServiceProviders)
+
+	for _, spConfig := range configurations {
+		if spConfig.ServiceProviderBaseUrl == "" {
+			spConfig.ServiceProviderBaseUrl = f.Initializers[spConfig.ServiceProviderType].SaasBaseUrl
+		}
+	}
+
+	secretList := &corev1.SecretList{}
+	err := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
+		api.ServiceProviderHostLabel, api.ServiceProviderTypeLabel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list oauth config secrets: %w", err)
+	}
+	for _, secret := range secretList.Items {
+		conf := config.ServiceProviderConfiguration{
+			ClientId:               string(secret.Data["clientId"]),
+			ClientSecret:           string(secret.Data["clientSecret"]),
+			ServiceProviderType:    config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel]),
+			ServiceProviderBaseUrl: secret.ObjectMeta.Labels[api.ServiceProviderHostLabel],
+		}
+		configurations = append(configurations, conf)
+	}
+	return configurations, nil
 }
 
 func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {

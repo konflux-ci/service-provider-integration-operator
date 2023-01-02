@@ -40,12 +40,13 @@ import (
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 var (
-	unsupportedAreaError      = errors.New("unsupported permission area for Quay")
-	unsupportedScopeError     = errors.New("unsupported scope")
-	unknownScopeError         = errors.New("unknown scope")
-	failedToParseRepoUrlError = errors.New("failed to parse repository URL")
-	unexpectedStatusCodeError = errors.New("unexpected status code")
-	noResponseError           = errors.New("no response")
+	unsupportedAreaError       = errors.New("unsupported permission area for Quay")
+	unsupportedScopeError      = errors.New("unsupported scope")
+	unsupportedRefreshingError = errors.New("token refreshing for quay is not supported")
+	unknownScopeError          = errors.New("unknown scope")
+	failedToParseRepoUrlError  = errors.New("failed to parse repository URL")
+	unexpectedStatusCodeError  = errors.New("unexpected status code")
+	noResponseError            = errors.New("no response")
 )
 
 type Quay struct {
@@ -58,14 +59,14 @@ type Quay struct {
 }
 
 func (q *Quay) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
-	//TODO implement me
-	return token, nil
+	return nil, unsupportedRefreshingError
 }
 
 var Initializer = serviceprovider.Initializer{
 	Probe:                        quayProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
 	SupportsManualUploadOnlyMode: true,
+	SaasBaseUrl:                  quayUrlBase,
 }
 
 const quayUrlBaseHost = "quay.io"
@@ -362,7 +363,7 @@ type quayProbe struct{}
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
 func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, "quay.io") {
+	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, quayUrlBaseHost) {
 		return quayUrlBase, nil
 	} else {
 		return "", nil

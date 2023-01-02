@@ -16,6 +16,7 @@ package hostcredentials
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -26,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var unsupportedRefreshingError = errors.New("token refreshing for host credentials provider is not supported")
 
 // HostCredentialsProvider is a unified provider implementation for any URL-based tokens and only supports
 // manual upload of token data. Matching is done only by URL of the provider, so it is possible to have
@@ -38,8 +41,7 @@ type HostCredentialsProvider struct {
 }
 
 func (g *HostCredentialsProvider) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
-	//TODO implement me
-	return token, nil
+	return nil, unsupportedRefreshingError
 }
 
 // Note that given provider doesn't have any kind of probes, since it is used

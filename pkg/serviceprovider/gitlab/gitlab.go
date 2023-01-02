@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -60,12 +61,16 @@ type Gitlab struct {
 }
 
 func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+	lg := log.FromContext(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		g.baseUrl+"oauth/token?client_id="+clientId+
+		g.baseUrl+"/oauth/token?client_id="+clientId+
 			"&client_secret="+clientSecret+
 			"&refresh_token="+token.RefreshToken+
 			"&grant_type=refresh_token"+
-			"&redirect_uri="+g.GetOAuthEndpoint(), nil)
+			"&redirect_uri="+g.Configuration.BaseUrl+oauth.CallBackRoutePath, nil)
+
+	req.Header.Add("content-type", "application/json")
+
 	if err != nil {
 		return nil, err
 	}
@@ -73,16 +78,22 @@ func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId str
 	if err != nil {
 		return nil, err
 	}
-	var body []byte
-	_, err = resp.Body.Read(body)
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := resp.Body.Close(); err != nil {
+		lg.Error(err, "error closing response body of refresh token request")
+	}
+
 	refreshResponse := struct {
 		AccessToken  string `json:"access_token"`
 		TokenType    string `json:"token_type"`
 		Expiry       uint64 `json:"expires_in"`
 		RefreshToken string `json:"refresh_token"`
+		Scope        string `json:"scope"`
 		CreationTime uint64 `json:"created_at"`
 	}{}
 
@@ -105,6 +116,7 @@ var Initializer = serviceprovider.Initializer{
 	Probe:                        gitlabProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newGitlab),
 	SupportsManualUploadOnlyMode: true,
+	SaasBaseUrl:                  "https://gitlab.com",
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {

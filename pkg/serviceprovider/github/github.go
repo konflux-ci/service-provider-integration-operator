@@ -40,9 +40,10 @@ import (
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 var (
-	unableToParsePathError = errors.New("unable to parse path")
-	notGithubUrlError      = errors.New("not a github repository url")
-	unknownScopeError      = errors.New("unknown scope")
+	unableToParsePathError     = errors.New("unable to parse path")
+	notGithubUrlError          = errors.New("not a github repository url")
+	unknownScopeError          = errors.New("unknown scope")
+	unsupportedRefreshingError = errors.New("token refreshing for github is not supported")
 )
 
 type Github struct {
@@ -54,15 +55,15 @@ type Github struct {
 	downloadFileCapability downloadFileCapability
 }
 
-func (g *Github) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
-	//TODO implement me
-	return token, nil
+func (g *Github) RefreshToken(_ context.Context, _ *api.Token, _ string, _ string) (*api.Token, error) {
+	return nil, unsupportedRefreshingError
 }
 
 var Initializer = serviceprovider.Initializer{
 	Probe:                        githubProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
 	SupportsManualUploadOnlyMode: true,
+	SaasBaseUrl:                  "https://github.com",
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -101,7 +102,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetBaseUrl() string {
-	return "https://github.com"
+	return Initializer.SaasBaseUrl
 }
 
 func (g *Github) GetOAuthEndpoint() string {
@@ -294,9 +295,8 @@ type githubProbe struct{}
 var _ serviceprovider.Probe = (*githubProbe)(nil)
 
 func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, "https://github.com") {
-		return "https://github.com", nil
-	} else {
-		return "", nil
+	if strings.HasPrefix(url, Initializer.SaasBaseUrl) {
+		return Initializer.SaasBaseUrl, nil
 	}
+	return "", nil
 }

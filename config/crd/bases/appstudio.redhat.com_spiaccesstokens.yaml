@@ -92,9 +92,6 @@ spec:
                   the service provider. This data can be used for matching the tokens
                   with the token bindings.
                 properties:
-                  expirationTime:
-                    format: int64
-                    type: integer
                   lastRefreshTime:
                     description: LastRefreshTime is the Unix-epoch timestamp of the
                       last time the metadata has been refreshed from the service provider.
@@ -103,8 +100,6 @@ spec:
                       found stale.
                     format: int64
                     type: integer
-                  refresh:
-                    type: boolean
                   scopes:
                     description: Scopes is the list of OAuth scopes that this token
                       possesses
@@ -126,9 +121,7 @@ spec:
                       that this token impersonates as
                     type: string
                 required:
-                - expirationTime
                 - lastRefreshTime
-                - refresh
                 type: object
               uploadUrl:
                 type: string
