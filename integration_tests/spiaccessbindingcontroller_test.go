@@ -320,13 +320,29 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 		})
 
-		It("should delete binding by timeout", func() {
+		It("should delete binding by general timeout", func() {
 			ITest.OperatorConfiguration.AccessTokenBindingTtl = 500 * time.Millisecond
 
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				g.Expect(testSetup.InCluster.Bindings).To(BeEmpty())
 			})
 		})
+
+		It("should not delete binding with overridden timeout by general timeout", func() {
+			ITest.OperatorConfiguration.AccessTokenBindingTtl = 500 * time.Millisecond
+
+			Eventually(func(g Gomega) error {
+				binding := &api.SPIAccessTokenBinding{}
+				g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(createdBinding), binding)).To(Succeed())
+				binding.Spec.Lifetime = "-1"
+				return ITest.Client.Update(ITest.Context, binding)
+			}).Should(Succeed())
+
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				g.Expect(testSetup.InCluster.Bindings).ToNot(BeEmpty())
+			})
+		})
+
 	})
 
 	Describe("Syncing", func() {
@@ -658,6 +674,30 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
 					g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
 					g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+					g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
+				})
+			})
+		})
+
+		When("binding lifetime is invalid", func() {
+			It("should end in error phase and have an error message", func() {
+				createdBinding = &api.SPIAccessTokenBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "invalid-binding-",
+						Namespace:    "default",
+					},
+					Spec: api.SPIAccessTokenBindingSpec{
+						RepoUrl:  "test-provider://test",
+						Lifetime: "2s",
+					},
+				}
+				Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
+					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+					g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+					g.Expect(binding.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInvalidLifetime))
 					g.Expect(binding.Status.LinkedAccessTokenName).To(BeEmpty())
 				})
 			})

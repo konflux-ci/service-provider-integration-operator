@@ -35,8 +35,8 @@ func TestRegisterMetrics(t *testing.T) {
 
 	assert.NoError(t, RegisterCommonMetrics(registry))
 
-	RequestCountMetric.WithLabelValues("sp", "here.there", "GET", "false").Inc()
-	ResponseTimeMetric.WithLabelValues("sp", "here.there", "GET", "200").Observe(42)
+	RequestCountMetric.WithLabelValues("sp", "here.there", "GET", "false", "op").Inc()
+	ResponseTimeMetric.WithLabelValues("sp", "here.there", "GET", "200", "op").Observe(42)
 
 	count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_spi_service_provider_request_count_total", "redhat_appstudio_spi_service_provider_response_time_seconds")
 	assert.Equal(t, 2, count)
@@ -55,7 +55,7 @@ func TestRequestMetricsConfig(t *testing.T) {
 			Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: r},
 		}
 
-		ctx := httptransport.ContextWithMetrics(context.Background(), CommonRequestMetricsConfig("test"))
+		ctx := httptransport.ContextWithMetrics(context.Background(), CommonRequestMetricsConfig("test", "testOp"))
 
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://test.url/some/path", strings.NewReader(""))
 		assert.NoError(t, err)
@@ -90,13 +90,13 @@ func TestRequestMetricsConfig(t *testing.T) {
 	t.Run("collects successful requests", func(t *testing.T) {
 		test(t, func(r *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: 42}, nil
-		}, map[string]string{"sp": "test", "hostname": "test.url", "method": "GET", "failure": "false", "status": "42"})
+		}, map[string]string{"sp": "test", "hostname": "test.url", "method": "GET", "failure": "false", "status": "42", "operation": "testOp"})
 
 	})
 
 	t.Run("collects unsuccessful requests", func(t *testing.T) {
 		test(t, func(r *http.Request) (*http.Response, error) {
 			return nil, errors.New("intentional request error")
-		}, map[string]string{"sp": "test", "hostname": "test.url", "method": "GET", "failure": "true"})
+		}, map[string]string{"sp": "test", "hostname": "test.url", "method": "GET", "failure": "true", "operation": "testOp"})
 	})
 }

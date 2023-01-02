@@ -154,6 +154,23 @@ func (l *HCLogAdapter) ResetNamed(name string) hclog.Logger {
 func (l *HCLogAdapter) SetLevel(level hclog.Level) {
 }
 
+// GetLevel has no implementation.
+func (l *HCLogAdapter) GetLevel() hclog.Level {
+	switch l.zap.Level() {
+	case zapcore.DebugLevel:
+		return hclog.Debug
+	case zapcore.InfoLevel:
+		return hclog.Info
+	case zapcore.WarnLevel:
+		return hclog.Warn
+	case zapcore.ErrorLevel, zapcore.DPanicLevel, zapcore.PanicLevel, zapcore.FatalLevel:
+		return hclog.Error
+	default:
+		return hclog.Off
+
+	}
+}
+
 func (l *HCLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 	return zap.NewStdLog(l.zap)
 }
