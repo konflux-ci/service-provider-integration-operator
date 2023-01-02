@@ -195,7 +195,7 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 			ServiceProviderType:    config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel]),
 			ServiceProviderBaseUrl: secret.ObjectMeta.Labels[api.ServiceProviderHostLabel],
 		}
-		configurations = append(configurations, conf)
+		configurations = append(configurations, conf) // nozero -- we are copying elements before appending to this slice
 	}
 	return configurations, nil
 }

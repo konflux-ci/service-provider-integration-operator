@@ -62,30 +62,32 @@ type Gitlab struct {
 
 func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
 	lg := log.FromContext(ctx)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		g.baseUrl+"/oauth/token?client_id="+clientId+
 			"&client_secret="+clientSecret+
 			"&refresh_token="+token.RefreshToken+
 			"&grant_type=refresh_token"+
 			"&redirect_uri="+g.Configuration.BaseUrl+oauth.CallBackRoutePath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a request to refresh a token: %w", err)
+	}
 
 	req.Header.Add("content-type", "application/json")
-
-	if err != nil {
-		return nil, err
-	}
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to request a refresh token: %w", err)
 	}
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "unable to close body of refresh token response")
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := resp.Body.Close(); err != nil {
-		lg.Error(err, "error closing response body of refresh token request")
+		return nil, fmt.Errorf("failed to read body of refresh token response: %w", err)
 	}
 
 	refreshResponse := struct {
@@ -99,7 +101,7 @@ func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId str
 
 	err = json.Unmarshal(body, &refreshResponse)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal the refresh token response: %w", err)
 	}
 
 	return &api.Token{

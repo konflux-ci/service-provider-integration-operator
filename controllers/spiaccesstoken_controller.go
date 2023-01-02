@@ -53,7 +53,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
-const tokenRefreshLabelName = "spi.appstudio.redhat.com/token-refresh"
+const tokenRefreshLabelName = "spi.appstudio.redhat.com/token-refresh"     //#nosec G101 -- false positive, just label name, no sensitive data
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
@@ -339,7 +339,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 	lg := log.FromContext(ctx)
 	token, err := r.TokenStorage.Get(ctx, at)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get refresh token from storage: %w", err)
 	}
 
 	clientId, clientSecret, err := r.findCredentialsForToken(ctx, at)
@@ -350,11 +350,11 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 	lg.Info("credentials found, proceeding to token refresh...")
 	refreshedToken, err := sp.RefreshToken(ctx, token, clientId, clientSecret)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to refresh token: %w", err)
 	}
 
 	if err := r.TokenStorage.Store(ctx, at, refreshedToken); err != nil {
-		return err
+		return fmt.Errorf("unable to store refresh token: %w", err)
 	}
 
 	return nil
@@ -363,7 +363,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 func (r *SPIAccessTokenReconciler) findCredentialsForToken(ctx context.Context, at *api.SPIAccessToken) (string, string, error) {
 	configs, err := r.ServiceProviderFactory.GetAllServiceProviderConfigs(ctx, at.Namespace)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to get all known service provider configurations: %w", err)
 	}
 
 	for _, conf := range configs {
