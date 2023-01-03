@@ -46,7 +46,7 @@ type commonController struct {
 	TokenStorage            tokenstorage.TokenStorage
 	RedirectTemplate        *template.Template
 	Authenticator           *Authenticator
-	StateStorage            *StateStorage
+	StateStorage            StateStorage
 	BaseUrl                 string
 	ServiceProviderType     config.ServiceProviderType
 	ServiceProviderInstance map[string]oauthConfiguration
