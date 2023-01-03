@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -38,12 +40,12 @@ import (
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 var (
-	userRelatedPermissionsNotSupportedError = errors.New("user-related permissions are not supported for Quay")
-	unsupportedScopeError                   = errors.New("unsupported scope")
-	unknownScopeError                       = errors.New("unknown scope")
-	failedToParseRepoUrlError               = errors.New("failed to parse repository URL")
-	unexpectedStatusCodeError               = errors.New("unexpected status code")
-	noResponseError                         = errors.New("no response")
+	unsupportedAreaError      = errors.New("unsupported permission area for Quay")
+	unsupportedScopeError     = errors.New("unsupported scope")
+	unknownScopeError         = errors.New("unknown scope")
+	failedToParseRepoUrlError = errors.New("failed to parse repository URL")
+	unexpectedStatusCodeError = errors.New("unexpected status code")
+	noResponseError           = errors.New("no response")
 )
 
 type Quay struct {
@@ -61,7 +63,8 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-const quayUrlBase = "https://quay.io"
+const quayUrlBaseHost = "quay.io"
+const quayUrlBase = "https://" + quayUrlBaseHost
 const quayApiUrlBase = quayUrlBase + "/api/v1"
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -91,19 +94,23 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 
 var _ serviceprovider.ConstructorFunc = newQuay
 
-func (g *Quay) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/quay/authenticate"
+func (q *Quay) GetOAuthEndpoint() string {
+	return q.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
-func (g *Quay) GetBaseUrl() string {
+func (q *Quay) GetBaseUrl() string {
 	return quayUrlBase
 }
 
-func (g *Quay) GetType() api.ServiceProviderType {
+func (q *Quay) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeQuay
 }
 
-func (g *Quay) OAuthScopesFor(ps *api.Permissions) []string {
+func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return nil
+}
+
+func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
 	// We basically disregard any request for specific permissions and always require the max usable set of permissions
 	// because we cannot change that set later due to a bug in Quay OAuth impl:
@@ -130,7 +137,7 @@ func (g *Quay) OAuthScopesFor(ps *api.Permissions) []string {
 
 func translateToQuayScopes(permission api.Permission) []string {
 	switch permission.Area {
-	case api.PermissionAreaRepositoryMetadata:
+	case api.PermissionAreaRegistryMetadata:
 		switch permission.Type {
 		case api.PermissionTypeRead:
 			return []string{string(ScopeRepoRead)}
@@ -139,7 +146,7 @@ func translateToQuayScopes(permission api.Permission) []string {
 		case api.PermissionTypeReadWrite:
 			return []string{string(ScopeRepoRead), string(ScopeRepoWrite)}
 		}
-	case api.PermissionAreaRepository:
+	case api.PermissionAreaRegistry:
 		switch permission.Type {
 		case api.PermissionTypeRead:
 			return []string{string(ScopePull)}
@@ -148,30 +155,21 @@ func translateToQuayScopes(permission api.Permission) []string {
 		case api.PermissionTypeReadWrite:
 			return []string{string(ScopePull), string(ScopePush)}
 		}
-	case api.PermissionAreaUser:
-		switch permission.Type {
-		case api.PermissionTypeRead:
-			return []string{string(ScopeUserRead)}
-		case api.PermissionTypeWrite:
-			return []string{string(ScopeUserAdmin)}
-		case api.PermissionTypeReadWrite:
-			return []string{string(ScopeUserAdmin)}
-		}
 	}
 
 	return []string{}
 }
 
-func (g *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+func (q *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+	tokens, err := q.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
 	return tokens, nil
 }
 
-func (g *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
+func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
+	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)
 	}
 	return nil
@@ -293,13 +291,13 @@ func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token str
 	}
 }
 
-func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+func (q *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	lg := log.FromContext(ctx, "bindingName", binding.Name, "bindingNamespace", binding.Namespace)
 	lg.Info("mapping quay token")
 
 	mapper := serviceprovider.DefaultMapToken(token, tokenData)
 
-	repoMetadata, err := g.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
+	repoMetadata, err := q.metadataProvider.FetchRepo(ctx, binding.Spec.RepoUrl, token)
 	if err != nil {
 		lg.Error(err, "failed to fetch repository metadata")
 		return serviceprovider.AccessTokenMapper{}, nil
@@ -324,11 +322,13 @@ func (g *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 func (q *Quay) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 	ret := serviceprovider.ValidationResult{}
 
-	userPermissionAreaRequested := false
 	for _, p := range validated.Permissions().Required {
-		if p.Area == api.PermissionAreaUser && !userPermissionAreaRequested {
-			ret.ScopeValidation = append(ret.ScopeValidation, userRelatedPermissionsNotSupportedError)
-			userPermissionAreaRequested = true
+		switch p.Area {
+		case api.PermissionAreaRegistry,
+			api.PermissionAreaRegistryMetadata:
+			continue
+		default:
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unsupportedAreaError, p.Area))
 		}
 	}
 

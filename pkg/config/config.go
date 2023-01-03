@@ -42,8 +42,8 @@ type OperatorCliArgs struct {
 	AccessCheckLifetimeDuration time.Duration `arg:"--access-check-ttl, env" default:"30m" help:"the time after which SPIAccessCheck CR will be deleted by operator"`
 	FileRequestLifetimeDuration time.Duration `arg:"--file-request-ttl, env" default:"30m" help:"the time after which SPIFileContentRequest CR will be deleted by operator"`
 	TokenMatchPolicy            TokenPolicy   `arg:"--token-match-policy, env" default:"any" help:"The policy to match the token against the binding. Options:  'any', 'exact'."`
-	ApiExportName               string        `arg:"--kcp-api-export-name, env" default:"spi" help:"SPI ApiExport name used in KCP environment to configure controller with virtual workspace."`
 	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
+	MaxFileDownloadSize         int           `arg:"--max-download-size-bytes, env" default:"2097152" help:"A maximum file size in bytes for file downloading from SCM capabilities supporting providers"`
 }
 
 type OperatorConfiguration struct {
@@ -69,6 +69,9 @@ type OperatorConfiguration struct {
 
 	// The time before a token without data and with no bindings is automatically deleted.
 	DeletionGracePeriod time.Duration
+
+	// A maximum file size for file downloading from SCM capabilities supporting providers
+	MaxFileDownloadSize int
 }
 
 func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
@@ -85,6 +88,7 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 	ret.FileContentRequestTtl = args.FileRequestLifetimeDuration
 	ret.TokenMatchPolicy = args.TokenMatchPolicy
 	ret.DeletionGracePeriod = args.DeletionGracePeriod
+	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
 
 	return ret, nil
 }

@@ -26,7 +26,7 @@ type ServiceProviderHttpError struct {
 	Response   string
 }
 
-func (e ServiceProviderHttpError) Error() string {
+func (e *ServiceProviderHttpError) Error() string {
 	var identification string
 	if e.StatusCode >= 400 && e.StatusCode < 500 {
 		identification = "invalid access token"
@@ -40,13 +40,12 @@ func (e ServiceProviderHttpError) Error() string {
 }
 
 func IsServiceProviderHttpError(err error) bool {
-	spe := &ServiceProviderHttpError{}
-	return errors.As(err, &spe)
+	return convertToServiceProviderHttpError(err) != nil
 }
 
 func IsServiceProviderHttpInvalidAccessToken(err error) bool {
-	spe := &ServiceProviderHttpError{}
-	if !errors.As(err, &spe) {
+	spe := convertToServiceProviderHttpError(err)
+	if spe == nil {
 		return false
 	}
 
@@ -54,12 +53,20 @@ func IsServiceProviderHttpInvalidAccessToken(err error) bool {
 }
 
 func IsServiceProviderHttpInternalServerError(err error) bool {
-	spe := &ServiceProviderHttpError{}
-	if !errors.As(err, &spe) {
+	spe := convertToServiceProviderHttpError(err)
+	if spe == nil {
 		return false
 	}
 
 	return spe.StatusCode >= 500 && spe.StatusCode < 600
+}
+
+func convertToServiceProviderHttpError(err error) *ServiceProviderHttpError {
+	spe := &ServiceProviderHttpError{}
+	if errors.As(err, &spe) {
+		return spe
+	}
+	return nil
 }
 
 // FromHttpResponse returns a non-nil error if the provided response has a status code >= 400 and < 600 (i.e. auth and

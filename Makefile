@@ -101,14 +101,12 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+### Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(MAKE) manifests-kcp
 
-manifests-kcp:	## Generate KCP APIResourceSchema from CRDs
-	hack/generate-kcp-api.sh
-
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+### Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 ### fmt: Runs go fmt against code
@@ -145,39 +143,48 @@ check_fmt:
 	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
 	  fi
 
-lint: ## Run the linter on the codebase
+### Run the linter on the codebase
+lint:
   ifeq ($(shell command -v golangci-lint 2> /dev/null),)
 	  $(error "golangci-lint must be installed for this rule" && exit 1)
   endif
 	golangci-lint run
 
-check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
-
-vet: ## Run go vet against code.
+### Run go vet against code.
+vet:
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run unit tests
+### updates go.mod
+go.mod:
+	go mod download
+	go mod tidy
+
+check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
+
+ready: fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
+
+test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
-itest: manifests generate fmt vet envtest ## Run only integration tests.
+itest: manifests generate envtest ## Run only integration tests.
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" ginkgo -v -progress ./integration_tests/...
 
 
-itest_debug: manifests generate fmt vet envtest ## Start the integration tests in the debugger (suited for "remote debugging")
+itest_debug: manifests generate envtest ## Start the integration tests in the debugger (suited for "remote debugging")
 	$(shell rm ./debug.out)
 	$(shell touch ./debug.out)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests -- -test.v -test.run=TestSuite
 
 ##@ Build
 
-build: generate fmt vet ## Build manager binary.
+build: generate ## Build manager binary.
 	go build -o bin/ ./cmd/...
 
-run_as_current_user: manifests generate fmt vet install ## Run a controller from your host as the current user in ~/.kubeconfig
+run_as_current_user: manifests generate install ## Run a controller from your host as the current user in ~/.kubeconfig
 	go run ./cmd/operator/operator.go
 
-run: ensure-tmp manifests generate fmt vet prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+run: ensure-tmp manifests generate prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
 	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
@@ -224,23 +231,9 @@ deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy 
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "minikube"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
-deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the K8s cluster specified in ~/.kube/config using the example OpenShift kustomization
-	VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift-example" "openshift-example"
+deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the K8s cluster specified in ~/.kube/config using the OpenShift kustomization
+	VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "openshift"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-
-deploy_kcp: ensure-tmp manifests kustomize
-	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
-	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
-	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
-
-deploy_kcp_openshift: ensure-tmp manifests kustomize
-	if [ -z ${VAULT_HOST} ]; then echo "VAULT_HOST must be set"; exit 1; fi
-	$(eval KCP_WORKSPACE?=$(shell kubectl kcp workspace . --short))
-	KCP_WORKSPACE=$(KCP_WORKSPACE) SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "kcp" "kcp_openshift"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-	kubectl apply -f .tmp/deployment_kcp/kcp/apibinding_spi.yaml
 
 undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
@@ -249,10 +242,6 @@ undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster spe
 undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
-
-undeploy_kcp:
-	if [ ! -d ${TEMP_DIR}/deployment_kcp ]; then echo "No deployment files found in .tmp/deployment_kcp"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_kcp/kcp | kubectl delete -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -

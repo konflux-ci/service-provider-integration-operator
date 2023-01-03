@@ -1,0 +1,288 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package oauth
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/oauth2/github"
+)
+
+var testSpDefaults = []ServiceProviderDefaults{
+	{
+		SpType:   config.ServiceProviderTypeGitHub,
+		Endpoint: github.Endpoint,
+		UrlHost:  GithubSaasHost,
+	},
+	{
+		SpType:   config.ServiceProviderTypeQuay,
+		Endpoint: QuayEndpoint,
+		UrlHost:  QuaySaasHost,
+	},
+	{
+		SpType:   config.ServiceProviderTypeGitLab,
+		Endpoint: GitlabEndpoint,
+		UrlHost:  GitlabSaasHost,
+	},
+}
+
+var state = &oauthstate.OAuthInfo{
+	TokenName:           "mytoken",
+	TokenNamespace:      IT.Namespace,
+	Scopes:              []string{"a", "b"},
+	ServiceProviderType: config.ServiceProviderTypeGitHub,
+	ServiceProviderUrl:  "http://spi",
+}
+
+func TestNewRouter(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		cfg := RouterConfiguration{
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					BaseUrl: "http://spi",
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							ClientId:               "abc",
+							ClientSecret:           "cde",
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "https://test.sp",
+						},
+						{
+							ClientId:               "abc",
+							ClientSecret:           "cde",
+							ServiceProviderType:    config.ServiceProviderTypeQuay,
+							ServiceProviderBaseUrl: "https://test.sp",
+						},
+					},
+				},
+			},
+		}
+
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+
+		assert.NotNil(t, router)
+		assert.NoError(t, err)
+		assert.Equal(t, len(testSpDefaults), len(router.controllers))
+	})
+
+	t.Run("fail with invalid sp url", func(t *testing.T) {
+		cfg := RouterConfiguration{
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					BaseUrl: "http://spi",
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							ClientId:               "abc",
+							ClientSecret:           "cde",
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: ":::",
+						},
+					},
+				},
+			},
+		}
+
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+
+		assert.Nil(t, router)
+		assert.Error(t, err)
+	})
+
+	t.Run("fail when multiple sp for same url", func(t *testing.T) {
+		cfg := RouterConfiguration{
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					BaseUrl: "http://spi",
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							ClientId:               "abc",
+							ClientSecret:           "cde",
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "test.sp",
+						},
+						{
+							ClientId:               "123",
+							ClientSecret:           "234",
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "test.sp",
+						},
+					},
+				},
+			},
+		}
+
+		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+
+		assert.Nil(t, router)
+		assert.Error(t, err)
+	})
+}
+
+func TestFindController(t *testing.T) {
+	cfg := RouterConfiguration{
+		StateStorage: &SessionStateStorage{},
+		OAuthServiceConfiguration: OAuthServiceConfiguration{
+			SharedConfiguration: config.SharedConfiguration{
+				BaseUrl: "http://spi",
+				ServiceProviders: []config.ServiceProviderConfiguration{
+					{
+						ClientId:               "abc",
+						ClientSecret:           "cde",
+						ServiceProviderType:    config.ServiceProviderTypeGitHub,
+						ServiceProviderBaseUrl: "https://test.sp",
+					},
+					{
+						ClientId:               "abc",
+						ClientSecret:           "cde",
+						ServiceProviderType:    config.ServiceProviderTypeQuay,
+						ServiceProviderBaseUrl: "https://test.sp",
+					},
+				},
+			},
+		},
+	}
+
+	router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+	assert.NoError(t, err)
+
+	t.Run("fail when request unknown service provider", func(t *testing.T) {
+		spDefaults := []ServiceProviderDefaults{
+			{
+				SpType:   config.ServiceProviderTypeGitHub,
+				Endpoint: github.Endpoint,
+				UrlHost:  GithubSaasHost,
+			},
+			{
+				SpType:   config.ServiceProviderTypeQuay,
+				Endpoint: QuayEndpoint,
+				UrlHost:  QuaySaasHost,
+			},
+		}
+
+		router, err := NewRouter(context.TODO(), cfg, spDefaults)
+		assert.NoError(t, err)
+
+		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
+			ServiceProviderType: config.ServiceProviderTypeGitLab,
+		})
+		assert.NoError(t, stateErr)
+
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+		testReq.Form = url.Values{"state": []string{statestring}}
+
+		controller, state, err := router.findController(testReq, false)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
+
+	t.Run("fail with empty request", func(t *testing.T) {
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+
+		controller, state, err := router.findController(testReq, false)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
+
+	t.Run("fail with empty request veiled", func(t *testing.T) {
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+
+		controller, state, err := router.findController(testReq, true)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
+
+	t.Run("fail with empty request veiled", func(t *testing.T) {
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+
+		controller, state, err := router.findController(testReq, true)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
+
+	t.Run("ok find sp type", func(t *testing.T) {
+		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+		})
+		assert.NoError(t, stateErr)
+
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+		testReq.Form = url.Values{"state": []string{statestring}}
+
+		controller, state, err := router.findController(testReq, false)
+
+		assert.NotNil(t, controller)
+		assert.NotNil(t, state)
+		assert.Equal(t, state.ServiceProviderType, config.ServiceProviderTypeGitHub)
+		assert.NoError(t, err)
+	})
+}
+
+func TestCallbackRoute(t *testing.T) {
+
+	t.Run("OAuth flow metrics", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		FlowCompleteTimeMetric.Reset()
+		registry.MustRegister(FlowCompleteTimeMetric)
+		encoded, _ := oauthstate.Encode(state)
+		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderType]Controller{
+			config.ServiceProviderTypeGitHub: NopController{},
+		})
+		req, _ := http.NewRequest("GET", "callback?state=abcde", nil)
+		rr := httptest.NewRecorder()
+
+		router.Callback().ServeHTTP(rr, req)
+
+		count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+		assert.Equal(t, 1, count)
+		assert.NoError(t, err)
+		problems, err := prometheusTest.GatherAndLint(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(problems), fmt.Sprintf("Unexpected lint problems:  %s ", problems))
+
+	})
+}
+
+// Creates new Router with predefined StateStorage and ready to use map of Controller.
+func NewTestRouter(stateStorage StateStorage, controllers map[config.ServiceProviderType]Controller) (*Router, error) {
+	return &Router{
+		controllers:  controllers,
+		stateStorage: stateStorage,
+	}, nil
+}

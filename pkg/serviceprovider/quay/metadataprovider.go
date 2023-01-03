@@ -39,7 +39,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
-var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeQuay)
+var metricsConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeQuay, "fetch_repo_metadata")
 
 type metadataProvider struct {
 	tokenStorage     tokenstorage.TokenStorage

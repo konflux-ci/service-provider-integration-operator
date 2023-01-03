@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
+	"github.com/go-logr/logr"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
@@ -51,10 +51,8 @@ type SPIAccessCheckReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesschecks/finalizers,verbs=update
 
 func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
-
 	lg := log.FromContext(ctx)
-	defer logs.TimeTrack(lg, time.Now(), "Reconcile SPIAccessCheck")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessCheck")
 
 	ac := api.SPIAccessCheck{}
 	if err := r.Get(ctx, req.NamespacedName, &ac); err != nil {
@@ -75,7 +73,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl); spErr == nil {
+	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl, req.Namespace); spErr == nil {
 		auditLog := log.FromContext(ctx, "audit", "true", "namespace", ac.Namespace, "token", ac.Name, "repository", ac.Spec.RepoUrl)
 		auditLog.Info("performing repository access check")
 		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {

@@ -23,16 +23,14 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/infrastructure"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
-	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -57,7 +55,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
-const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //nolint:gosec
+const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //#nosec G101 -- false positive, this is not a private data
 
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
@@ -69,6 +67,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
+	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -98,10 +97,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessTokenBinding{}).
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			kcpWorkspace := logicalcluster.From(o)
-			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
-
-			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
 			if err != nil {
 				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
@@ -111,10 +107,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return requests
 		})).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			kcpWorkspace := logicalcluster.From(o)
-			ctx := infrastructure.InitKcpContext(context.Background(), kcpWorkspace.String())
-
-			requests, err := r.filteredBindingsAsRequests(ctx, kcpWorkspace.String(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				return binding.Status.SyncedObjectRef.Kind == "Secret" && binding.Status.SyncedObjectRef.Name == o.GetName()
 
 			})
@@ -135,7 +128,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 type BindingMatchingFunc func(api.SPIAccessTokenBinding) bool
 
 // filteredBindingsAsRequests filters all bindings in a given namespace by a BindingMatchingFunc and creates reconcile requests for every one after filtering.
-func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, kcpWorkspace string, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
+func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context.Context, namespace string, matchingFunc BindingMatchingFunc) ([]reconcile.Request, error) {
 	bindings := &api.SPIAccessTokenBindingList{}
 	if err := r.Client.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list bindings in the namespace %s, error: %w", namespace, err)
@@ -144,7 +137,6 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 	for _, b := range bindings.Items {
 		if matchingFunc(b) {
 			ret = append(ret, reconcile.Request{
-				ClusterName: kcpWorkspace,
 				NamespacedName: types.NamespacedName{
 					Name:      b.Name,
 					Namespace: b.Namespace,
@@ -156,10 +148,7 @@ func (r *SPIAccessTokenBindingReconciler) filteredBindingsAsRequests(ctx context
 }
 
 func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = infrastructure.InitKcpContext(ctx, req.ClusterName)
-
 	lg := log.FromContext(ctx)
-	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessTokenBinding")
 
 	binding := api.SPIAccessTokenBinding{}
@@ -172,6 +161,22 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
+	}
+
+	sp, rerr := r.getServiceProvider(ctx, &binding)
+	if rerr != nil {
+		lg.Error(rerr, "unable to get the service provider")
+		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+		return ctrl.Result{}, nil
+	}
+
+	if checkQuayPermissionAreasMigration(&binding, sp.GetType()) {
+		lg.Info("migrating old permission areas for quay", "binding", binding)
+		if err := r.Client.Update(ctx, &binding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update binding with migrated permission areas: %w", err)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName,
@@ -199,9 +204,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	expectedLifetimeDuration, err := bindingLifetime(r, binding)
+	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInvalidLifetime, err)
+		return ctrl.Result{}, fmt.Errorf("binding lifetime processing failed: %w", err)
+	}
+
 	// cleanup bindings by lifetime
 	bindingLifetime := time.Since(binding.CreationTimestamp.Time).Seconds()
-	if bindingLifetime > r.Configuration.AccessTokenBindingTtl.Seconds() {
+	if expectedLifetimeDuration != nil && bindingLifetime > expectedLifetimeDuration.Seconds() {
 		err := r.Client.Delete(ctx, &binding)
 		if err != nil {
 			lg.Error(err, "failed to cleanup binding on reaching the max lifetime", "error", err)
@@ -215,20 +227,13 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
 	}
 
-	sp, rerr := r.getServiceProvider(ctx, &binding)
-	if rerr != nil {
-		lg.Error(rerr, "unable to get the service provider")
-		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-		return ctrl.Result{}, nil
-	}
-
 	validation, err := sp.Validate(ctx, &binding)
 	if err != nil {
 		lg.Error(err, "failed to validate the object")
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}
@@ -288,11 +293,48 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	// this will be used in the deferred time tracker log message
 	lg = lg.WithValues("phase_at_reconcile_end", binding.Status.Phase)
 
-	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&binding)}, nil
+	if expectedLifetimeDuration == nil {
+		// no need to re-schedule by any timeout
+		return ctrl.Result{}, nil
+	}
+
+	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) durationUntilNextReconcile(tb *api.SPIAccessTokenBinding) time.Duration {
-	return time.Until(tb.CreationTimestamp.Add(r.Configuration.AccessTokenBindingTtl).Add(r.Configuration.DeletionGracePeriod))
+// returns user specified binding lifetime or default binding lifetime or nil if set to infinite
+func bindingLifetime(r *SPIAccessTokenBindingReconciler, binding api.SPIAccessTokenBinding) (*time.Duration, error) {
+	switch binding.Spec.Lifetime {
+	case "":
+		return &r.Configuration.AccessTokenBindingTtl, nil
+	case "-1":
+		return nil, nil
+	default:
+		expectedLifetimeDuration, err := time.ParseDuration(binding.Spec.Lifetime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid binding lifetime format specified: %w", err)
+		}
+		if expectedLifetimeDuration.Seconds() < 60 {
+			return nil, minimalBindingLifetimeError
+		}
+		return &expectedLifetimeDuration, nil
+	}
+}
+
+func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
+	permissionChange := false
+	if spType == api.ServiceProviderTypeQuay {
+		for i, permission := range binding.Spec.Permissions.Required {
+			if permission.Area == api.PermissionAreaRepository {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistry
+				permissionChange = true
+			}
+			if permission.Area == api.PermissionAreaRepositoryMetadata {
+				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistryMetadata
+				permissionChange = true
+			}
+		}
+	}
+	return permissionChange
 }
 
 func getLinkedTokenFromList(s *api.SPIAccessTokenBinding, tokens []api.SPIAccessToken) *api.SPIAccessToken {
@@ -308,7 +350,7 @@ func getLinkedTokenFromList(s *api.SPIAccessTokenBinding, tokens []api.SPIAccess
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
 // The status of the binding is immediately persisted with an error if the service provider cannot be determined.
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
-	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl)
+	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)

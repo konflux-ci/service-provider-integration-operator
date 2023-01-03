@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
+	"golang.org/x/oauth2/github"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -35,6 +36,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
+	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -132,36 +135,60 @@ func main() {
 	sessionManager.Cookie.Secure = true
 	authenticator := oauth.NewAuthenticator(sessionManager, cl)
 	stateStorage := oauth.NewStateStorage(sessionManager)
-	//static routes first
+
+	// service state routes
 	router.HandleFunc("/health", oauth.OkHandler).Methods("GET")
 	router.HandleFunc("/ready", oauth.OkHandler).Methods("GET")
-	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
-	router.HandleFunc("/login", authenticator.Login).Methods("POST")
-	router.NewRoute().Path("/{type}/callback").Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
-	router.NewRoute().Path("/token/{kcpWorkspace}/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
 
-	redirectTpl, err := template.ParseFiles("static/redirect_notice.html")
-	if err != nil {
-		setupLog.Error(err, "failed to parse the redirect notice HTML template")
+	// auth
+	router.HandleFunc("/login", authenticator.Login).Methods("POST")
+
+	// token upload
+	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
+
+	// oauth
+	redirectTpl, templateErr := template.ParseFiles("static/redirect_notice.html")
+	if templateErr != nil {
+		setupLog.Error(templateErr, "failed to parse the redirect notice HTML template")
+		os.Exit(1)
+	}
+	routerCfg := oauth.RouterConfiguration{
+		OAuthServiceConfiguration: cfg,
+		Authenticator:             authenticator,
+		StateStorage:              stateStorage,
+		K8sClient:                 cl,
+		TokenStorage:              strg,
+		RedirectTemplate:          redirectTpl,
+	}
+	// all servise provider types we support, including default values
+	serviceProviderDefaults := []oauth.ServiceProviderDefaults{
+		{
+			SpType:   config.ServiceProviderTypeGitHub,
+			Endpoint: github.Endpoint,
+			UrlHost:  oauth.GithubSaasHost,
+		},
+		{
+			SpType:   config.ServiceProviderTypeQuay,
+			Endpoint: oauth.QuayEndpoint,
+			UrlHost:  oauth.QuaySaasHost,
+		},
+		{
+			SpType:   config.ServiceProviderTypeGitLab,
+			Endpoint: oauth.GitlabEndpoint,
+			UrlHost:  oauth.GitlabSaasHost,
+		},
+	}
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceProviderDefaults)
+	if routerErr != nil {
+		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
 	}
 
-	for _, sp := range cfg.ServiceProviders {
-		setupLog.V(1).Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", sp.ServiceProviderBaseUrl)
+	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
+	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
+	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
 
-		controller, err := oauth.FromConfiguration(cfg, sp, authenticator, stateStorage, cl, strg, redirectTpl)
-		if err != nil {
-			setupLog.Error(err, "failed to initialize controller")
-		}
-
-		prefix := strings.ToLower(string(sp.ServiceProviderType))
-
-		router.Handle(fmt.Sprintf("/%s/authenticate", prefix), http.HandlerFunc(controller.Authenticate)).Methods("GET", "POST")
-		router.Handle(fmt.Sprintf("/%s/callback", prefix), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			controller.Callback(r.Context(), w, r)
-		})).Methods("GET")
-	}
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
 		Addr: args.ServiceAddr,

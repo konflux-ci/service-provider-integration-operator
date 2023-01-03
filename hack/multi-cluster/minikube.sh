@@ -181,7 +181,7 @@ kubectl -n spi-system scale deployment spi-controller-manager --replicas=0
 kubectl -n spi-system scale deployment spi-controller-manager --replicas=1
 
 echo "Now, you should be ready to create bindings in the minikube-a cluster and be led through the OAuth flow using OAuth service living in cluster minikube-b"
-echo "Remember to modify the configuration of your OAuth application in Github to point to https://spi.$(minikube ip -p minikube-b).nip.io/github/callback"
+echo "Remember to modify the configuration of your OAuth application in Github to point to https://spi.$(minikube ip -p minikube-b).nip.io/oauth/callback"
 echo ""
 echo "Press any key to exit"
 read -r -n 1

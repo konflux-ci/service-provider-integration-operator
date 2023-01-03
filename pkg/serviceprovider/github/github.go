@@ -21,6 +21,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -37,6 +42,9 @@ import (
 
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
+var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
+var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
+
 var (
 	unableToParsePathError = errors.New("unable to parse path")
 	notGithubUrlError      = errors.New("not a github repository url")
@@ -44,11 +52,12 @@ var (
 )
 
 type Github struct {
-	Configuration   *opconfig.OperatorConfiguration
-	lookup          serviceprovider.GenericLookup
-	httpClient      rest.HTTPClient
-	tokenStorage    tokenstorage.TokenStorage
-	ghClientBuilder githubClientBuilder
+	Configuration          *opconfig.OperatorConfiguration
+	lookup                 serviceprovider.GenericLookup
+	httpClient             rest.HTTPClient
+	tokenStorage           tokenstorage.TokenStorage
+	ghClientBuilder        githubClientBuilder
+	downloadFileCapability downloadFileCapability
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -81,6 +90,10 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
+		downloadFileCapability: downloadFileCapability{
+			httpClient:      httpClient,
+			ghClientBuilder: ghClientBuilder,
+		},
 	}
 
 	return github, nil
@@ -88,12 +101,16 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 
 var _ serviceprovider.ConstructorFunc = newGithub
 
-func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + "/github/authenticate"
-}
-
 func (g *Github) GetBaseUrl() string {
 	return "https://github.com"
+}
+
+func (g *Github) GetOAuthEndpoint() string {
+	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
+}
+
+func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+	return g.downloadFileCapability
 }
 
 func (g *Github) GetType() api.ServiceProviderType {
@@ -175,6 +192,8 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		return status, nil
 	}
 
+	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
+
 	lg := log.FromContext(ctx)
 
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
@@ -195,7 +214,6 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 			status.ErrorMessage = err.Error()
 			return status, err
 		}
-
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
@@ -228,13 +246,13 @@ func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validat
 }
 
 func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
+	ctx = httptransport.ContextWithMetrics(ctx, publicRepoMetricConfig)
 	lg := log.FromContext(ctx)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to prepare request", "accessCheck", accessCheck.Spec)
 		return false, fmt.Errorf("error while constructing HTTP request for access check to %s: %w", accessCheck.Spec.RepoUrl, reqErr)
 	}
-
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)

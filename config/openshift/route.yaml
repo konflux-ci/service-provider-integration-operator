@@ -1,7 +1,9 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: route
+  labels:
+    app.kubernetes.io/part-of: service-provider-integration-operator
+  name: spi-oauth
 spec:
   port:
     targetPort: 8000
@@ -12,4 +14,3 @@ spec:
     name: spi-oauth-service
   tls:
     termination: edge
-

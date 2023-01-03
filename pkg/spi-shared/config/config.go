@@ -67,7 +67,7 @@ type SharedConfiguration struct {
 	ServiceProviders []ServiceProviderConfiguration
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
-	// service providers in the form of `${BASE_URL}/${SP_TYPE}/callback` (e.g. my-host/github/callback).
+	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
 	BaseUrl string
 }
 
@@ -115,11 +115,15 @@ func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
 // loadFrom loads the configuration from the provided file-system path. Note that the returned configuration is fully
 // initialized with no need to call the SharedConfiguration.ParseFiles() method anymore.
 func loadFrom(path string) (persistedConfiguration, error) {
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec:G304, path param and file is controlled by operator deployment
 	if err != nil {
 		return persistedConfiguration{}, fmt.Errorf("error opening the config file from %s: %w", path, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("Error closing file: %s\n", err)
+		}
+	}()
 
 	return readFrom(file)
 }
