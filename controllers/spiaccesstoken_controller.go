@@ -59,6 +59,7 @@ var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
 	noCredentialsFoundError   = stderrors.New("no service provider found for given token")
+	refreshNotSupportedError  = stderrors.New("does not support token refreshing")
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
@@ -347,8 +348,13 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("unable to find credentials for SPIAccessToken: %w", err)
 	}
 
+	refreshableSP, ok := sp.(serviceprovider.RefreshableTokenServiceProvider)
+	if !ok {
+		return fmt.Errorf("%s service provider: %w", sp.GetType(), refreshNotSupportedError)
+	}
+
 	lg.Info("credentials found, proceeding to token refresh...")
-	refreshedToken, err := sp.RefreshToken(ctx, token, clientId, clientSecret)
+	refreshedToken, err := refreshableSP.RefreshToken(ctx, token, clientId, clientSecret)
 	if err != nil {
 		return fmt.Errorf("unable to refresh token: %w", err)
 	}
@@ -356,6 +362,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 	if err := r.TokenStorage.Store(ctx, at, refreshedToken); err != nil {
 		return fmt.Errorf("unable to store refresh token: %w", err)
 	}
+	lg.Info("token refreshed successfully...")
 
 	return nil
 }

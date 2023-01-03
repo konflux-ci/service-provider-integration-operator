@@ -40,10 +40,9 @@ import (
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 var (
-	unableToParsePathError     = errors.New("unable to parse path")
-	notGithubUrlError          = errors.New("not a github repository url")
-	unknownScopeError          = errors.New("unknown scope")
-	unsupportedRefreshingError = errors.New("token refreshing for github is not supported")
+	unableToParsePathError = errors.New("unable to parse path")
+	notGithubUrlError      = errors.New("not a github repository url")
+	unknownScopeError      = errors.New("unknown scope")
 )
 
 type Github struct {
@@ -53,10 +52,6 @@ type Github struct {
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
 	downloadFileCapability downloadFileCapability
-}
-
-func (g *Github) RefreshToken(_ context.Context, _ *api.Token, _ string, _ string) (*api.Token, error) {
-	return nil, unsupportedRefreshingError
 }
 
 var Initializer = serviceprovider.Initializer{

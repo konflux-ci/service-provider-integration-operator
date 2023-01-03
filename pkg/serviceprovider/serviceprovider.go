@@ -81,6 +81,13 @@ type ServiceProvider interface {
 	// Validate checks that the provided object (token or binding) is valid in this service provider
 	Validate(ctx context.Context, validated Validated) (ValidationResult, error)
 
+	//RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
+}
+
+// RefreshableTokenServiceProvider represents a service provider which issues refreshable access tokens
+type RefreshableTokenServiceProvider interface {
+	// RefreshToken requests new access token from the service provider using refresh token as authorization.
+	// This invalidates the old access token and refresh token
 	RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
 }
 
@@ -175,9 +182,9 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 	configurations := make([]config.ServiceProviderConfiguration, len(f.Configuration.SharedConfiguration.ServiceProviders))
 	copy(configurations, f.Configuration.SharedConfiguration.ServiceProviders)
 
-	for _, spConfig := range configurations {
+	for i, spConfig := range configurations {
 		if spConfig.ServiceProviderBaseUrl == "" {
-			spConfig.ServiceProviderBaseUrl = f.Initializers[spConfig.ServiceProviderType].SaasBaseUrl
+			configurations[i].ServiceProviderBaseUrl = f.Initializers[spConfig.ServiceProviderType].SaasBaseUrl
 		}
 	}
 

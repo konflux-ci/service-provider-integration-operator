@@ -48,6 +48,7 @@ var probeNotImplementedError = errors.New("gitLab probe not implemented")
 var notGitlabUrlError = errors.New("not a gitlab repository url")
 
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
+var _ serviceprovider.RefreshableTokenServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
 	Configuration          *opconfig.OperatorConfiguration

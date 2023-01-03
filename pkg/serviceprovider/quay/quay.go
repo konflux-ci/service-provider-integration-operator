@@ -40,13 +40,12 @@ import (
 var _ serviceprovider.ServiceProvider = (*Quay)(nil)
 
 var (
-	unsupportedAreaError       = errors.New("unsupported permission area for Quay")
-	unsupportedScopeError      = errors.New("unsupported scope")
-	unsupportedRefreshingError = errors.New("token refreshing for quay is not supported")
-	unknownScopeError          = errors.New("unknown scope")
-	failedToParseRepoUrlError  = errors.New("failed to parse repository URL")
-	unexpectedStatusCodeError  = errors.New("unexpected status code")
-	noResponseError            = errors.New("no response")
+	unsupportedAreaError      = errors.New("unsupported permission area for Quay")
+	unsupportedScopeError     = errors.New("unsupported scope")
+	unknownScopeError         = errors.New("unknown scope")
+	failedToParseRepoUrlError = errors.New("failed to parse repository URL")
+	unexpectedStatusCodeError = errors.New("unexpected status code")
+	noResponseError           = errors.New("no response")
 )
 
 type Quay struct {
@@ -56,10 +55,6 @@ type Quay struct {
 	httpClient       rest.HTTPClient
 	tokenStorage     tokenstorage.TokenStorage
 	BaseUrl          string
-}
-
-func (q *Quay) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
-	return nil, unsupportedRefreshingError
 }
 
 var Initializer = serviceprovider.Initializer{
