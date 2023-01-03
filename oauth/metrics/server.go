@@ -21,6 +21,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
+
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -46,6 +48,8 @@ func init() {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		// expose Go runtime metrics like GC stats, memory stats etc.
 		collectors.NewGoCollector(),
+		// OAuth flow statistic
+		oauth.FlowCompleteTimeMetric,
 	)
 }
 

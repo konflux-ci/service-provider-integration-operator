@@ -16,10 +16,15 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
@@ -44,6 +49,14 @@ var testSpDefaults = []ServiceProviderDefaults{
 		Endpoint: serviceprovider.GitlabEndpoint,
 		UrlHost:  serviceprovider.GitlabSaasHost,
 	},
+}
+
+var state = &oauthstate.OAuthInfo{
+	TokenName:           "mytoken",
+	TokenNamespace:      IT.Namespace,
+	Scopes:              []string{"a", "b"},
+	ServiceProviderType: config.ServiceProviderTypeGitHub,
+	ServiceProviderUrl:  "http://spi",
 }
 
 func TestNewRouter(t *testing.T) {
@@ -142,7 +155,7 @@ func TestNewRouter(t *testing.T) {
 
 func TestFindController(t *testing.T) {
 	cfg := RouterConfiguration{
-		StateStorage: &StateStorage{},
+		StateStorage: &SessionStateStorage{},
 		OAuthServiceConfiguration: OAuthServiceConfiguration{
 			SharedConfiguration: config.SharedConfiguration{
 				BaseUrl: "http://spi",
@@ -254,4 +267,38 @@ func TestFindController(t *testing.T) {
 		assert.Equal(t, state.ServiceProviderType, config.ServiceProviderTypeGitHub)
 		assert.NoError(t, err)
 	})
+}
+
+func TestCallbackRoute(t *testing.T) {
+
+	t.Run("OAuth flow metrics", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		FlowCompleteTimeMetric.Reset()
+		registry.MustRegister(FlowCompleteTimeMetric)
+		encoded, _ := oauthstate.Encode(state)
+		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderType]Controller{
+			config.ServiceProviderTypeGitHub: NopController{},
+		})
+		req, _ := http.NewRequest("GET", "callback?state=abcde", nil)
+		rr := httptest.NewRecorder()
+
+		router.Callback().ServeHTTP(rr, req)
+
+		count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+		assert.Equal(t, 1, count)
+		assert.NoError(t, err)
+		problems, err := prometheusTest.GatherAndLint(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(problems), fmt.Sprintf("Unexpected lint problems:  %s ", problems))
+
+	})
+}
+
+// Creates new Router with predefined StateStorage and ready to use map of Controller.
+func NewTestRouter(stateStorage StateStorage, controllers map[config.ServiceProviderType]Controller) (*Router, error) {
+	return &Router{
+		controllers:  controllers,
+		stateStorage: stateStorage,
+	}, nil
 }

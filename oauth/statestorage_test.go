@@ -14,11 +14,13 @@
 package oauth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +54,7 @@ func Test_FailToVeilIfStateIsEmpty(t *testing.T) {
 	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s&k8s_token=%s", "", "token-234234"), nil)
 	res := httptest.NewRecorder()
 	sessionManager := scs.New()
-	storage := StateStorage{sessionManager}
+	storage := &SessionStateStorage{sessionManager: sessionManager}
 
 	//when
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +78,7 @@ func Test_ShouldUnveilState(t *testing.T) {
 	res := httptest.NewRecorder()
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sessionManager.Put(r.Context(), oAuthState, spiState)
+		sessionManager.Put(r.Context(), oAuthState+"-createdAt", time.Now().Unix())
 	})).ServeHTTP(res, httptest.NewRequest("GET", "/", nil))
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s", oAuthState), nil)
@@ -85,6 +88,9 @@ func Test_ShouldUnveilState(t *testing.T) {
 	//when
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		originalSpiState, err := storage.UnveilState(r.Context(), r)
+		time, err2 := storage.StateVeiledAt(r.Context(), r)
+		assert.NotNil(t, time)
+		assert.Nil(t, err2)
 		assert.NoError(t, err)
 		assert.Equal(t, spiState, originalSpiState)
 
@@ -102,7 +108,7 @@ func Test_FailToUnveilStateIfStateIsEmpty(t *testing.T) {
 	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s", ""), nil)
 	res := httptest.NewRecorder()
 	sessionManager := scs.New()
-	storage := StateStorage{sessionManager}
+	storage := &SessionStateStorage{sessionManager: sessionManager}
 
 	//when
 	sessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -115,4 +121,24 @@ func Test_FailToUnveilStateIfStateIsEmpty(t *testing.T) {
 	//then
 	assert.Equal(t, 0, len(res.Result().Cookies()))
 
+}
+
+type SimpleStateStorage struct {
+	state     string
+	vailState string
+	vailAt    time.Time
+}
+
+var _ StateStorage = (*SimpleStateStorage)(nil)
+
+func (n SimpleStateStorage) VeilRealState(req *http.Request) (string, error) {
+	return n.vailState, nil
+}
+
+func (n SimpleStateStorage) UnveilState(ctx context.Context, req *http.Request) (string, error) {
+	return n.state, nil
+}
+
+func (n SimpleStateStorage) StateVeiledAt(ctx context.Context, req *http.Request) (time.Time, error) {
+	return n.vailAt, nil
 }

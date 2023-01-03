@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
@@ -34,7 +35,7 @@ var errUnknownServiceProviderType = errors.New("unknown service provider type")
 type Router struct {
 	controllers map[config.ServiceProviderType]Controller
 
-	stateStorage *StateStorage
+	stateStorage StateStorage
 }
 
 // CallbackRoute route for /oauth/callback requests
@@ -51,7 +52,7 @@ type AuthenticateRoute struct {
 type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator    *Authenticator
-	StateStorage     *StateStorage
+	StateStorage     StateStorage
 	K8sClient        client.Client
 	TokenStorage     tokenstorage.TokenStorage
 	RedirectTemplate *template.Template
@@ -96,7 +97,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if veiled {
 		stateString, err = r.stateStorage.UnveilState(req.Context(), req)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("unknown or invalid state: %w", err)
 		}
 	} else {
 		stateString = req.FormValue("state")
@@ -124,6 +125,13 @@ func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	ctrl.Callback(req.Context(), wrt, req, state)
+
+	veiledAt, err := r.router.stateStorage.StateVeiledAt(req.Context(), req)
+	if err != nil {
+		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
+	}
+
+	FlowCompleteTimeMetric.WithLabelValues(string(state.ServiceProviderType), state.ServiceProviderUrl).Observe(time.Since(veiledAt).Seconds())
 }
 
 func (r *AuthenticateRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
