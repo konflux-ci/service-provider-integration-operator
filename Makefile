@@ -61,6 +61,7 @@ SPIS_IMG ?= $(SPIS_IMAGE_TAG_BASE):$(TAG_NAME)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = latest
 
+# this variable is used to enable the `make itest focus=...` syntax for running subset of integration test suite.
 focus ?= ""
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
