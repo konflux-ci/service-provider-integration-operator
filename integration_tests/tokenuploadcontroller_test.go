@@ -65,7 +65,12 @@ var _ = Describe("TokenUploadController", func() {
 			}
 
 			Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
-
+			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				Username:             "alois",
+				UserId:               "42",
+				Scopes:               []string{},
+				ServiceProviderState: []byte("state"),
+			})
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				// It does not work because SPIAccessTokenDataUpdate controller removes the SPIAccessTokenDataUpdate object
 				// before SPIAccessToken controller tries to use it ("token data update already gone from the cluster")
