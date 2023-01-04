@@ -44,7 +44,7 @@ func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, 
 	}
 
 	if tokenData == nil {
-		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name, "tokenData", tokenData)
+		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
 		return nil, accessTokenNotFoundError
 	}
 	client, err := gitlab.NewOAuthClient(tokenData.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))

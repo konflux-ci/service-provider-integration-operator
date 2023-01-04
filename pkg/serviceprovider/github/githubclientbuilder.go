@@ -44,7 +44,7 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiToken.Namespace, spiToken.Name, tsErr)
 	}
 	if tokenData == nil {
-		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name, "tokenData", tokenData)
+		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
 		return nil, accessTokenNotFoundError
 	}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
