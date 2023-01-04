@@ -119,6 +119,14 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
 			Extra:                  sp.Extra,
 		}
+		if sp.ServiceProviderBaseUrl == "" {
+			for _, spDefault := range SupportedServiceProvidersDefaults {
+				if spDefault.SpType == sp.ServiceProviderType {
+					newSp.ServiceProviderBaseUrl = spDefault.UrlHost
+				}
+			}
+		}
+
 		if sp.ClientId != "" && sp.ClientSecret != "" {
 			newSp.Oauth2Config = &oauth2.Config{ClientID: sp.ClientId, ClientSecret: sp.ClientSecret}
 		}

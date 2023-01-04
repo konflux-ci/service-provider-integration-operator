@@ -23,7 +23,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	oauthstate2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -50,10 +49,10 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("all fields set ok", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				oauthCfgSecretFieldClientId:     []byte(testClientId),
-				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
-				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
-				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
+				config.OAuthCfgSecretFieldClientId:     []byte(testClientId),
+				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				config.OAuthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				config.OAuthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
 			},
 		}
 
@@ -70,9 +69,9 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("error if missing client id", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
-				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
-				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
+				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				config.OAuthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				config.OAuthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
 			},
 		}
 
@@ -85,9 +84,9 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("error if missing client secret", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				oauthCfgSecretFieldClientId: []byte(testClientId),
-				oauthCfgSecretFieldAuthUrl:  []byte(testAuthUrl),
-				oauthCfgSecretFieldTokenUrl: []byte(testTokenUrl),
+				config.OAuthCfgSecretFieldClientId: []byte(testClientId),
+				config.OAuthCfgSecretFieldAuthUrl:  []byte(testAuthUrl),
+				config.OAuthCfgSecretFieldTokenUrl: []byte(testTokenUrl),
 			},
 		}
 
@@ -100,8 +99,8 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("ok with just client id and secret", func(t *testing.T) {
 		secret := &v1.Secret{
 			Data: map[string][]byte{
-				oauthCfgSecretFieldClientId:     []byte(testClientId),
-				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				config.OAuthCfgSecretFieldClientId:     []byte(testClientId),
+				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
 			},
 		}
 
@@ -175,8 +174,8 @@ func TestObtainOauthConfig(t *testing.T) {
 						},
 					},
 					Data: map[string][]byte{
-						oauthCfgSecretFieldClientId:     []byte("testclientid"),
-						oauthCfgSecretFieldClientSecret: []byte("testclientsecret"),
+						config.OAuthCfgSecretFieldClientId:     []byte("testclientid"),
+						config.OAuthCfgSecretFieldClientSecret: []byte("testclientsecret"),
 					},
 				},
 			},
@@ -184,7 +183,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				serviceprovider.GithubSaasHost: {
+				config.GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						Oauth2Config: &oauth2.Config{
 							ClientID:     "eh?",
@@ -236,7 +235,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						},
 					},
 					Data: map[string][]byte{
-						oauthCfgSecretFieldClientId: []byte("testclientid"),
+						config.OAuthCfgSecretFieldClientId: []byte("testclientid"),
 					},
 				},
 			},
@@ -244,7 +243,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				serviceprovider.GithubSaasHost: {
+				config.GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
 						Oauth2Config: &oauth2.Config{
 							ClientID:     "eh?",

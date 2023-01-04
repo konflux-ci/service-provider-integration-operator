@@ -1,4 +1,4 @@
-package serviceprovider
+package config
 
 const (
 	OAuthCfgSecretFieldClientId     = "clientId"

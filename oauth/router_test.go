@@ -27,27 +27,26 @@ import (
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
 
-var testSpDefaults = []ServiceProviderDefaults{
+var testSpDefaults = []config.ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeGitHub,
 		Endpoint: github.Endpoint,
-		UrlHost:  serviceprovider.GithubSaasHost,
+		UrlHost:  config.GithubSaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeQuay,
-		Endpoint: serviceprovider.QuayEndpoint,
-		UrlHost:  serviceprovider.QuaySaasHost,
+		Endpoint: config.QuayEndpoint,
+		UrlHost:  config.QuaySaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeGitLab,
-		Endpoint: serviceprovider.GitlabEndpoint,
-		UrlHost:  serviceprovider.GitlabSaasHost,
+		Endpoint: config.GitlabEndpoint,
+		UrlHost:  config.GitlabSaasHost,
 	},
 }
 
@@ -185,16 +184,16 @@ func TestFindController(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("fail when request unknown service provider", func(t *testing.T) {
-		spDefaults := []ServiceProviderDefaults{
+		spDefaults := []config.ServiceProviderDefaults{
 			{
 				SpType:   config.ServiceProviderTypeGitHub,
 				Endpoint: github.Endpoint,
-				UrlHost:  serviceprovider.GithubSaasHost,
+				UrlHost:  config.GithubSaasHost,
 			},
 			{
 				SpType:   config.ServiceProviderTypeQuay,
-				Endpoint: serviceprovider.QuayEndpoint,
-				UrlHost:  serviceprovider.QuaySaasHost,
+				Endpoint: config.QuayEndpoint,
+				UrlHost:  config.QuaySaasHost,
 			},
 		}
 

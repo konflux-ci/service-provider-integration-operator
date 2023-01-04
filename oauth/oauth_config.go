@@ -83,23 +83,23 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 }
 
 func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
-	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
+	if clientId, has := secret.Data[config.OAuthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
 		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, errMissingField)
 	}
 
-	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
+	if clientSecret, has := secret.Data[config.OAuthCfgSecretFieldClientSecret]; has {
 		oauthCfg.ClientSecret = string(clientSecret)
 	} else {
 		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, errMissingField)
 	}
 
-	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
+	if authUrl, has := secret.Data[config.OAuthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
 		oauthCfg.Endpoint.AuthURL = string(authUrl)
 	}
 
-	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
+	if tokenUrl, has := secret.Data[config.OAuthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
 		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
 	}
 

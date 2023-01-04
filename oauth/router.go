@@ -24,7 +24,6 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,7 +57,7 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
-func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []serviceprovider.ServiceProviderDefaults) (*Router, error) {
+func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config.ServiceProviderDefaults) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
 		stateStorage: cfg.StateStorage,

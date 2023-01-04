@@ -27,7 +27,6 @@ import (
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -136,7 +135,7 @@ func (f *Factory) getServiceProviderConfigurations(ctx context.Context, repoUrl 
 
 	repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
 
-	for _, spDefault := range serviceprovider.SupportedServiceProvidersDefaults {
+	for _, spDefault := range config.SupportedServiceProvidersDefaults {
 		spTypeConfigurations := []config.ServiceProviderConfiguration{}
 
 		// first we need to find and create configurations from user secrets
@@ -148,8 +147,8 @@ func (f *Factory) getServiceProviderConfigurations(ctx context.Context, repoUrl 
 
 		// then we take service providers from global configuration
 		for _, sp := range f.Configuration.ServiceProviders {
-			if strings.HasPrefix(repoUrlTrimmed, sp.ServiceProviderBaseUrl) {
-
+			if sp.ServiceProviderType == spDefault.SpType && strings.HasPrefix(repoUrlTrimmed, sp.ServiceProviderBaseUrl) {
+				spTypeConfigurations = append(spTypeConfigurations, sp)
 			}
 		}
 
@@ -161,7 +160,7 @@ func (f *Factory) getServiceProviderConfigurations(ctx context.Context, repoUrl 
 	return foundConfigurations, nil
 }
 
-func (f *Factory) createConfigsFromUserConfigSecrets(ctx context.Context, spDefault serviceprovider.ServiceProviderDefaults, namespace string) ([]config.ServiceProviderConfiguration, error) {
+func (f *Factory) createConfigsFromUserConfigSecrets(ctx context.Context, spDefault config.ServiceProviderDefaults, namespace string) ([]config.ServiceProviderConfiguration, error) {
 	spTypeConfigurations := []config.ServiceProviderConfiguration{}
 
 	spConfigSecrets := &corev1.SecretList{}
@@ -180,10 +179,10 @@ func (f *Factory) createConfigsFromUserConfigSecrets(ctx context.Context, spDefa
 			}
 
 			// having oauth configuration empty is ok for us here, because we don't need the values. We just need to know whether we have configuration for oauth
-			_, hasClientId := spConfigSecret.Data[serviceprovider.OAuthCfgSecretFieldClientId]
-			_, hasClientSecret := spConfigSecret.Data[serviceprovider.OAuthCfgSecretFieldClientSecret]
+			oauthClientId, hasClientId := spConfigSecret.Data[config.OAuthCfgSecretFieldClientId]
+			oauthClientSecret, hasClientSecret := spConfigSecret.Data[config.OAuthCfgSecretFieldClientSecret]
 			if hasClientId && hasClientSecret {
-				newSpConfiguration.Oauth2Config = &oauth2.Config{}
+				newSpConfiguration.Oauth2Config = &oauth2.Config{ClientID: string(oauthClientId), ClientSecret: string(oauthClientSecret)}
 			}
 
 			spTypeConfigurations = append(spTypeConfigurations, newSpConfiguration)

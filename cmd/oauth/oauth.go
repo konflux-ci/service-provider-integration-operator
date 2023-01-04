@@ -36,7 +36,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -160,7 +160,7 @@ func main() {
 		RedirectTemplate:          redirectTpl,
 	}
 
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceprovider.SupportedServiceProvidersDefaults)
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProvidersDefaults)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
