@@ -16,6 +16,7 @@ package gitlab
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -31,6 +32,8 @@ type gitlabClientBuilder struct {
 	tokenStorage tokenstorage.TokenStorage
 }
 
+var accessTokenNotFoundError = errors.New("token data is not found in token storage")
+
 func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken, baseUrl string) (*gitlab.Client, error) {
 	lg := log.FromContext(ctx)
 	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
@@ -40,6 +43,10 @@ func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, 
 			spiAccessToken.Namespace, spiAccessToken.Name, err)
 	}
 
+	if tokenData == nil {
+		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name, "tokenData", tokenData)
+		return nil, accessTokenNotFoundError
+	}
 	client, err := gitlab.NewOAuthClient(tokenData.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated gitlab client for SPIAccessToken %s/%s: %w",
