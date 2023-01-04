@@ -16,6 +16,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -32,6 +33,8 @@ type githubClientBuilder struct {
 	tokenStorage tokenstorage.TokenStorage
 }
 
+var accessTokenNotFoundError = errors.New("token data is not found in token storage")
+
 func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
 	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	lg := log.FromContext(ctx)
@@ -39,6 +42,10 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 
 		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
 		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiToken.Namespace, spiToken.Name, tsErr)
+	}
+	if tokenData == nil {
+		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
+		return nil, accessTokenNotFoundError
 	}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
