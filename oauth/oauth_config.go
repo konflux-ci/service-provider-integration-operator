@@ -28,13 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	oauthCfgSecretFieldClientId     = "clientId"
-	oauthCfgSecretFieldClientSecret = "clientSecret"
-	oauthCfgSecretFieldAuthUrl      = "authUrl"
-	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
-)
-
 var (
 	errMissingField            = errors.New("missing mandatory field in oauth configuration")
 	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")

@@ -303,15 +303,16 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 	}
-	oauthBaseUrl := sp.GetOAuthEndpoint()
-	if len(oauthBaseUrl) == 0 {
+	oauthCapability := sp.GetOAuthCapability()
+	if oauthCapability == nil {
 		return "", nil
 	}
+	oauthBaseUrl := oauthCapability.GetOAuthEndpoint()
 
 	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
-		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
+		Scopes:              oauthCapability.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})

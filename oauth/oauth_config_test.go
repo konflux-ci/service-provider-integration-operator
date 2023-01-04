@@ -128,7 +128,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				"bleh.eh": {
 					Config: config.ServiceProviderConfiguration{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "eh?",
 							ClientSecret: "bleh?",
 						},
@@ -186,7 +186,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				serviceprovider.GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "eh?",
 							ClientSecret: "bleh?",
 						},
@@ -246,7 +246,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				serviceprovider.GithubSaasHost: {
 					Config: config.ServiceProviderConfiguration{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "eh?",
 							ClientSecret: "bleh?",
 						},

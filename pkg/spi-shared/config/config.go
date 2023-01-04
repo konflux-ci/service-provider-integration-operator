@@ -105,7 +105,7 @@ type ServiceProviderConfiguration struct {
 	// for Quay, we require to know the organization for which the OAuth application is defined for.
 	Extra map[string]string
 
-	Oauth2Config oauth2.Config
+	Oauth2Config *oauth2.Config
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.
@@ -120,7 +120,7 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 			Extra:                  sp.Extra,
 		}
 		if sp.ClientId != "" && sp.ClientSecret != "" {
-			newSp.Oauth2Config = oauth2.Config{ClientID: sp.ClientId, ClientSecret: sp.ClientSecret}
+			newSp.Oauth2Config = &oauth2.Config{ClientID: sp.ClientId, ClientSecret: sp.ClientSecret}
 		}
 		conf.ServiceProviders = append(conf.ServiceProviders, newSp)
 	}

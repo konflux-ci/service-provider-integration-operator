@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
-	"golang.org/x/oauth2/github"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -37,7 +36,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	authz "k8s.io/api/authorization/v1"
@@ -161,25 +159,8 @@ func main() {
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
-	// all servise provider types we support, including default values
-	serviceProviderDefaults := []oauth.ServiceProviderDefaults{
-		{
-			SpType:   config.ServiceProviderTypeGitHub,
-			Endpoint: github.Endpoint,
-			UrlHost:  serviceprovider.GithubSaasHost,
-		},
-		{
-			SpType:   config.ServiceProviderTypeQuay,
-			Endpoint: serviceprovider.QuayEndpoint,
-			UrlHost:  serviceprovider.QuaySaasHost,
-		},
-		{
-			SpType:   config.ServiceProviderTypeGitLab,
-			Endpoint: serviceprovider.GitlabEndpoint,
-			UrlHost:  serviceprovider.GitlabSaasHost,
-		},
-	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceProviderDefaults)
+
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, serviceprovider.SupportedServiceProvidersDefaults)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)

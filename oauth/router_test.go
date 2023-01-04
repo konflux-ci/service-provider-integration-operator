@@ -67,7 +67,7 @@ func TestNewRouter(t *testing.T) {
 					BaseUrl: "http://spi",
 					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							Oauth2Config: oauth2.Config{
+							Oauth2Config: &oauth2.Config{
 								ClientID:     "abc",
 								ClientSecret: "cde",
 							},
@@ -75,7 +75,7 @@ func TestNewRouter(t *testing.T) {
 							ServiceProviderBaseUrl: "https://test.sp",
 						},
 						{
-							Oauth2Config: oauth2.Config{
+							Oauth2Config: &oauth2.Config{
 								ClientID:     "abc",
 								ClientSecret: "cde",
 							},
@@ -101,7 +101,7 @@ func TestNewRouter(t *testing.T) {
 					BaseUrl: "http://spi",
 					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							Oauth2Config: oauth2.Config{
+							Oauth2Config: &oauth2.Config{
 								ClientID:     "abc",
 								ClientSecret: "cde",
 							},
@@ -126,7 +126,7 @@ func TestNewRouter(t *testing.T) {
 					BaseUrl: "http://spi",
 					ServiceProviders: []config.ServiceProviderConfiguration{
 						{
-							Oauth2Config: oauth2.Config{
+							Oauth2Config: &oauth2.Config{
 								ClientID:     "abc",
 								ClientSecret: "cde",
 							},
@@ -134,7 +134,7 @@ func TestNewRouter(t *testing.T) {
 							ServiceProviderBaseUrl: "test.sp",
 						},
 						{
-							Oauth2Config: oauth2.Config{
+							Oauth2Config: &oauth2.Config{
 								ClientID:     "123",
 								ClientSecret: "234",
 							},
@@ -161,7 +161,7 @@ func TestFindController(t *testing.T) {
 				BaseUrl: "http://spi",
 				ServiceProviders: []config.ServiceProviderConfiguration{
 					{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "abc",
 							ClientSecret: "cde",
 						},
@@ -169,7 +169,7 @@ func TestFindController(t *testing.T) {
 						ServiceProviderBaseUrl: "https://test.sp",
 					},
 					{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "abc",
 							ClientSecret: "cde",
 						},

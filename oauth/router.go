@@ -24,8 +24,8 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,14 +58,7 @@ type RouterConfiguration struct {
 	RedirectTemplate *template.Template
 }
 
-// ServiceProviderDefaults configuration containing default values used to initialize supported service providers
-type ServiceProviderDefaults struct {
-	SpType   config.ServiceProviderType
-	Endpoint oauth2.Endpoint
-	UrlHost  string
-}
-
-func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []ServiceProviderDefaults) (*Router, error) {
+func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []serviceprovider.ServiceProviderDefaults) (*Router, error) {
 	router := &Router{
 		controllers:  map[config.ServiceProviderType]Controller{},
 		stateStorage: cfg.StateStorage,

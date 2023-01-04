@@ -159,7 +159,7 @@ var _ = BeforeSuite(func() {
 		SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{
 				{
-					Oauth2Config: oauth2.Config{
+					Oauth2Config: &oauth2.Config{
 						ClientID:     "testClient",
 						ClientSecret: "testSecret",
 					},

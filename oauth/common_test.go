@@ -91,7 +91,7 @@ var _ = Describe("Controller", func() {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				"special.sp": {
 					Config: config.ServiceProviderConfiguration{
-						Oauth2Config: oauth2.Config{
+						Oauth2Config: &oauth2.Config{
 							ClientID:     "clientId",
 							ClientSecret: "clientSecret",
 						},

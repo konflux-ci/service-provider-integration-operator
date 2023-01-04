@@ -20,12 +20,14 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -56,23 +58,16 @@ type ServiceProvider interface {
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
 
-	// OAuthScopesFor translates all the permissions into a list of service-provider-specific scopes. This method
-	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
-	// needed is just a translation of permissions into scopes.
-	OAuthScopesFor(permissions *api.Permissions) []string
-
 	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
 
 	CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 
-	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
-	//the service provider itself.
-	GetOAuthEndpoint() string
-
 	// GetDownloadFileCapability returns capability object for the providers which are able to download files from the repository
 	// or nil for those which are not
 	GetDownloadFileCapability() DownloadFileCapability
+
+	GetOAuthCapability() OAuthCapability
 
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
@@ -100,10 +95,8 @@ type Factory struct {
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
-	// this method is ready for multiple instances of some service provider configured with different base urls.
-	// currently, we don't have any like that though :)
 
-	serviceProvidersBaseUrls, err := f.getBaseUrlsFromConfigs(ctx, namespace)
+	serviceProvidersConfigurations, err := f.getServiceProviderConfigurations(ctx, repoUrl, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -113,14 +106,14 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 		if !ok {
 			continue
 		}
-		if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[spc.ServiceProviderType]); sp != nil {
+		if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersConfigurations[spc.ServiceProviderType]); sp != nil {
 			return sp, nil
 		}
 	}
 
 	for serviceProviderType, initializer := range f.Initializers {
 		if initializer.SupportsManualUploadOnlyMode {
-			if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[serviceProviderType]); sp != nil {
+			if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersConfigurations[serviceProviderType]); sp != nil {
 				return sp, nil
 			}
 		}
@@ -135,6 +128,115 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	}
 	return hostCredentialProvider, nil
 }
+
+func (f *Factory) getServiceProviderConfigurations(ctx context.Context, repoUrl string, namespace string) (map[config.ServiceProviderType][]config.ServiceProviderConfiguration, error) {
+	// order of each array is important. Configurations must come in following order:
+	// user config secret > global config file > defaults
+	foundConfigurations := map[config.ServiceProviderType][]config.ServiceProviderConfiguration{}
+
+	repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
+
+	for _, spDefault := range serviceprovider.SupportedServiceProvidersDefaults {
+		spTypeConfigurations := []config.ServiceProviderConfiguration{}
+
+		// first we need to find and create configurations from user secrets
+		if userSecretConfigs, err := f.createConfigsFromUserConfigSecrets(ctx, spDefault, namespace); err == nil {
+			spTypeConfigurations = append(spTypeConfigurations, userSecretConfigs...)
+		} else {
+			return nil, err
+		}
+
+		// then we take service providers from global configuration
+		for _, sp := range f.Configuration.ServiceProviders {
+			if strings.HasPrefix(repoUrlTrimmed, sp.ServiceProviderBaseUrl) {
+
+			}
+		}
+
+		// finally we add default configs
+
+		foundConfigurations[spDefault.SpType] = spTypeConfigurations
+	}
+
+	return foundConfigurations, nil
+}
+
+func (f *Factory) createConfigsFromUserConfigSecrets(ctx context.Context, spDefault serviceprovider.ServiceProviderDefaults, namespace string) ([]config.ServiceProviderConfiguration, error) {
+	spTypeConfigurations := []config.ServiceProviderConfiguration{}
+
+	spConfigSecrets := &corev1.SecretList{}
+	if listErr := f.KubernetesClient.List(ctx, spConfigSecrets, client.InNamespace(namespace), client.MatchingLabels{
+		api.ServiceProviderTypeLabel: string(spDefault.SpType),
+	}); listErr != nil {
+		return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+	}
+
+	// we've found some sp configuration in user's secret
+	if len(spConfigSecrets.Items) > 0 {
+		for _, spConfigSecret := range spConfigSecrets.Items {
+			newSpConfiguration := config.ServiceProviderConfiguration{
+				ServiceProviderType:    spDefault.SpType,
+				ServiceProviderBaseUrl: spDefault.UrlHost,
+			}
+
+			// having oauth configuration empty is ok for us here, because we don't need the values. We just need to know whether we have configuration for oauth
+			_, hasClientId := spConfigSecret.Data[serviceprovider.OAuthCfgSecretFieldClientId]
+			_, hasClientSecret := spConfigSecret.Data[serviceprovider.OAuthCfgSecretFieldClientSecret]
+			if hasClientId && hasClientSecret {
+				newSpConfiguration.Oauth2Config = &oauth2.Config{}
+			}
+
+			spTypeConfigurations = append(spTypeConfigurations, newSpConfiguration)
+		}
+	}
+
+	return spTypeConfigurations, nil
+}
+
+// func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
+// 	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
+
+// 	spUrl, urlParseErr := url.Parse(info.ServiceProviderUrl)
+// 	if urlParseErr != nil {
+// 		return nil, fmt.Errorf("failed to parse serviceprovider url: %w", urlParseErr)
+// 	}
+
+// 	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
+
+// 	oauthCfg := &oauth2.Config{
+// 		RedirectURL: c.redirectUrl(),
+// 	}
+// 	if foundDefaultOauthConfig {
+// 		oauthCfg.Endpoint = defaultOauthConfig.Endpoint
+// 	} else {
+// 		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
+// 		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
+// 	}
+
+// 	noAuthCtx := WithAuthIntoContext("", ctx) // we want to use ServiceAccount to find the secret, so we need to use context without user's token
+// 	found, oauthCfgSecret, findErr := config.FindServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, spUrl.Host, c.ServiceProviderType)
+// 	if findErr != nil {
+// 		return nil, findErr
+// 	}
+
+// 	if found {
+// 		if createOauthCfgErr := initializeConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
+// 			lg.V(logs.DebugLevel).Info("using custom user oauth config")
+// 			return oauthCfg, nil
+// 		} else {
+// 			return nil, fmt.Errorf("failed to create oauth config from the secret: %w", createOauthCfgErr)
+// 		}
+// 	}
+
+// 	if foundDefaultOauthConfig {
+// 		lg.V(logs.DebugLevel).Info("using default oauth config")
+// 		oauthCfg.ClientID = defaultOauthConfig.Config.Oauth2Config.ClientID
+// 		oauthCfg.ClientSecret = defaultOauthConfig.Config.Oauth2Config.ClientSecret
+// 		return oauthCfg, nil
+// 	}
+
+// 	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
+// }
 
 func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
 	secretList := &corev1.SecretList{}
@@ -168,7 +270,7 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	return allBaseUrls, nil
 }
 
-func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {
+func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, serviceProviderConfigurations []config.ServiceProviderConfiguration) ServiceProvider {
 	probe := initializer.Probe
 	ctor := initializer.Constructor
 	if probe == nil || ctor == nil {
@@ -176,9 +278,9 @@ func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl str
 	}
 
 	baseUrl := ""
-	for _, providerBaseUrl := range baseUrlsForProvider {
+	for _, spConfig := range serviceProviderConfigurations {
 		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
-		baseUrlTrimmed := strings.TrimPrefix(providerBaseUrl, "https://")
+		baseUrlTrimmed := strings.TrimPrefix(spConfig.ServiceProviderBaseUrl, "https://")
 		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
 			baseUrl = "https://" + baseUrlTrimmed
 			break
