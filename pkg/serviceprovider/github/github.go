@@ -58,6 +58,18 @@ type Github struct {
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
 	downloadFileCapability downloadFileCapability
+	oauthCapability        serviceprovider.OAuthCapability
+}
+
+type GithubOauthCapability struct {
+}
+
+func (g *GithubOauthCapability) GetOAuthEndpoint() string {
+	return ""
+}
+
+func (g *GithubOauthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
+	return []string{""}
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -66,7 +78,7 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
@@ -74,6 +86,8 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		tokenStorage: factory.TokenStorage,
 		httpClient:   factory.HttpClient,
 	}
+	// var oauth serviceprovider.OAuthCapability
+
 	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
@@ -94,6 +108,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
 		},
+		//oauthCapability: , // TODO how to get oauth capability here?
 	}
 
 	return github, nil
@@ -114,7 +129,7 @@ func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapabil
 }
 
 func (g *Github) GetOAuthCapability() serviceprovider.OAuthCapability {
-	panic("not implemented")
+	return g.oauthCapability
 }
 
 func (g *Github) GetType() api.ServiceProviderType {

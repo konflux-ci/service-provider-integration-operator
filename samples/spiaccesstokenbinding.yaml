@@ -10,7 +10,7 @@ spec:
         area: repository
       - type: r
         area: webhooks
-  repoUrl: https://github.com/revapi/revapi
+  repoUrl: https://github.com/sparkoo/service-provider-integration-operator
   lifetime: "-1"
   secret:
     name: token-secret

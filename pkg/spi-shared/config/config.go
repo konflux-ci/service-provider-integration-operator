@@ -16,6 +16,7 @@ package config
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -119,6 +120,8 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
 			Extra:                  sp.Extra,
 		}
+
+		// for saas service providers, we fill in base url if it is not provided by config file
 		if sp.ServiceProviderBaseUrl == "" {
 			for _, spDefault := range SupportedServiceProvidersDefaults {
 				if spDefault.SpType == sp.ServiceProviderType {
@@ -130,8 +133,27 @@ func (c persistedConfiguration) convert() SharedConfiguration {
 		if sp.ClientId != "" && sp.ClientSecret != "" {
 			newSp.Oauth2Config = &oauth2.Config{ClientID: sp.ClientId, ClientSecret: sp.ClientSecret}
 		}
+		log.Printf("adding sp configuration %+v from %+v", newSp, sp)
 		conf.ServiceProviders = append(conf.ServiceProviders, newSp)
 	}
+
+	// if some supported serviceprovider is not explicitly set in config file, we include it with default values without oauth set
+	for _, spDefault := range SupportedServiceProvidersDefaults {
+		alreadyConfigured := false
+		for _, alreadyConfiguredSp := range conf.ServiceProviders {
+			if alreadyConfiguredSp.ServiceProviderType == spDefault.SpType && alreadyConfiguredSp.ServiceProviderBaseUrl == spDefault.UrlHost {
+				alreadyConfigured = true
+				break
+			}
+		}
+		if !alreadyConfigured {
+			conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
+				ServiceProviderType:    spDefault.SpType,
+				ServiceProviderBaseUrl: spDefault.UrlHost,
+			})
+		}
+	}
+
 	return conf
 }
 

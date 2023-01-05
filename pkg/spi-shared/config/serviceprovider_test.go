@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/serviceprovider"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +27,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 	t.Run("no secrets", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -49,7 +48,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -70,7 +69,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -91,7 +90,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -106,7 +105,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				}, "nenene", fmt.Errorf("test err"))
 			}}).Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -118,7 +117,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewBadRequest("nenenene")
 			}}).Build()
 
-		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, serviceprovider.GithubSaasHost, ServiceProviderTypeGitHub)
+		found, secret, err := FindServiceProviderConfigSecret(ctx, cl, secretNamespace, GithubSaasHost, ServiceProviderTypeGitHub)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)

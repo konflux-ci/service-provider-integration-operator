@@ -94,11 +94,14 @@ type Factory struct {
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
+	lg.Info("try to create sp from", "repoUrl", repoUrl)
 
 	serviceProvidersConfigurations, err := f.getServiceProviderConfigurations(ctx, repoUrl, namespace)
 	if err != nil {
 		return nil, err
 	}
+
+	lg.Info("found", "sp configs", serviceProvidersConfigurations)
 
 	for _, spc := range f.Configuration.ServiceProviders {
 		initializer, ok := f.Initializers[spc.ServiceProviderType]
@@ -151,8 +154,6 @@ func (f *Factory) getServiceProviderConfigurations(ctx context.Context, repoUrl 
 				spTypeConfigurations = append(spTypeConfigurations, sp)
 			}
 		}
-
-		// finally we add default configs
 
 		foundConfigurations[spDefault.SpType] = spTypeConfigurations
 	}
