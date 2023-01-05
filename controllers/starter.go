@@ -89,14 +89,14 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
-	// Setup tokenUpload controller if configured
-	// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
-	notifyingStorage := tokenstorage.NotifyingTokenStorage{
-		Client:       mgr.GetClient(),
-		TokenStorage: ts,
-	}
-
 	if cfg.EnableTokenUpload {
+		// Setup tokenUpload controller if configured
+		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
+		notifyingStorage := tokenstorage.NotifyingTokenStorage{
+			Client:       mgr.GetClient(),
+			TokenStorage: ts,
+		}
+
 		if err = (&TokenUploadReconciler{
 			Client:       mgr.GetClient(),
 			Scheme:       mgr.GetScheme(),

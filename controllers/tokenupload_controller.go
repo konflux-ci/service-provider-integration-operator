@@ -185,17 +185,19 @@ func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUplo
 
 	tryDeleteEvent(ctx, secret.Name, secret.Namespace, r, lg)
 
-	secretErrEvent := &corev1.Event{}
-	secretErrEvent.Name = secret.Name
-	secretErrEvent.Message = err.Error()
-	secretErrEvent.Namespace = secret.Namespace
-	secretErrEvent.Reason = "Can not upload access token"
-	secretErrEvent.InvolvedObject = corev1.ObjectReference{Namespace: secret.Namespace, Name: secret.Name, Kind: secret.Kind, APIVersion: secret.APIVersion}
-	secretErrEvent.Type = "Error"
-	secretErrEvent.LastTimestamp = metav1.NewTime(time.Now())
+	secretErrEvent := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		},
+		Message:        err.Error(),
+		Reason:         "Can not upload access token",
+		InvolvedObject: corev1.ObjectReference{Namespace: secret.Namespace, Name: secret.Name, Kind: secret.Kind, APIVersion: secret.APIVersion},
+		Type:           "Error",
+		LastTimestamp:  metav1.NewTime(time.Now()),
+	}
 
 	err = r.Create(ctx, secretErrEvent)
-
 	if err != nil {
 		lg.Error(err, "Event creation failed for Secret: ", "secret.name", secret.Name)
 	}
