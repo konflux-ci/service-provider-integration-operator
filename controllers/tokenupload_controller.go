@@ -224,7 +224,6 @@ func findTokenByUrl(ctx context.Context, url string, ns string, r *TokenUploadRe
 	}
 
 	for _, token := range tokenList.Items {
-
 		if token.Spec.ServiceProviderUrl == url {
 			return &token
 		}
