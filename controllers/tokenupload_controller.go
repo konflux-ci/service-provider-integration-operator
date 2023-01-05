@@ -45,7 +45,7 @@ import (
 const (
 	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
 	spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"    //#nosec G101 -- false positive, this is not a token
-	providerUrlLabel  = "spi.appstudio.redhat.com/providerUrl"
+	providerUrlField  = "providerUrl"
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
@@ -97,25 +97,15 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 			// spiTokenName field is empty
 			// check providerUrl field and if not empty - try to find the token for this provider instance
-		} else if uploadSecret.Labels[providerUrlLabel] != "" {
-			providerUrl := uploadSecret.Labels[providerUrlLabel]
+		} else if string(uploadSecret.Data[providerUrlField]) != "" {
+			providerUrl := string(uploadSecret.Data[providerUrlField])
 			// NOTE: it does not fit advanced policy of matching token!
 			// Do we need it as an SPI "API function" which take into account this policy?
 			tkn := findTokenByUrl(ctx, providerUrl, uploadSecret.Namespace, r, lg)
 			// create new SPIAccessToken if there are no for such provider instance (URL)
 			if tkn == nil {
 
-				lg.V(logs.DebugLevel).Info("can not find SPI access token trying to create new one")
-				accessToken = spi.SPIAccessToken{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "generated-spi-access-token-",
-						Namespace:    uploadSecret.Namespace,
-					},
-					Spec: spi.SPIAccessTokenSpec{
-						ServiceProviderUrl: providerUrl,
-					},
-				}
-				err = r.Create(ctx, &accessToken)
+				accessToken, err = createSpiAccessToken(ctx, uploadSecret.Namespace, r, providerUrl, lg)
 				if err != nil {
 					logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token for %s: %w", providerUrl, err), r, lg)
 					continue
@@ -126,11 +116,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				}
 			} else {
 				accessToken = *tkn
-				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : " + accessToken.Name + " nothing changed.")
+				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : " + accessToken.Name)
 			}
 
 		} else {
-			logError(ctx, uploadSecret, fmt.Errorf("secret is invalid, it is labeled with %s but neither %s nor %s label provided: %w", tokenSecretLabel, spiTokenNameLabel, providerUrlLabel, err), r, lg)
+			logError(ctx, uploadSecret, fmt.Errorf("secret is invalid, it is labeled with %s but neither %s nor %s field provided: %w", tokenSecretLabel, spiTokenNameLabel, providerUrlField, err), r, lg)
 			continue
 		}
 
@@ -241,4 +231,22 @@ func findTokenByUrl(ctx context.Context, url string, ns string, r *TokenUploadRe
 		}
 	}
 	return nil
+}
+
+func createSpiAccessToken(ctx context.Context, ns string, r *TokenUploadReconciler, providerUrl string, lg logr.Logger) (spi.SPIAccessToken, error) {
+
+	lg.V(logs.DebugLevel).Info("can not find SPI access token trying to create new one")
+
+	accessToken := spi.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "generated-spi-access-token-",
+			Namespace:    ns,
+		},
+		Spec: spi.SPIAccessTokenSpec{
+			ServiceProviderUrl: providerUrl,
+		},
+	}
+	err := r.Create(ctx, &accessToken)
+	return accessToken, err
+
 }

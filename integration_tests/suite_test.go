@@ -162,6 +162,10 @@ var _ = BeforeSuite(func() {
 					ClientSecret:        "testSecret",
 					ServiceProviderType: "TestServiceProvider",
 				},
+				{
+					ServiceProviderBaseUrl: "https://spi-club.org",
+					ServiceProviderType:    "SpiClub",
+				},
 			},
 		},
 		AccessCheckTtl:        10 * time.Second,
