@@ -20,14 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strconv"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
-	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
-
-	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -63,6 +62,10 @@ var metadataFetchMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 var metadataFetchSuccessMetric = metadataFetchMetric.WithLabelValues("false")
 var metadataFetchFailureMetric = metadataFetchMetric.WithLabelValues("true")
 
+func init() {
+	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
+}
+
 func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
 	return metrics.NewValueTimer2[*api.TokenMetadata, error](metrics.ValueObserverFunc2[*api.TokenMetadata, error](func(m *api.TokenMetadata, err error, metric float64) {
 		if err == nil {
@@ -76,10 +79,6 @@ func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
 			metadataFetchFailureMetric.Observe(metric)
 		}
 	}))
-}
-
-func init() {
-	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
 }
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
