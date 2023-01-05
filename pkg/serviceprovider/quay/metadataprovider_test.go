@@ -53,13 +53,13 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 			Status: api.SPIAccessTokenStatus{},
 		}
 
-		data, err := mp.Fetch(context.TODO(), &tkn)
+		data, err := mp.Fetch(context.TODO(), &tkn, false)
 
 		assert.NoError(t, err)
 		assert.Nil(t, data)
 	})
 
-	t.Run("initializes state", func(t *testing.T) {
+	t.Run("handles state", func(t *testing.T) {
 		test := func(t *testing.T, ts tokenstorage.TokenStorage, expectedUsername string) {
 			mp := metadataProvider{
 				tokenStorage: ts,
@@ -70,7 +70,13 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 				Status: api.SPIAccessTokenStatus{},
 			}
 
-			data, err := mp.Fetch(context.TODO(), &tkn)
+			data, err := mp.Fetch(context.TODO(), &tkn, false)
+			assert.NoError(t, err)
+			assert.NotNil(t, data)
+			assert.Equal(t, expectedUsername, data.Username)
+			assert.Nil(t, data.ServiceProviderState)
+
+			data, err = mp.Fetch(context.TODO(), &tkn, true)
 
 			assert.NoError(t, err)
 			assert.NotNil(t, data)

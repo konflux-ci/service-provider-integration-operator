@@ -39,7 +39,11 @@ func TestMetadataCache_Refresh(t *testing.T) {
 			Status: api.SPIAccessTokenStatus{},
 		}
 
-		mc := NewMetadataCache(nil, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Second})
+		mc := MetadataCache{
+			Client:                    nil,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Second},
+			CacheServiceProviderState: true,
+		}
 		mc.refresh(tkn)
 
 		assert.Nil(t, tkn.Status.TokenMetadata)
@@ -60,7 +64,11 @@ func TestMetadataCache_Refresh(t *testing.T) {
 			},
 		}
 
-		mc := NewMetadataCache(nil, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+		mc := MetadataCache{
+			Client:                    nil,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
 		mc.refresh(tkn)
 		// assert that we ran sufficiently quickly for the test to have a chance to pass
 		assert.True(t, time.Now().Before(lastRefresh.Add(1*time.Hour)), "the test ran too slow")
@@ -84,7 +92,11 @@ func TestMetadataCache_Refresh(t *testing.T) {
 			},
 		}
 
-		mc := NewMetadataCache(nil, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+		mc := MetadataCache{
+			Client:                    nil,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
 		mc.refresh(tkn)
 
 		assert.Nil(t, tkn.Status.TokenMetadata)
@@ -107,7 +119,11 @@ func TestMetadataCache_Persist(t *testing.T) {
 		token := &api.SPIAccessToken{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "test-token", Namespace: "default"}, token))
 
-		mc := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+		mc := MetadataCache{
+			Client:                    cl,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
 		assert.NoError(t, mc.Persist(context.TODO(), token))
 		assert.Nil(t, token.Status.TokenMetadata)
 	})
@@ -120,7 +136,11 @@ func TestMetadataCache_Persist(t *testing.T) {
 			LastRefreshTime: lastRefresh,
 		}
 
-		mc := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+		mc := MetadataCache{
+			Client:                    cl,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
 		assert.NoError(t, mc.Persist(context.TODO(), token))
 
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "test-token", Namespace: "default"}, token))
@@ -150,8 +170,12 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		}
 		assert.NoError(t, cl.Create(context.TODO(), token))
 
-		mc := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
-		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+		mc := MetadataCache{
+			Client:                    cl,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(_ context.Context, _ *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 			return &api.TokenMetadata{
 				UserId: "42",
 			}, nil
@@ -181,8 +205,12 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		}
 		assert.NoError(t, cl.Create(context.TODO(), token))
 
-		mc := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
-		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+		mc := MetadataCache{
+			Client:                    cl,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(_ context.Context, _ *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 			return &api.TokenMetadata{
 				UserId: "42",
 			}, nil
@@ -212,8 +240,12 @@ func TestMetadataCache_Ensure(t *testing.T) {
 		}
 		assert.NoError(t, cl.Create(context.TODO(), token))
 
-		mc := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
-		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+		mc := MetadataCache{
+			Client:                    cl,
+			ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+			CacheServiceProviderState: true,
+		}
+		err := mc.Ensure(context.TODO(), token, MetadataProviderFunc(func(_ context.Context, _ *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 			return nil, nil
 		}))
 		assert.NoError(t, err)

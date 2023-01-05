@@ -70,7 +70,7 @@ const quayApiUrlBase = quayUrlBase + "/api/v1"
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
-	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
+	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	mp := &metadataProvider{
 		tokenStorage:     factory.TokenStorage,
 		httpClient:       factory.HttpClient,
@@ -308,11 +308,13 @@ func (q *Quay) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding,
 		return serviceprovider.AccessTokenMapper{}, nil
 	}
 
-	allScopes := make([]Scope, 0, 2)
-	if repoMetadata != nil {
-		allScopes = append(allScopes, repoMetadata.Repository.PossessedScopes...)
-		allScopes = append(allScopes, repoMetadata.Organization.PossessedScopes...)
+	if repoMetadata == nil {
+		return mapper, nil
 	}
+
+	allScopes := make([]Scope, 0, 2)
+	allScopes = append(allScopes, repoMetadata.Repository.PossessedScopes...)
+	allScopes = append(allScopes, repoMetadata.Organization.PossessedScopes...)
 
 	scopeStrings := make([]string, len(allScopes))
 	for i, s := range allScopes {

@@ -332,7 +332,11 @@ func TestValidate(t *testing.T) {
 }
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
+	metadataCache := serviceprovider.MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
+		CacheServiceProviderState: true,
+	}
 	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
