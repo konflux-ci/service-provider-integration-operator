@@ -19,12 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
-	"net/http"
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
-	"strconv"
 
 	"github.com/hashicorp/go-retryablehttp"
 
