@@ -19,7 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 	"net/http"
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strconv"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -47,8 +51,37 @@ const gitlabPatInfoPath = "personal_access_tokens/self"
 
 var gitlabNonOkError = errors.New("GitLab responded with non-ok status code")
 
+var metadataFetchMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Namespace: config.MetricsNamespace,
+	Subsystem: config.MetricsSubsystem,
+	Name:      "gitlab_token_metadata_fetch_seconds",
+	Help:      "The overall time to fetch the metadata for a single repository",
+}, []string{"failure"})
+
+// pre-create the individual metrics for each label value for perf reasons
+var metadataFetchSuccessMetric = metadataFetchMetric.WithLabelValues("false")
+var metadataFetchFailureMetric = metadataFetchMetric.WithLabelValues("true")
+
+func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
+	return metrics.NewValueTimer2[*api.TokenMetadata, error](metrics.ValueObserverFunc2[*api.TokenMetadata, error](func(m *api.TokenMetadata, err error, metric float64) {
+		if err == nil {
+			if m != nil {
+				// only collect the success if there was any metadata actually fetched. If there was no error and no
+				// metadata fetched, there must have been no token therefore it makes no sense to even talk about
+				// metadata fetching.
+				metadataFetchSuccessMetric.Observe(metric)
+			}
+		} else {
+			metadataFetchFailureMetric.Observe(metric)
+		}
+	}))
+}
+
+func init() {
+	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
+}
+
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
@@ -57,6 +90,13 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	if data == nil {
 		return nil, nil
 	}
+
+	timer := metadataFetchTimer()
+	return timer.ObserveValuesAndDuration(p.doFetch(ctx, token))
+}
+
+func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
 	state := &TokenState{}
 

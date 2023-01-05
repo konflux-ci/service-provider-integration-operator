@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"net/http"
 	"strings"
 
@@ -41,6 +43,9 @@ var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
 var probeNotImplementedError = errors.New("gitLab probe not implemented")
+
+var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_public_repo")
+var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_single_repo")
 
 // Temp
 var notGitlabUrlError = errors.New("not a gitlab repository url")
@@ -183,6 +188,7 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 		return status, nil
 	}
 
+	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
 	lg := log.FromContext(ctx)
 
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
@@ -238,6 +244,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 }
 
 func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
+	ctx = httptransport.ContextWithMetrics(ctx, publicRepoMetricConfig)
 	lg := log.FromContext(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, accessCheck.Spec.RepoUrl, nil)
 	if err != nil {
