@@ -39,7 +39,7 @@ var _ = Describe("TokenUploadController", func() {
 						ServiceProviderState: []byte("state"),
 					})
 
-					//ITest.OperatorConfiguration.EnableTokenUpload = true
+					ITest.OperatorConfiguration.EnableTokenUpload = true
 				},
 			},
 		}
@@ -52,7 +52,7 @@ var _ = Describe("TokenUploadController", func() {
 			testSetup.AfterEach()
 		})
 
-		It("updateи the SPIAccessToken status", func() {
+		It("updates the SPIAccessToken status", func() {
 
 			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
 			testSetup.ReconcileWithCluster(func(g Gomega) {

@@ -112,11 +112,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				} else {
 					// this is the only place where we can get the name of just created SPIAccessToken
 					// which is presumably OK since SPI (binding) controller will look for the token by type/URL ?
-					lg.V(logs.DebugLevel).Info("SPI Access Token created : " + accessToken.Name)
+					lg.V(logs.DebugLevel).Info("SPI Access Token created : ", "SPIAccessTokenName.name", accessToken.Name)
 				}
 			} else {
 				accessToken = *tkn
-				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : " + accessToken.Name)
+				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : ", "SPIAccessTokenName.name", accessToken.Name)
 			}
 
 		} else {
@@ -197,7 +197,7 @@ func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUplo
 	err = r.Create(ctx, secretErrEvent)
 
 	if err != nil {
-		lg.Error(err, "Event creation failed for Secret: "+secret.Name)
+		lg.Error(err, "Event creation failed for Secret: ", "secret.name", secret.Name)
 	}
 
 }
@@ -207,7 +207,7 @@ func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenU
 	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: ns}, stored)
 
 	if err == nil {
-		lg.V(logs.DebugLevel).Info("event Found and will be deleted: " + stored.Name)
+		lg.V(logs.DebugLevel).Info("event Found and will be deleted: ", "event.name", stored.Name)
 		err = r.Delete(ctx, stored)
 		if err != nil {
 			lg.Error(err, " can not delete Event ")
@@ -247,6 +247,6 @@ func createSpiAccessToken(ctx context.Context, ns string, r *TokenUploadReconcil
 		},
 	}
 	err := r.Create(ctx, &accessToken)
-	return accessToken, err
+	return accessToken, fmt.Errorf("can not create SPIAccessToken: %w", err)
 
 }
