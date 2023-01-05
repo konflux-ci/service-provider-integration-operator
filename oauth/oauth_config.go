@@ -103,7 +103,7 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNames
 			lg.Info("not enough permissions to list the secrets")
 			return false, nil, nil
 		} else if kuberrors.IsUnauthorized(listErr) {
-			lg.Info("request is not authorized to list the secrets")
+			lg.Info("request is not authorized to list the secrets in user's namespace")
 			return false, nil, nil
 		} else {
 			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
