@@ -162,6 +162,76 @@ func TestFromRepoUrl(t *testing.T) {
 	assert.Equal(t, mockSP, sp)
 }
 
+func TestGetAllServiceProviderConfigs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(v1.AddToScheme(scheme))
+	ctx := context.TODO()
+
+	secretNamespace := "test-namespace"
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithLists(&v1.SecretList{
+		Items: []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-different-namespace",
+					Namespace: "different-namespace",
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderHostLabel: "should.not.be.found",
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-missing-host-label",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						api.ServiceProviderHostLabel: "should.not.be.found",
+					},
+				},
+			}, {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-quay",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
+						api.ServiceProviderHostLabel: "quay.secret.url",
+					},
+				},
+			},
+		},
+	}).Build()
+
+	factory := Factory{
+		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
+			ServiceProviders: []config.ServiceProviderConfiguration{{
+				ServiceProviderType: "GitHub",
+			}, {
+				ServiceProviderType: "Quay",
+			}, {
+				ServiceProviderType: "GitLab",
+			}, {
+				ServiceProviderType:    "GitLab",
+				ServiceProviderBaseUrl: "https://some.gitlab.url",
+			}},
+		}},
+		KubernetesClient: cl,
+		HttpClient:       nil,
+		Initializers:     nil,
+		TokenStorage:     nil,
+	}
+
+	//when
+	allConfigs, err := factory.GetAllServiceProviderConfigs(ctx, secretNamespace)
+
+	//then
+	assert.NoError(t, err)
+	assert.Len(t, allConfigs, 5)
+	for spType, url := range KnownSaasUrls() {
+		assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: spType, ServiceProviderBaseUrl: url})
+	}
+	assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: config.ServiceProviderTypeQuay, ServiceProviderBaseUrl: "quay.secret.url"})
+	assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: config.ServiceProviderTypeGitLab, ServiceProviderBaseUrl: "https://some.gitlab.url"})
+}
+
 func TestGetBaseUrlsFromConfigs(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1.AddToScheme(scheme))
@@ -209,9 +279,16 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 			},
 		},
 	}).Build()
+
 	factory := Factory{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{{
+				ServiceProviderType: "GitHub",
+			}, {
+				ServiceProviderType: "Quay",
+			}, {
+				ServiceProviderType: "GitLab",
+			}, {
 				ServiceProviderType:    "GitHub",
 				ServiceProviderBaseUrl: "https://some.github.url",
 			}, {
@@ -239,9 +316,10 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 		assert.Contains(t, urls, "https://some."+strings.ToLower(string(providerType))+".url")
 		assert.Contains(t, urls, strings.ToLower(string(providerType))+".secret.url")
 	}
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub], PUBLIC_GITHUB_URL)
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay], PUBLIC_QUAY_URL)
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab], PUBLIC_GITLAB_URL)
+
+	for spType, url := range KnownSaasUrls() {
+		assert.Contains(t, baseUrls[spType], url)
+	}
 }
 
 func TestInitializeServiceProvider(t *testing.T) {

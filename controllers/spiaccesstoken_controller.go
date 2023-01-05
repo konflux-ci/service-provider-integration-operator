@@ -58,7 +58,7 @@ const tokenRefreshLabelName = "spi.appstudio.redhat.com/token-refresh"     //#no
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
-	noCredentialsFoundError   = stderrors.New("no service provider found for given token")
+	noCredentialsFoundError   = stderrors.New("no oauth credentials found for given token")
 	refreshNotSupportedError  = stderrors.New("does not support token refreshing")
 )
 
@@ -343,9 +343,21 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)
 	}
 
-	clientId, clientSecret, err := r.findCredentialsForToken(ctx, at)
+	configs, err := r.ServiceProviderFactory.GetAllServiceProviderConfigs(ctx, at.Namespace)
 	if err != nil {
-		return fmt.Errorf("unable to find credentials for SPIAccessToken: %w", err)
+		return fmt.Errorf("failed to get all known service provider configurations: %w", err)
+	}
+
+	var clientId, clientSecret string
+	for _, conf := range configs {
+		if strings.TrimPrefix(conf.ServiceProviderBaseUrl, "https://") == strings.TrimPrefix(at.Spec.ServiceProviderUrl, "https://") {
+			clientId = conf.ClientId
+			clientSecret = conf.ClientSecret
+			break
+		}
+	}
+	if clientId == "" || clientSecret == "" {
+		return noCredentialsFoundError
 	}
 
 	refreshableSP, ok := sp.(serviceprovider.RefreshableTokenServiceProvider)
@@ -353,7 +365,6 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("%s service provider: %w", sp.GetType(), refreshNotSupportedError)
 	}
 
-	lg.Info("credentials found, proceeding to token refresh...")
 	refreshedToken, err := refreshableSP.RefreshToken(ctx, token, clientId, clientSecret)
 	if err != nil {
 		return fmt.Errorf("unable to refresh token: %w", err)
@@ -362,23 +373,9 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 	if err := r.TokenStorage.Store(ctx, at, refreshedToken); err != nil {
 		return fmt.Errorf("unable to store refresh token: %w", err)
 	}
-	lg.Info("token refreshed successfully...")
 
+	lg.Info("token refreshed successfully", "SPIAccessToken", at)
 	return nil
-}
-
-func (r *SPIAccessTokenReconciler) findCredentialsForToken(ctx context.Context, at *api.SPIAccessToken) (string, string, error) {
-	configs, err := r.ServiceProviderFactory.GetAllServiceProviderConfigs(ctx, at.Namespace)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get all known service provider configurations: %w", err)
-	}
-
-	for _, conf := range configs {
-		if strings.TrimPrefix(conf.ServiceProviderBaseUrl, "https://") == strings.TrimPrefix(at.Spec.ServiceProviderUrl, "https://") {
-			return conf.ClientId, conf.ClientSecret, nil
-		}
-	}
-	return "", "", noCredentialsFoundError
 }
 
 type linkedBindingsFinalizer struct {

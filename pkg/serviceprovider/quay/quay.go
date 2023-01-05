@@ -61,7 +61,6 @@ var Initializer = serviceprovider.Initializer{
 	Probe:                        quayProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
 	SupportsManualUploadOnlyMode: true,
-	SaasBaseUrl:                  quayUrlBase,
 }
 
 const quayUrlBaseHost = "quay.io"

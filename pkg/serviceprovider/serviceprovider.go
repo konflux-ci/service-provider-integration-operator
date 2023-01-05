@@ -34,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const PUBLIC_GITHUB_URL = "https://github.com"
-const PUBLIC_QUAY_URL = "https://quay.io"
-const PUBLIC_GITLAB_URL = "https://gitlab.com"
-
 // ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
 	// LookupToken tries to match an SPIAccessToken object with the requirements expressed in the provided binding.
@@ -145,37 +141,14 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	return hostCredentialProvider, nil
 }
 
-// TODO: replace with GetAllServiceProviderConfigs
-func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
-	secretList := &corev1.SecretList{}
-	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
-		api.ServiceProviderTypeLabel,
-	})
-	if listErr != nil {
-		return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+// KnownSaasUrls represents immutable map to translate SAAS URLs from service provider names
+// TODO: It should be replaced by a proper solution that can be shared among oauth service and operator
+func KnownSaasUrls() map[config.ServiceProviderType]string {
+	return map[config.ServiceProviderType]string{
+		config.ServiceProviderTypeGitHub: "https://github.com",
+		config.ServiceProviderTypeGitLab: "https://gitlab.com",
+		config.ServiceProviderTypeQuay:   "https://quay.io",
 	}
-
-	// We need to add all known service provider urls as they might not be filled out in shared config.
-	// In case they are, adding them does not cause an issue.
-	allBaseUrls := make(map[config.ServiceProviderType][]string)
-	allBaseUrls[config.ServiceProviderTypeGitHub] = []string{PUBLIC_GITHUB_URL}
-	allBaseUrls[config.ServiceProviderTypeQuay] = []string{PUBLIC_QUAY_URL}
-	allBaseUrls[config.ServiceProviderTypeGitLab] = []string{PUBLIC_GITLAB_URL}
-
-	for _, spConfig := range f.Configuration.SharedConfiguration.ServiceProviders {
-		if spConfig.ServiceProviderBaseUrl != "" {
-			allBaseUrls[spConfig.ServiceProviderType] = append(allBaseUrls[spConfig.ServiceProviderType], spConfig.ServiceProviderBaseUrl)
-		}
-	}
-
-	for _, secret := range secretList.Items {
-		if baseUrl, hasLabel := secret.ObjectMeta.Labels[api.ServiceProviderHostLabel]; hasLabel {
-			spType := config.ServiceProviderType(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel])
-			allBaseUrls[spType] = append(allBaseUrls[spType], baseUrl)
-		}
-	}
-
-	return allBaseUrls, nil
 }
 
 func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace string) ([]config.ServiceProviderConfiguration, error) {
@@ -184,7 +157,7 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 
 	for i, spConfig := range configurations {
 		if spConfig.ServiceProviderBaseUrl == "" {
-			configurations[i].ServiceProviderBaseUrl = f.Initializers[spConfig.ServiceProviderType].SaasBaseUrl
+			configurations[i].ServiceProviderBaseUrl = KnownSaasUrls()[spConfig.ServiceProviderType]
 		}
 	}
 
@@ -205,6 +178,20 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 		configurations = append(configurations, conf) // nozero -- we are copying elements before appending to this slice
 	}
 	return configurations, nil
+}
+
+func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderType][]string, error) {
+	allConfigs, err := f.GetAllServiceProviderConfigs(ctx, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to group all known service provider configurations: %w", err)
+	}
+
+	allBaseUrls := make(map[config.ServiceProviderType][]string)
+	for _, spConfig := range allConfigs {
+		allBaseUrls[spConfig.ServiceProviderType] = append(allBaseUrls[spConfig.ServiceProviderType], spConfig.ServiceProviderBaseUrl)
+	}
+
+	return allBaseUrls, nil
 }
 
 func (f *Factory) initializeServiceProvider(initializer Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {

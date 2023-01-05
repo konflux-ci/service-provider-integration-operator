@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var nonOkResponseError = errors.New("GitLab responded with non-ok status")
 var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
@@ -86,6 +87,11 @@ func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId str
 		}
 	}()
 
+	if resp.StatusCode != http.StatusOK {
+		lg.Error(nonOkResponseError, "status code", resp.StatusCode)
+		return nil, nonOkResponseError
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body of refresh token response: %w", err)
@@ -119,7 +125,6 @@ var Initializer = serviceprovider.Initializer{
 	Probe:                        gitlabProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newGitlab),
 	SupportsManualUploadOnlyMode: true,
-	SaasBaseUrl:                  "https://gitlab.com",
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {

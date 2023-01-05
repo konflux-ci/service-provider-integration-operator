@@ -58,7 +58,6 @@ var Initializer = serviceprovider.Initializer{
 	Probe:                        githubProbe{},
 	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
 	SupportsManualUploadOnlyMode: true,
-	SaasBaseUrl:                  "https://github.com",
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
@@ -97,7 +96,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetBaseUrl() string {
-	return Initializer.SaasBaseUrl
+	return "https://github.com"
 }
 
 func (g *Github) GetOAuthEndpoint() string {
@@ -290,8 +289,9 @@ type githubProbe struct{}
 var _ serviceprovider.Probe = (*githubProbe)(nil)
 
 func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, Initializer.SaasBaseUrl) {
-		return Initializer.SaasBaseUrl, nil
+	if strings.HasPrefix(url, "https://github.com") {
+		return "https://github.com", nil
+	} else {
+		return "", nil
 	}
-	return "", nil
 }

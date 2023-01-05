@@ -45,7 +45,6 @@ type Initializer struct {
 	Probe                        Probe
 	Constructor                  Constructor
 	SupportsManualUploadOnlyMode bool
-	SaasBaseUrl                  string
 }
 
 // implementation guards
