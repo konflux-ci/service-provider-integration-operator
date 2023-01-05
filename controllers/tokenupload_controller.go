@@ -218,8 +218,7 @@ func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenU
 func findTokenByUrl(ctx context.Context, url string, ns string, r *TokenUploadReconciler, lg logr.Logger) *spi.SPIAccessToken {
 
 	tokenList := spi.SPIAccessTokenList{}
-	err := r.List(ctx, &tokenList, client.InNamespace(ns))
-	if err != nil {
+	if err := r.List(ctx, &tokenList, client.InNamespace(ns)); err != nil {
 		lg.Error(err, "Can not get tokenList of tokens ")
 		return nil
 	}
