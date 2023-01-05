@@ -20,8 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strconv"
+
+	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/prometheus/client_golang/prometheus"
