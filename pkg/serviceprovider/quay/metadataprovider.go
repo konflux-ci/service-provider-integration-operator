@@ -19,9 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"net/http"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
