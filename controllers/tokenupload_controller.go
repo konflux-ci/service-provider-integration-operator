@@ -248,5 +248,4 @@ func createSpiAccessToken(ctx context.Context, ns string, r *TokenUploadReconcil
 	}
 	err := r.Create(ctx, &accessToken)
 	return accessToken, fmt.Errorf("can not create SPIAccessToken: %w", err)
-
 }
