@@ -17,6 +17,7 @@ package controllers
 import (
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,7 +28,7 @@ func TestValidateServiceProviderUrl(t *testing.T) {
 	assert.ErrorContains(t, validateServiceProviderUrl("://invalid"), "not parsable")
 	assert.ErrorContains(t, validateServiceProviderUrl("https://rick:mory"), "not parsable")
 
-	assert.NoError(t, validateServiceProviderUrl("https://github.com"))
-	assert.NoError(t, validateServiceProviderUrl("https://quay.io"))
+	assert.NoError(t, validateServiceProviderUrl(config.GithubSaasBaseUrl))
+	assert.NoError(t, validateServiceProviderUrl(config.QuaySaasBaseUrl))
 	assert.NoError(t, validateServiceProviderUrl("http://random.ogre"))
 }

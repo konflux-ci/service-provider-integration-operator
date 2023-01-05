@@ -34,10 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const PUBLIC_GITHUB_URL = "https://github.com"
-const PUBLIC_QUAY_URL = "https://quay.io"
-const PUBLIC_GITLAB_URL = "https://gitlab.com"
-
 // ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
 	// LookupToken tries to match an SPIAccessToken object with the requirements expressed in the provided binding.
@@ -148,9 +144,9 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	// We need to add all known service provider urls as they might not be filled out in shared config.
 	// In case they are, adding them does not cause an issue.
 	allBaseUrls := make(map[config.ServiceProviderType][]string)
-	allBaseUrls[config.ServiceProviderTypeGitHub] = []string{PUBLIC_GITHUB_URL}
-	allBaseUrls[config.ServiceProviderTypeQuay] = []string{PUBLIC_QUAY_URL}
-	allBaseUrls[config.ServiceProviderTypeGitLab] = []string{PUBLIC_GITLAB_URL}
+	for _, spDefault := range config.SupportedServiceProvidersDefaults {
+		allBaseUrls[spDefault.SpType] = []string{spDefault.BaseUrl}
+	}
 
 	for _, spConfig := range f.Configuration.SharedConfiguration.ServiceProviders {
 		if spConfig.ServiceProviderBaseUrl != "" {

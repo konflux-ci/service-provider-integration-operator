@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const testValidRepoUrl = "https://quay.io/repository/redhat-appstudio/service-provider-integration-operator"
+const testValidRepoUrl = config.QuaySaasBaseUrl + "/repository/redhat-appstudio/service-provider-integration-operator"
 
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
@@ -59,7 +59,7 @@ func TestQuayProbe_Examine(t *testing.T) {
 		baseUrl, err := probe.Examine(nil, url)
 		expectedBaseUrl := ""
 		if expectedMatch {
-			expectedBaseUrl = "https://quay.io"
+			expectedBaseUrl = config.QuaySaasBaseUrl
 		}
 
 		assert.NoError(t, err)
@@ -323,11 +323,11 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeQuay),
-				api.ServiceProviderHostLabel: "quay.io",
+				api.ServiceProviderHostLabel: config.QuaySaasHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: quayUrlBase,
+			ServiceProviderUrl: config.QuaySaasBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -503,7 +503,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	t.Run("bad repo url", func(t *testing.T) {
 		quay := &Quay{}
 
-		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "https://quay.io"}})
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: config.QuaySaasBaseUrl}})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, status)

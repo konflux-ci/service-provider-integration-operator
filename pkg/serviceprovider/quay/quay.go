@@ -25,6 +25,7 @@ import (
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"k8s.io/client-go/rest"
@@ -63,10 +64,6 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-const quayUrlBaseHost = "quay.io"
-const quayUrlBase = "https://" + quayUrlBaseHost
-const quayApiUrlBase = quayUrlBase + "/api/v1"
-
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
@@ -99,7 +96,7 @@ func (q *Quay) GetOAuthEndpoint() string {
 }
 
 func (q *Quay) GetBaseUrl() string {
-	return quayUrlBase
+	return config.QuaySaasBaseUrl
 }
 
 func (q *Quay) GetType() api.ServiceProviderType {
@@ -273,7 +270,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
 	lg := log.FromContext(ctx)
 
-	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiUrlBase, owner, repository)
+	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", config.QuaySaasApiUrlBase, owner, repository)
 	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, ""); err != nil {
 		lg.Error(err, "failed to request quay.io api for repository info", "url", requestUrl)
 		code := 0
@@ -357,8 +354,8 @@ type quayProbe struct{}
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
 func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, quayUrlBase) || strings.HasPrefix(url, "quay.io") {
-		return quayUrlBase, nil
+	if strings.HasPrefix(url, config.QuaySaasBaseUrl) || strings.HasPrefix(url, config.QuaySaasHost) {
+		return config.QuaySaasBaseUrl, nil
 	} else {
 		return "", nil
 	}

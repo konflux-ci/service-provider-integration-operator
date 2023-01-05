@@ -239,9 +239,9 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 		assert.Contains(t, urls, "https://some."+strings.ToLower(string(providerType))+".url")
 		assert.Contains(t, urls, strings.ToLower(string(providerType))+".secret.url")
 	}
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub], PUBLIC_GITHUB_URL)
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay], PUBLIC_QUAY_URL)
-	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab], PUBLIC_GITLAB_URL)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub], config.GithubSaasBaseUrl)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay], config.QuaySaasBaseUrl)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab], config.GitlabSaasBaseUrl)
 }
 
 func TestInitializeServiceProvider(t *testing.T) {

@@ -31,21 +31,21 @@ import (
 	"golang.org/x/oauth2/github"
 )
 
-var testSpDefaults = []ServiceProviderDefaults{
+var testSpDefaults = []config.ServiceProviderDefaults{
 	{
 		SpType:   config.ServiceProviderTypeGitHub,
 		Endpoint: github.Endpoint,
-		UrlHost:  GithubSaasHost,
+		UrlHost:  config.GithubSaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeQuay,
-		Endpoint: QuayEndpoint,
-		UrlHost:  QuaySaasHost,
+		Endpoint: config.QuayEndpoint,
+		UrlHost:  config.QuaySaasHost,
 	},
 	{
 		SpType:   config.ServiceProviderTypeGitLab,
-		Endpoint: GitlabEndpoint,
-		UrlHost:  GitlabSaasHost,
+		Endpoint: config.GitlabEndpoint,
+		UrlHost:  config.GitlabSaasHost,
 	},
 }
 
@@ -169,16 +169,16 @@ func TestFindController(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Run("fail when request unknown service provider", func(t *testing.T) {
-		spDefaults := []ServiceProviderDefaults{
+		spDefaults := []config.ServiceProviderDefaults{
 			{
 				SpType:   config.ServiceProviderTypeGitHub,
 				Endpoint: github.Endpoint,
-				UrlHost:  GithubSaasHost,
+				UrlHost:  config.GithubSaasHost,
 			},
 			{
 				SpType:   config.ServiceProviderTypeQuay,
-				Endpoint: QuayEndpoint,
-				UrlHost:  QuaySaasHost,
+				Endpoint: config.QuayEndpoint,
+				UrlHost:  config.QuaySaasHost,
 			},
 		}
 

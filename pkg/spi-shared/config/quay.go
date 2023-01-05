@@ -11,16 +11,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package config
 
 import (
 	"golang.org/x/oauth2"
 )
 
+const ServiceProviderTypeQuay ServiceProviderType = "Quay"
+
 // QuayEndpoint is the OAuth endpoints specification of quay.io
 var QuayEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://quay.io/oauth/authorize",
-	TokenURL: "https://quay.io/oauth/access_token",
+	AuthURL:  QuaySaasBaseUrl + "/oauth/authorize",
+	TokenURL: QuaySaasBaseUrl + "/oauth/access_token",
 }
 
-var QuaySaasHost = "quay.io"
+const (
+	QuaySaasHost       = "quay.io"
+	QuaySaasBaseUrl    = "https://" + QuaySaasHost
+	QuaySaasApiUrlBase = QuaySaasBaseUrl + "/api/v1"
+)
