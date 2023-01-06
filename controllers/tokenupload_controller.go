@@ -92,7 +92,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), r, lg)
 				continue
 			} else {
-				lg.V(logs.DebugLevel).Info("SPI Access Token found : " + accessToken.Name)
+				lg.V(logs.DebugLevel).Info("SPI Access Token found : ", "SPIAccessToken.name", accessToken.Name)
 			}
 
 			// spiTokenName field is empty
@@ -112,11 +112,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				} else {
 					// this is the only place where we can get the name of just created SPIAccessToken
 					// which is presumably OK since SPI (binding) controller will look for the token by type/URL ?
-					lg.V(logs.DebugLevel).Info("SPI Access Token created : ", "SPIAccessTokenName.name", accessToken.Name)
+					lg.V(logs.DebugLevel).Info("SPI Access Token created : ", "SPIAccessToken.name", accessToken.Name)
 				}
 			} else {
 				accessToken = *tkn
-				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : ", "SPIAccessTokenName.name", accessToken.Name)
+				lg.V(logs.DebugLevel).Info("SPI Access Token found by providerUrl : ", "SPIAccessToken.name", accessToken.Name)
 			}
 
 		} else {

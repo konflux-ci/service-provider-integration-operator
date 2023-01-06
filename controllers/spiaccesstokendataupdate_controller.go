@@ -96,7 +96,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
 	}
 
-	lg.V(logs.DebugLevel).Info(fmt.Sprintf("token data update deleted: %s", req.Name))
+	lg.V(logs.DebugLevel).Info("token data update deleted: %s", "SPIAccessTokenDataUpdate.name", req.Name)
 
 	objectLifetimeMetric.Observe(time.Since(creationTime.Time).Seconds())
 
