@@ -53,7 +53,7 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
-const tokenRefreshLabelName = "spi.appstudio.redhat.com/token-refresh"     //#nosec G101 -- false positive, just label name, no sensitive data
+const tokenRefreshLabelName = "spi.appstudio.redhat.com/refresh-token"     //#nosec G101 -- false positive, just label name, no sensitive data
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")

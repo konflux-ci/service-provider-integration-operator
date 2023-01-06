@@ -88,7 +88,7 @@ func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId str
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		lg.Error(nonOkResponseError, "status code", resp.StatusCode)
+		lg.Error(nonOkResponseError, "cannot refresh token", "status code", resp.StatusCode)
 		return nil, nonOkResponseError
 	}
 
