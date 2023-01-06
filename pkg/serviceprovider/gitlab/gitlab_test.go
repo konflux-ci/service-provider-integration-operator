@@ -339,20 +339,17 @@ func TestRefreshToken(t *testing.T) {
 	assert.Equal(t, "42", token.AccessToken)
 }
 
-func TestRefreshTokenInvalidResponse(t *testing.T) {
+func TestRefreshTokenError(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusOK, `{"access_token": 42}`, nil, nil)
 
-	_, err := gitlab.RefreshToken(context.TODO(), &api.Token{}, "hello", "world")
+	test := func(gitlabInstance Gitlab, expectedErrorSubstring string) {
+		t.Run(fmt.Sprintf("should return error containing: %s", expectedErrorSubstring), func(t *testing.T) {
+			_, err := gitlabInstance.RefreshToken(context.TODO(), &api.Token{}, "hello", "world")
+			assert.ErrorContains(t, err, expectedErrorSubstring)
+		})
+	}
 
-	assert.ErrorContains(t, err, "failed to unmarshal")
-}
-
-func TestRefreshTokenInvalidStatusCode(t *testing.T) {
-	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusUnauthorized, "", nil, nil)
-
-	_, err := gitlab.RefreshToken(context.TODO(), &api.Token{}, "hello", "world")
-
-	assert.ErrorContains(t, err, "failed to unmarshal")
+	test(*mockGitlab(k8sClient, http.StatusOK, `{"access_token": 42}`, nil, nil), "failed to unmarshal")
+	test(*mockGitlab(k8sClient, http.StatusUnauthorized, "", nil, nil), "non-ok status")
+	test(*mockGitlab(k8sClient, http.StatusOK, "", errors.New("request error"), nil), "failed to request")
 }
