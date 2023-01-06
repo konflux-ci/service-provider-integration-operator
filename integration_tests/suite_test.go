@@ -162,6 +162,10 @@ var _ = BeforeSuite(func() {
 					ClientSecret:        "testSecret",
 					ServiceProviderType: "TestServiceProvider",
 				},
+				{
+					ServiceProviderBaseUrl: "https://spi-club.org",
+					ServiceProviderType:    "SpiClub",
+				},
 			},
 		},
 		AccessCheckTtl:        10 * time.Second,
@@ -169,6 +173,7 @@ var _ = BeforeSuite(func() {
 		AccessTokenBindingTtl: 10 * time.Second,
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
+		EnableTokenUpload:     true,
 	}
 
 	// start webhook server using Manager
