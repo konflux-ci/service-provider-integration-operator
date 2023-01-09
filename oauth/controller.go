@@ -76,7 +76,7 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 			continue
 		}
 
-		baseUrl := spType.DefaultBaseUrl
+		baseUrl := spType.DefaultHost
 		if sp.ServiceProviderBaseUrl != "" {
 			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
 			if parseUrlErr != nil {
