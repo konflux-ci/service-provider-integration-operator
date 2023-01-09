@@ -15,6 +15,7 @@
 package serviceprovider
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -72,6 +73,8 @@ func NewInitializers() *Initializers {
 	}
 }
 
+var errUnknownServiceProvider = errors.New("initializer not found")
+
 // GetInitializer returns initializer for given service provider type or error in case there is no initializer for such service provider.
 // Initializers are listed in 'knownInitializers' map. Test 'TestAllServiceProvidersHaveInitializer' at 'known_test.go' verifies
 // that all supported service providers has initializer.
@@ -82,7 +85,7 @@ func (i *Initializers) GetInitializer(spType config.ServiceProviderType) (*Initi
 	if initializer, ok := i.initializers[spType.Name]; ok {
 		return &initializer, nil
 	} else {
-		return nil, fmt.Errorf("initializer for service provider '%s' not found", spType.Name)
+		return nil, fmt.Errorf("service provider '%s': %w", spType.Name, errUnknownServiceProvider)
 	}
 }
 

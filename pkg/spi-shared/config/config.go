@@ -14,6 +14,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -205,11 +206,13 @@ func readFrom(rdr io.Reader) (persistedConfiguration, error) {
 	return conf, nil
 }
 
+var errUnknownServiceProvider = errors.New("haven't found service provider in supported list")
+
 func GetServiceProviderTypeByName(name ServiceProviderName) (*ServiceProviderType, error) {
 	for _, sp := range SupportedServiceProviderTypes {
 		if sp.Name == name {
 			return &sp, nil
 		}
 	}
-	return nil, fmt.Errorf("no supported service provider with name '%s'", name)
+	return nil, fmt.Errorf("serviceprovider '%s': %w", name, errUnknownServiceProvider)
 }
