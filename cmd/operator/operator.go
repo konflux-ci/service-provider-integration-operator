@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -88,7 +87,7 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 	ctx = log.IntoContext(ctx, ctrl.Log)
 
-	mgr, mgrErr := createManager(ctx, args)
+	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
@@ -137,7 +136,7 @@ func main() {
 	}
 }
 
-func createManager(ctx context.Context, args opconfig.OperatorCliArgs) (manager.Manager, error) {
+func createManager(args opconfig.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,

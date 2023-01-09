@@ -15,10 +15,13 @@
 package logs
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"strconv"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -97,4 +100,9 @@ func TimeTrack(log logr.Logger, start time.Time, name string) {
 // The log message produced by the time tracker will contain the "work" => "really hard" key-value pair.
 func TimeTrackWithLazyLogger(loggerGetter func() logr.Logger, start time.Time, name string) {
 	TimeTrack(loggerGetter(), start, name)
+}
+
+// AuditLog returns logger prepared with audit markers
+func AuditLog(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx, "audit", "true")
 }
