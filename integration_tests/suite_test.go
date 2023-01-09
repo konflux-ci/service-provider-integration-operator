@@ -168,7 +168,7 @@ var _ = BeforeSuite(func() {
 				},
 				{
 					ServiceProviderBaseUrl: "https://spi-club.org",
-					ServiceProviderType:    "SpiClub",
+					ServiceProviderType:    config.ServiceProviderType{Name: "SpiClub"},
 				},
 			},
 		},
