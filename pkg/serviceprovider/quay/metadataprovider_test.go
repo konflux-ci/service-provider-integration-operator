@@ -225,7 +225,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 	t.Run("fetch from quay", func(t *testing.T) {
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host != config.QuaySaasHost {
+				if r.URL.Host != config.ServiceProviderTypeQuay.DefaultHost {
 					assert.Fail(t, "only traffic to quay.io should happen")
 					return nil, nil
 				}
@@ -335,7 +335,7 @@ func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T)
 		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host != config.QuaySaasHost {
+				if r.URL.Host != config.ServiceProviderTypeQuay.DefaultHost {
 					assert.Fail(t, "only traffic to quay.io should happen")
 					return nil, nil
 				}

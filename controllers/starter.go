@@ -24,12 +24,11 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	sconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers map[sconfig.ServiceProviderType]serviceprovider.Initializer) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers *serviceprovider.Initializers) error {
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),

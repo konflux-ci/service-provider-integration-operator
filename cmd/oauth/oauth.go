@@ -159,7 +159,7 @@ func main() {
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProvidersDefaults)
+	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProviderTypes)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)

@@ -23,7 +23,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -52,7 +51,7 @@ var (
 	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
 )
 
-func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration, defaultBaseUrlHost string, defaultEndpoint oauth2.Endpoint) (Controller, error) {
+func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
 	lg := log.FromContext(ctx)
 
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
@@ -73,11 +72,11 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 	}
 
 	for _, sp := range cfg.ServiceProviders {
-		if sp.ServiceProviderType != spType {
+		if sp.ServiceProviderType.Name != spType.Name {
 			continue
 		}
 
-		baseUrl := defaultBaseUrlHost
+		baseUrl := spType.DefaultBaseUrl
 		if sp.ServiceProviderBaseUrl != "" {
 			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
 			if parseUrlErr != nil {
@@ -86,12 +85,12 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 			baseUrl = baseUrlParsed.Host
 		}
 
-		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType, "url", baseUrl)
+		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", baseUrl)
 		if _, alreadyHasBaseUrl := controller.ServiceProviderInstance[baseUrl]; alreadyHasBaseUrl {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType, baseUrl)
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, baseUrl)
 		}
 
-		endpoint := defaultEndpoint
+		endpoint := spType.DefaultOAuthEndpoint
 		if sp.ServiceProviderBaseUrl != "" {
 			endpoint = createDefaultEndpoint(sp.ServiceProviderBaseUrl)
 		}

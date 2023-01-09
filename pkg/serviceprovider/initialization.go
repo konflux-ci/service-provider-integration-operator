@@ -15,7 +15,10 @@
 package serviceprovider
 
 import (
+	"fmt"
 	"net/http"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 // Probe is a simple function that can determine whether a URL can be handled by a certain service
@@ -57,4 +60,33 @@ func (p ProbeFunc) Examine(cl *http.Client, url string) (string, error) {
 
 func (c ConstructorFunc) Construct(factory *Factory, baseUrl string) (ServiceProvider, error) {
 	return c(factory, baseUrl)
+}
+
+type Initializers struct {
+	initializers map[config.ServiceProviderName]Initializer
+}
+
+func NewInitializers() *Initializers {
+	return &Initializers{
+		initializers: make(map[config.ServiceProviderName]Initializer),
+	}
+}
+
+// GetInitializer returns initializer for given service provider type or error in case there is no initializer for such service provider.
+// Initializers are listed in 'knownInitializers' map. Test 'TestAllServiceProvidersHaveInitializer' at 'known_test.go' verifies
+// that all supported service providers has initializer.
+//
+// NOTE: This is pulled out of the serviceprovider package to avoid a circular dependency between it and
+// the implementation packages.
+func (i *Initializers) GetInitializer(spType config.ServiceProviderType) (*Initializer, error) {
+	if initializer, ok := i.initializers[spType.Name]; ok {
+		return &initializer, nil
+	} else {
+		return nil, fmt.Errorf("initializer for service provider '%s' not found", spType.Name)
+	}
+}
+
+func (i *Initializers) AddKnownInitializer(serviceprovider config.ServiceProviderType, initializer Initializer) *Initializers {
+	i.initializers[serviceprovider.Name] = initializer
+	return i
 }

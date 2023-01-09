@@ -17,16 +17,17 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const ServiceProviderTypeQuay ServiceProviderType = "Quay"
-
-// QuayEndpoint is the OAuth endpoints specification of quay.io
-var QuayEndpoint = oauth2.Endpoint{
-	AuthURL:  QuaySaasBaseUrl + "/oauth/authorize",
-	TokenURL: QuaySaasBaseUrl + "/oauth/access_token",
-}
-
 const (
-	QuaySaasHost       = "quay.io"
-	QuaySaasBaseUrl    = "https://" + QuaySaasHost
-	QuaySaasApiUrlBase = QuaySaasBaseUrl + "/api/v1"
+	quaySaasHost    = "quay.io"
+	quaySaasBaseUrl = "https://" + quaySaasHost
 )
+
+var ServiceProviderTypeQuay ServiceProviderType = ServiceProviderType{
+	Name: "Quay",
+	DefaultOAuthEndpoint: oauth2.Endpoint{
+		AuthURL:  quaySaasBaseUrl + "/oauth/authorize",
+		TokenURL: quaySaasBaseUrl + "/oauth/access_token",
+	},
+	DefaultHost:    quaySaasHost,
+	DefaultBaseUrl: quaySaasBaseUrl,
+}

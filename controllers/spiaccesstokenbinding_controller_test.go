@@ -28,7 +28,7 @@ func TestValidateServiceProviderUrl(t *testing.T) {
 	assert.ErrorContains(t, validateServiceProviderUrl("://invalid"), "not parsable")
 	assert.ErrorContains(t, validateServiceProviderUrl("https://rick:mory"), "not parsable")
 
-	assert.NoError(t, validateServiceProviderUrl(config.GithubSaasBaseUrl))
-	assert.NoError(t, validateServiceProviderUrl(config.QuaySaasBaseUrl))
+	assert.NoError(t, validateServiceProviderUrl(config.ServiceProviderTypeGitHub.DefaultBaseUrl))
+	assert.NoError(t, validateServiceProviderUrl(config.ServiceProviderTypeQuay.DefaultBaseUrl))
 	assert.NoError(t, validateServiceProviderUrl("http://random.ogre"))
 }

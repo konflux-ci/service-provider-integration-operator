@@ -161,7 +161,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, nil)
 
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -179,7 +179,7 @@ func TestCheckRepositoryAccess_FailWithGithubHttp(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil)
 
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -192,7 +192,7 @@ func TestCheckRepositoryAccess_Private(t *testing.T) {
 	k8sClient := mockK8sClient()
 	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, nil)
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -210,7 +210,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, errors.New("expected error"))
 
 	accessCheck := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &accessCheck)
 
@@ -230,7 +230,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PrivateRepo(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, expectedError)
 
 	accessCheck := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &accessCheck)
 
@@ -252,7 +252,7 @@ func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 			Name:      "access-check",
 			Namespace: "ac-namespace",
 		},
-		Spec: api.SPIAccessCheckSpec{RepoUrl: config.GitlabSaasBaseUrl + "/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
 
@@ -305,11 +305,11 @@ func mockK8sClient() client.WithWatch {
 			Namespace: "accessCheck-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitLab),
-				api.ServiceProviderHostLabel: config.GitlabSaasHost,
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitLab.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: config.GitlabSaasBaseUrl,
+			ServiceProviderUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,

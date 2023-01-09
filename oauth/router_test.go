@@ -28,32 +28,13 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/oauth2/github"
 )
-
-var testSpDefaults = []config.ServiceProviderDefaults{
-	{
-		SpType:   config.ServiceProviderTypeGitHub,
-		Endpoint: github.Endpoint,
-		UrlHost:  config.GithubSaasHost,
-	},
-	{
-		SpType:   config.ServiceProviderTypeQuay,
-		Endpoint: config.QuayEndpoint,
-		UrlHost:  config.QuaySaasHost,
-	},
-	{
-		SpType:   config.ServiceProviderTypeGitLab,
-		Endpoint: config.GitlabEndpoint,
-		UrlHost:  config.GitlabSaasHost,
-	},
-}
 
 var state = &oauthstate.OAuthInfo{
 	TokenName:           "mytoken",
 	TokenNamespace:      IT.Namespace,
 	Scopes:              []string{"a", "b"},
-	ServiceProviderType: config.ServiceProviderTypeGitHub,
+	ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 	ServiceProviderUrl:  "http://spi",
 }
 
@@ -81,11 +62,11 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.NotNil(t, router)
 		assert.NoError(t, err)
-		assert.Equal(t, len(testSpDefaults), len(router.controllers))
+		assert.Equal(t, len(config.SupportedServiceProviderTypes), len(router.controllers))
 	})
 
 	t.Run("fail with invalid sp url", func(t *testing.T) {
@@ -105,7 +86,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -134,7 +115,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -165,28 +146,17 @@ func TestFindController(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+	router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 	assert.NoError(t, err)
 
 	t.Run("fail when request unknown service provider", func(t *testing.T) {
-		spDefaults := []config.ServiceProviderDefaults{
-			{
-				SpType:   config.ServiceProviderTypeGitHub,
-				Endpoint: github.Endpoint,
-				UrlHost:  config.GithubSaasHost,
-			},
-			{
-				SpType:   config.ServiceProviderTypeQuay,
-				Endpoint: config.QuayEndpoint,
-				UrlHost:  config.QuaySaasHost,
-			},
-		}
+		spDefaults := []config.ServiceProviderType{config.ServiceProviderTypeQuay, config.ServiceProviderTypeGitHub}
 
 		router, err := NewRouter(context.TODO(), cfg, spDefaults)
 		assert.NoError(t, err)
 
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
-			ServiceProviderType: config.ServiceProviderTypeGitLab,
+			ServiceProviderName: config.ServiceProviderTypeGitLab.Name,
 		})
 		assert.NoError(t, stateErr)
 
@@ -236,7 +206,7 @@ func TestFindController(t *testing.T) {
 
 	t.Run("ok find sp type", func(t *testing.T) {
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		})
 		assert.NoError(t, stateErr)
 
@@ -248,7 +218,7 @@ func TestFindController(t *testing.T) {
 
 		assert.NotNil(t, controller)
 		assert.NotNil(t, state)
-		assert.Equal(t, state.ServiceProviderType, config.ServiceProviderTypeGitHub)
+		assert.Equal(t, config.ServiceProviderTypeGitHub.Name, state.ServiceProviderName)
 		assert.NoError(t, err)
 	})
 }
@@ -260,8 +230,8 @@ func TestCallbackRoute(t *testing.T) {
 		FlowCompleteTimeMetric.Reset()
 		registry.MustRegister(FlowCompleteTimeMetric)
 		encoded, _ := oauthstate.Encode(state)
-		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderType]Controller{
-			config.ServiceProviderTypeGitHub: NopController{},
+		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderName]Controller{
+			config.ServiceProviderTypeGitHub.Name: NopController{},
 		})
 		req, _ := http.NewRequest("GET", "callback?state=abcde", nil)
 		rr := httptest.NewRecorder()
@@ -280,7 +250,7 @@ func TestCallbackRoute(t *testing.T) {
 }
 
 // Creates new Router with predefined StateStorage and ready to use map of Controller.
-func NewTestRouter(stateStorage StateStorage, controllers map[config.ServiceProviderType]Controller) (*Router, error) {
+func NewTestRouter(stateStorage StateStorage, controllers map[config.ServiceProviderName]Controller) (*Router, error) {
 	return &Router{
 		controllers:  controllers,
 		stateStorage: stateStorage,

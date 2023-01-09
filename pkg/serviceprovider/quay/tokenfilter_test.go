@@ -71,7 +71,7 @@ func TestMatches_RobotToken(t *testing.T) {
 				Permissions: api.Permissions{
 					AdditionalScopes: []string{string(ScopeRepoRead)},
 				},
-				ServiceProviderUrl: config.QuaySaasBaseUrl,
+				ServiceProviderUrl: config.ServiceProviderTypeQuay.DefaultBaseUrl,
 			},
 			Status: api.SPIAccessTokenStatus{
 				Phase:        api.SPIAccessTokenPhaseReady,

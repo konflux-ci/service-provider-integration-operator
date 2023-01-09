@@ -211,11 +211,11 @@ func TestCheckAccessFailingLookupPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: config.GithubSaasHost,
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: config.GithubSaasBaseUrl,
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -249,11 +249,11 @@ func TestCheckAccessFailingLookupNonPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: config.GithubSaasHost,
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: config.GithubSaasBaseUrl,
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -287,11 +287,11 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: config.GithubSaasHost,
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: config.GithubSaasBaseUrl,
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,

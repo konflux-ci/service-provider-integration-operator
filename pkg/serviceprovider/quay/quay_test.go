@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const testValidRepoUrl = config.QuaySaasBaseUrl + "/repository/redhat-appstudio/service-provider-integration-operator"
+var testValidRepoUrl = config.ServiceProviderTypeQuay.DefaultBaseUrl + "/repository/redhat-appstudio/service-provider-integration-operator"
 
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
@@ -59,7 +59,7 @@ func TestQuayProbe_Examine(t *testing.T) {
 		baseUrl, err := probe.Examine(nil, url)
 		expectedBaseUrl := ""
 		if expectedMatch {
-			expectedBaseUrl = config.QuaySaasBaseUrl
+			expectedBaseUrl = config.ServiceProviderTypeQuay.DefaultBaseUrl
 		}
 
 		assert.NoError(t, err)
@@ -80,15 +80,16 @@ func TestMapToken(t *testing.T) {
 		}),
 	}
 
+	initializers := serviceprovider.NewInitializers().
+		AddKnownInitializer(config.ServiceProviderTypeQuay, Initializer)
+
 	fac := &serviceprovider.Factory{
 		Configuration: &opconfig.OperatorConfiguration{
 			TokenLookupCacheTtl: 100 * time.Hour,
 		},
 		KubernetesClient: k8sClient,
 		HttpClient:       httpClient,
-		Initializers: map[config.ServiceProviderType]serviceprovider.Initializer{
-			config.ServiceProviderTypeQuay: Initializer,
-		},
+		Initializers:     initializers,
 		TokenStorage: tokenstorage.TestTokenStorage{
 			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{
@@ -323,11 +324,11 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeQuay),
-				api.ServiceProviderHostLabel: config.QuaySaasHost,
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeQuay.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: config.QuaySaasBaseUrl,
+			ServiceProviderUrl: config.ServiceProviderTypeQuay.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -503,7 +504,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	t.Run("bad repo url", func(t *testing.T) {
 		quay := &Quay{}
 
-		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: config.QuaySaasBaseUrl}})
+		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeQuay.DefaultBaseUrl}})
 
 		assert.NoError(t, err)
 		assert.NotNil(t, status)

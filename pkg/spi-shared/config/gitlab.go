@@ -17,15 +17,17 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var ServiceProviderTypeGitLab ServiceProviderType = "GitLab"
-
-// GitlabEndpoint is the OAuth endpoints specification of SAAS GitLab instance.
-var GitlabEndpoint = oauth2.Endpoint{
-	AuthURL:  GitlabSaasBaseUrl + "/oauth/authorize",
-	TokenURL: GitlabSaasBaseUrl + "/oauth/token",
-}
-
-var (
-	GitlabSaasHost    = "gitlab.com"
-	GitlabSaasBaseUrl = "https://" + GitlabSaasHost
+const (
+	gitlabHost = "gitlab.com"
+	gitlabUrl  = "https://" + gitlabHost
 )
+
+var ServiceProviderTypeGitLab ServiceProviderType = ServiceProviderType{
+	Name: "GitLab",
+	DefaultOAuthEndpoint: oauth2.Endpoint{
+		AuthURL:  gitlabUrl + "/oauth/authorize",
+		TokenURL: gitlabUrl + "/oauth/token",
+	},
+	DefaultHost:    gitlabHost,
+	DefaultBaseUrl: gitlabUrl,
+}

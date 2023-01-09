@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 )
 
 // EntityRecord stores the scopes possessed by some token for given "entity" (either repository or organization).
@@ -218,7 +217,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 }
 
 func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
-	url := config.QuaySaasApiUrlBase + "/repository/" + repository
+	url := quayApiBaseUrl + "/repository/" + repository
 
 	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
@@ -265,7 +264,7 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 }
 
 func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description *string) (bool, error) {
-	url := config.QuaySaasApiUrlBase + "/repository/" + repository
+	url := quayApiBaseUrl + "/repository/" + repository
 
 	var val string
 	if description == nil {
@@ -325,9 +324,9 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 }
 
 func hasRepoAdmin(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, config.QuaySaasApiUrlBase+"/repository/"+repository+"/notification/", token)
+	return isSuccessfulRequest(ctx, cl, quayApiBaseUrl+"/repository/"+repository+"/notification/", token)
 }
 
 func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, config.QuaySaasApiUrlBase+"/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
+	return isSuccessfulRequest(ctx, cl, quayApiBaseUrl+"/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
 }

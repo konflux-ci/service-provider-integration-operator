@@ -13,9 +13,13 @@
 
 package config
 
-var ServiceProviderTypeGitHub ServiceProviderType = "GitHub"
+import "golang.org/x/oauth2/github"
 
-var (
-	GithubSaasHost    = "github.com"
-	GithubSaasBaseUrl = "https://" + GithubSaasHost
-)
+const githubHost = "github.com"
+
+var ServiceProviderTypeGitHub ServiceProviderType = ServiceProviderType{
+	Name:                 "GitHub",
+	DefaultOAuthEndpoint: github.Endpoint,
+	DefaultHost:          githubHost,
+	DefaultBaseUrl:       "https://" + githubHost,
+}

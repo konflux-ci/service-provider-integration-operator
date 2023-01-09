@@ -19,14 +19,32 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
 
-type ServiceProviderType string
+type ServiceProviderName string
+type ServiceProviderType struct {
+	Name                 ServiceProviderName
+	DefaultOAuthEndpoint oauth2.Endpoint // default oauth endpoint of the service provider
+	DefaultHost          string          // default host of the service provider. ex.: `github.com`
+	DefaultBaseUrl       string          // default base url of the service provider, typically scheme+host. ex: `https://github.com`
+}
+
+// all servise provider types we support, including default values
+var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
+	ServiceProviderTypeGitHub,
+	ServiceProviderTypeGitLab,
+	ServiceProviderTypeQuay,
+}
+
+var SupportedServiceProvidersByName map[ServiceProviderName]ServiceProviderType = make(map[ServiceProviderName]ServiceProviderType)
+
+var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
+	Name: "HostCredentials",
+}
 
 const (
-	ServiceProviderTypeHostCredentials ServiceProviderType = "HostCredentials"
-
 	MetricsNamespace = "redhat_appstudio"
 	MetricsSubsystem = "spi"
 )
@@ -54,7 +72,28 @@ type CommonCliArgs struct {
 // consumption.
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []ServiceProviderConfiguration `yaml:"serviceProviders"`
+	ServiceProviders []persistedServiceProviderConfiguration `yaml:"serviceProviders"`
+}
+
+// ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
+// mainly contains config.yaml of the OAuth application within the service provider.
+type persistedServiceProviderConfiguration struct {
+	// ClientId is the client ID of the OAuth application that the SPI uses to access the service provider.
+	ClientId string `yaml:"clientId"`
+
+	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
+	ClientSecret string `yaml:"clientSecret"`
+
+	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
+	ServiceProviderName ServiceProviderName `yaml:"type"`
+
+	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
+	// types, like GitHub that only can have 1 well-known base URL.
+	ServiceProviderBaseUrl string `yaml:"baseUrl,omitempty"`
+
+	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
+	// for Quay, we require to know the organization for which the OAuth application is defined for.
+	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
 // SharedConfiguration contains the specification of the known service providers as well as other configuration data shared
@@ -72,29 +111,50 @@ type SharedConfiguration struct {
 // mainly contains config.yaml of the OAuth application within the service provider.
 type ServiceProviderConfiguration struct {
 	// ClientId is the client ID of the OAuth application that the SPI uses to access the service provider.
-	ClientId string `yaml:"clientId"`
+	ClientId string
 
 	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
-	ClientSecret string `yaml:"clientSecret"`
+	ClientSecret string
 
 	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
-	ServiceProviderType ServiceProviderType `yaml:"type"`
+	ServiceProviderType ServiceProviderType
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
 	// types, like GitHub that only can have 1 well-known base URL.
-	ServiceProviderBaseUrl string `yaml:"baseUrl,omitempty"`
+	ServiceProviderBaseUrl string
 
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
 	// for Quay, we require to know the organization for which the OAuth application is defined for.
-	Extra map[string]string `yaml:"extra,omitempty"`
+	Extra map[string]string
+}
+
+func init() {
+	// It's handy to have serviceproviders reachable by it's name. Let's fill in such map from central list 'SupportedServiceProviderTypes'.
+	for _, sp := range SupportedServiceProviderTypes {
+		SupportedServiceProvidersByName[sp.Name] = sp
+	}
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.
-func (c persistedConfiguration) convert() SharedConfiguration {
-	conf := SharedConfiguration{}
+func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
+	conf := SharedConfiguration{
+		ServiceProviders: []ServiceProviderConfiguration{},
+	}
 
-	conf.ServiceProviders = c.ServiceProviders
-	return conf
+	for _, sp := range c.ServiceProviders {
+		spType, err := GetServiceProviderTypeByName(ServiceProviderName(sp.ServiceProviderName))
+		if err != nil {
+			return nil, err
+		}
+		conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
+			ClientId:               sp.ClientId,
+			ClientSecret:           sp.ClientSecret,
+			ServiceProviderType:    *spType,
+			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
+			Extra:                  sp.Extra,
+		})
+	}
+	return &conf, nil
 }
 
 func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
@@ -103,10 +163,13 @@ func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
 		return SharedConfiguration{}, err
 	}
 
-	cfg := pcfg.convert()
+	cfg, err := pcfg.convert()
+	if err != nil {
+		return SharedConfiguration{}, err
+	}
 	cfg.BaseUrl = strings.TrimSuffix(args.BaseUrl, "/")
 
-	return cfg, nil
+	return *cfg, nil
 }
 
 // loadFrom loads the configuration from the provided file-system path. Note that the returned configuration is fully
@@ -140,4 +203,13 @@ func readFrom(rdr io.Reader) (persistedConfiguration, error) {
 	}
 
 	return conf, nil
+}
+
+func GetServiceProviderTypeByName(name ServiceProviderName) (*ServiceProviderType, error) {
+	for _, sp := range SupportedServiceProviderTypes {
+		if sp.Name == name {
+			return &sp, nil
+		}
+	}
+	return nil, fmt.Errorf("no supported service provider with name '%s'", name)
 }

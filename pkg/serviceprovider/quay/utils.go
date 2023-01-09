@@ -105,7 +105,7 @@ func splitToOrganizationAndRepositoryAndVersion(repository string) (string, stri
 
 	host := parts[0]
 
-	if host != config.QuaySaasHost {
+	if host != config.ServiceProviderTypeQuay.DefaultHost {
 		return "", "", ""
 	}
 
