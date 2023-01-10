@@ -85,6 +85,16 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 		converted := at.ToSecretType(corev1.SecretTypeSSHAuth)
 		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
 	})
+
+	t.Run("default", func(t *testing.T) {
+		converted := at.ToSecretType("")
+		assert.Equal(t, at.Token, converted["token"])
+	})
+
+	t.Run("opaque", func(t *testing.T) {
+		converted := at.ToSecretType(corev1.SecretTypeOpaque)
+		assert.Equal(t, at.Token, converted["token"])
+	})
 }
 
 func TestMapping(t *testing.T) {

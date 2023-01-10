@@ -63,6 +63,8 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 			at.Token)
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
+	default:
+		ret["token"] = at.Token
 	}
 
 	return ret
