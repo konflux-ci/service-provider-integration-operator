@@ -61,7 +61,7 @@ import (
 )
 
 var testServiceProvider = config.ServiceProviderType{
-	Name: "testServicePRovider",
+	Name: "TestServiceProvider",
 }
 
 func TestSuite(t *testing.T) {
