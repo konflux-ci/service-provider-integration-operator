@@ -150,7 +150,7 @@ func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
 		conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
 			ClientId:               sp.ClientId,
 			ClientSecret:           sp.ClientSecret,
-			ServiceProviderType:    *spType,
+			ServiceProviderType:    spType,
 			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
 			Extra:                  sp.Extra,
 		})
@@ -208,11 +208,11 @@ func readFrom(rdr io.Reader) (persistedConfiguration, error) {
 
 var errUnknownServiceProvider = errors.New("haven't found service provider in supported list")
 
-func GetServiceProviderTypeByName(name ServiceProviderName) (*ServiceProviderType, error) {
+func GetServiceProviderTypeByName(name ServiceProviderName) (ServiceProviderType, error) {
 	for _, sp := range SupportedServiceProviderTypes {
 		if sp.Name == name {
-			return &sp, nil
+			return sp, nil
 		}
 	}
-	return nil, fmt.Errorf("serviceprovider '%s': %w", name, errUnknownServiceProvider)
+	return ServiceProviderType{}, fmt.Errorf("serviceprovider '%s': %w", name, errUnknownServiceProvider)
 }
