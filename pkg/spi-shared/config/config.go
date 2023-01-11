@@ -32,7 +32,10 @@ type ServiceProviderType struct {
 	DefaultBaseUrl       string          // default base url of the service provider, typically scheme+host. ex: `https://github.com`
 }
 
-// all servise provider types we support, including default values
+// all service provider types we support, including default values
+//
+// Note: HostCredentials service provider does not belong here because it's not defined service provider
+// that can be configured in any form.
 var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 	ServiceProviderTypeGitHub,
 	ServiceProviderTypeGitLab,
@@ -41,6 +44,8 @@ var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 
 var SupportedServiceProvidersByName map[ServiceProviderName]ServiceProviderType = make(map[ServiceProviderName]ServiceProviderType)
 
+// HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
+// We can still provide limited functionality for them like manual token upload.
 var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
 	Name: "HostCredentials",
 }
@@ -85,15 +90,14 @@ type persistedServiceProviderConfiguration struct {
 	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
 	ClientSecret string `yaml:"clientSecret"`
 
-	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
+	// ServiceProviderName is the type of the service provider. This must be one of the supported values: GitHub, Quay, GitLab
 	ServiceProviderName ServiceProviderName `yaml:"type"`
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
 	// types, like GitHub that only can have 1 well-known base URL.
 	ServiceProviderBaseUrl string `yaml:"baseUrl,omitempty"`
 
-	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
-	// for Quay, we require to know the organization for which the OAuth application is defined for.
+	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string `yaml:"extra,omitempty"`
 }
 
@@ -124,13 +128,12 @@ type ServiceProviderConfiguration struct {
 	// types, like GitHub that only can have 1 well-known base URL.
 	ServiceProviderBaseUrl string
 
-	// Extra is the extra configuration required for some service providers to be able to uniquely identify them. E.g.
-	// for Quay, we require to know the organization for which the OAuth application is defined for.
+	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string
 }
 
 func init() {
-	// It's handy to have serviceproviders reachable by it's name. Let's fill in such map from central list 'SupportedServiceProviderTypes'.
+	// It's handy to have serviceproviders reachable by their names. Let's fill in such map from central list 'SupportedServiceProviderTypes'.
 	for _, sp := range SupportedServiceProviderTypes {
 		SupportedServiceProvidersByName[sp.Name] = sp
 	}
