@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package main
 
 import (
 	"testing"
@@ -21,14 +21,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateServiceProviderUrl(t *testing.T) {
-	assert.ErrorIs(t, validateServiceProviderUrl("https://foo."), invalidServiceProviderHostError)
-	assert.ErrorIs(t, validateServiceProviderUrl("https://Ca$$h.com"), invalidServiceProviderHostError)
+func TestAllServiceProvidersHaveInitializer(t *testing.T) {
+	initServiceProviders()
 
-	assert.ErrorContains(t, validateServiceProviderUrl("://invalid"), "not parsable")
-	assert.ErrorContains(t, validateServiceProviderUrl("https://rick:mory"), "not parsable")
-
-	assert.NoError(t, validateServiceProviderUrl(config.ServiceProviderTypeGitHub.DefaultBaseUrl))
-	assert.NoError(t, validateServiceProviderUrl(config.ServiceProviderTypeQuay.DefaultBaseUrl))
-	assert.NoError(t, validateServiceProviderUrl("http://random.ogre"))
+	for _, sp := range config.SupportedServiceProviderTypes {
+		initializer, err := initializers.GetInitializer(sp)
+		assert.NotNil(t, initializer)
+		assert.NoError(t, err)
+	}
 }
