@@ -131,6 +131,10 @@ func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapabil
 	return g.downloadFileCapability
 }
 
+func (g *Gitlab) GetOAuthCapability() serviceprovider.OAuthCapability {
+	panic("not implemented")
+}
+
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {
 	// We need ScopeReadUser by default to be able to read user metadata.
 	scopes := serviceprovider.GetAllScopes(translateToGitlabScopes, permissions)

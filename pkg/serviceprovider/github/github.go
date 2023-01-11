@@ -66,7 +66,7 @@ var Initializer = serviceprovider.Initializer{
 	SupportsManualUploadOnlyMode: true,
 }
 
-func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
@@ -111,6 +111,10 @@ func (g *Github) GetOAuthEndpoint() string {
 
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
+}
+
+func (g *Github) GetOAuthCapability() serviceprovider.OAuthCapability {
+	panic("not implemented")
 }
 
 func (g *Github) GetType() api.ServiceProviderType {

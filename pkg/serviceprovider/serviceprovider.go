@@ -52,23 +52,18 @@ type ServiceProvider interface {
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
 
-	// OAuthScopesFor translates all the permissions into a list of service-provider-specific scopes. This method
-	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
-	// needed is just a translation of permissions into scopes.
-	OAuthScopesFor(permissions *api.Permissions) []string
-
 	// GetType merely returns the type of the service provider this instance talks to.
 	GetType() api.ServiceProviderType
 
 	CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 
-	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
-	//the service provider itself.
-	GetOAuthEndpoint() string
-
 	// GetDownloadFileCapability returns capability object for the providers which are able to download files from the repository
 	// or nil for those which are not
 	GetDownloadFileCapability() DownloadFileCapability
+
+	// GetOAuthCapability returns oauth capability of the service provider.
+	// It can be null in case service provider don't support OAuth or it is not configured.
+	GetOAuthCapability() OAuthCapability
 
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.

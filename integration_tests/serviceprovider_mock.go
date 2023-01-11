@@ -38,6 +38,7 @@ type TestServiceProvider struct {
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
 	CustomizeReset            func(provider *TestServiceProvider)
 	DownloadFileCapability    func() serviceprovider.DownloadFileCapability
+	OAuthCapability           func() serviceprovider.OAuthCapability
 }
 
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
@@ -90,6 +91,13 @@ func (t TestServiceProvider) GetDownloadFileCapability() serviceprovider.Downloa
 		return nil
 	}
 	return t.DownloadFileCapability()
+}
+
+func (t TestServiceProvider) GetOAuthCapability() serviceprovider.OAuthCapability {
+	if t.DownloadFileCapability == nil {
+		return nil
+	}
+	return t.OAuthCapability()
 }
 
 func (t TestServiceProvider) GetOAuthEndpoint() string {
