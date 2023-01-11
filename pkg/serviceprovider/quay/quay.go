@@ -101,8 +101,8 @@ func (q *Quay) GetBaseUrl() string {
 	return config.ServiceProviderTypeQuay.DefaultBaseUrl
 }
 
-func (q *Quay) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeQuay
+func (q *Quay) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeQuay
 }
 
 func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {

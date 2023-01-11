@@ -117,8 +117,8 @@ func (g *Github) GetOAuthCapability() serviceprovider.OAuthCapability {
 	panic("not implemented")
 }
 
-func (g *Github) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeGitHub
+func (g *Github) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeGitHub
 }
 
 func (g *Github) OAuthScopesFor(permissions *api.Permissions) []string {

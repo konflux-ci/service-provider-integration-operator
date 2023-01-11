@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"net/url"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -182,7 +183,7 @@ type SPIAccessTokenList struct {
 
 // EnsureLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
 // token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
-func (t *SPIAccessToken) EnsureLabels(detectedType ServiceProviderType) (changed bool) {
+func (t *SPIAccessToken) EnsureLabels(detectedType config.ServiceProviderName) (changed bool) {
 	if t.Labels == nil {
 		t.Labels = map[string]string{}
 	}

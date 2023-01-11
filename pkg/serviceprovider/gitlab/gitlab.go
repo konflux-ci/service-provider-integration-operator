@@ -163,8 +163,8 @@ func translateToGitlabScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (g Gitlab) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeGitLab
+func (g Gitlab) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeGitLab
 }
 
 func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +32,7 @@ type TestServiceProvider struct {
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
 	OAuthScopesForImpl        func(permissions *api.Permissions) []string
-	GetTypeImpl               func() api.ServiceProviderType
+	GetTypeImpl               func() config.ServiceProviderType
 	GetOauthEndpointImpl      func() string
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
@@ -79,9 +80,9 @@ func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []stri
 	return t.OAuthScopesForImpl(permissions)
 }
 
-func (t TestServiceProvider) GetType() api.ServiceProviderType {
+func (t TestServiceProvider) GetType() config.ServiceProviderType {
 	if t.GetTypeImpl == nil {
-		return "TestServiceProvider"
+		return config.ServiceProviderType{Name: "TestServiceProvider"}
 	}
 	return t.GetTypeImpl()
 }

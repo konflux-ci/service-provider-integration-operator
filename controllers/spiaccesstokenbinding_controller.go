@@ -33,6 +33,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/google/go-cmp/cmp"
@@ -171,7 +172,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	if checkQuayPermissionAreasMigration(&binding, sp.GetType()) {
+	if checkQuayPermissionAreasMigration(&binding, sp.GetType().Name) {
 		lg.Info("migrating old permission areas for quay", "binding", binding)
 		if err := r.Client.Update(ctx, &binding); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update binding with migrated permission areas: %w", err)
@@ -363,9 +364,9 @@ func bindingLifetime(r *SPIAccessTokenBindingReconciler, binding api.SPIAccessTo
 	}
 }
 
-func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spType api.ServiceProviderType) bool {
+func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spName config.ServiceProviderName) bool {
 	permissionChange := false
-	if spType == api.ServiceProviderTypeQuay {
+	if spName == config.ServiceProviderTypeQuay.Name {
 		for i, permission := range binding.Spec.Permissions.Required {
 			if permission.Area == api.PermissionAreaRepository {
 				binding.Spec.Permissions.Required[i].Area = api.PermissionAreaRegistry

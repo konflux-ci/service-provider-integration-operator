@@ -53,7 +53,7 @@ type ServiceProvider interface {
 	GetBaseUrl() string
 
 	// GetType merely returns the type of the service provider this instance talks to.
-	GetType() api.ServiceProviderType
+	GetType() config.ServiceProviderType
 
 	CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 

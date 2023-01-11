@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -77,8 +78,8 @@ func (g *HostCredentialsProvider) GetBaseUrl() string {
 	return base
 }
 
-func (g *HostCredentialsProvider) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeHostCredentials
+func (g *HostCredentialsProvider) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeHostCredentials
 }
 
 func (g *HostCredentialsProvider) OAuthScopesFor(_ *api.Permissions) []string {

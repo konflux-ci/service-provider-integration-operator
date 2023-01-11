@@ -24,8 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -228,7 +226,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if at.EnsureLabels(sp.GetType()) {
+	if at.EnsureLabels(sp.GetType().Name) {
 		if err := r.Update(ctx, &at); err != nil {
 			lg.Error(err, "failed to update the object with the changes")
 			return ctrl.Result{}, fmt.Errorf("failed to update the object with the changes: %w", err)
@@ -318,7 +316,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		Scopes:              oauthCapability.OAuthScopesFor(&at.Spec.Permissions),
-		ServiceProviderName: config.ServiceProviderName(sp.GetType()),
+		ServiceProviderName: sp.GetType().Name,
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
 	if err != nil {
