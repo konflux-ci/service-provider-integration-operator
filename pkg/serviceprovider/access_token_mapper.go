@@ -26,6 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const tokenKey = "token"
+
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
 // secrets according to the secret type.
 type AccessTokenMapper struct {
@@ -64,7 +66,7 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
-		ret["token"] = at.Token
+		ret[tokenKey] = at.Token
 	}
 
 	return ret
