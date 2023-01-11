@@ -84,8 +84,8 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 
 	if foundDefaultOauthConfig {
 		lg.V(logs.DebugLevel).Info("using default oauth config")
-		oauthCfg.ClientID = defaultOauthConfig.Config.ClientId
-		oauthCfg.ClientSecret = defaultOauthConfig.Config.ClientSecret
+		oauthCfg.ClientID = defaultOauthConfig.Config.OAuth2Config.ClientID
+		oauthCfg.ClientSecret = defaultOauthConfig.Config.OAuth2Config.ClientSecret
 		return oauthCfg, nil
 	}
 

@@ -16,6 +16,7 @@ package integrationtests
 
 import (
 	"github.com/onsi/ginkgo"
+	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -162,8 +163,10 @@ var _ = BeforeSuite(func() {
 		SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{
 				{
-					ClientId:            "testClient",
-					ClientSecret:        "testSecret",
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "testClient",
+						ClientSecret: "testSecret",
+					},
 					ServiceProviderType: testServiceProvider,
 				},
 				{

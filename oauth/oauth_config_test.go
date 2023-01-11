@@ -294,8 +294,10 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				"bleh.eh": {
 					Config: config.ServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+						OAuth2Config: &oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
@@ -350,8 +352,10 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+						OAuth2Config: &oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
@@ -408,8 +412,10 @@ func TestObtainOauthConfig(t *testing.T) {
 			ServiceProviderInstance: map[string]oauthConfiguration{
 				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
-						ClientId:               "eh?",
-						ClientSecret:           "bleh?",
+						OAuth2Config: &oauth2.Config{
+							ClientID:     "eh?",
+							ClientSecret: "bleh?",
+						},
 						ServiceProviderType:    config.ServiceProviderTypeGitHub,
 						ServiceProviderBaseUrl: "http://bleh.eh",
 					},
