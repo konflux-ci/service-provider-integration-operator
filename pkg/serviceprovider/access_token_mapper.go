@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Key for token using in Opaque Secret
 const tokenKey = "token"
 
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in

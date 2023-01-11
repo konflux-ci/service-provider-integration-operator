@@ -88,7 +88,7 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 
 	t.Run("default", func(t *testing.T) {
 		converted := at.ToSecretType("")
-		assert.Equal(t, at.Token, converted["token"])
+		assert.Equal(t, at.Token, converted[tokenKey])
 	})
 
 	t.Run("opaque", func(t *testing.T) {
