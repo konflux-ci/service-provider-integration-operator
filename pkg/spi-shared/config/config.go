@@ -121,7 +121,7 @@ type ServiceProviderConfiguration struct {
 	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
 	ClientSecret string
 
-	// ServiceProviderType is the type of the service provider. This must be one of the supported values: GitHub, Quay
+	// ServiceProviderType is the type of the service provider.
 	ServiceProviderType ServiceProviderType
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
