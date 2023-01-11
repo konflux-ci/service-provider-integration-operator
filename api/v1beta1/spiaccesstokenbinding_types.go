@@ -17,16 +17,51 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
 type SPIAccessTokenBindingSpec struct {
-	RepoUrl     string      `json:"repoUrl"`
+	// RepoUrl is just the URL of the repository for which the access token is requested.
+	RepoUrl string `json:"repoUrl"`
+	// Permissions is the set of permissions that the creator of the binding requires
+	// the access token to allow in the target repository.
 	Permissions Permissions `json:"permissions,omitempty"`
-	Secret      SecretSpec  `json:"secret"`
-	Lifetime    string      `json:"lifetime,omitempty"`
+	// Secret is the specification of the secret that should contain the access token.
+	// The secret will be created in the same namespace as this binding object.
+	Secret SecretSpec `json:"secret"`
+	// ServiceAccount dictates whether an accompanying service account is also created/linked
+	// to the secret with the access token. The service account always lives in the same
+	// namespace as the secret.
+	ServiceAccount *ServiceAccountSpec `json:"serviceAccount,omitempty"`
+	// Lifetime specifies how long the binding and its associated data should live.
+	// This is specified as time with a unit (30m, 2h). A special value of "-1" means
+	// infinite lifetime.
+	Lifetime string `json:"lifetime,omitempty"`
+}
+
+type ServiceAccountSpec struct {
+	// Name is the name of the service account to create/link. A random name is chosen if not
+	// specified (and GenerateName is empty, too).
+	// +optional
+	Name string `json:"name"`
+	// GenerateName is the generate name to be used when creating the service account.
+	// +optional
+	GenerateName string `json:"generateName"`
+	// Managed specifies if the lifetime of the service account is bound to the lifetime of
+	// the binding or not (the default). A managed service account must not already be present
+	// in the cluster and is owned by the binding. If the service account is not managed
+	// (which is the default), it may or may not exist prior to the binding. When the binding
+	// is deleted the secret is merely unlinked from the unmanaged service account and
+	// the service account itself is left in the cluster.
+	Managed bool `json:"managed"`
+	// Labels contains the labels that the created secret should be labeled with.
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations is the keys and values that the create secret should be annotated with.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // SPIAccessTokenBindingStatus defines the observed state of SPIAccessTokenBinding
@@ -38,6 +73,7 @@ type SPIAccessTokenBindingStatus struct {
 	OAuthUrl              string                           `json:"oAuthUrl,omitempty"`
 	UploadUrl             string                           `json:"uploadUrl,omitempty"`
 	SyncedObjectRef       TargetObjectRef                  `json:"syncedObjectRef"`
+	ServiceAccountName    string                           `json:"serviceAccountName"`
 }
 
 type SPIAccessTokenBindingPhase string
@@ -59,6 +95,7 @@ const (
 	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
 	SPIAccessTokenBindingErrorReasonTokenAnalysis              SPIAccessTokenBindingErrorReason = "TokenAnalysis"
 	SPIAccessTokenBindingErrorReasonUnsupportedPermissions     SPIAccessTokenBindingErrorReason = "UnsupportedPermissions"
+	SPIAccessTokenBindingErrorReasonInconsistentSpec           SPIAccessTokenBindingErrorReason = "InconsistentSpec"
 )
 
 //+kubebuilder:object:root=true
@@ -131,6 +168,11 @@ type TargetObjectRef struct {
 	ApiVersion string `json:"apiVersion"`
 }
 
+type SPIAccessTokenBindingValidation struct {
+	// Consistency is the list of consistency validation errors
+	Consistency []string
+}
+
 func init() {
 	SchemeBuilder.Register(&SPIAccessTokenBinding{}, &SPIAccessTokenBindingList{})
 }
@@ -145,4 +187,25 @@ func (in *SPIAccessTokenBinding) ObjNamespace() string {
 
 func (in *SPIAccessTokenBinding) Permissions() *Permissions {
 	return &in.Spec.Permissions
+}
+
+func (in *SPIAccessTokenBinding) Validate() SPIAccessTokenBindingValidation {
+	ret := SPIAccessTokenBindingValidation{}
+
+	if in.Spec.ServiceAccount != nil && in.Spec.Secret.Type != corev1.SecretTypeServiceAccountToken && in.Spec.Secret.Type != corev1.SecretTypeDockerConfigJson {
+		ret.Consistency = append(ret.Consistency,
+			fmt.Sprintf("the secret must have the %s type or %s type for it to be linkable to the specified service account", corev1.SecretTypeServiceAccountToken, corev1.SecretTypeDockerConfigJson))
+	}
+
+	saAnnotation := in.Spec.Secret.Annotations[corev1.ServiceAccountNameKey]
+
+	if in.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && saAnnotation == "" && in.Spec.ServiceAccount == nil {
+		ret.Consistency = append(ret.Consistency, fmt.Sprintf("the secret is configured with \"%s\" type, but \"%s\" annotation is configured neither in the definition of the binding secret, nor is a service account configured in the binding. This is invalid.", corev1.SecretTypeServiceAccountToken, corev1.ServiceAccountNameKey))
+	}
+
+	if in.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && saAnnotation != "" && in.Spec.ServiceAccount != nil && in.Spec.ServiceAccount.Name != saAnnotation {
+		ret.Consistency = append(ret.Consistency, "both the service account name annotation on the secret and an explicit service account are configured but differ in valuei. Either define just one of them or make sure the values match.")
+	}
+
+	return ret
 }

@@ -37,15 +37,14 @@ spec:
             description: SPIAccessTokenBindingSpec defines the desired state of SPIAccessTokenBinding
             properties:
               lifetime:
+                description: Lifetime specifies how long the binding and its associated
+                  data should live. This is specified as time with a unit (30m, 2h).
+                  A special value of "-1" means infinite lifetime.
                 type: string
               permissions:
-                description: Permissions is a collection of operator-defined permissions
-                  (which are translated to service-provider-specific scopes) and potentially
-                  additional service-provider-specific scopes that are not covered
-                  by the operator defined abstraction. The permissions are used in
-                  SPIAccessTokenBinding objects to express the requirements on the
-                  tokens as well as in the SPIAccessToken objects to express the "capabilities"
-                  of the token.
+                description: Permissions is the set of permissions that the creator
+                  of the binding requires the access token to allow in the target
+                  repository.
                 properties:
                   additionalScopes:
                     items:
@@ -71,8 +70,13 @@ spec:
                     type: array
                 type: object
               repoUrl:
+                description: RepoUrl is just the URL of the repository for which the
+                  access token is requested.
                 type: string
               secret:
+                description: Secret is the specification of the secret that should
+                  contain the access token. The secret will be created in the same
+                  namespace as this binding object.
                 properties:
                   annotations:
                     additionalProperties:
@@ -146,6 +150,45 @@ spec:
                       specified manually using the Fields.
                     type: string
                 type: object
+              serviceAccount:
+                description: ServiceAccount dictates whether an accompanying service
+                  account is also created/linked to the secret with the access token.
+                  The service account always lives in the same namespace as the secret.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations is the keys and values that the create
+                      secret should be annotated with.
+                    type: object
+                  generateName:
+                    description: GenerateName is the generate name to be used when
+                      creating the service account.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels contains the labels that the created secret
+                      should be labeled with.
+                    type: object
+                  managed:
+                    description: Managed specifies if the lifetime of the service
+                      account is bound to the lifetime of the binding or not (the
+                      default). A managed service account must not already be present
+                      in the cluster and is owned by the binding. If the service account
+                      is not managed (which is the default), it may or may not exist
+                      prior to the binding. When the binding is deleted the secret
+                      is merely unlinked from the unmanaged service account and the
+                      service account itself is left in the cluster.
+                    type: boolean
+                  name:
+                    description: Name is the name of the service account to create/link.
+                      A random name is chosen if not specified (and GenerateName is
+                      empty, too).
+                    type: string
+                required:
+                - managed
+                type: object
             required:
             - repoUrl
             - secret
@@ -163,6 +206,8 @@ spec:
               oAuthUrl:
                 type: string
               phase:
+                type: string
+              serviceAccountName:
                 type: string
               syncedObjectRef:
                 properties:
@@ -189,6 +234,7 @@ spec:
             required:
             - linkedAccessTokenName
             - phase
+            - serviceAccountName
             - syncedObjectRef
             type: object
         type: object

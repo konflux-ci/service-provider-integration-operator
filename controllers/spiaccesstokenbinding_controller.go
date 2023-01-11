@@ -27,7 +27,9 @@ import (
 
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
@@ -53,9 +55,11 @@ import (
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-const linkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //#nosec G101 -- false positive, this is not a private data
+const deprecatedLinkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //#nosec G101 -- false positive, this is not a private data
+const linkedObjectsFinalizerName = "spi.appstudio.redhat.com/linked-objects"
 
 var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
 
@@ -68,7 +72,22 @@ var (
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
+	bindingConsistencyError         = stderrors.New("binding consistency error")
+	serviceAccountLabelPredicate    predicate.Predicate
 )
+
+func init() {
+	var err error
+	serviceAccountLabelPredicate, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Operator: metav1.LabelSelectorOpExists,
+				Key:      SPIAccessTokenBindingLinkLabel,
+			},
+		},
+	})
+	utilruntime.Must(err)
+}
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
 type SPIAccessTokenBindingReconciler struct {
@@ -85,12 +104,13 @@ type SPIAccessTokenBindingReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokenbindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;watch;create;update;delete
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.syncer = sync.New(mgr.GetClient())
 	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedSecretsFinalizerName, &linkedSecretsFinalizer{client: r.Client}); err != nil {
+	if err := r.finalizers.Register(linkedObjectsFinalizerName, &linkedObjectsFinalizer{client: r.Client}); err != nil {
 		return fmt.Errorf("failed to register the linked secrets finalizer: %w", err)
 	}
 
@@ -118,10 +138,23 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			}
 			return requests
 		})).
+		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				return binding.Name == o.GetLabels()[SPIAccessTokenBindingLinkLabel]
+			})
+			if err != nil {
+				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to a ServiceAccount",
+					"ServiceAccountName", o.GetName(), "ServiceAccountNamespace", o.GetNamespace())
+				return []reconcile.Request{}
+			}
+			return requests
+		}), builder.WithPredicates(serviceAccountLabelPredicate)).
 		Complete(r)
+
 	if err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 	}
+
 	return err
 }
 
@@ -161,6 +194,10 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
+	}
+
+	if err := r.migrateFinalizers(ctx, &binding); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	sp, rerr := r.getServiceProvider(ctx, &binding)
@@ -225,6 +262,17 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if binding.Status.Phase == "" {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+	}
+
+	val := binding.Validate()
+	if len(val.Consistency) > 0 {
+		validationErrors := NewAggregatedError()
+		for _, e := range val.Consistency {
+			validationErrors.Add(fmt.Errorf("%w: %s", bindingConsistencyError, e))
+		}
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonInconsistentSpec, validationErrors)
+		return ctrl.Result{}, nil
 	}
 
 	validation, err := sp.Validate(ctx, &binding)
@@ -308,19 +356,46 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
 	binding.Status.UploadUrl = token.Status.UploadUrl
 
-	existingSyncedSecretName := ""
+	secretName := binding.Status.SyncedObjectRef.Name
+	serviceAccountName := binding.Status.ServiceAccountName
+
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
-		ref, err := r.syncSecret(ctx, sp, &binding, token)
+		// linking the service account with a secret is a 3-step process.
+		// First, an empty service account needs to be created.
+		// Second, a secret linking to the service account needs to be created.
+		// Third, the service account needs to be updated with the link to the secret.
+
+		// TODO this can leave the SA behind if we subsequently fail to update the status of the binding
+		serviceAccount, err := r.getOrCreateServiceAccount(ctx, &binding)
+		if err != nil {
+			lg.Error(err, "unable to sync the service account")
+			return ctrl.Result{}, fmt.Errorf("failed to sync the service account: %w", err)
+		}
+		if serviceAccount != nil {
+			binding.Status.ServiceAccountName = serviceAccount.Name
+			lg.Info("service account linked", "saName", serviceAccount.Name, "managed", binding.Spec.ServiceAccount.Managed)
+		}
+
+		// TODO this can leave the secret behind if we subsequently fail to update the status of the binding
+		secret, err := r.syncSecret(ctx, sp, &binding, serviceAccount, token)
 		if err != nil {
 			lg.Error(err, "unable to sync the secret")
 			return ctrl.Result{}, fmt.Errorf("failed to sync the secret: %w", err)
 		}
-		binding.Status.SyncedObjectRef = ref
+		binding.Status.SyncedObjectRef = toObjectRef(secret)
+
+		lg.Info("secret synced", "secretName", secret.Name)
+
+		if err = r.linkSecretToServiceAccount(ctx, secret, serviceAccount); err != nil {
+			lg.Error(err, "failed to link the secret with the service account")
+			return ctrl.Result{}, fmt.Errorf("failed to link the secret with the service account: %w", err)
+		}
+
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
 	} else {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
-		existingSyncedSecretName = binding.Status.SyncedObjectRef.Name
 		binding.Status.SyncedObjectRef = api.TargetObjectRef{}
+		binding.Status.ServiceAccountName = ""
 	}
 
 	if err := r.updateBindingStatusSuccess(ctx, &binding); err != nil {
@@ -330,18 +405,45 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	// now that we set up the binding correctly, we need to clean up the potentially dangling secret (that might contain
 	// stale data if the data of the token disappeared from the token)
-	if binding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
-		if err := deleteSyncedSecret(ctx, r.Client, existingSyncedSecretName, binding.Namespace); err != nil {
-			lg.Error(err, "failed to delete the stale synced object")
-			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
+	if binding.Status.Phase != api.SPIAccessTokenBindingPhaseInjected {
+		if secretName != "" {
+			if err := deleteSyncedSecret(ctx, r.Client, secretName, binding.Namespace); err != nil {
+				lg.Error(err, "failed to delete the stale synced object")
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
+			}
+		}
+		if serviceAccountName != "" && binding.Spec.ServiceAccount != nil && binding.Spec.ServiceAccount.Managed {
+			if err := deleteSyncedServiceAccount(ctx, r.Client, serviceAccountName, binding.Namespace); err != nil {
+				lg.Error(err, "failed to deleted the stale managed service account")
+				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
+			}
 		}
 	}
+
 	if expectedLifetimeDuration == nil {
 		// no need to re-schedule by any timeout
 		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) migrateFinalizers(ctx context.Context, binding *api.SPIAccessTokenBinding) error {
+	updateNeeded := false
+	for i, f := range binding.Finalizers {
+		if f == deprecatedLinkedSecretsFinalizerName {
+			binding.Finalizers[i] = linkedObjectsFinalizerName
+			updateNeeded = true
+		}
+	}
+
+	if updateNeeded {
+		if err := r.Client.Update(ctx, binding); err != nil {
+			return fmt.Errorf("failed to update the deprecated finalizer names: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // returns user specified binding lifetime or default binding lifetime or nil if set to infinite
@@ -508,22 +610,22 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 
 // syncSecret creates/updates/deletes the secret specified in the binding with the token data and returns a reference
 // to the secret.
-func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, tokenObject *api.SPIAccessToken) (api.TargetObjectRef, error) {
+func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding, serviceAccount *corev1.ServiceAccount, tokenObject *api.SPIAccessToken) (*corev1.Secret, error) {
 	token, err := r.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, err)
-		return api.TargetObjectRef{}, fmt.Errorf("failed to get the token data from token storage: %w", err)
+		return nil, fmt.Errorf("failed to get the token data from token storage: %w", err)
 	}
 
 	if token == nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, accessTokenDataNotFoundError)
-		return api.TargetObjectRef{}, accessTokenDataNotFoundError
+		return nil, accessTokenDataNotFoundError
 	}
 
 	at, err := sp.MapToken(ctx, binding, tokenObject, token)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, err)
-		return api.TargetObjectRef{}, fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
+		return nil, fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
 	}
 
 	stringData := at.ToSecretType(binding.Spec.Secret.Type)
@@ -542,6 +644,17 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		secretName = binding.Spec.Secret.Name
 	}
 
+	annos := binding.Spec.Secret.Annotations
+
+	if binding.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && serviceAccount != nil {
+		// we assume the binding has already been validated using its Validate() method so that we don't have
+		// to check for corner cases here anymore.
+		if annos == nil {
+			annos = map[string]string{}
+		}
+		annos[corev1.ServiceAccountNameKey] = serviceAccount.Name
+	}
+
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -551,7 +664,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 			Name:        secretName,
 			Namespace:   binding.GetNamespace(),
 			Labels:      binding.Spec.Secret.Labels,
-			Annotations: binding.Spec.Secret.Annotations,
+			Annotations: annos,
 		},
 		Data: data,
 		Type: binding.Spec.Secret.Type,
@@ -564,27 +677,141 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	_, obj, err := r.syncer.Sync(ctx, nil, secret, secretDiffOpts)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
-		return api.TargetObjectRef{}, fmt.Errorf("failed to sync the secret with the token data: %w", err)
+		return nil, fmt.Errorf("failed to sync the secret with the token data: %w", err)
 	}
-	return toObjectRef(obj), nil
+	return obj.(*corev1.Secret), nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) getOrCreateServiceAccount(ctx context.Context, binding *api.SPIAccessTokenBinding) (*corev1.ServiceAccount, error) {
+	spec := binding.Spec.ServiceAccount
+
+	if spec == nil {
+		return nil, nil
+	}
+
+	name := binding.Status.ServiceAccountName
+	if name == "" {
+		name = binding.Spec.ServiceAccount.Name
+	}
+
+	requestedLabels := spec.Labels
+	if requestedLabels == nil {
+		requestedLabels = map[string]string{}
+	}
+	requestedLabels[SPIAccessTokenBindingLinkLabel] = binding.Name
+
+	var err error
+	sa := &corev1.ServiceAccount{}
+	needsUpdate := false
+
+	if err = r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: binding.Namespace}, sa); err != nil {
+		if errors.IsNotFound(err) {
+			sa = &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:         name,
+					Namespace:    binding.Namespace,
+					GenerateName: binding.Spec.ServiceAccount.GenerateName,
+					Annotations:  binding.Spec.ServiceAccount.Annotations,
+					Labels:       requestedLabels,
+				},
+			}
+			err = r.Client.Create(ctx, sa)
+		}
+	}
+
+	// make sure all our labels have the values we want
+	if err == nil {
+		if sa.Labels == nil {
+			sa.Labels = map[string]string{}
+		}
+
+		for k, rv := range requestedLabels {
+			v, ok := sa.Labels[k]
+			if !ok || (ok && v != rv) {
+				needsUpdate = true
+			}
+			sa.Labels[k] = v
+		}
+
+		if needsUpdate {
+			err = r.Client.Update(ctx, sa)
+		}
+	}
+
+	if err != nil {
+		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
+		return nil, fmt.Errorf("failed to sync the configured service account of the binding: %w", err)
+	}
+
+	return sa, nil
+}
+
+func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context.Context, secret *corev1.Secret, sa *corev1.ServiceAccount) error {
+	updated := false
+	if secret.Type == corev1.SecretTypeServiceAccountToken {
+		hasLink := false
+
+		for _, r := range sa.Secrets {
+			if r.Name == secret.Name {
+				hasLink = true
+				break
+			}
+		}
+
+		if !hasLink {
+			sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secret.Name})
+			updated = true
+		}
+	} else if secret.Type == corev1.SecretTypeDockerConfigJson {
+		hasLink := false
+
+		for _, r := range sa.ImagePullSecrets {
+			if r.Name == secret.Name {
+				hasLink = true
+			}
+		}
+		if !hasLink {
+			sa.ImagePullSecrets = append(sa.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.Name})
+			updated = true
+		}
+	}
+
+	if updated {
+		if err := r.Client.Update(ctx, sa); err != nil {
+			return fmt.Errorf("failed to update the service account with the link to the secret: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func deleteSyncedSecret(ctx context.Context, cl client.Client, secretName string, secretNamespace string) error {
-	if secretName == "" {
-		return nil
+	if err := deleteIfExists(ctx, cl, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, &corev1.Secret{}, "secret"); err != nil {
+		return fmt.Errorf("failed to delete the injected secret: %w", err)
 	}
 
-	secret := &corev1.Secret{}
-	if err := cl.Get(ctx, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, secret); err != nil {
+	return nil
+}
+
+func deleteSyncedServiceAccount(ctx context.Context, cl client.Client, saName string, saNamespace string) error {
+	if err := deleteIfExists(ctx, cl, client.ObjectKey{Name: saName, Namespace: saNamespace}, &corev1.ServiceAccount{}, "service account"); err != nil {
+		return fmt.Errorf("failed to delete the managed service account: %w", err)
+	}
+
+	return nil
+}
+
+func deleteIfExists(ctx context.Context, cl client.Client, key client.ObjectKey, obj client.Object, kind string) error {
+	if err := cl.Get(ctx, key, obj); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
 
-		return fmt.Errorf("failed to get the secret to delete: %w", err)
+		return fmt.Errorf("unexpected error while finding the %s to delete (%s): %w", kind, key.String(), err)
 	}
 
-	if err := cl.Delete(ctx, secret); err != nil {
-		return fmt.Errorf("failed to delete the injected secret: %w", err)
+	if err := cl.Delete(ctx, obj); err != nil {
+		return fmt.Errorf("failed to delete the %s %s: %w", kind, key.String(), err)
 	}
 
 	return nil
@@ -601,22 +828,38 @@ func toObjectRef(obj client.Object) api.TargetObjectRef {
 	}
 }
 
-type linkedSecretsFinalizer struct {
+type linkedObjectsFinalizer struct {
 	client client.Client
 }
 
-var _ finalizer.Finalizer = (*linkedSecretsFinalizer)(nil)
+var _ finalizer.Finalizer = (*linkedObjectsFinalizer)(nil)
 
-// Finalize removes the secret synced to the actual binging being deleted
-func (f *linkedSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+// Finalize removes the secret and possibly also service account synced to the actual binging being deleted
+func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	res := finalizer.Result{}
 	binding, ok := obj.(*api.SPIAccessTokenBinding)
 	if !ok {
 		return res, unexpectedObjectTypeError
 	}
 
+	lg := log.FromContext(ctx)
+
 	if err := deleteSyncedSecret(ctx, f.client, binding.Status.SyncedObjectRef.Name, binding.Namespace); err != nil {
+		lg.Error(err, "failed to delete the synced secret in the finalizer", "secretName", binding.Status.SyncedObjectRef.Name)
 		return res, err
+	} else {
+		lg.V(logs.DebugLevel).Info("deleted the synced secret in the finalizer", "secretName", binding.Status.SyncedObjectRef.Name)
+	}
+
+	if binding.Spec.ServiceAccount != nil && binding.Spec.ServiceAccount.Managed && binding.Status.ServiceAccountName != "" {
+		if err := deleteSyncedServiceAccount(ctx, f.client, binding.Status.ServiceAccountName, binding.Namespace); err != nil {
+			lg.Error(err, "failed to delete the synced service account in the finalizer", "saName", binding.Status.ServiceAccountName)
+			return res, err
+		} else {
+			lg.V(logs.DebugLevel).Info("deleted the managed service account in the finalizer", "saName", binding.Status.ServiceAccountName)
+		}
+	} else if binding.Spec.ServiceAccount != nil && !binding.Spec.ServiceAccount.Managed && binding.Status.ServiceAccountName != "" {
+		lg.V(logs.DebugLevel).Info("leaving the unmanaged service account in the cluster by the finalizer", "saName", binding.Status.ServiceAccountName)
 	}
 	return finalizer.Result{}, nil
 }
