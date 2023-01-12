@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -85,8 +87,8 @@ func init() {
 	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
 }
 
-func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
+	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace).V(logs.DebugLevel)
 
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
@@ -96,6 +98,22 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	if data == nil {
 		return nil, nil
+	}
+
+	metadata := token.Status.TokenMetadata
+	if metadata == nil {
+		metadata = &api.TokenMetadata{}
+		token.Status.TokenMetadata = metadata
+	}
+
+	if len(data.Username) > 0 {
+		metadata.Username = data.Username
+	} else {
+		metadata.Username = OAuthTokenUserName
+	}
+
+	if !includeState {
+		return metadata, nil
 	}
 
 	// This method is called when we need to refresh (or obtain anew, after cache expiry) the metadata of the token.
@@ -110,18 +128,6 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	if err != nil {
 		lg.Error(err, "failed to serialize the token metadata, this should not happen")
 		return nil, fmt.Errorf("failed to marshal the state to JSON: %w", err)
-	}
-
-	metadata := token.Status.TokenMetadata
-	if metadata == nil {
-		metadata = &api.TokenMetadata{}
-		token.Status.TokenMetadata = metadata
-	}
-
-	if len(data.Username) > 0 {
-		metadata.Username = data.Username
-	} else {
-		metadata.Username = OAuthTokenUserName
 	}
 
 	metadata.ServiceProviderState = js
@@ -147,7 +153,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 }
 
 func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata *RepositoryMetadata, cached bool, err error) {
-	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace).V(logs.DebugLevel)
 
 	lg.Info("fetching repository metadata")
 

@@ -146,6 +146,16 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	return hostCredentialProvider, nil
 }
 
+// NewCacheWithExpirationPolicy returns a new metadata cache instance configured using this factory and the supplied
+// expiration policy
+func (f *Factory) NewCacheWithExpirationPolicy(policy MetadataExpirationPolicy) MetadataCache {
+	return MetadataCache{
+		Client:                    f.KubernetesClient,
+		ExpirationPolicy:          policy,
+		CacheServiceProviderState: f.Configuration.TokenMatchPolicy == opconfig.ExactTokenPolicy,
+	}
+}
+
 func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderName][]string, error) {
 	secretList := &corev1.SecretList{}
 	listErr := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{

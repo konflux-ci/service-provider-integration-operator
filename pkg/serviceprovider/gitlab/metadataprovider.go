@@ -82,8 +82,7 @@ func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
 	}))
 }
 
-func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-
+func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
@@ -93,10 +92,10 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	}
 
 	timer := metadataFetchTimer()
-	return timer.ObserveValuesAndDuration(p.doFetch(ctx, token))
+	return timer.ObserveValuesAndDuration(p.doFetch(ctx, token, includeState))
 }
 
-func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
 	state := &TokenState{}
@@ -127,18 +126,23 @@ func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 	// TODO: In the future we can figure out scopes by making request for different resources similarly to how we do it with Quay.
 	lg.V(logs.DebugLevel).Info("fetched user metadata from GitLab", "login", username, "userid", userId, "scopes", scopes)
 
+	metadata := &api.TokenMetadata{
+		Username: username,
+		UserId:   userId,
+		Scopes:   scopes,
+	}
+
+	if !includeState {
+		return metadata, nil
+	}
+
 	// Service provider state is currently expected to be empty json.
-	encodedState, err := json.Marshal(state)
+	metadata.ServiceProviderState, err = json.Marshal(state)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling the state: %w", err)
 	}
 
-	return &api.TokenMetadata{
-		Username:             username,
-		UserId:               userId,
-		Scopes:               scopes,
-		ServiceProviderState: encodedState,
-	}, nil
+	return metadata, nil
 }
 
 func (p metadataProvider) fetchUser(ctx context.Context, gitlabClient *gitlab.Client) (userName string, userId string, err error) {
