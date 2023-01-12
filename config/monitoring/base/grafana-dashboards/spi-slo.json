@@ -1011,7 +1011,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "The number of 500 responses returned from Quay APi.",
+      "description": "The number of 500 responses returned from Quay/",
       "fieldConfig": {
         "defaults": {
           "color": {
