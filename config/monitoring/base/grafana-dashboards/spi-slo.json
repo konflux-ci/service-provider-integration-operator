@@ -794,7 +794,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 0,
+            "lineWidth": 1,
             "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
@@ -811,6 +811,8 @@
           },
           "mappings": [],
           "unit": "percentunit",
+          "min": 0,
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -858,7 +860,7 @@
         "x": 0,
         "y": 32
       },
-      "id": 8,
+      "id": 16,
       "interval": "1m",
       "options": {
         "legend": {
@@ -880,7 +882,7 @@
           },
           "editorMode": "builder",
           "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitHub\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitHub\"}[24h]))",
-          "legendFormat": "__auto",
+          "legendFormat": "5xx percentage",
           "range": true,
           "refId": "A"
         }
@@ -914,7 +916,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 0,
+            "lineWidth": 1,
             "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
@@ -931,6 +933,8 @@
           },
           "mappings": [],
           "unit": "percentunit",
+          "min": 0,
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -978,7 +982,7 @@
         "x": 8,
         "y": 32
       },
-      "id": 8,
+      "id": 17,
       "interval": "1m",
       "options": {
         "legend": {
@@ -1000,7 +1004,7 @@
           },
           "editorMode": "builder",
           "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\"}[24h]))",
-          "legendFormat": "__auto",
+          "legendFormat": "5xx percentage",
           "range": true,
           "refId": "A"
         }
@@ -1034,7 +1038,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 0,
+            "lineWidth": 1,
             "pointSize": 4,
             "scaleDistribution": {
               "type": "linear"
@@ -1051,6 +1055,8 @@
           },
           "mappings": [],
           "unit": "percentunit",
+          "min": 0,
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1098,7 +1104,7 @@
         "x": 16,
         "y": 32
       },
-      "id": 8,
+      "id": 18,
       "interval": "1m",
       "options": {
         "legend": {
@@ -1120,7 +1126,7 @@
           },
           "editorMode": "builder",
           "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"Quay\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"Quay\"}[24h]))",
-          "legendFormat": "__auto",
+          "legendFormat": "5xx percentage",
           "range": true,
           "refId": "A"
         }
