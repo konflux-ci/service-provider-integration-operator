@@ -773,7 +773,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "The number of 500 responses returned from GitHub.",
+      "description": "The percentage of 5xx responses returned from GitHub in general responses count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -782,11 +782,11 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "req/s",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 56,
+            "drawStyle": "lines",
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -810,6 +810,7 @@
             }
           },
           "mappings": [],
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -878,13 +879,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "sum by(hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitHub\",status=\"500\"}[$__rate_interval]))",
+          "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitHub\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitHub\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "GitHub 500 responses count",
+      "title": "GitHub 5xx responses percentage",
       "type": "timeseries"
     },
     {
@@ -892,7 +893,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "The number of 500 responses returned from GitLab.",
+      "description": "The percentage of 5xx responses returned from GitLab in general responses count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -901,11 +902,11 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "req/s",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 56,
+            "drawStyle": "lines",
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -929,6 +930,7 @@
             }
           },
           "mappings": [],
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -997,13 +999,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "sum by(hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\",status=\"500\"}[$__rate_interval]))",
+          "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "GitLab 500 responses count",
+      "title": "GitLab 5xx responses percentage",
       "type": "timeseries"
     },
     {
@@ -1011,7 +1013,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "The number of 500 responses returned from Quay/",
+      "description": "The percentage of 5xx responses returned from Quay in general responses count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1020,11 +1022,11 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "req/s",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 56,
+            "drawStyle": "lines",
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -1048,6 +1050,7 @@
             }
           },
           "mappings": [],
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1116,13 +1119,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "sum by(hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"Quay\",status=\"500\"}[$__rate_interval]))",
+          "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Quay 500 responses count",
+      "title": "Quay 5xx responses percentage",
       "type": "timeseries"
     }
   ],
