@@ -1119,7 +1119,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "builder",
-          "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"GitLab\"}[24h]))",
+          "expr": "sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"Quay\",status=~\"5..\"}[24h]) OR on() vector(0)) / sum(increase(redhat_appstudio_spi_service_provider_response_time_seconds_count{sp=\"Quay\"}[24h]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
