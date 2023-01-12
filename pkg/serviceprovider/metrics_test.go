@@ -23,6 +23,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +56,7 @@ func TestRequestMetricsConfig(t *testing.T) {
 			Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: r},
 		}
 
-		ctx := httptransport.ContextWithMetrics(context.Background(), CommonRequestMetricsConfig("test", "testOp"))
+		ctx := httptransport.ContextWithMetrics(context.Background(), CommonRequestMetricsConfig(config.ServiceProviderType{Name: "test"}, "testOp"))
 
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://test.url/some/path", strings.NewReader(""))
 		assert.NoError(t, err)

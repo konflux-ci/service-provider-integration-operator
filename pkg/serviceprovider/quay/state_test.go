@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestFetchRepositoryRecord(t *testing.T) {
 	testingHttpClient := func(repoCreateTested, repoWriteTested, repoReadTested, repoAdminTested *bool, repoDetailsBody string) *http.Client {
 		return &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host == "quay.io" {
+				if r.URL.Host == config.ServiceProviderTypeQuay.DefaultHost {
 					auth := r.Header.Get("Authorization")
 					assert.Equal(t, "Bearer token", auth)
 					if r.URL.Path == "/api/v1/repository" {
@@ -241,7 +242,7 @@ func TestFetchOrganizationRecord(t *testing.T) {
 	org := "testorg"
 	httpClient := http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			if r.URL.Host == "quay.io" && r.URL.Path == "/api/v1/organization/"+org+"/robots" {
+			if r.URL.Host == config.ServiceProviderTypeQuay.DefaultHost && r.URL.Path == "/api/v1/organization/"+org+"/robots" {
 				auth := r.Header.Get("Authorization")
 				assert.Equal(t, "Bearer token", auth)
 				return &http.Response{StatusCode: 200}, nil

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"errors"
@@ -210,11 +211,11 @@ func TestCheckAccessFailingLookupPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -248,11 +249,11 @@ func TestCheckAccessFailingLookupNonPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -286,11 +287,11 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,

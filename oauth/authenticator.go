@@ -97,12 +97,12 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 
 	if !hasAccess {
 		LogDebugAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
-		AuditLog(r.Context()).Info("unsuccessful authentication with Kubernetes token occurred") //more details will be logged after real TokenReview will be in action
+		logs.AuditLog(r.Context()).Info("unsuccessful authentication with Kubernetes token occurred") //more details will be logged after real TokenReview will be in action
 		return
 	}
 
 	a.SessionManager.Put(r.Context(), "k8s_token", token)
-	AuditLog(r.Context()).Info("successful authentication with Kubernetes token")
+	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token")
 	w.WriteHeader(http.StatusOK)
 }
 

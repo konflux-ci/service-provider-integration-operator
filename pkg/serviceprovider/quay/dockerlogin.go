@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -40,7 +41,7 @@ func DockerLogin(ctx context.Context, cl *http.Client, repository string, userna
 	debugLog := log.FromContext(ctx, "repository", repository).V(logs.DebugLevel)
 	debugLog.Info("attempting docker login to quay")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://quay.io/v2/auth?service=quay.io&scope=repository:"+repository+":push,pull", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", config.ServiceProviderTypeQuay.DefaultBaseUrl+"/v2/auth?service=quay.io&scope=repository:"+repository+":push,pull", nil)
 	if err != nil {
 		debugLog.Error(err, "failed to compose the quay login request")
 		return "", fmt.Errorf("failed to compose the quay login request: %w", err)

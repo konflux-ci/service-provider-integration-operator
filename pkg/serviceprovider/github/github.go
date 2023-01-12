@@ -102,7 +102,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetBaseUrl() string {
-	return "https://github.com"
+	return config.ServiceProviderTypeGitHub.DefaultBaseUrl
 }
 
 func (g *Github) GetOAuthEndpoint() string {
@@ -296,8 +296,8 @@ type githubProbe struct{}
 var _ serviceprovider.Probe = (*githubProbe)(nil)
 
 func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, "https://github.com") {
-		return "https://github.com", nil
+	if strings.HasPrefix(url, config.ServiceProviderTypeGitHub.DefaultBaseUrl) {
+		return config.ServiceProviderTypeGitHub.DefaultBaseUrl, nil
 	} else {
 		return "", nil
 	}
