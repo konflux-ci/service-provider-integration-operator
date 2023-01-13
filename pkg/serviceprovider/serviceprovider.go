@@ -92,9 +92,6 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 
-	// TODO: fuck this, loop through supported SPs, try to find all configs for it and try to match
-
-	lg.Info("blablabla FromUrlRepo", "repoUrl", repoUrl)
 	parsedUrl, errUrlParse := url.Parse(repoUrl)
 	if errUrlParse != nil {
 		return nil, errUrlParse
@@ -176,11 +173,11 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 
 	lg.Info("blabol fac", "factory", f)
 
-	initializer, errFindInitializer := f.Initializers.GetInitializer(spConfig.ServiceProviderType)
+	initializer, errFindInitializer := f.Initializers.GetInitializer(spType)
 	if errFindInitializer != nil {
 		lg.Error(errFindInitializer,
 			"Initializer not found. This should not happenin production, we should have initializers for all known service providers. But let's continue for now.",
-			"serviceprovider name", spConfig.ServiceProviderType.Name)
+			"serviceprovider name", spType.Name)
 		return nil, nil
 	}
 
@@ -199,13 +196,15 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 		if initializer.Probe != nil {
 			probeBaseUrl, errProbe := initializer.Probe.Examine(f.HttpClient, repoBaseUrl)
 			if errProbe != nil {
-				return nil, errProbe
+				return nil, nil
 			}
-			sp, err := ctor.Construct(f, probeBaseUrl, spConfigFromType(spType))
-			if err != nil {
-				return nil, err
+			if probeBaseUrl != "" {
+				sp, err := ctor.Construct(f, probeBaseUrl, spConfigFromType(spType))
+				if err != nil {
+					return nil, err
+				}
+				return sp, nil
 			}
-			return sp, nil
 		}
 	}
 
