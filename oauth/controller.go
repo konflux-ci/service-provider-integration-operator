@@ -61,14 +61,14 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 	}
 
 	controller := &commonController{
-		K8sClient:               cfg.K8sClient,
-		TokenStorage:            ts,
-		BaseUrl:                 cfg.BaseUrl,
-		Authenticator:           cfg.Authenticator,
-		StateStorage:            cfg.StateStorage,
-		RedirectTemplate:        cfg.RedirectTemplate,
-		ServiceProviderInstance: map[string]oauthConfiguration{},
-		ServiceProviderType:     spType,
+		K8sClient:                     cfg.K8sClient,
+		TokenStorage:                  ts,
+		BaseUrl:                       cfg.BaseUrl,
+		Authenticator:                 cfg.Authenticator,
+		StateStorage:                  cfg.StateStorage,
+		RedirectTemplate:              cfg.RedirectTemplate,
+		ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{},
+		ServiceProviderType:           spType,
 	}
 
 	for _, sp := range cfg.ServiceProviders {
@@ -76,29 +76,21 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 			continue
 		}
 
-		baseUrl := spType.DefaultHost
+		spHost := spType.DefaultHost
 		if sp.ServiceProviderBaseUrl != "" {
 			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
 			if parseUrlErr != nil {
 				return nil, fmt.Errorf("failed to parse service provider url: %w", parseUrlErr)
 			}
-			baseUrl = baseUrlParsed.Host
+			spHost = baseUrlParsed.Host
 		}
 
-		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", baseUrl)
-		if _, alreadyHasBaseUrl := controller.ServiceProviderInstance[baseUrl]; alreadyHasBaseUrl {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, baseUrl)
+		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
+		if _, alreadyHasBaseUrl := controller.ServiceProviderConfigurations[spHost]; alreadyHasBaseUrl {
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, spHost)
 		}
 
-		endpoint := spType.DefaultOAuthEndpoint
-		if sp.ServiceProviderBaseUrl != "" {
-			endpoint = createDefaultEndpoint(sp.ServiceProviderBaseUrl)
-		}
-
-		controller.ServiceProviderInstance[baseUrl] = oauthConfiguration{
-			Config:   sp,
-			Endpoint: endpoint,
-		}
+		controller.ServiceProviderConfigurations[spHost] = sp
 	}
 
 	return controller, nil

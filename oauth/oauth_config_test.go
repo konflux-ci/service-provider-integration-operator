@@ -124,17 +124,15 @@ func TestObtainOauthConfig(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{
-				"bleh.eh": {
-					Config: config.ServiceProviderConfiguration{
-						OAuth2Config: &oauth2.Config{
-							ClientID:     "eh?",
-							ClientSecret: "bleh?",
-						},
-						ServiceProviderType:    config.ServiceProviderTypeGitHub,
-						ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
+				"bleh.eh": config.ServiceProviderConfiguration{
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "eh?",
+						ClientSecret: "bleh?",
+						Endpoint:     github.Endpoint,
 					},
-					Endpoint: github.Endpoint,
+					ServiceProviderType:    config.ServiceProviderTypeGitHub,
+					ServiceProviderBaseUrl: "http://bleh.eh",
 				},
 			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
@@ -182,17 +180,15 @@ func TestObtainOauthConfig(t *testing.T) {
 		}).Build()
 
 		ctrl := commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{
-				config.ServiceProviderTypeGitHub.DefaultHost: {
-					Config: config.ServiceProviderConfiguration{
-						OAuth2Config: &oauth2.Config{
-							ClientID:     "eh?",
-							ClientSecret: "bleh?",
-						},
-						ServiceProviderType:    config.ServiceProviderTypeGitHub,
-						ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
+				config.ServiceProviderTypeGitHub.DefaultHost: config.ServiceProviderConfiguration{
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "eh?",
+						ClientSecret: "bleh?",
+						Endpoint:     github.Endpoint,
 					},
-					Endpoint: github.Endpoint,
+					ServiceProviderType:    config.ServiceProviderTypeGitHub,
+					ServiceProviderBaseUrl: "http://bleh.eh",
 				},
 			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
@@ -242,17 +238,15 @@ func TestObtainOauthConfig(t *testing.T) {
 		}).Build()
 
 		ctrl := commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{
-				config.ServiceProviderTypeGitHub.DefaultHost: {
-					Config: config.ServiceProviderConfiguration{
-						OAuth2Config: &oauth2.Config{
-							ClientID:     "eh?",
-							ClientSecret: "bleh?",
-						},
-						ServiceProviderType:    config.ServiceProviderTypeGitHub,
-						ServiceProviderBaseUrl: "http://bleh.eh",
+			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
+				config.ServiceProviderTypeGitHub.DefaultHost: config.ServiceProviderConfiguration{
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "eh?",
+						ClientSecret: "bleh?",
+						Endpoint:     github.Endpoint,
 					},
-					Endpoint: github.Endpoint,
+					ServiceProviderType:    config.ServiceProviderTypeGitHub,
+					ServiceProviderBaseUrl: "http://bleh.eh",
 				},
 			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
@@ -320,10 +314,10 @@ func TestObtainOauthConfig(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{},
-			ServiceProviderType:     config.ServiceProviderTypeGitHub,
-			K8sClient:               cl,
-			BaseUrl:                 "baseurl",
+			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{},
+			ServiceProviderType:           config.ServiceProviderTypeGitHub,
+			K8sClient:                     cl,
+			BaseUrl:                       "baseurl",
 		}
 
 		oauthInfo := &oauthstate2.OAuthInfo{

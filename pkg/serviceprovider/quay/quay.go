@@ -58,6 +58,10 @@ type Quay struct {
 	httpClient       rest.HTTPClient
 	tokenStorage     tokenstorage.TokenStorage
 	BaseUrl          string
+	OAuthCapability  serviceprovider.OAuthCapability
+}
+type quayOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
 }
 
 var Initializer = serviceprovider.Initializer{
@@ -65,7 +69,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
 
-func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+func newQuay(factory *serviceprovider.Factory, _ string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
@@ -75,6 +79,16 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		kubernetesClient: factory.KubernetesClient,
 		ttl:              factory.Configuration.TokenLookupCacheTtl,
 	}
+
+	var oauthCapability serviceprovider.OAuthCapability
+	if spConfig != nil && spConfig.OAuth2Config != nil {
+		oauthCapability = &quayOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
+	}
+
 	return &Quay{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
@@ -87,6 +101,7 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
+		OAuthCapability:  oauthCapability,
 	}, nil
 }
 
@@ -109,10 +124,10 @@ func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapabilit
 }
 
 func (q *Quay) GetOAuthCapability() serviceprovider.OAuthCapability {
-	panic("not implemented")
+	return q.OAuthCapability
 }
 
-func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {
+func (q *quayOAuthCapability) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
 	// We basically disregard any request for specific permissions and always require the max usable set of permissions
 	// because we cannot change that set later due to a bug in Quay OAuth impl:

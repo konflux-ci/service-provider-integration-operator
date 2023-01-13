@@ -98,11 +98,11 @@ func CreateServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, b
 		ServiceProviderType:    spType,
 		ServiceProviderBaseUrl: baseUrl,
 		Extra:                  map[string]string{},
-		OAuth2Config:           initializeConfigFromSecret(configSecret, spType),
+		OAuth2Config:           initializeOAuthConfigFromSecret(configSecret, spType),
 	}
 }
 
-func initializeConfigFromSecret(secret *corev1.Secret, spType ServiceProviderType) *oauth2.Config {
+func initializeOAuthConfigFromSecret(secret *corev1.Secret, spType ServiceProviderType) *oauth2.Config {
 	oauthCfg := &oauth2.Config{}
 	if clientId, has := secret.Data[OAuthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)

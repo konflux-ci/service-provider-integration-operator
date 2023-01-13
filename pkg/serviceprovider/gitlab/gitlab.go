@@ -71,7 +71,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newGitlab),
 }
 
-func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
+func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
 		httpClient:   factory.HttpClient,

@@ -45,7 +45,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newHostCredentialsProvider),
 }
 
-func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string) (serviceprovider.ServiceProvider, error) {
+func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
 	return &HostCredentialsProvider{

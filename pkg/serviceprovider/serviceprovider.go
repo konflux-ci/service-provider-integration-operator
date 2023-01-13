@@ -113,7 +113,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 		}
 
 		// we try to initialize with what we have. if spConfig is nil, this function tries probe as last chance
-		if sp, err := f.initializeServiceProvider(ctx, spConfig, repoBaseUrl); err != nil {
+		if sp, err := f.initializeServiceProvider(ctx, sp, spConfig, repoBaseUrl); err != nil {
 			return nil, err
 		} else if sp != nil {
 			return sp, nil
@@ -126,7 +126,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl)
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl, spConfigFromType(config.ServiceProviderTypeHostCredentials))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
@@ -158,17 +158,23 @@ func (f *Factory) spConfigFromGlobalConfig(spType config.ServiceProviderType, re
 	}
 
 	if spType.DefaultBaseUrl == repoBaseUrl {
-		return &config.ServiceProviderConfiguration{
-			ServiceProviderType:    spType,
-			ServiceProviderBaseUrl: spType.DefaultBaseUrl,
-		}
+		return spConfigFromType(spType)
 	}
 
 	return nil
 }
 
-func (f *Factory) initializeServiceProvider(ctx context.Context, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
+func spConfigFromType(spType config.ServiceProviderType) *config.ServiceProviderConfiguration {
+	return &config.ServiceProviderConfiguration{
+		ServiceProviderType:    spType,
+		ServiceProviderBaseUrl: spType.DefaultBaseUrl,
+	}
+}
+
+func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
+
+	lg.Info("blabol fac", "factory", f)
 
 	initializer, errFindInitializer := f.Initializers.GetInitializer(spConfig.ServiceProviderType)
 	if errFindInitializer != nil {
@@ -184,7 +190,7 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spConfig *confi
 	}
 
 	if spConfig != nil {
-		sp, err := ctor.Construct(f, spConfig.ServiceProviderBaseUrl)
+		sp, err := ctor.Construct(f, spConfig.ServiceProviderBaseUrl, spConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +201,7 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spConfig *confi
 			if errProbe != nil {
 				return nil, errProbe
 			}
-			sp, err := ctor.Construct(f, probeBaseUrl)
+			sp, err := ctor.Construct(f, probeBaseUrl, spConfigFromType(spType))
 			if err != nil {
 				return nil, err
 			}

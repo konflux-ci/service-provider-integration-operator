@@ -88,20 +88,18 @@ var _ = Describe("Controller", func() {
 		tmpl, err := template.ParseFiles("../static/redirect_notice.html")
 		g.Expect(err).NotTo(HaveOccurred())
 		return &commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{
-				"special.sp": {
-					Config: config.ServiceProviderConfiguration{
-						OAuth2Config: &oauth2.Config{
-							ClientID:     "clientId",
-							ClientSecret: "clientSecret",
+			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
+				"special.sp": config.ServiceProviderConfiguration{
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "clientId",
+						ClientSecret: "clientSecret",
+						Endpoint: oauth2.Endpoint{
+							AuthURL:   "https://special.sp/login",
+							TokenURL:  "https://special.sp/toekn",
+							AuthStyle: oauth2.AuthStyleAutoDetect,
 						},
-						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
-					Endpoint: oauth2.Endpoint{
-						AuthURL:   "https://special.sp/login",
-						TokenURL:  "https://special.sp/toekn",
-						AuthStyle: oauth2.AuthStyleAutoDetect,
-					},
+					ServiceProviderType: config.ServiceProviderTypeGitHub,
 				},
 			},
 			K8sClient:        IT.Client,

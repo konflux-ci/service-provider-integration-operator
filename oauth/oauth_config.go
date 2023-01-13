@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
@@ -39,44 +38,37 @@ var (
 func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
 	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
 
+	lg.Info("we have these service providers", "sp", c.ServiceProviderConfigurations)
+
 	spUrl, urlParseErr := url.Parse(info.ServiceProviderUrl)
 	if urlParseErr != nil {
 		return nil, fmt.Errorf("failed to parse serviceprovider url: %w", urlParseErr)
 	}
 
-	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
-
-	oauthCfg := &oauth2.Config{
-		RedirectURL: c.redirectUrl(),
-	}
-	if foundDefaultOauthConfig {
-		oauthCfg.Endpoint = defaultOauthConfig.Endpoint
-	} else {
-		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
-		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
-	}
-
+	// first try to find configuration in user's secret
 	noAuthCtx := WithAuthIntoContext("", ctx) // we want to use ServiceAccount to find the secret, so we need to use context without user's token
-	found, oauthCfgSecret, findErr :=
-		config.FindUserServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, c.ServiceProviderType.Name, spUrl.Host)
-	if findErr != nil {
+	if found, spCfgSecret, findErr :=
+		config.FindUserServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, c.ServiceProviderType.Name, spUrl.Host); findErr != nil {
 		return nil, findErr
-	}
-
-	if found {
-		if createOauthCfgErr := initializeConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
-			lg.V(logs.DebugLevel).Info("using custom user oauth config")
-			return oauthCfg, nil
-		} else {
-			return nil, fmt.Errorf("failed to create oauth config from the secret: %w", createOauthCfgErr)
+	} else if found {
+		spConfig := config.CreateServiceProviderConfigurationFromSecret(spCfgSecret, info.ServiceProviderUrl, c.ServiceProviderType)
+		if spConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("we found user's sp config, but it has no oauth information. This should not happend because we should not have the oauth url at all!")
 		}
+		oauthConfig := spConfig.OAuth2Config
+		oauthConfig.RedirectURL = c.redirectUrl()
+		return oauthConfig, nil
 	}
 
-	if foundDefaultOauthConfig {
-		lg.V(logs.DebugLevel).Info("using default oauth config")
-		oauthCfg.ClientID = defaultOauthConfig.Config.OAuth2Config.ClientID
-		oauthCfg.ClientSecret = defaultOauthConfig.Config.OAuth2Config.ClientSecret
-		return oauthCfg, nil
+	// if we don't have user's config, we
+	globalSpConfig, foundGlobalSpConfig := c.ServiceProviderConfigurations[spUrl.Host]
+	if foundGlobalSpConfig {
+		if globalSpConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("we want to use global sp config, but it has no oauth information. This should not happend because we should not have the oauth url at all!")
+		}
+		oauthConfig := globalSpConfig.OAuth2Config
+		oauthConfig.RedirectURL = c.redirectUrl()
+		return oauthConfig, nil
 	}
 
 	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderName, info.ServiceProviderUrl)

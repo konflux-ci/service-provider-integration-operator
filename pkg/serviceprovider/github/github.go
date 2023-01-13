@@ -55,7 +55,6 @@ type Github struct {
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
-	baseUrl                string
 	downloadFileCapability downloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
 }
@@ -69,7 +68,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newGithub),
 }
 
-func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, _ string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
@@ -78,15 +77,11 @@ func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		httpClient:   factory.HttpClient,
 	}
 
-	if baseUrl == "" {
-		baseUrl = config.ServiceProviderTypeGitHub.DefaultBaseUrl
-	}
-
 	var oauthCapability serviceprovider.OAuthCapability
-	if 1 < 2 { //TODO: if we can get configuration for oauth. How to get namespace to search for secrets?
+	if spConfig != nil && spConfig.OAuth2Config != nil {
 		oauthCapability = &githubOAuthCapability{
 			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
-				BaseUrl: baseUrl,
+				BaseUrl: factory.Configuration.BaseUrl,
 			},
 		}
 	}
@@ -107,7 +102,6 @@ func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
-		baseUrl:         baseUrl,
 		downloadFileCapability: downloadFileCapability{
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,

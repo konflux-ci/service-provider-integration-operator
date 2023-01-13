@@ -159,6 +159,7 @@ func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
 			newSp.OAuth2Config = &oauth2.Config{
 				ClientID:     sp.ClientId,
 				ClientSecret: sp.ClientSecret,
+				Endpoint:     spType.DefaultOAuthEndpoint,
 			}
 		}
 

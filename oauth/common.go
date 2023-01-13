@@ -42,19 +42,14 @@ var (
 
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
-	K8sClient               AuthenticatingClient
-	TokenStorage            tokenstorage.TokenStorage
-	RedirectTemplate        *template.Template
-	Authenticator           *Authenticator
-	StateStorage            StateStorage
-	BaseUrl                 string
-	ServiceProviderType     config.ServiceProviderType
-	ServiceProviderInstance map[string]oauthConfiguration
-}
-
-type oauthConfiguration struct {
-	Config   config.ServiceProviderConfiguration
-	Endpoint oauth2.Endpoint
+	K8sClient                     AuthenticatingClient
+	TokenStorage                  tokenstorage.TokenStorage
+	RedirectTemplate              *template.Template
+	Authenticator                 *Authenticator
+	StateStorage                  StateStorage
+	BaseUrl                       string
+	ServiceProviderType           config.ServiceProviderType
+	ServiceProviderConfigurations map[string]config.ServiceProviderConfiguration // service provider configuration we have for this type, stored by sp host
 }
 
 // exchangeResult this the result of the OAuth exchange with all the data necessary to store the token into the storage
