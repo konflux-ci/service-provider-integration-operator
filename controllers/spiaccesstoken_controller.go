@@ -226,7 +226,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if at.EnsureLabels(sp.GetType().Name) {
+	if at.EnsureLabels(string(sp.GetType().Name)) {
 		if err := r.Update(ctx, &at); err != nil {
 			lg.Error(err, "failed to update the object with the changes")
 			return ctrl.Result{}, fmt.Errorf("failed to update the object with the changes: %w", err)

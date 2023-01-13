@@ -140,7 +140,6 @@ func TestFromRepoUrl(t *testing.T) {
 				return mockSP, nil
 			},
 		},
-		SupportsManualUploadOnlyMode: true,
 	}
 
 	scheme := runtime.NewScheme()

@@ -61,9 +61,8 @@ type Quay struct {
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        quayProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       quayProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
 
 func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {

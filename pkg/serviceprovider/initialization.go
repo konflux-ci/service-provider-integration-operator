@@ -46,9 +46,8 @@ type ConstructorFunc func(factory *Factory, baseUrl string) (ServiceProvider, er
 // Initializer is struct that contains all necessary data to initialize a service provider instance from a URL using
 // a Factory.
 type Initializer struct {
-	Probe                        Probe
-	Constructor                  Constructor
-	SupportsManualUploadOnlyMode bool
+	Probe       Probe
+	Constructor Constructor
 }
 
 // implementation guards

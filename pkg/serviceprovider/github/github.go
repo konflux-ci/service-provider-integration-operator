@@ -24,8 +24,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"k8s.io/utils/pointer"
@@ -57,13 +55,18 @@ type Github struct {
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
+	baseUrl                string
 	downloadFileCapability downloadFileCapability
+	oauthCapability        serviceprovider.OAuthCapability
+}
+
+type githubOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        githubProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       githubProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newGithub),
 }
 
 func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
@@ -74,6 +77,20 @@ func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		tokenStorage: factory.TokenStorage,
 		httpClient:   factory.HttpClient,
 	}
+
+	if baseUrl == "" {
+		baseUrl = config.ServiceProviderTypeGitHub.DefaultBaseUrl
+	}
+
+	var oauthCapability serviceprovider.OAuthCapability
+	if 1 < 2 { //TODO: if we can get configuration for oauth. How to get namespace to search for secrets?
+		oauthCapability = &githubOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: baseUrl,
+			},
+		}
+	}
+
 	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
@@ -90,10 +107,12 @@ func newGithub(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		},
 		httpClient:      factory.HttpClient,
 		ghClientBuilder: ghClientBuilder,
+		baseUrl:         baseUrl,
 		downloadFileCapability: downloadFileCapability{
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
 		},
+		oauthCapability: oauthCapability,
 	}
 
 	return github, nil
@@ -105,23 +124,19 @@ func (g *Github) GetBaseUrl() string {
 	return config.ServiceProviderTypeGitHub.DefaultBaseUrl
 }
 
-func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
-}
-
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
 }
 
 func (g *Github) GetOAuthCapability() serviceprovider.OAuthCapability {
-	panic("not implemented")
+	return g.oauthCapability
 }
 
 func (g *Github) GetType() config.ServiceProviderType {
 	return config.ServiceProviderTypeGitHub
 }
 
-func (g *Github) OAuthScopesFor(permissions *api.Permissions) []string {
+func (g *githubOAuthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
 	return serviceprovider.GetAllScopes(translateToScopes, permissions)
 }
 

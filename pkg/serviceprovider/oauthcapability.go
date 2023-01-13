@@ -14,7 +14,10 @@
 
 package serviceprovider
 
-import api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+import (
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+)
 
 type OAuthCapability interface {
 	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
@@ -25,4 +28,12 @@ type OAuthCapability interface {
 	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
 	// needed is just a translation of permissions into scopes.
 	OAuthScopesFor(permissions *api.Permissions) []string
+}
+
+type DefaultOAuthCapability struct {
+	BaseUrl string
+}
+
+func (o *DefaultOAuthCapability) GetOAuthEndpoint() string {
+	return o.BaseUrl + oauth.AuthenticateRoutePath
 }

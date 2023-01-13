@@ -67,9 +67,8 @@ type Gitlab struct {
 var _ serviceprovider.ConstructorFunc = newGitlab
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        gitlabProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newGitlab),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       gitlabProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newGitlab),
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
