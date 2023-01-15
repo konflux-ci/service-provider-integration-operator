@@ -16,32 +16,26 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/oauth2/github"
 )
 
-var testSpDefaults = []ServiceProviderDefaults{
-	{
-		SpType:   config.ServiceProviderTypeGitHub,
-		Endpoint: github.Endpoint,
-		UrlHost:  GithubSaasHost,
-	},
-	{
-		SpType:   config.ServiceProviderTypeQuay,
-		Endpoint: QuayEndpoint,
-		UrlHost:  QuaySaasHost,
-	},
-	{
-		SpType:   config.ServiceProviderTypeGitLab,
-		Endpoint: GitlabEndpoint,
-		UrlHost:  GitlabSaasHost,
-	},
+var state = &oauthstate.OAuthInfo{
+	TokenName:           "mytoken",
+	TokenNamespace:      IT.Namespace,
+	Scopes:              []string{"a", "b"},
+	ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
+	ServiceProviderUrl:  "http://spi",
 }
 
 func TestNewRouter(t *testing.T) {
@@ -68,11 +62,11 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.NotNil(t, router)
 		assert.NoError(t, err)
-		assert.Equal(t, len(testSpDefaults), len(router.controllers))
+		assert.Equal(t, len(config.SupportedServiceProviderTypes), len(router.controllers))
 	})
 
 	t.Run("fail with invalid sp url", func(t *testing.T) {
@@ -92,7 +86,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -121,7 +115,7 @@ func TestNewRouter(t *testing.T) {
 			},
 		}
 
-		router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+		router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 
 		assert.Nil(t, router)
 		assert.Error(t, err)
@@ -130,7 +124,7 @@ func TestNewRouter(t *testing.T) {
 
 func TestFindController(t *testing.T) {
 	cfg := RouterConfiguration{
-		StateStorage: &StateStorage{},
+		StateStorage: &SessionStateStorage{},
 		OAuthServiceConfiguration: OAuthServiceConfiguration{
 			SharedConfiguration: config.SharedConfiguration{
 				BaseUrl: "http://spi",
@@ -152,28 +146,17 @@ func TestFindController(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.TODO(), cfg, testSpDefaults)
+	router, err := NewRouter(context.TODO(), cfg, config.SupportedServiceProviderTypes)
 	assert.NoError(t, err)
 
 	t.Run("fail when request unknown service provider", func(t *testing.T) {
-		spDefaults := []ServiceProviderDefaults{
-			{
-				SpType:   config.ServiceProviderTypeGitHub,
-				Endpoint: github.Endpoint,
-				UrlHost:  GithubSaasHost,
-			},
-			{
-				SpType:   config.ServiceProviderTypeQuay,
-				Endpoint: QuayEndpoint,
-				UrlHost:  QuaySaasHost,
-			},
-		}
+		spDefaults := []config.ServiceProviderType{config.ServiceProviderTypeQuay, config.ServiceProviderTypeGitHub}
 
 		router, err := NewRouter(context.TODO(), cfg, spDefaults)
 		assert.NoError(t, err)
 
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
-			ServiceProviderType: config.ServiceProviderTypeGitLab,
+			ServiceProviderName: config.ServiceProviderTypeGitLab.Name,
 		})
 		assert.NoError(t, stateErr)
 
@@ -223,7 +206,7 @@ func TestFindController(t *testing.T) {
 
 	t.Run("ok find sp type", func(t *testing.T) {
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		})
 		assert.NoError(t, stateErr)
 
@@ -235,7 +218,41 @@ func TestFindController(t *testing.T) {
 
 		assert.NotNil(t, controller)
 		assert.NotNil(t, state)
-		assert.Equal(t, state.ServiceProviderType, config.ServiceProviderTypeGitHub)
+		assert.Equal(t, config.ServiceProviderTypeGitHub.Name, state.ServiceProviderName)
 		assert.NoError(t, err)
 	})
+}
+
+func TestCallbackRoute(t *testing.T) {
+
+	t.Run("OAuth flow metrics", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		FlowCompleteTimeMetric.Reset()
+		registry.MustRegister(FlowCompleteTimeMetric)
+		encoded, _ := oauthstate.Encode(state)
+		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderName]Controller{
+			config.ServiceProviderTypeGitHub.Name: NopController{},
+		})
+		req, _ := http.NewRequest("GET", "callback?state=abcde", nil)
+		rr := httptest.NewRecorder()
+
+		router.Callback().ServeHTTP(rr, req)
+
+		count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+		assert.Equal(t, 1, count)
+		assert.NoError(t, err)
+		problems, err := prometheusTest.GatherAndLint(registry, "redhat_appstudio_spi_oauth_flow_complete_time_seconds")
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(problems), fmt.Sprintf("Unexpected lint problems:  %s ", problems))
+
+	})
+}
+
+// Creates new Router with predefined StateStorage and ready to use map of Controller.
+func NewTestRouter(stateStorage StateStorage, controllers map[config.ServiceProviderName]Controller) (*Router, error) {
+	return &Router{
+		controllers:  controllers,
+		stateStorage: stateStorage,
+	}, nil
 }

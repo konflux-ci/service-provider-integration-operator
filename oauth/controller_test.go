@@ -1,3 +1,4 @@
+//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +15,19 @@
 package oauth
 
 import (
-	"golang.org/x/oauth2"
+	"context"
+	"net/http"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 )
 
-// QuayEndpoint is the OAuth endpoints specification of quay.io
-var QuayEndpoint = oauth2.Endpoint{
-	AuthURL:  "https://quay.io/oauth/authorize",
-	TokenURL: "https://quay.io/oauth/access_token",
+// Test Controller that do nothing.
+type NopController struct {
 }
 
-var QuaySaasHost = "quay.io"
+var _ Controller = (*NopController)(nil)
+
+func (n NopController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
+}
+func (n NopController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
+}

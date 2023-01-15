@@ -147,14 +147,15 @@ func TestFromRepoUrl(t *testing.T) {
 	utilruntime.Must(v1.AddToScheme(scheme))
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
+	initializers := NewInitializers().
+		AddKnownInitializer(config.ServiceProviderTypeQuay, mockInit)
+
 	fact := Factory{
 		Configuration:    &opconfig.OperatorConfiguration{},
 		KubernetesClient: cl,
 		HttpClient:       nil,
-		Initializers: map[config.ServiceProviderType]Initializer{
-			config.ServiceProviderTypeQuay: mockInit,
-		},
-		TokenStorage: nil,
+		TokenStorage:     nil,
+		Initializers:     initializers,
 	}
 
 	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo", "namespace")
@@ -175,7 +176,7 @@ func TestGetAllServiceProviderConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-different-namespace",
 					Namespace: "different-namespace",
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						api.ServiceProviderHostLabel: "should.not.be.found",
 					},
 				},
@@ -192,8 +193,18 @@ func TestGetAllServiceProviderConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-quay",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay.Name),
 						api.ServiceProviderHostLabel: "quay.secret.url",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-gitlab",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitLab.Name),
+						api.ServiceProviderHostLabel: "https://some.gitlab.url",
 					},
 				},
 			},
@@ -203,14 +214,11 @@ func TestGetAllServiceProviderConfigs(t *testing.T) {
 	factory := Factory{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{{
-				ServiceProviderType: "GitHub",
+				ServiceProviderType: config.ServiceProviderTypeGitHub,
 			}, {
-				ServiceProviderType: "Quay",
+				ServiceProviderType: config.ServiceProviderTypeQuay,
 			}, {
-				ServiceProviderType: "GitLab",
-			}, {
-				ServiceProviderType:    "GitLab",
-				ServiceProviderBaseUrl: "https://some.gitlab.url",
+				ServiceProviderType: config.ServiceProviderTypeGitLab,
 			}},
 		}},
 		KubernetesClient: cl,
@@ -225,9 +233,6 @@ func TestGetAllServiceProviderConfigs(t *testing.T) {
 	//then
 	assert.NoError(t, err)
 	assert.Len(t, allConfigs, 5)
-	for spType, url := range KnownSaasUrls() {
-		assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: spType, ServiceProviderBaseUrl: url})
-	}
 	assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: config.ServiceProviderTypeQuay, ServiceProviderBaseUrl: "quay.secret.url"})
 	assert.Contains(t, allConfigs, config.ServiceProviderConfiguration{ServiceProviderType: config.ServiceProviderTypeGitLab, ServiceProviderBaseUrl: "https://some.gitlab.url"})
 }
@@ -245,7 +250,7 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-different-namespace",
 					Namespace: "different-namespace",
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						api.ServiceProviderHostLabel: "should.not.be.found",
 					},
 				},
@@ -254,7 +259,7 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-github",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						api.ServiceProviderHostLabel: "github.secret.url",
 					},
 				},
@@ -263,7 +268,7 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-quay",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay.Name),
 						api.ServiceProviderHostLabel: "quay.secret.url",
 					},
 				},
@@ -272,7 +277,7 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 					Name:      "oauth-config-secret-gitlab",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitLab),
+						api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitLab.Name),
 						api.ServiceProviderHostLabel: "gitlab.secret.url",
 					},
 				},
@@ -283,25 +288,24 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 	factory := Factory{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{{
-				ServiceProviderType: "GitHub",
+				ServiceProviderType: config.ServiceProviderTypeGitHub,
 			}, {
-				ServiceProviderType: "Quay",
+				ServiceProviderType: config.ServiceProviderTypeGitLab,
 			}, {
-				ServiceProviderType: "GitLab",
+				ServiceProviderType: config.ServiceProviderTypeQuay,
 			}, {
-				ServiceProviderType:    "GitHub",
+				ServiceProviderType:    config.ServiceProviderTypeGitHub,
 				ServiceProviderBaseUrl: "https://some.github.url",
 			}, {
-				ServiceProviderType:    "Quay",
+				ServiceProviderType:    config.ServiceProviderTypeQuay,
 				ServiceProviderBaseUrl: "https://some.quay.url",
 			}, {
-				ServiceProviderType:    "GitLab",
+				ServiceProviderType:    config.ServiceProviderTypeGitLab,
 				ServiceProviderBaseUrl: "https://some.gitlab.url",
 			}},
 		}},
 		KubernetesClient: cl,
 		HttpClient:       nil,
-		Initializers:     nil,
 		TokenStorage:     nil,
 	}
 
@@ -317,9 +321,9 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 		assert.Contains(t, urls, strings.ToLower(string(providerType))+".secret.url")
 	}
 
-	for spType, url := range KnownSaasUrls() {
-		assert.Contains(t, baseUrls[spType], url)
-	}
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitHub.Name], config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeQuay.Name], config.ServiceProviderTypeQuay.DefaultBaseUrl)
+	assert.Contains(t, baseUrls[config.ServiceProviderTypeGitLab.Name], config.ServiceProviderTypeGitLab.DefaultBaseUrl)
 }
 
 func TestInitializeServiceProvider(t *testing.T) {
@@ -349,7 +353,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 		}}
 
 		t.Run("should create service provider with base URL: "+expectedSPBaseUrl, func(t *testing.T) {
-			sp := factory.initializeServiceProvider(initializer, repoUrl, baseUrls)
+			sp := factory.initializeServiceProvider(&initializer, repoUrl, baseUrls)
 			assert.NotNil(t, sp)
 			assert.Equal(t, mockSP, sp)
 		})
@@ -375,6 +379,6 @@ func TestInitializeServiceProvider(t *testing.T) {
 			return nil, nil
 		},
 	}}
-	sp := factory.initializeServiceProvider(initializer, "another.service.url/with/path", []string{urlWithProtocol, urlWoutProtocol})
+	sp := factory.initializeServiceProvider(&initializer, "another.service.url/with/path", []string{urlWithProtocol, urlWoutProtocol})
 	assert.Nil(t, sp)
 }

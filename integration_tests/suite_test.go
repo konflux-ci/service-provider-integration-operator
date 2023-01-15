@@ -60,6 +60,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var testServiceProvider = config.ServiceProviderType{
+	Name: "TestServiceProvider",
+}
+
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -160,7 +164,11 @@ var _ = BeforeSuite(func() {
 				{
 					ClientId:            "testClient",
 					ClientSecret:        "testSecret",
-					ServiceProviderType: "TestServiceProvider",
+					ServiceProviderType: testServiceProvider,
+				},
+				{
+					ServiceProviderBaseUrl: "https://spi-club.org",
+					ServiceProviderType:    config.ServiceProviderType{Name: "SpiClub"},
 				},
 			},
 		},
@@ -169,6 +177,7 @@ var _ = BeforeSuite(func() {
 		AccessTokenBindingTtl: 10 * time.Second,
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
+		EnableTokenUpload:     true,
 	}
 
 	// start webhook server using Manager
@@ -193,30 +202,33 @@ var _ = BeforeSuite(func() {
 
 	Expect(ITest.TokenStorage.Initialize(ctx)).To(Succeed())
 
+	initializers := serviceprovider.NewInitializers().
+		AddKnownInitializer(config.ServiceProviderType{Name: "TestServiceProvider"},
+			serviceprovider.Initializer{
+				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+				}),
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+					return ITest.TestServiceProvider, nil
+				}),
+			}).
+		AddKnownInitializer(config.ServiceProviderType{Name: "HostCredentials"},
+			serviceprovider.Initializer{
+				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
+					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
+				}),
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+					return ITest.HostCredsServiceProvider, nil
+				}),
+			})
+
 	// the controllers themselves do not need the notifying token storage because they operate in the cluster
 	// the notifying token storage is only needed if changes are only made to the storage and the cluster needs to be
 	// notified about it. This only happens in OAuth service or in tests. So the test code is using notifying token
 	// storage so that the controllers can react to the changes made to the token storage by the testsuite but the
 	// controllers themselves use the "raw" token storage because they only write to the storage based on the conditions
 	// in the cluster.
-	err = controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, strg, map[config.ServiceProviderType]serviceprovider.Initializer{
-		"TestServiceProvider": {
-			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
-				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
-			}),
-			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-				return ITest.TestServiceProvider, nil
-			}),
-		},
-		"HostCredentials": {
-			Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
-				return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
-			}),
-			Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
-				return ITest.HostCredsServiceProvider, nil
-			}),
-		},
-	})
+	err = controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, strg, initializers)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {

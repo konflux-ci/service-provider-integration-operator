@@ -11,6 +11,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package config
 
-var GithubSaasHost = "github.com"
+import (
+	"golang.org/x/oauth2"
+)
+
+const (
+	quaySaasHost    = "quay.io"
+	quaySaasBaseUrl = "https://" + quaySaasHost
+)
+
+var ServiceProviderTypeQuay ServiceProviderType = ServiceProviderType{
+	Name: "Quay",
+	DefaultOAuthEndpoint: oauth2.Endpoint{
+		AuthURL:  quaySaasBaseUrl + "/oauth/authorize",
+		TokenURL: quaySaasBaseUrl + "/oauth/access_token",
+	},
+	DefaultHost:    quaySaasHost,
+	DefaultBaseUrl: quaySaasBaseUrl,
+}

@@ -29,6 +29,9 @@ var (
 	// We allow for the unbounded "hostname" label with the assumption that the real number of service providers will be
 	// limited to only a couple in practice.
 	//
+	// The `operation` label signifies the operation being performed in the controller for which we need to contact the
+	// service provider.
+	//
 	// Note that while this metric may seem similar to the automatic _count of ResponseTimeMetric histogram, it is different
 	// because it counts the request attempts, which should also include requests for which it was not possible to obtain
 	// the response (which have the "failure" label set to true).
@@ -40,11 +43,14 @@ var (
 		Subsystem: config.MetricsSubsystem,
 		Name:      "service_provider_request_count_total",
 		Help:      "The request counts to service providers categorized by service provider type, hostname and HTTP method",
-	}, []string{"sp", "hostname", "method", "failure"})
+	}, []string{"sp", "hostname", "method", "failure", "operation"})
 
 	// ResponseTimeMetric is the metric that collects the request response times for all service providers.
 	// We allow for the unbounded "hostname" label with the assumption that the real number of service providers will be
 	// limited to only a couple in practice.
+	//
+	// The `operation` label signifies the operation being performed in the controller for which we need to contact the
+	// service provider.
 	//
 	// Preferably, use the CommonRequestMetricsConfig function to use this metric and register it using the RegisterCommonMetrics
 	// function.
@@ -53,7 +59,7 @@ var (
 		Subsystem: config.MetricsSubsystem,
 		Name:      "service_provider_response_time_seconds",
 		Help:      "The response time of service provider requests categorized by service provider hostname, HTTP method and status code",
-	}, []string{"sp", "hostname", "method", "status"})
+	}, []string{"sp", "hostname", "method", "status", "operation"})
 )
 
 // RegisterCommonMetrics registers the RequestCountMetric and ResponseTimeMetric with the provided registerer. This must be
@@ -71,32 +77,32 @@ func RegisterCommonMetrics(registerer prometheus.Registerer) error {
 }
 
 // CommonRequestMetricsConfig returns the metrics collection configuration for collecting the RequestCountMetric and
-// ResponseTimeMetric for the provided service provider type.
+// ResponseTimeMetric for the provided service provider type with given operation.
 //
 // The returned configuration can be used with httptransport.ContextWithMetrics to configure what metrics should be
 // collected in the http requests.
-func CommonRequestMetricsConfig(spType config.ServiceProviderType) *httptransport.HttpMetricCollectionConfig {
+func CommonRequestMetricsConfig(spType config.ServiceProviderType, operation string) *httptransport.HttpMetricCollectionConfig {
 	return &httptransport.HttpMetricCollectionConfig{
-		CounterPicker:            requestCountPicker(spType),
-		HistogramOrSummaryPicker: responseTimePicker(spType),
+		CounterPicker:            requestCountPicker(spType.Name, operation),
+		HistogramOrSummaryPicker: responseTimePicker(spType.Name, operation),
 	}
 }
 
-func requestCountPicker(spType config.ServiceProviderType) httptransport.HttpCounterMetricPickerFunc {
+func requestCountPicker(spType config.ServiceProviderName, operation string) httptransport.HttpCounterMetricPickerFunc {
 	return func(request *http.Request, response *http.Response, err error) []prometheus.Counter {
 		failed := "false"
 		if err != nil || response == nil {
 			failed = "true"
 		}
-		return []prometheus.Counter{RequestCountMetric.WithLabelValues(string(spType), request.Host, request.Method, failed)}
+		return []prometheus.Counter{RequestCountMetric.WithLabelValues(string(spType), request.Host, request.Method, failed, operation)}
 	}
 }
 
-func responseTimePicker(spType config.ServiceProviderType) httptransport.HttpHistogramOrSummaryMetricPickerFunc {
+func responseTimePicker(spType config.ServiceProviderName, operation string) httptransport.HttpHistogramOrSummaryMetricPickerFunc {
 	return func(request *http.Request, resp *http.Response, err error) []prometheus.Observer {
 		if resp == nil {
 			return nil
 		}
-		return []prometheus.Observer{ResponseTimeMetric.WithLabelValues(string(spType), request.Host, request.Method, strconv.Itoa(resp.StatusCode))}
+		return []prometheus.Observer{ResponseTimeMetric.WithLabelValues(string(spType), request.Host, request.Method, strconv.Itoa(resp.StatusCode), operation)}
 	}
 }

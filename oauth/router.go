@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"golang.org/x/oauth2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,9 +32,9 @@ var errUnknownServiceProviderType = errors.New("unknown service provider type")
 
 // Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
-	controllers map[config.ServiceProviderType]Controller
+	controllers map[config.ServiceProviderName]Controller
 
-	stateStorage *StateStorage
+	stateStorage StateStorage
 }
 
 // CallbackRoute route for /oauth/callback requests
@@ -51,30 +51,23 @@ type AuthenticateRoute struct {
 type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator    *Authenticator
-	StateStorage     *StateStorage
+	StateStorage     StateStorage
 	K8sClient        client.Client
 	TokenStorage     tokenstorage.TokenStorage
 	RedirectTemplate *template.Template
 }
 
-// ServiceProviderDefaults configuration containing default values used to initialize supported service providers
-type ServiceProviderDefaults struct {
-	SpType   config.ServiceProviderType
-	Endpoint oauth2.Endpoint
-	UrlHost  string
-}
-
-func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []ServiceProviderDefaults) (*Router, error) {
+func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config.ServiceProviderType) (*Router, error) {
 	router := &Router{
-		controllers:  map[config.ServiceProviderType]Controller{},
+		controllers:  map[config.ServiceProviderName]Controller{},
 		stateStorage: cfg.StateStorage,
 	}
 
 	for _, sp := range spDefaults {
-		if controller, initControllerErr := InitController(ctx, sp.SpType, cfg, sp.UrlHost, sp.Endpoint); initControllerErr == nil {
-			router.controllers[sp.SpType] = controller
+		if controller, initControllerErr := InitController(ctx, sp, cfg); initControllerErr == nil {
+			router.controllers[sp.Name] = controller
 		} else {
-			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.SpType, initControllerErr)
+			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.Name, initControllerErr)
 		}
 	}
 
@@ -96,7 +89,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if veiled {
 		stateString, err = r.stateStorage.UnveilState(req.Context(), req)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("unknown or invalid state: %w", err)
 		}
 	} else {
 		stateString = req.FormValue("state")
@@ -108,9 +101,9 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 		return nil, nil, fmt.Errorf("failed to parse state string: %w", err)
 	}
 
-	controller := r.controllers[state.ServiceProviderType]
+	controller := r.controllers[state.ServiceProviderName]
 	if controller == nil {
-		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderType, state.ServiceProviderUrl)
+		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl)
 	}
 
 	return controller, state, nil
@@ -124,6 +117,13 @@ func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	ctrl.Callback(req.Context(), wrt, req, state)
+
+	veiledAt, err := r.router.stateStorage.StateVeiledAt(req.Context(), req)
+	if err != nil {
+		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
+	}
+
+	FlowCompleteTimeMetric.WithLabelValues(string(state.ServiceProviderName), state.ServiceProviderUrl).Observe(time.Since(veiledAt).Seconds())
 }
 
 func (r *AuthenticateRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {

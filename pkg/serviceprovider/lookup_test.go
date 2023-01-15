@@ -71,13 +71,17 @@ func TestGenericLookup_Lookup(t *testing.T) {
 	utilruntime.Must(api.AddToScheme(sch))
 	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(matchingToken, nonMatchingToken1, nonMatchingToken2).Build()
 
-	cache := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+	cache := MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+		CacheServiceProviderState: true,
+	}
 	gl := GenericLookup{
 		ServiceProviderType: "test",
 		TokenFilter: TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
 			return token.Name == "matching", nil
 		}),
-		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+		MetadataProvider: MetadataProviderFunc(func(_ context.Context, _ *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 			return &api.TokenMetadata{
 				UserId: "42",
 			}, nil
@@ -111,11 +115,15 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 	utilruntime.Must(api.AddToScheme(sch))
 	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(token).Build()
 
-	cache := NewMetadataCache(cl, &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour})
+	cache := MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
+		CacheServiceProviderState: true,
+	}
 
 	fetchCalled := false
 	gl := GenericLookup{
-		MetadataProvider: MetadataProviderFunc(func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+		MetadataProvider: MetadataProviderFunc(func(_ context.Context, _ *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 			fetchCalled = true
 			return &api.TokenMetadata{
 				UserId: "42",

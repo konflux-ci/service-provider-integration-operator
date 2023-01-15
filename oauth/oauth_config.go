@@ -89,7 +89,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		return oauthCfg, nil
 	}
 
-	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderType, info.ServiceProviderUrl)
+	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderName, info.ServiceProviderUrl)
 }
 
 func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNamespace string, spHost string) (bool, *corev1.Secret, error) {
@@ -97,10 +97,13 @@ func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNames
 
 	secrets := &corev1.SecretList{}
 	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType),
+		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType.Name),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
 			lg.Info("not enough permissions to list the secrets")
+			return false, nil, nil
+		} else if kuberrors.IsUnauthorized(listErr) {
+			lg.Info("request is not authorized to list the secrets in user's namespace")
 			return false, nil, nil
 		} else {
 			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)

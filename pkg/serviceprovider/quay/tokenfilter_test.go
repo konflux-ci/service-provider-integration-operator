@@ -23,6 +23,7 @@ import (
 	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,7 @@ func TestMatches_RobotToken(t *testing.T) {
 				Permissions: api.Permissions{
 					AdditionalScopes: []string{string(ScopeRepoRead)},
 				},
-				ServiceProviderUrl: "https://quay.io",
+				ServiceProviderUrl: config.ServiceProviderTypeQuay.DefaultBaseUrl,
 			},
 			Status: api.SPIAccessTokenStatus{
 				Phase:        api.SPIAccessTokenPhaseReady,
