@@ -150,14 +150,22 @@ func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
 		if err != nil {
 			return nil, err
 		}
-		conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
+
+		currentConfig := ServiceProviderConfiguration{
 			ClientId:               sp.ClientId,
 			ClientSecret:           sp.ClientSecret,
 			ServiceProviderType:    spType,
 			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
 			Extra:                  sp.Extra,
-		})
+		}
+
+		// substitute default url
+		if currentConfig.ServiceProviderBaseUrl == "" {
+			currentConfig.ServiceProviderBaseUrl = currentConfig.ServiceProviderType.DefaultBaseUrl
+		}
+		conf.ServiceProviders = append(conf.ServiceProviders, currentConfig)
 	}
+
 	return &conf, nil
 }
 
