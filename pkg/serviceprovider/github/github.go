@@ -68,7 +68,7 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newGithub(factory *serviceprovider.Factory, _ string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
-	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
+	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
 	ghClientBuilder := githubClientBuilder{

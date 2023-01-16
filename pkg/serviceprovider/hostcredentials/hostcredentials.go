@@ -47,7 +47,7 @@ var Initializer = serviceprovider.Initializer{
 
 func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 
-	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
+	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	return &HostCredentialsProvider{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{

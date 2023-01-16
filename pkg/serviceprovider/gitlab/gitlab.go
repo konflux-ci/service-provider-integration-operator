@@ -75,7 +75,7 @@ type gitlabOAuthCapability struct {
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
-	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
+	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
 		httpClient:   factory.HttpClient,
 		tokenStorage: factory.TokenStorage,
