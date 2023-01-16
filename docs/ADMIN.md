@@ -123,3 +123,30 @@ There are couple of support scripts to work with Vault
 - `./hack/vault-generate-template.sh` - generates deployment yamls from [vault-helm](https://github.com/hashicorp/vault-helm). These should be commited in this repository.
 - injected in vault pod `/vault/userconfig/scripts/poststart.sh` - unseal vault storage. Runs automatically after pod startup.
 - injected in vault pod `/vault/userconfig/scripts/root.sh` - vault login as root with generated root token. Can be used for manual configuration.
+
+
+## [Monitoring](#monitoring)
+
+ There is a defined list of Service Level Objectives (SLO-s), for which SPI service should collect indicator metrics, 
+ and expose on its monitoring framework. There is dedicated Grafana dashboard, containing only those metrics which are defined
+ as a SLI/SLOs for the SPI service.
+
+The key indicators and desired objectives are explained below: 
+
+ - `Token update time` It is a time delay between the moment when token is created or updated in the Vault storage and
+the moment when this change is processed by operator and reflected on the K8S, i.e. the `SPIAccessTokenDataUpdate` being reconciled and applied.
+The expected SLO for this metric is that at least 90% of the tokens should be processed in less than 1 second.
+
+
+ - `Token metadata reconcile time` It's a measure of time which it takes for operator to retrieve the token metadata from the service provider.
+We collect and show it separately per each service provider (GitHub, GitLab, Quay).  Expected objective is to fit 90% of requests into 1 second of processing time. 
+
+
+ - `5xx errors rate` It's a per-service provider ratio of "successful vs 5xx" HTTP calls (typically, to the SP-s API), expressed in percents.
+Expected SLO is to have less than 0.1% of requests with 5xx status code responses per 24h time period.
+
+
+ - `OAuth flow completion time` Simply saying, it is the time needed for user to pass through the OAuth flow on service provider side UI, 
+i.e. the period from when we send him to the OAuth login page to when he is returning to the callback. 
+That gives us idea of how clear is process for the user, amount of time is needed for him to understood which permission are given, what scopes are requested, etc.
+Desired objective is to have most OAuth completion times under 30 seconds. 
