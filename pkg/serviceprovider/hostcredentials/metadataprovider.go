@@ -31,7 +31,7 @@ type metadataProvider struct {
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
-func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, _ bool) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
 	data, err := p.tokenStorage.Get(ctx, token)

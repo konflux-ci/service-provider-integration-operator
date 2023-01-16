@@ -46,8 +46,12 @@ func (f MetadataExpirationPolicyFunc) IsExpired(token *api.SPIAccessToken) bool 
 // On top of just CRUDing the token metadata, this struct handles the refreshes of the data when it is determined
 // stale.
 type MetadataCache struct {
-	client           client.Client
-	expirationPolicy MetadataExpirationPolicy
+	// Client is the Kubernetes client to use for persisting the fetched metadata
+	Client           client.Client
+	ExpirationPolicy MetadataExpirationPolicy
+	// CacheServiceProviderState specifies whether to fetch and cache the full state, including the service provider
+	// state or just the basic info (like username and/or userid).
+	CacheServiceProviderState bool
 }
 
 // TtlMetadataExpirationPolicy is a MetadataExpirationPolicy implementation that checks whether the metadata of the token is
@@ -71,21 +75,13 @@ func (t NeverMetadataExpirationPolicy) IsExpired(_ *api.SPIAccessToken) bool {
 	return false
 }
 
-// NewMetadataCache creates a new cache instance with the provided configuration.
-func NewMetadataCache(client client.Client, expirationPolicy MetadataExpirationPolicy) MetadataCache {
-	return MetadataCache{
-		client:           client,
-		expirationPolicy: expirationPolicy,
-	}
-}
-
 // Persist assigns the last refresh time of the token metadata and updates the token
 func (c *MetadataCache) Persist(ctx context.Context, token *api.SPIAccessToken) error {
 	if token.Status.TokenMetadata != nil {
 		token.Status.TokenMetadata.LastRefreshTime = time.Now().Unix()
 	}
 
-	if err := c.client.Status().Update(ctx, token); err != nil {
+	if err := c.Client.Status().Update(ctx, token); err != nil {
 		return fmt.Errorf("metadata cache error: updating the status of token %s/%s: %w", token.Namespace, token.Name, err)
 	}
 
@@ -99,7 +95,7 @@ func (c *MetadataCache) refresh(token *api.SPIAccessToken) {
 		return
 	}
 
-	if c.expirationPolicy.IsExpired(token) {
+	if c.ExpirationPolicy.IsExpired(token) {
 		token.Status.TokenMetadata = nil
 	}
 }
@@ -117,7 +113,7 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 			auditLog = auditLog.WithValues("provider", token.Labels[api.ServiceProviderTypeLabel])
 		}
 		auditLog.Info("token metadata being fetched or refreshed")
-		data, err := ser.Fetch(ctx, token)
+		data, err := ser.Fetch(ctx, token, c.CacheServiceProviderState)
 		if err != nil {
 			auditLog.Error(err, "error fetching token metadata")
 			return fmt.Errorf("metadata cache error: fetching token data: %w", err)

@@ -50,7 +50,7 @@ var _ = Describe("Controller", func() {
 			TokenName:           "mytoken",
 			TokenNamespace:      IT.Namespace,
 			Scopes:              []string{"a", "b"},
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 			ServiceProviderUrl:  "https://special.sp",
 		}
 	}

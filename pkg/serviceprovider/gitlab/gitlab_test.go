@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"
@@ -160,7 +161,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, nil)
 
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -178,7 +179,7 @@ func TestCheckRepositoryAccess_FailWithGithubHttp(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil)
 
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -191,7 +192,7 @@ func TestCheckRepositoryAccess_Private(t *testing.T) {
 	k8sClient := mockK8sClient()
 	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, nil)
 	ac := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
@@ -209,7 +210,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, errors.New("expected error"))
 
 	accessCheck := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &accessCheck)
 
@@ -229,7 +230,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PrivateRepo(t *testing.T) {
 	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, expectedError)
 
 	accessCheck := api.SPIAccessCheck{
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &accessCheck)
 
@@ -251,7 +252,7 @@ func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 			Name:      "access-check",
 			Namespace: "ac-namespace",
 		},
-		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://gitlab.com/namespace/repo"},
+		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
 	status, err := gitlab.CheckRepositoryAccess(context.TODO(), k8sClient, &ac)
 
@@ -260,7 +261,11 @@ func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 }
 
 func mockGitlab(cl client.Client, returnCode int, responseError error, lookupError error) *Gitlab {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
+	metadataCache := serviceprovider.MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
+		CacheServiceProviderState: true,
+	}
 	tokenStorageMock := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "access_tolkien"}, nil
 	}}
@@ -304,11 +309,11 @@ func mockK8sClient() client.WithWatch {
 			Namespace: "accessCheck-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitLab),
-				api.ServiceProviderHostLabel: "gitlab.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitLab.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://gitlab.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,

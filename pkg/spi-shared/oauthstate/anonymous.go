@@ -33,8 +33,8 @@ type OAuthInfo struct {
 	// Scopes is the list of the service-provider-specific scopes that we require in the service provider
 	Scopes []string `json:"scopes"`
 
-	// ServiceProviderType is the type of the service provider
-	ServiceProviderType config.ServiceProviderType `json:"serviceProviderType"`
+	// ServiceProviderName is the type of the service provider
+	ServiceProviderName config.ServiceProviderName `json:"serviceProviderType"`
 
 	// ServiceProviderUrl the URL where the service provider is to be reached
 	ServiceProviderUrl string `json:"serviceProviderUrl"`

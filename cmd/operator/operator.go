@@ -29,7 +29,12 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceproviders"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	corev1 "k8s.io/api/core/v1"
 
@@ -51,6 +56,8 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	initializers = serviceprovider.NewInitializers()
 )
 
 func init() {
@@ -58,6 +65,16 @@ func init() {
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+
+	initServiceProviders()
+}
+
+func initServiceProviders() {
+	initializers.
+		AddKnownInitializer(config.ServiceProviderTypeGitHub, github.Initializer).
+		AddKnownInitializer(config.ServiceProviderTypeGitLab, gitlab.Initializer).
+		AddKnownInitializer(config.ServiceProviderTypeQuay, quay.Initializer).
+		AddKnownInitializer(config.ServiceProviderTypeHostCredentials, hostcredentials.Initializer)
 }
 
 func main() {
@@ -96,7 +113,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, serviceproviders.KnownInitializers()); err != nil {
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, initializers); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}

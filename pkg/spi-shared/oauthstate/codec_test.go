@@ -27,7 +27,7 @@ func TestAnonymous(t *testing.T) {
 		TokenName:           "token-name",
 		TokenNamespace:      "default",
 		Scopes:              []string{"a", "b", "c"},
-		ServiceProviderType: "sp type",
+		ServiceProviderName: "sp type",
 		ServiceProviderUrl:  "https://sp",
 	})
 	assert.NoError(t, err)
@@ -38,7 +38,7 @@ func TestAnonymous(t *testing.T) {
 	assert.Equal(t, "token-name", decoded.TokenName)
 	assert.Equal(t, "default", decoded.TokenNamespace)
 	assert.Equal(t, []string{"a", "b", "c"}, decoded.Scopes)
-	assert.Equal(t, config.ServiceProviderType("sp type"), decoded.ServiceProviderType)
+	assert.Equal(t, config.ServiceProviderName("sp type"), decoded.ServiceProviderName)
 	assert.Equal(t, "https://sp", decoded.ServiceProviderUrl)
 }
 
