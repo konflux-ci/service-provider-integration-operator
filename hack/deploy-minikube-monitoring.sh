@@ -266,9 +266,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-prometheus-2-0-overview
     key: prometheus-2-0-overview_rev1.json
-  datasources:
-  - inputName: "DS_THEMIS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 
@@ -286,9 +283,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-controller-runtime
     key: controller-runtime-controllers-detail_rev1.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: Go Processes'
@@ -305,9 +299,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-go-processes
     key: go-processes_rev1.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: SPI Health'
@@ -324,9 +315,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-spi-health
     key: spi-health.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: SPI Outbound Traffic'
@@ -343,9 +331,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-spi-outbound-traffic
     key: spi-outbound-traffic.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: SPI SLO'
