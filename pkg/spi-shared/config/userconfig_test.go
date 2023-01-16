@@ -27,7 +27,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 	t.Run("no secrets", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -48,7 +48,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -69,7 +69,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -90,7 +90,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -105,7 +105,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				}, "nenene", fmt.Errorf("test err"))
 			}}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -117,7 +117,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewBadRequest("nenenene")
 			}}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
@@ -136,7 +136,7 @@ func TestMultipleProviders(t *testing.T) {
 			Items: oauthConfigSecrets,
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub.Name, "blabol.eh")
+		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, "blabol.eh")
 		assert.Equal(t, shouldFind, found, "should find the secret")
 		if shouldError {
 			assert.Error(t, err, "should error")

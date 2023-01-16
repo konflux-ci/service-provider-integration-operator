@@ -204,7 +204,8 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 		if initializer.Probe != nil {
 			probeBaseUrl, errProbe := initializer.Probe.Examine(f.HttpClient, repoBaseUrl)
 			if errProbe != nil {
-				return nil, nil
+				// in current implementation of some probes, we have to consider probe error as not match state
+				return nil, nil //nolint:nilerr
 			}
 			if probeBaseUrl != "" {
 				sp, err := ctor.Construct(f, probeBaseUrl, spConfigFromType(spType))

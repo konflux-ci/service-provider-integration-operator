@@ -23,12 +23,10 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
-	errMissingField           = errors.New("missing mandatory field in oauth configuration")
 	errUnknownServiceProvider = errors.New("haven't found oauth configuration for service provider")
 )
 
@@ -72,35 +70,4 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	}
 
 	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderName, info.ServiceProviderUrl)
-}
-
-func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
-	if clientId, has := secret.Data[config.OAuthCfgSecretFieldClientId]; has {
-		oauthCfg.ClientID = string(clientId)
-	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, errMissingField)
-	}
-
-	if clientSecret, has := secret.Data[config.OAuthCfgSecretFieldClientSecret]; has {
-		oauthCfg.ClientSecret = string(clientSecret)
-	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, errMissingField)
-	}
-
-	if authUrl, has := secret.Data[config.OAuthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
-		oauthCfg.Endpoint.AuthURL = string(authUrl)
-	}
-
-	if tokenUrl, has := secret.Data[config.OAuthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
-		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
-	}
-
-	return nil
-}
-
-func createDefaultEndpoint(spBaseUrl string) oauth2.Endpoint {
-	return oauth2.Endpoint{
-		AuthURL:  spBaseUrl + "/oauth/authorize",
-		TokenURL: spBaseUrl + "/oauth/token",
-	}
 }

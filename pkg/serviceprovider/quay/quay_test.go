@@ -100,7 +100,7 @@ func TestMapToken(t *testing.T) {
 		},
 	}
 
-	quay, err := newQuay(fac, "")
+	quay, err := newQuay(fac, "", &config.ServiceProviderConfiguration{})
 	assert.NoError(t, err)
 
 	now := time.Now().Unix()
@@ -192,7 +192,7 @@ func TestQuay_OAuthScopesFor(t *testing.T) {
 
 	hasScopes := func(expectedScopes []string, ps api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
-			actualScopes := q.OAuthScopesFor(&ps)
+			actualScopes := q.GetOAuthCapability().OAuthScopesFor(&ps)
 			assert.Equal(t, len(expectedScopes), len(actualScopes))
 			for _, s := range expectedScopes {
 				assert.Contains(t, actualScopes, s)

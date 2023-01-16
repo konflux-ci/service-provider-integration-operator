@@ -78,7 +78,7 @@ func TestOAuthScopesFor(t *testing.T) {
 	gitlab := &Gitlab{}
 	hasExpectedScopes := func(expectedScopes []string, permissions api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
-			actualScopes := gitlab.OAuthScopesFor(&permissions)
+			actualScopes := gitlab.GetOAuthCapability().OAuthScopesFor(&permissions)
 			assert.Equal(t, len(expectedScopes), len(actualScopes))
 			for _, s := range expectedScopes {
 				assert.Contains(t, actualScopes, s)
