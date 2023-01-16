@@ -362,9 +362,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-spi-slo
     key: spi-slo.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 function decode() {

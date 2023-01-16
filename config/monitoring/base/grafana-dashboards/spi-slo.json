@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
-          "uid": "grafana"
-        },
+        "datasource": "$datasource",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -31,7 +28,7 @@
   "liveNow": false,
   "panels": [
     {
-     "datasource": "$datasource",
+      "datasource": "$datasource",
       "description": "The time it takes from the point in time the token data is uploaded into the Vault to it being picked up by the operator. This should be very similar to the reconcile time of the SPIAccessTokenDataUpdate object but will always be a little bit larger.",
       "fieldConfig": {
         "defaults": {
@@ -121,10 +118,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The time that is user spent to complete GitHub OAuth flow.",
       "fieldConfig": {
         "defaults": {
