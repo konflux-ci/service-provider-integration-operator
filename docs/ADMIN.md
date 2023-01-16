@@ -142,11 +142,11 @@ The expected SLO for this metric is that at least 90% of the tokens should be pr
 We collect and show it separately per each service provider (GitHub, GitLab, Quay).  Expected objective is to fit 90% of requests into 1 second of processing time. 
 
 
- - `5xx errors rate` It's a per-service provider ratio of "successful vs 5xx" HTTP calls (typically, to the SP-s API), expressed in percents.
+ - `5xx errors rate` It's a per-service provider ratio of "overall vs 5xx" HTTP calls (typically, to the SP-s API), expressed in percents.
 Expected SLO is to have less than 0.1% of requests with 5xx status code responses per 24h time period.
 
 
- - `OAuth flow completion time` Simply saying, it is the time needed for user to pass through the OAuth flow on service provider side UI, 
+ - `OAuth flow completion time` This metric counts up the time needed for user to successfully pass through the OAuth flow on service provider side UI, 
 i.e. the period from when we send him to the OAuth login page to when he is returning to the callback. 
 That gives us idea of how clear is process for the user, amount of time is needed for him to understood which permission are given, what scopes are requested, etc.
 Desired objective is to have most OAuth completion times under 30 seconds. 
