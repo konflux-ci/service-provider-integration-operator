@@ -86,6 +86,7 @@ func TestMapToken(t *testing.T) {
 	fac := &serviceprovider.Factory{
 		Configuration: &opconfig.OperatorConfiguration{
 			TokenLookupCacheTtl: 100 * time.Hour,
+			TokenMatchPolicy:    opconfig.ExactTokenPolicy,
 		},
 		KubernetesClient: k8sClient,
 		HttpClient:       httpClient,
@@ -348,7 +349,12 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		},
 	}
 
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
+	metadataCache := serviceprovider.MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
+		CacheServiceProviderState: true,
+	}
+
 	lookupMock := serviceprovider.GenericLookup{
 		RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		ServiceProviderType: api.ServiceProviderTypeQuay,

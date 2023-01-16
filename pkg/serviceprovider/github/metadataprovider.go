@@ -76,12 +76,12 @@ type metadataProvider struct {
 
 var _ serviceprovider.MetadataProvider = (*metadataProvider)(nil)
 
-func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+func (s metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	timer := metadataFetchTimer()
-	return timer.ObserveValuesAndDuration(s.doFetch(ctx, token))
+	return timer.ObserveValuesAndDuration(s.doFetch(ctx, token, includeState))
 }
 
-func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
+func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	data, err := s.tokenStorage.Get(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("error while getting token data: %w", err)
@@ -100,12 +100,22 @@ func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 		return nil, fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
 
-	if err := (&AllAccessibleRepos{}).FetchAll(ctx, ghClient, data.AccessToken, state); err != nil {
+	username, userId, scopes, err := s.fetchUserAndScopes(ctx, ghClient)
+	if err != nil {
 		return nil, err
 	}
 
-	username, userId, scopes, err := s.fetchUserAndScopes(ctx, ghClient)
-	if err != nil {
+	metadata := &api.TokenMetadata{}
+
+	metadata.UserId = userId
+	metadata.Username = username
+	metadata.Scopes = scopes
+
+	if !includeState {
+		return metadata, nil
+	}
+
+	if err := (&AllAccessibleRepos{}).FetchAll(ctx, ghClient, data.AccessToken, state); err != nil {
 		return nil, err
 	}
 
@@ -114,11 +124,6 @@ func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 		return nil, fmt.Errorf("error marshalling the state: %w", err)
 	}
 
-	metadata := &api.TokenMetadata{}
-
-	metadata.UserId = userId
-	metadata.Username = username
-	metadata.Scopes = scopes
 	metadata.ServiceProviderState = js
 
 	return metadata, nil

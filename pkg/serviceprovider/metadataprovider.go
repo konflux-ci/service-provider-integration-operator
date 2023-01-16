@@ -26,14 +26,18 @@ type MetadataProvider interface {
 	// Fetch tries to fetch the token metadata and assign it in the token. Note that the metadata of the token may or
 	// may not be nil and this method shouldn't change it unless there is data to assign.
 	// Implementors should make sure to return some errors.ServiceProviderError if the failure to fetch the metadata is
-	// caused by the token or service provider itself and not other environmental reasons
-	Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error)
+	// caused by the token or service provider itself and not other environmental reasons.
+	//
+	// The `includeState` governs the initialization of the `api.TokenMetadata.ServiceProviderState` field.
+	// If it is false, the provider can leave it out, leading to reduced time needed to initialize the metadata.
+	// This field is assumed to not be needed if the token match policy is set to "any" (which is currently the default).
+	Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error)
 }
 
-type MetadataProviderFunc func(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error)
+type MetadataProviderFunc func(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error)
 
 var _ MetadataProvider = (MetadataProviderFunc)(nil)
 
-func (f MetadataProviderFunc) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-	return f(ctx, token)
+func (f MetadataProviderFunc) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
+	return f(ctx, token, includeState)
 }
