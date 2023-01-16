@@ -193,7 +193,7 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 
 		providerType, err := config.GetServiceProviderTypeByName(config.ServiceProviderName(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel]))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find service provider: %w", err)
 		}
 		conf.ServiceProviderType = providerType
 		configurations = append(configurations, conf) // nozero -- we are copying elements before appending to this slice

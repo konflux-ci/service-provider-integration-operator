@@ -28,7 +28,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"
@@ -263,17 +262,12 @@ func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 	assert.NotNil(t, status)
 }
 
-<<<<<<< HEAD
 func mockGitlab(cl client.Client, returnCode int, body string, responseError error, lookupError error) *Gitlab {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
-=======
-func mockGitlab(cl client.Client, returnCode int, responseError error, lookupError error) *Gitlab {
 	metadataCache := serviceprovider.MetadataCache{
 		Client:                    cl,
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
 		CacheServiceProviderState: true,
 	}
->>>>>>> 8c6134b2004112b0ae806d35133bd3cf04b7d73f
 	tokenStorageMock := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "access_tolkien"}, nil
 	}}

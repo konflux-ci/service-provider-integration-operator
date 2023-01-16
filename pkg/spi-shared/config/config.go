@@ -146,7 +146,7 @@ func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
 	}
 
 	for _, sp := range c.ServiceProviders {
-		spType, err := GetServiceProviderTypeByName(ServiceProviderName(sp.ServiceProviderName))
+		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {
 			return nil, err
 		}

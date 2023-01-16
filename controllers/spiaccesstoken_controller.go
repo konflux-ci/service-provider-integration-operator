@@ -58,7 +58,7 @@ const tokenRefreshLabelName = "spi.appstudio.redhat.com/refresh-token"     //#no
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
-	noCredentialsFoundError   = stderrors.New("no oauth credentials found for given token")
+	noCredentialsFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
 	refreshNotSupportedError  = stderrors.New("does not support token refreshing")
 )
 
