@@ -39,12 +39,14 @@ var (
 	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
 )
 
-func FindUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spName ServiceProviderName, spHost string) (bool, *corev1.Secret, error) {
+func FindUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spType ServiceProviderType, spHost string) (bool, *corev1.Secret, error) {
 	lg := log.FromContext(ctx).WithValues("spHost", spHost)
+
+	lg.V(logs.DebugLevel).Info("looking for sp configuration secrets", "namespace", tokenNamespace, "spname", spType.Name, "sphost", spHost)
 
 	secrets := &corev1.SecretList{}
 	if listErr := k8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(spName),
+		v1beta1.ServiceProviderTypeLabel: string(spType.Name),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
 			lg.Info("not enough permissions to list the secrets")
@@ -76,7 +78,10 @@ func FindUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 				}
 				oauthSecretWithHost = oauthSecret.DeepCopy()
 			}
-		} else { // if we found one without host label, we save it for later
+		} else { // if we found one without host label we check if it matches with default sp host value, then we can save it for later
+			if spHost != spType.DefaultHost {
+				continue
+			}
 			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
 				return false, nil, errMultipleMatchingSecrets
 			}
@@ -103,7 +108,9 @@ func CreateServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, b
 }
 
 func initializeOAuthConfigFromSecret(secret *corev1.Secret, spType ServiceProviderType) *oauth2.Config {
-	oauthCfg := &oauth2.Config{}
+	oauthCfg := &oauth2.Config{
+		Endpoint: spType.DefaultOAuthEndpoint,
+	}
 	if clientId, has := secret.Data[OAuthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {

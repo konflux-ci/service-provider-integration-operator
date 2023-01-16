@@ -24,8 +24,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
 	"k8s.io/utils/pointer"
 
 	"k8s.io/client-go/rest"
@@ -34,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -77,15 +76,6 @@ func newGithub(factory *serviceprovider.Factory, _ string, spConfig *config.Serv
 		httpClient:   factory.HttpClient,
 	}
 
-	var oauthCapability serviceprovider.OAuthCapability
-	if spConfig != nil && spConfig.OAuth2Config != nil {
-		oauthCapability = &githubOAuthCapability{
-			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
-				BaseUrl: factory.Configuration.BaseUrl,
-			},
-		}
-	}
-
 	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
@@ -106,10 +96,21 @@ func newGithub(factory *serviceprovider.Factory, _ string, spConfig *config.Serv
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
 		},
-		oauthCapability: oauthCapability,
+		oauthCapability: newGithubOAuthCapability(factory, spConfig),
 	}
 
 	return github, nil
+}
+
+func newGithubOAuthCapability(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) serviceprovider.OAuthCapability {
+	if spConfig != nil && spConfig.OAuth2Config != nil {
+		return &githubOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
+	}
+	return nil
 }
 
 var _ serviceprovider.ConstructorFunc = newGithub

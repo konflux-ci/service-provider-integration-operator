@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -106,10 +104,6 @@ func newQuay(factory *serviceprovider.Factory, _ string, spConfig *config.Servic
 }
 
 var _ serviceprovider.ConstructorFunc = newQuay
-
-func (q *Quay) GetOAuthEndpoint() string {
-	return q.Configuration.BaseUrl + oauth.AuthenticateRoutePath
-}
 
 func (q *Quay) GetBaseUrl() string {
 	return config.ServiceProviderTypeQuay.DefaultBaseUrl

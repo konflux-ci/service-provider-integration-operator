@@ -66,10 +66,6 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string
 
 var _ serviceprovider.ConstructorFunc = newHostCredentialsProvider
 
-func (g *HostCredentialsProvider) GetOAuthEndpoint() string {
-	return ""
-}
-
 func (g *HostCredentialsProvider) GetBaseUrl() string {
 	base, err := serviceprovider.GetHostWithScheme(g.repoUrl)
 	if err != nil {
@@ -80,10 +76,6 @@ func (g *HostCredentialsProvider) GetBaseUrl() string {
 
 func (g *HostCredentialsProvider) GetType() config.ServiceProviderType {
 	return config.ServiceProviderTypeHostCredentials
-}
-
-func (g *HostCredentialsProvider) OAuthScopesFor(_ *api.Permissions) []string {
-	return []string{}
 }
 
 func (g *HostCredentialsProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {

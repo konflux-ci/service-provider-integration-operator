@@ -132,7 +132,7 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 
 func (f *Factory) spConfigFromUserSecret(ctx context.Context, namespace string, spType config.ServiceProviderType, repoHost string, repoBaseUrl string) (*config.ServiceProviderConfiguration, error) {
 	// first try to find service provider configuration in user's secrets
-	foundSecret, configSecret, findErr := config.FindUserServiceProviderConfigSecret(ctx, f.KubernetesClient, namespace, spType.Name, repoHost)
+	foundSecret, configSecret, findErr := config.FindUserServiceProviderConfigSecret(ctx, f.KubernetesClient, namespace, spType, repoHost)
 	if findErr != nil {
 		return nil, findErr
 	}
@@ -170,8 +170,6 @@ func spConfigFromType(spType config.ServiceProviderType) *config.ServiceProvider
 
 func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
-
-	lg.Info("blabol fac", "factory", f)
 
 	initializer, errFindInitializer := f.Initializers.GetInitializer(spType)
 	if errFindInitializer != nil {

@@ -24,8 +24,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	"github.com/xanzy/go-gitlab"
 
 	"k8s.io/utils/strings/slices"
@@ -62,6 +60,7 @@ type Gitlab struct {
 	glClientBuilder        gitlabClientBuilder
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
+	oauthCapability        serviceprovider.OAuthCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -69,6 +68,10 @@ var _ serviceprovider.ConstructorFunc = newGitlab
 var Initializer = serviceprovider.Initializer{
 	Probe:       gitlabProbe{},
 	Constructor: serviceprovider.ConstructorFunc(newGitlab),
+}
+
+type gitlabOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
@@ -82,6 +85,15 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *confi
 		httpClient:      factory.HttpClient,
 		glClientBuilder: glClientBuilder,
 		baseUrl:         baseUrl,
+	}
+
+	var oauthCapability serviceprovider.OAuthCapability
+	if spConfig != nil && spConfig.OAuth2Config != nil {
+		oauthCapability = &gitlabOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
 	}
 
 	return &Gitlab{
@@ -99,6 +111,7 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *confi
 		glClientBuilder:        glClientBuilder,
 		baseUrl:                baseUrl,
 		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
+		oauthCapability:        oauthCapability,
 	}, nil
 }
 
@@ -131,10 +144,10 @@ func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapabil
 }
 
 func (g *Gitlab) GetOAuthCapability() serviceprovider.OAuthCapability {
-	panic("not implemented")
+	return g.oauthCapability
 }
 
-func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {
+func (g *gitlabOAuthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
 	// We need ScopeReadUser by default to be able to read user metadata.
 	scopes := serviceprovider.GetAllScopes(translateToGitlabScopes, permissions)
 	if !slices.Contains(scopes, string(ScopeReadUser)) {
@@ -282,10 +295,6 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 		return "", fmt.Errorf("%w: '%s'", notGitlabUrlError, repoUrl)
 	}
 	return strings.TrimPrefix(repoUrl, g.GetBaseUrl()), nil
-}
-
-func (g Gitlab) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {

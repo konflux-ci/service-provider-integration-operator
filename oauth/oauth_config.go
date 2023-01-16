@@ -48,7 +48,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	// first try to find configuration in user's secret
 	noAuthCtx := WithAuthIntoContext("", ctx) // we want to use ServiceAccount to find the secret, so we need to use context without user's token
 	if found, spCfgSecret, findErr :=
-		config.FindUserServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, c.ServiceProviderType.Name, spUrl.Host); findErr != nil {
+		config.FindUserServiceProviderConfigSecret(noAuthCtx, c.K8sClient, info.TokenNamespace, c.ServiceProviderType, spUrl.Host); findErr != nil {
 		return nil, findErr
 	} else if found {
 		spConfig := config.CreateServiceProviderConfigurationFromSecret(spCfgSecret, info.ServiceProviderUrl, c.ServiceProviderType)
