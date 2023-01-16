@@ -229,7 +229,7 @@ kubectl wait --for=condition=Available=True deployment/grafana-deployment -n gra
 
 echo
 PROM_INTERNAL_URL='http://'$(kubectl get endpoints/prometheus-operated -o json | jq -r '.subsets[0].addresses[0].ip')':9090'
-echo 'Creating Prometheus DS for Grafana. Connecting to:'${PROM_INTERNALIP}
+echo 'Creating prometheus-appstudio-ds DS for Grafana. Connecting to:'${PROM_INTERNALIP}
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDataSource
@@ -238,7 +238,7 @@ metadata:
 spec:
   name: middleware.yaml
   datasources:
-    - name: Prometheus
+    - name: prometheus-appstudio-ds
       type: prometheus
       access: proxy
       url: ${PROM_INTERNAL_URL}
