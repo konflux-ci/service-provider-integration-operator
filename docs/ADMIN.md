@@ -125,7 +125,7 @@ There are couple of support scripts to work with Vault
 - injected in vault pod `/vault/userconfig/scripts/root.sh` - vault login as root with generated root token. Can be used for manual configuration.
 
 
-## [Monitoring](#monitoring)
+## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 
  There is a defined list of Service Level Objectives (SLO-s), for which SPI service should collect indicator metrics, 
  and expose on its monitoring framework. There is dedicated Grafana dashboard, containing only those metrics which are defined
