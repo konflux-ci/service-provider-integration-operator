@@ -67,7 +67,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
 
-func newQuay(factory *serviceprovider.Factory, _ string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})

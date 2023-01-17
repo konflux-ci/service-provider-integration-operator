@@ -16,6 +16,7 @@ package serviceprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -86,44 +87,46 @@ type Factory struct {
 	TokenStorage     tokenstorage.TokenStorage
 }
 
+var (
+	errNoConstructorImplemented = errors.New("service provider has no constructor")
+)
+
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 
-	parsedUrl, errUrlParse := url.Parse(repoUrl)
+	parsedRepoUrl, errUrlParse := url.Parse(repoUrl)
 	if errUrlParse != nil {
-		return nil, errUrlParse
+		return nil, fmt.Errorf("failed to parse repo url: %w", errUrlParse)
 	}
-	repoHost := parsedUrl.Host
-	repoBaseUrl := parsedUrl.Scheme + "://" + repoHost
 
 	for _, sp := range config.SupportedServiceProviderTypes {
 		var spConfig *config.ServiceProviderConfiguration
 		var err error
 		// first try to find configuration in secret
-		if spConfig, err = f.spConfigFromUserSecret(ctx, namespace, sp, repoHost, repoBaseUrl); err != nil {
-			return nil, err
+		if spConfig, err = config.SpConfigFromUserSecret(ctx, f.KubernetesClient, namespace, sp, parsedRepoUrl); err != nil {
+			return nil, fmt.Errorf("failed to create service provider configuration from user secret: %w", err)
 		} else if spConfig == nil { // then try to find it in global configuration
-			spConfig = f.spConfigFromGlobalConfig(sp, repoBaseUrl)
+			spConfig = config.SpConfigFromGlobalConfig(&f.Configuration.SharedConfiguration, sp, config.GetBaseUrl(parsedRepoUrl))
 		}
 
 		// we try to initialize with what we have. if spConfig is nil, this function tries probe as last chance
-		if sp, err := f.initializeServiceProvider(ctx, sp, spConfig, repoBaseUrl); err != nil {
+		if sp, err := f.initializeServiceProvider(ctx, sp, spConfig, config.GetBaseUrl(parsedRepoUrl)); err != nil {
 			return nil, err
 		} else if sp != nil {
 			return sp, nil
 		}
 	}
 
-	lg.Info("Specific provided is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
+	lg.Info("Specific provider is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
 	hostCredentialsInitializer, errHostCredsInitializerFind := f.Initializers.GetInitializer(config.ServiceProviderTypeHostCredentials)
 	if errHostCredsInitializerFind != nil {
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl, spConfigFromType(config.ServiceProviderTypeHostCredentials))
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, config.SpConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(parsedRepoUrl)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
@@ -140,44 +143,6 @@ func (f *Factory) NewCacheWithExpirationPolicy(policy MetadataExpirationPolicy) 
 	}
 }
 
-func (f *Factory) spConfigFromUserSecret(ctx context.Context, namespace string, spType config.ServiceProviderType, repoHost string, repoBaseUrl string) (*config.ServiceProviderConfiguration, error) {
-	// first try to find service provider configuration in user's secrets
-	foundSecret, configSecret, findErr := config.FindUserServiceProviderConfigSecret(ctx, f.KubernetesClient, namespace, spType, repoHost)
-	if findErr != nil {
-		return nil, findErr
-	}
-	if foundSecret {
-		return config.CreateServiceProviderConfigurationFromSecret(configSecret, repoBaseUrl, spType), nil
-	}
-	return nil, nil
-}
-
-func (f *Factory) spConfigFromGlobalConfig(spType config.ServiceProviderType, repoBaseUrl string) *config.ServiceProviderConfiguration {
-	// if we dont' have service provider configuration in user's secret, try to find sp type config in global configs
-	for _, configuredSp := range f.Configuration.ServiceProviders {
-		if configuredSp.ServiceProviderType.Name != spType.Name {
-			continue
-		}
-
-		if configuredSp.ServiceProviderBaseUrl == repoBaseUrl {
-			return &configuredSp
-		}
-	}
-
-	if spType.DefaultBaseUrl == repoBaseUrl {
-		return spConfigFromType(spType)
-	}
-
-	return nil
-}
-
-func spConfigFromType(spType config.ServiceProviderType) *config.ServiceProviderConfiguration {
-	return &config.ServiceProviderConfiguration{
-		ServiceProviderType:    spType,
-		ServiceProviderBaseUrl: spType.DefaultBaseUrl,
-	}
-}
-
 func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
 
@@ -191,13 +156,13 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 
 	ctor := initializer.Constructor
 	if ctor == nil {
-		return nil, fmt.Errorf("service provider '%s' does not have constructor implemented", spConfig.ServiceProviderType.Name)
+		return nil, fmt.Errorf("service provider '%s': %w", spConfig.ServiceProviderType.Name, errNoConstructorImplemented)
 	}
 
 	if spConfig != nil {
-		sp, err := ctor.Construct(f, spConfig.ServiceProviderBaseUrl, spConfig)
-		if err != nil {
-			return nil, err
+		sp, errConstructSp := ctor.Construct(f, spConfig)
+		if errConstructSp != nil {
+			return nil, fmt.Errorf("failed to construct service provider: %w", errConstructSp)
 		}
 		return sp, nil
 	} else {
@@ -208,9 +173,9 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 				return nil, nil //nolint:nilerr
 			}
 			if probeBaseUrl != "" {
-				sp, err := ctor.Construct(f, probeBaseUrl, spConfigFromType(spType))
-				if err != nil {
-					return nil, err
+				sp, errConstructSp := ctor.Construct(f, config.SpConfigWithBaseUrl(spType, probeBaseUrl))
+				if errConstructSp != nil {
+					return nil, fmt.Errorf("failed to construct service provider after probing: %w", errConstructSp)
 				}
 				return sp, nil
 			}

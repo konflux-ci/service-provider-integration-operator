@@ -74,7 +74,7 @@ type gitlabOAuthCapability struct {
 	serviceprovider.DefaultOAuthCapability
 }
 
-func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
 		httpClient:   factory.HttpClient,
@@ -84,11 +84,11 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *confi
 		tokenStorage:    factory.TokenStorage,
 		httpClient:      factory.HttpClient,
 		glClientBuilder: glClientBuilder,
-		baseUrl:         baseUrl,
+		baseUrl:         spConfig.ServiceProviderBaseUrl,
 	}
 
 	var oauthCapability serviceprovider.OAuthCapability
-	if spConfig != nil && spConfig.OAuth2Config != nil {
+	if spConfig.OAuth2Config != nil {
 		oauthCapability = &gitlabOAuthCapability{
 			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
 				BaseUrl: factory.Configuration.BaseUrl,
@@ -109,8 +109,8 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string, spConfig *confi
 		metadataProvider:       mp,
 		httpClient:             factory.HttpClient,
 		glClientBuilder:        glClientBuilder,
-		baseUrl:                baseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
+		baseUrl:                spConfig.ServiceProviderBaseUrl,
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl),
 		oauthCapability:        oauthCapability,
 	}, nil
 }

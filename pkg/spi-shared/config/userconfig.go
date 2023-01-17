@@ -29,17 +29,17 @@ import (
 )
 
 const (
-	OAuthCfgSecretFieldClientId     = "clientId"
-	OAuthCfgSecretFieldClientSecret = "clientSecret"
-	OAuthCfgSecretFieldAuthUrl      = "authUrl"
-	OAuthCfgSecretFieldTokenUrl     = "tokenUrl"
+	oauthCfgSecretFieldClientId     = "clientId"
+	oauthCfgSecretFieldClientSecret = "clientSecret"
+	oauthCfgSecretFieldAuthUrl      = "authUrl"
+	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
 )
 
 var (
 	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
 )
 
-func FindUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spType ServiceProviderType, spHost string) (bool, *corev1.Secret, error) {
+func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spType ServiceProviderType, spHost string) (bool, *corev1.Secret, error) {
 	lg := log.FromContext(ctx).WithValues("spHost", spHost)
 
 	lg.V(logs.DebugLevel).Info("looking for sp configuration secrets", "namespace", tokenNamespace, "spname", spType.Name, "sphost", spHost)
@@ -98,7 +98,7 @@ func FindUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 	}
 }
 
-func CreateServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, baseUrl string, spType ServiceProviderType) *ServiceProviderConfiguration {
+func createServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, baseUrl string, spType ServiceProviderType) *ServiceProviderConfiguration {
 	return &ServiceProviderConfiguration{
 		ServiceProviderType:    spType,
 		ServiceProviderBaseUrl: baseUrl,
@@ -111,25 +111,25 @@ func initializeOAuthConfigFromSecret(secret *corev1.Secret, spType ServiceProvid
 	oauthCfg := &oauth2.Config{
 		Endpoint: spType.DefaultOAuthEndpoint,
 	}
-	if clientId, has := secret.Data[OAuthCfgSecretFieldClientId]; has {
+	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
 		oauthCfg.ClientID = string(clientId)
 	} else {
 		// in case we don't have client id, we consider configuration to not have oauth
 		return nil
 	}
 
-	if clientSecret, has := secret.Data[OAuthCfgSecretFieldClientSecret]; has {
+	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
 		oauthCfg.ClientSecret = string(clientSecret)
 	} else {
 		// in case we don't have client secret, we consider configuration to not have oauth
 		return nil
 	}
 
-	if authUrl, has := secret.Data[OAuthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
+	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
 		oauthCfg.Endpoint.AuthURL = string(authUrl)
 	}
 
-	if tokenUrl, has := secret.Data[OAuthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
+	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
 		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
 	}
 

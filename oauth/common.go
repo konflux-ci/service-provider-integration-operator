@@ -42,14 +42,13 @@ var (
 
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
-	K8sClient                     AuthenticatingClient
-	TokenStorage                  tokenstorage.TokenStorage
-	RedirectTemplate              *template.Template
-	Authenticator                 *Authenticator
-	StateStorage                  StateStorage
-	BaseUrl                       string
-	ServiceProviderType           config.ServiceProviderType
-	ServiceProviderConfigurations map[string]config.ServiceProviderConfiguration // service provider configuration we have for this type, stored by sp host
+	OAuthServiceConfiguration
+	K8sClient           AuthenticatingClient
+	TokenStorage        tokenstorage.TokenStorage
+	RedirectTemplate    *template.Template
+	Authenticator       *Authenticator
+	StateStorage        StateStorage
+	ServiceProviderType config.ServiceProviderType
 }
 
 // exchangeResult this the result of the OAuth exchange with all the data necessary to store the token into the storage
@@ -62,7 +61,7 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return strings.TrimSuffix(c.BaseUrl, "/") + oauth.CallBackRoutePath
+	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
@@ -142,7 +141,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
 	redirectLocation := r.FormValue("redirect_after_login")
 	if redirectLocation == "" {
-		redirectLocation = strings.TrimSuffix(c.BaseUrl, "/") + "/" + "callback_success"
+		redirectLocation = strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
 	}
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
 }

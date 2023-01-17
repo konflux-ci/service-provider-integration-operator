@@ -45,7 +45,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newHostCredentialsProvider),
 }
 
-func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+func newHostCredentialsProvider(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	return &HostCredentialsProvider{
@@ -60,14 +60,14 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, repoUrl string
 			},
 		},
 		httpClient: factory.HttpClient,
-		repoUrl:    repoUrl,
+		repoUrl:    spConfig.ServiceProviderBaseUrl,
 	}, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newHostCredentialsProvider
 
 func (g *HostCredentialsProvider) GetBaseUrl() string {
-	base, err := serviceprovider.GetHostWithScheme(g.repoUrl)
+	base, err := config.GetHostWithScheme(g.repoUrl)
 	if err != nil {
 		return ""
 	}
@@ -100,7 +100,7 @@ func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.
 }
 
 func (g *HostCredentialsProvider) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	host, err := serviceprovider.GetHostWithScheme(repoUrl)
+	host, err := config.GetHostWithScheme(repoUrl)
 	if err != nil {
 		return "", fmt.Errorf("detecting host failed: %w", err)
 	}

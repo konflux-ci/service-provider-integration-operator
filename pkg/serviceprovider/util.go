@@ -15,20 +15,8 @@
 package serviceprovider
 
 import (
-	"fmt"
-	"net/url"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
-
-// GetHostWithScheme is a helper function to extract the scheme and host portion of the provided url.
-func GetHostWithScheme(repoUrl string) (string, error) {
-	u, err := url.Parse(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse %s as URL: %w", repoUrl, err)
-	}
-	return u.Scheme + "://" + u.Host, nil
-}
 
 // GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
 // scopes.

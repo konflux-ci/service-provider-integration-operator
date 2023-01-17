@@ -1,3 +1,17 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -27,7 +41,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 	t.Run("no secrets", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -48,7 +62,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -69,7 +83,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -90,7 +104,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -105,7 +119,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				}, "nenene", fmt.Errorf("test err"))
 			}}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -117,7 +131,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewBadRequest("nenenene")
 			}}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
@@ -136,7 +150,7 @@ func TestMultipleProviders(t *testing.T) {
 			Items: oauthConfigSecrets,
 		}).Build()
 
-		found, secret, err := FindUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, "blabol.eh")
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, "blabol.eh")
 		assert.Equal(t, shouldFind, found, "should find the secret")
 		if shouldError {
 			assert.Error(t, err, "should error")

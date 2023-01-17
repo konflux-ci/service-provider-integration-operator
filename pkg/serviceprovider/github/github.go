@@ -67,7 +67,7 @@ var Initializer = serviceprovider.Initializer{
 	Constructor: serviceprovider.ConstructorFunc(newGithub),
 }
 
-func newGithub(factory *serviceprovider.Factory, _ string, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
@@ -177,7 +177,7 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 }
 
 func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	url, err := serviceprovider.GetHostWithScheme(repoUrl)
+	url, err := config.GetHostWithScheme(repoUrl)
 	if err != nil {
 		err = fmt.Errorf("failed to get host and scheme from %s: %w", repoUrl, err)
 	}

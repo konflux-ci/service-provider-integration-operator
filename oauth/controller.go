@@ -15,7 +15,6 @@ package oauth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -47,10 +46,6 @@ const (
 	oauthFinishError
 )
 
-var (
-	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
-)
-
 func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
 	lg := log.FromContext(ctx)
 
@@ -61,14 +56,13 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 	}
 
 	controller := &commonController{
-		K8sClient:                     cfg.K8sClient,
-		TokenStorage:                  ts,
-		BaseUrl:                       cfg.BaseUrl,
-		Authenticator:                 cfg.Authenticator,
-		StateStorage:                  cfg.StateStorage,
-		RedirectTemplate:              cfg.RedirectTemplate,
-		ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{},
-		ServiceProviderType:           spType,
+		OAuthServiceConfiguration: cfg.OAuthServiceConfiguration,
+		K8sClient:                 cfg.K8sClient,
+		TokenStorage:              ts,
+		Authenticator:             cfg.Authenticator,
+		StateStorage:              cfg.StateStorage,
+		RedirectTemplate:          cfg.RedirectTemplate,
+		ServiceProviderType:       spType,
 	}
 
 	for _, sp := range cfg.ServiceProviders {
@@ -86,11 +80,6 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		}
 
 		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
-		if _, alreadyHasBaseUrl := controller.ServiceProviderConfigurations[spHost]; alreadyHasBaseUrl {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, spHost)
-		}
-
-		controller.ServiceProviderConfigurations[spHost] = sp
 	}
 
 	return controller, nil
