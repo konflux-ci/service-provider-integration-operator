@@ -88,23 +88,27 @@ var _ = Describe("Controller", func() {
 		tmpl, err := template.ParseFiles("../static/redirect_notice.html")
 		g.Expect(err).NotTo(HaveOccurred())
 		return &commonController{
-			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
-				"special.sp": config.ServiceProviderConfiguration{
-					OAuth2Config: &oauth2.Config{
-						ClientID:     "clientId",
-						ClientSecret: "clientSecret",
-						Endpoint: oauth2.Endpoint{
-							AuthURL:   "https://special.sp/login",
-							TokenURL:  "https://special.sp/toekn",
-							AuthStyle: oauth2.AuthStyleAutoDetect,
-						},
-					},
-					ServiceProviderType: config.ServiceProviderTypeGitHub,
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						config.ServiceProviderConfiguration{
+							ServiceProviderBaseUrl: "https://special.sp",
+							OAuth2Config: &oauth2.Config{
+								ClientID:     "clientId",
+								ClientSecret: "clientSecret",
+								Endpoint: oauth2.Endpoint{
+									AuthURL:   "https://special.sp/login",
+									TokenURL:  "https://special.sp/toekn",
+									AuthStyle: oauth2.AuthStyleAutoDetect,
+								},
+							},
+							ServiceProviderType: config.ServiceProviderTypeGitHub,
+						}},
+					BaseUrl: "https://spi.on.my.machine",
 				},
 			},
 			K8sClient:        IT.Client,
 			TokenStorage:     IT.TokenStorage,
-			BaseUrl:          "https://spi.on.my.machine",
 			Authenticator:    prepareAuthenticator(g),
 			RedirectTemplate: tmpl,
 			StateStorage:     NewStateStorage(IT.SessionManager),

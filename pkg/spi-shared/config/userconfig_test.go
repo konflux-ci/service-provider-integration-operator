@@ -31,6 +31,77 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+const (
+	testClientId     = "test_client_id_123"
+	testClientSecret = "test_client_secret_123"
+	testAuthUrl      = "test_auth_url_123"
+	testTokenUrl     = "test_token_url_123"
+)
+
+func TestCreateOauthConfigFromSecret(t *testing.T) {
+	t.Run("all fields set ok", func(t *testing.T) {
+		secret := &v1.Secret{
+			Data: map[string][]byte{
+				oauthCfgSecretFieldClientId:     []byte(testClientId),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
+			},
+		}
+
+		oauthCfg := initializeOAuthConfigFromSecret(secret, ServiceProviderTypeGitHub)
+
+		assert.Equal(t, testClientId, oauthCfg.ClientID)
+		assert.Equal(t, testClientSecret, oauthCfg.ClientSecret)
+		assert.Equal(t, testAuthUrl, oauthCfg.Endpoint.AuthURL)
+		assert.Equal(t, testTokenUrl, oauthCfg.Endpoint.TokenURL)
+	})
+
+	t.Run("error if missing client id", func(t *testing.T) {
+		secret := &v1.Secret{
+			Data: map[string][]byte{
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
+			},
+		}
+
+		oauthCfg := initializeOAuthConfigFromSecret(secret, ServiceProviderTypeGitHub)
+
+		assert.Nil(t, oauthCfg)
+	})
+
+	t.Run("error if missing client secret", func(t *testing.T) {
+		secret := &v1.Secret{
+			Data: map[string][]byte{
+				oauthCfgSecretFieldClientId: []byte(testClientId),
+				oauthCfgSecretFieldAuthUrl:  []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl: []byte(testTokenUrl),
+			},
+		}
+
+		oauthCfg := initializeOAuthConfigFromSecret(secret, ServiceProviderTypeGitHub)
+
+		assert.Nil(t, oauthCfg)
+	})
+
+	t.Run("ok with just client id and secret", func(t *testing.T) {
+		secret := &v1.Secret{
+			Data: map[string][]byte{
+				oauthCfgSecretFieldClientId:     []byte(testClientId),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+			},
+		}
+
+		oauthCfg := initializeOAuthConfigFromSecret(secret, ServiceProviderTypeGitHub)
+
+		assert.Equal(t, testClientId, oauthCfg.ClientID)
+		assert.Equal(t, testClientSecret, oauthCfg.ClientSecret)
+		assert.Equal(t, "", oauthCfg.Endpoint.AuthURL)
+		assert.Equal(t, "", oauthCfg.Endpoint.TokenURL)
+	})
+}
+
 func TestFindOauthConfigSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1.AddToScheme(scheme))

@@ -100,7 +100,7 @@ func TestMapToken(t *testing.T) {
 		},
 	}
 
-	quay, err := newQuay(fac, "", &config.ServiceProviderConfiguration{})
+	quay, err := newQuay(fac, &config.ServiceProviderConfiguration{})
 	assert.NoError(t, err)
 
 	now := time.Now().Unix()

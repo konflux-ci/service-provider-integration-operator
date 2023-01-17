@@ -211,7 +211,7 @@ var _ = BeforeSuite(func() {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
 					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 					return ITest.TestServiceProvider, nil
 				}),
 			}).
@@ -220,7 +220,7 @@ var _ = BeforeSuite(func() {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
 					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 					return ITest.HostCredsServiceProvider, nil
 				}),
 			})

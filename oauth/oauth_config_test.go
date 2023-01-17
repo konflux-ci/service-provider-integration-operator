@@ -45,76 +45,6 @@ const (
 	testTokenUrl     = "test_token_url_123"
 )
 
-func TestCreateOauthConfigFromSecret(t *testing.T) {
-	t.Run("all fields set ok", func(t *testing.T) {
-		secret := &v1.Secret{
-			Data: map[string][]byte{
-				config.OAuthCfgSecretFieldClientId:     []byte(testClientId),
-				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
-				config.OAuthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
-				config.OAuthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
-			},
-		}
-
-		oauthCfg := &oauth2.Config{}
-		err := initializeConfigFromSecret(secret, oauthCfg)
-
-		assert.NoError(t, err)
-		assert.Equal(t, testClientId, oauthCfg.ClientID)
-		assert.Equal(t, testClientSecret, oauthCfg.ClientSecret)
-		assert.Equal(t, testAuthUrl, oauthCfg.Endpoint.AuthURL)
-		assert.Equal(t, testTokenUrl, oauthCfg.Endpoint.TokenURL)
-	})
-
-	t.Run("error if missing client id", func(t *testing.T) {
-		secret := &v1.Secret{
-			Data: map[string][]byte{
-				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
-				config.OAuthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
-				config.OAuthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
-			},
-		}
-
-		oauthCfg := &oauth2.Config{}
-		err := initializeConfigFromSecret(secret, oauthCfg)
-
-		assert.Error(t, err)
-	})
-
-	t.Run("error if missing client secret", func(t *testing.T) {
-		secret := &v1.Secret{
-			Data: map[string][]byte{
-				config.OAuthCfgSecretFieldClientId: []byte(testClientId),
-				config.OAuthCfgSecretFieldAuthUrl:  []byte(testAuthUrl),
-				config.OAuthCfgSecretFieldTokenUrl: []byte(testTokenUrl),
-			},
-		}
-
-		oauthCfg := &oauth2.Config{}
-		err := initializeConfigFromSecret(secret, oauthCfg)
-
-		assert.Error(t, err)
-	})
-
-	t.Run("ok with just client id and secret", func(t *testing.T) {
-		secret := &v1.Secret{
-			Data: map[string][]byte{
-				config.OAuthCfgSecretFieldClientId:     []byte(testClientId),
-				config.OAuthCfgSecretFieldClientSecret: []byte(testClientSecret),
-			},
-		}
-
-		oauthCfg := &oauth2.Config{}
-		err := initializeConfigFromSecret(secret, oauthCfg)
-
-		assert.NoError(t, err)
-		assert.Equal(t, testClientId, oauthCfg.ClientID)
-		assert.Equal(t, testClientSecret, oauthCfg.ClientSecret)
-		assert.Equal(t, "", oauthCfg.Endpoint.AuthURL)
-		assert.Equal(t, "", oauthCfg.Endpoint.TokenURL)
-	})
-}
-
 func TestObtainOauthConfig(t *testing.T) {
 	t.Run("no secret use default oauth config", func(t *testing.T) {
 		scheme := runtime.NewScheme()
@@ -124,20 +54,24 @@ func TestObtainOauthConfig(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
-			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
-				"bleh.eh": config.ServiceProviderConfiguration{
-					OAuth2Config: &oauth2.Config{
-						ClientID:     "eh?",
-						ClientSecret: "bleh?",
-						Endpoint:     github.Endpoint,
-					},
-					ServiceProviderType:    config.ServiceProviderTypeGitHub,
-					ServiceProviderBaseUrl: "http://bleh.eh",
-				},
-			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			K8sClient:           cl,
-			BaseUrl:             "baseurl",
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							OAuth2Config: &oauth2.Config{
+								ClientID:     "eh?",
+								ClientSecret: "bleh?",
+								Endpoint:     github.Endpoint,
+							},
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "http://bleh.eh",
+						},
+					},
+					BaseUrl: "baseurl",
+				},
+			},
 		}
 
 		oauthInfo := &oauthstate2.OAuthInfo{
@@ -172,28 +106,32 @@ func TestObtainOauthConfig(t *testing.T) {
 						},
 					},
 					Data: map[string][]byte{
-						config.OAuthCfgSecretFieldClientId:     []byte("testclientid"),
-						config.OAuthCfgSecretFieldClientSecret: []byte("testclientsecret"),
+						"clientId":     []byte("testclientid"),
+						"clientSecret": []byte("testclientsecret"),
 					},
 				},
 			},
 		}).Build()
 
 		ctrl := commonController{
-			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
-				config.ServiceProviderTypeGitHub.DefaultHost: config.ServiceProviderConfiguration{
-					OAuth2Config: &oauth2.Config{
-						ClientID:     "eh?",
-						ClientSecret: "bleh?",
-						Endpoint:     github.Endpoint,
-					},
-					ServiceProviderType:    config.ServiceProviderTypeGitHub,
-					ServiceProviderBaseUrl: "http://bleh.eh",
-				},
-			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			K8sClient:           cl,
-			BaseUrl:             "baseurl",
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							OAuth2Config: &oauth2.Config{
+								ClientID:     "eh?",
+								ClientSecret: "bleh?",
+								Endpoint:     github.Endpoint,
+							},
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "http://bleh.eh",
+						},
+					},
+					BaseUrl: "baseurl",
+				},
+			},
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
@@ -203,8 +141,10 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
-		expectedEndpoint := createDefaultEndpoint("http://bleh.eh")
-
+		expectedEndpoint := oauth2.Endpoint{
+			AuthURL:  "http://bleh.eh/oauth/authorize",
+			TokenURL: "http://bleh.eh/oauth/token",
+		}
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
 		assert.Equal(t, oauthCfg.ClientID, "testclientid")
@@ -231,27 +171,31 @@ func TestObtainOauthConfig(t *testing.T) {
 						},
 					},
 					Data: map[string][]byte{
-						config.OAuthCfgSecretFieldClientId: []byte("testclientid"),
+						"clientId": []byte("testclientid"),
 					},
 				},
 			},
 		}).Build()
 
 		ctrl := commonController{
-			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{
-				config.ServiceProviderTypeGitHub.DefaultHost: config.ServiceProviderConfiguration{
-					OAuth2Config: &oauth2.Config{
-						ClientID:     "eh?",
-						ClientSecret: "bleh?",
-						Endpoint:     github.Endpoint,
-					},
-					ServiceProviderType:    config.ServiceProviderTypeGitHub,
-					ServiceProviderBaseUrl: "http://bleh.eh",
-				},
-			},
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			K8sClient:           cl,
-			BaseUrl:             "baseurl",
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							OAuth2Config: &oauth2.Config{
+								ClientID:     "eh?",
+								ClientSecret: "bleh?",
+								Endpoint:     github.Endpoint,
+							},
+							ServiceProviderType:    config.ServiceProviderTypeGitHub,
+							ServiceProviderBaseUrl: "http://bleh.eh",
+						},
+					},
+					BaseUrl: "baseurl",
+				},
+			},
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
@@ -314,10 +258,14 @@ func TestObtainOauthConfig(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		ctrl := commonController{
-			ServiceProviderConfigurations: map[string]config.ServiceProviderConfiguration{},
-			ServiceProviderType:           config.ServiceProviderTypeGitHub,
-			K8sClient:                     cl,
-			BaseUrl:                       "baseurl",
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			K8sClient:           cl,
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{},
+					BaseUrl:          "baseurl",
+				},
+			},
 		}
 
 		oauthInfo := &oauthstate2.OAuthInfo{

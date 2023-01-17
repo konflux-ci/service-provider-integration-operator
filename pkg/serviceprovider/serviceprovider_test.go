@@ -134,7 +134,7 @@ func TestFromRepoUrl(t *testing.T) {
 		Constructor: struct {
 			ConstructorFunc
 		}{
-			ConstructorFunc: func(factory *Factory, baseUrl string, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+			ConstructorFunc: func(factory *Factory, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
 				return mockSP, nil
 			},
 		},
