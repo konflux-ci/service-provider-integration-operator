@@ -97,7 +97,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerType", string(state.ServiceProviderType), "providerUrl", state.ServiceProviderUrl)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerName", state.ServiceProviderName, "providerUrl", state.ServiceProviderUrl)
 	newStateString, err := c.StateStorage.VeilRealState(r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
@@ -144,7 +144,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to store token data to cluster", err)
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerType", string(exchange.ServiceProviderType), "providerUrl", exchange.ServiceProviderUrl)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
 	redirectLocation := r.FormValue("redirect_after_login")
 	if redirectLocation == "" {
 		redirectLocation = strings.TrimSuffix(c.BaseUrl, "/") + "/" + "callback_success"

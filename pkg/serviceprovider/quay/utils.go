@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -104,7 +105,7 @@ func splitToOrganizationAndRepositoryAndVersion(repository string) (string, stri
 
 	host := parts[0]
 
-	if host != "quay.io" {
+	if host != config.ServiceProviderTypeQuay.DefaultHost {
 		return "", "", ""
 	}
 

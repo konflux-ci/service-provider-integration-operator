@@ -130,7 +130,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -144,7 +144,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 				},
@@ -152,7 +152,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -162,7 +162,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.True(t, found)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
@@ -176,7 +176,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeQuay.Name),
 						},
 					},
 				},
@@ -184,7 +184,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -194,7 +194,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -208,7 +208,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: "different-namespace",
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 				},
@@ -216,7 +216,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 		}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -226,7 +226,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -242,7 +242,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			}}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -252,7 +252,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
@@ -265,7 +265,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			}}).Build()
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -275,7 +275,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			K8sClient:           cl,
 		}
 
-		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, GithubSaasHost)
+		found, secret, err := ctrl.findOauthConfigSecret(ctx, secretNamespace, config.ServiceProviderTypeGitHub.DefaultHost)
 		assert.False(t, found)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
@@ -335,7 +335,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{
@@ -348,7 +348,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ClientId:               "eh?",
 						ClientSecret:           "bleh?",
@@ -365,7 +365,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 			ServiceProviderUrl:  "http://bleh.eh",
 		}
 
@@ -394,7 +394,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{
@@ -406,7 +406,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ClientId:               "eh?",
 						ClientSecret:           "bleh?",
@@ -423,7 +423,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
@@ -451,7 +451,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
@@ -489,7 +489,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		oauthInfo := &oauthstate2.OAuthInfo{
 			ServiceProviderUrl:  "http://bleh.eh",
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthInfo)
@@ -521,7 +521,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		oauthState := &oauthstate2.OAuthInfo{
 			TokenNamespace:      secretNamespace,
-			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
@@ -545,7 +545,7 @@ func TestMultipleProviders(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderInstance: map[string]oauthConfiguration{
-				GithubSaasHost: {
+				config.ServiceProviderTypeGitHub.DefaultHost: {
 					Config: config.ServiceProviderConfiguration{
 						ServiceProviderType: config.ServiceProviderTypeGitHub,
 					},
@@ -575,7 +575,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -584,7 +584,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
@@ -599,7 +599,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -608,7 +608,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "different-host.eh",
 					},
 				},
@@ -623,7 +623,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "different-host.eh",
 					},
 				},
@@ -633,7 +633,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "another-different-host.eh",
 					},
 				},
@@ -648,7 +648,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
@@ -658,7 +658,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						v1beta1.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
@@ -673,7 +673,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -682,7 +682,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub),
+						v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},

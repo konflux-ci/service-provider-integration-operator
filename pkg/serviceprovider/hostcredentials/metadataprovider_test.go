@@ -42,7 +42,7 @@ func TestMetadataProvider_FetchUserIdAndName(t *testing.T) {
 	}
 
 	tkn := api.SPIAccessToken{}
-	data, err := mp.Fetch(context.TODO(), &tkn)
+	data, err := mp.Fetch(context.TODO(), &tkn, false)
 	assert.NoError(t, err)
 
 	assert.NotNil(t, data)

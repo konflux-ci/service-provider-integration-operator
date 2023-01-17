@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"errors"
@@ -210,11 +211,11 @@ func TestCheckAccessFailingLookupPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -248,11 +249,11 @@ func TestCheckAccessFailingLookupNonPublicRepo(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -286,11 +287,11 @@ func TestCheckAccessWithMatchingTokens(t *testing.T) {
 			Namespace: "ac-namespace",
 			Labels: map[string]string{
 				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
-				api.ServiceProviderHostLabel: "github.com",
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
 			},
 		},
 		Spec: api.SPIAccessTokenSpec{
-			ServiceProviderUrl: "https://github.com",
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		},
 		Status: api.SPIAccessTokenStatus{
 			Phase: api.SPIAccessTokenPhaseReady,
@@ -332,7 +333,11 @@ func TestValidate(t *testing.T) {
 }
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
-	metadataCache := serviceprovider.NewMetadataCache(cl, &serviceprovider.NeverMetadataExpirationPolicy{})
+	metadataCache := serviceprovider.MetadataCache{
+		Client:                    cl,
+		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
+		CacheServiceProviderState: true,
+	}
 	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}

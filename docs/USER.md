@@ -6,7 +6,7 @@ In this Manual we consider the main SPI usecases as well as give SPI API referen
     - [Checking permission to the particular repository] - TODO
     - [Retrieving file content from SCM repository]
     - [Storing username and password credentials for any provider by it's URL]
-    - [Uploading Access Token to SPI using Kubernetes Secret] - PR in-progress
+    - [Uploading Access Token to SPI using Kubernetes Secret]
 - [SPI OAuth Service](#OAuth)
     - [User OAuth configuration]
     - [Go through the OAuth flow manually]

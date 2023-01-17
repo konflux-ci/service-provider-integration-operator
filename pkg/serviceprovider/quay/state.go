@@ -217,7 +217,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 }
 
 func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
-	url := "https://quay.io/api/v1/repository/" + repository
+	url := quayApiBaseUrl + "/repository/" + repository
 
 	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
@@ -264,7 +264,7 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 }
 
 func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description *string) (bool, error) {
-	url := "https://quay.io/api/v1/repository/" + repository
+	url := quayApiBaseUrl + "/repository/" + repository
 
 	var val string
 	if description == nil {
@@ -324,9 +324,9 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 }
 
 func hasRepoAdmin(ctx context.Context, cl *http.Client, repository string, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/repository/"+repository+"/notification/", token)
+	return isSuccessfulRequest(ctx, cl, quayApiBaseUrl+"/repository/"+repository+"/notification/", token)
 }
 
 func hasOrgAdmin(ctx context.Context, cl *http.Client, organization string, token string) (bool, error) {
-	return isSuccessfulRequest(ctx, cl, "https://quay.io/api/v1/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
+	return isSuccessfulRequest(ctx, cl, quayApiBaseUrl+"/organization/"+organization+"/robots?limit=1&token=false&permissions=false", token)
 }
