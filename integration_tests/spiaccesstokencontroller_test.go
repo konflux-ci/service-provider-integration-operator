@@ -35,6 +35,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func (c testCapability) GetOAuthEndpoint() string {
+	return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+}
+
+func (c testCapability) OAuthScopesFor(permissions *api.Permissions) []string {
+	return []string{}
+}
+
 var _ = Describe("SPIAccessToken", func() {
 
 	Describe("Create without token data", func() {
@@ -93,6 +101,9 @@ var _ = Describe("SPIAccessToken", func() {
 					ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
 					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
 						return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+					}
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return testCapability{}
 					}
 				},
 			},
@@ -410,7 +421,7 @@ var _ = Describe("SPIAccessToken", func() {
 					g.Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(createdToken.Status.ErrorReason).To(BeEmpty())
 					g.Expect(createdToken.Status.ErrorMessage).To(BeEmpty())
-					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
+					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal(string(ITest.HostCredsServiceProvider.GetTypeImpl().Name)))
 				}).Should(Succeed())
 			})
 		})
