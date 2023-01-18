@@ -82,7 +82,7 @@ func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []stri
 
 func (t TestServiceProvider) GetType() config.ServiceProviderType {
 	if t.GetTypeImpl == nil {
-		return config.ServiceProviderType{Name: "TestServiceProvider"}
+		return config.ServiceProviderType{Name: "TestServiceProvider", DefaultBaseUrl: "test-provider://acme"}
 	}
 	return t.GetTypeImpl()
 }
@@ -95,7 +95,7 @@ func (t TestServiceProvider) GetDownloadFileCapability() serviceprovider.Downloa
 }
 
 func (t TestServiceProvider) GetOAuthCapability() serviceprovider.OAuthCapability {
-	if t.DownloadFileCapability == nil {
+	if t.OAuthCapability == nil {
 		return nil
 	}
 	return t.OAuthCapability()
@@ -135,6 +135,7 @@ func (t *TestServiceProvider) Reset() {
 	t.MapTokenImpl = nil
 	t.ValidateImpl = nil
 	t.DownloadFileCapability = nil
+	t.OAuthCapability = nil
 	if t.CustomizeReset != nil {
 		t.CustomizeReset(t)
 	}

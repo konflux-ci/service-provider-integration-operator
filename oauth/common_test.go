@@ -91,7 +91,7 @@ var _ = Describe("Controller", func() {
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
-						config.ServiceProviderConfiguration{
+						{
 							ServiceProviderBaseUrl: "https://special.sp",
 							OAuth2Config: &oauth2.Config{
 								ClientID:     "clientId",

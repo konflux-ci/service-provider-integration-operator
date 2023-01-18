@@ -147,6 +147,7 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
+	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
 
 	ITest.HostCredsServiceProvider = TestServiceProvider{}
 	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {

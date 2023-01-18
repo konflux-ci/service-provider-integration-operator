@@ -34,7 +34,6 @@ func SpConfigFromUserSecret(ctx context.Context, k8sClient client.Client, namesp
 }
 
 func SpConfigFromGlobalConfig(globalConfiguration *SharedConfiguration, spType ServiceProviderType, repoBaseUrl string) *ServiceProviderConfiguration {
-	// if we dont' have service provider configuration in user's secret, try to find sp type config in global configs
 	for _, configuredSp := range globalConfiguration.ServiceProviders {
 		if configuredSp.ServiceProviderType.Name != spType.Name {
 			continue
