@@ -18,12 +18,11 @@ package serviceprovider
 
 import (
 	"fmt"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"net/url"
 	"strconv"
 	"strings"
-
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // Key for token using in Opaque Secret
@@ -43,7 +42,7 @@ type AccessTokenMapper struct {
 }
 
 // ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[string]string {
+func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) map[string]string {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -67,15 +66,23 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
-		ret[tokenKey] = at.Token
+		at.fillByMapping(mapping, ret)
 	}
 
 	return ret
 }
 
-// FillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
+// fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
 // mapping.
-func (at AccessTokenMapper) FillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
+func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
+
+	// if there are no mapping.Token - add "token" key
+	if mapping.Token == "" {
+		existingMap[tokenKey] = at.Token
+	} else {
+		existingMap[mapping.Token] = at.Token
+	}
+
 	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
 		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
 	}
@@ -98,10 +105,6 @@ func (at AccessTokenMapper) FillByMapping(mapping *api.TokenFieldMapping, existi
 
 	if mapping.ServiceProviderUserName != "" {
 		existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
-	}
-
-	if mapping.Token != "" {
-		existingMap[mapping.Token] = at.Token
 	}
 
 	if mapping.UserId != "" {
