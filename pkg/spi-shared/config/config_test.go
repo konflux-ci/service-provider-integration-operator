@@ -93,3 +93,25 @@ func createFile(t *testing.T, path string, content string) string {
 
 	return filePath
 }
+
+func TestConvertWithReplacingDefaultUrl(t *testing.T) {
+	customUrl := "https://private.gitlab.com"
+	persistedConfig := persistedConfiguration{ServiceProviders: []persistedServiceProviderConfiguration{{
+		ServiceProviderName:    ServiceProviderTypeGitLab.Name,
+		ServiceProviderBaseUrl: customUrl,
+	}, {
+		ServiceProviderName: ServiceProviderTypeGitHub.Name,
+	}}}
+
+	sharedConfig, err := persistedConfig.convert()
+	assert.NoError(t, err)
+	assert.Len(t, sharedConfig.ServiceProviders, 2)
+	assert.Contains(t, sharedConfig.ServiceProviders, ServiceProviderConfiguration{
+		ServiceProviderType:    ServiceProviderTypeGitLab,
+		ServiceProviderBaseUrl: customUrl,
+	})
+	assert.Contains(t, sharedConfig.ServiceProviders, ServiceProviderConfiguration{
+		ServiceProviderType:    ServiceProviderTypeGitHub,
+		ServiceProviderBaseUrl: ServiceProviderTypeGitHub.DefaultBaseUrl,
+	})
+}

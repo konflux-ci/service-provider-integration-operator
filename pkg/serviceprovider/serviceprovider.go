@@ -169,15 +169,9 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 	configurations := make([]config.ServiceProviderConfiguration, len(f.Configuration.SharedConfiguration.ServiceProviders))
 	copy(configurations, f.Configuration.SharedConfiguration.ServiceProviders)
 
-	for i, spConfig := range configurations {
-		if spConfig.ServiceProviderBaseUrl == "" {
-			configurations[i].ServiceProviderBaseUrl = configurations[i].ServiceProviderType.DefaultBaseUrl
-		}
-	}
-
 	secretList := &corev1.SecretList{}
 	err := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
-		api.ServiceProviderHostLabel, api.ServiceProviderTypeLabel,
+		api.ServiceProviderTypeLabel,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list oauth config secrets: %w", err)
@@ -185,10 +179,9 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 
 	for _, secret := range secretList.Items {
 		conf := config.ServiceProviderConfiguration{
-			ClientId:               string(secret.Data["clientId"]),
-			ClientSecret:           string(secret.Data["clientSecret"]),
-			ServiceProviderType:    config.ServiceProviderType{},
-			ServiceProviderBaseUrl: secret.ObjectMeta.Labels[api.ServiceProviderHostLabel],
+			ClientId:            string(secret.Data["clientId"]),
+			ClientSecret:        string(secret.Data["clientSecret"]),
+			ServiceProviderType: config.ServiceProviderType{},
 		}
 
 		providerType, err := config.GetServiceProviderTypeByName(config.ServiceProviderName(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel]))
@@ -196,6 +189,11 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 			return nil, fmt.Errorf("failed to find service provider: %w", err)
 		}
 		conf.ServiceProviderType = providerType
+		host, ok := secret.ObjectMeta.Labels[api.ServiceProviderHostLabel]
+		if !ok {
+			host = providerType.DefaultHost
+		}
+		conf.ServiceProviderBaseUrl = host
 		configurations = append(configurations, conf) // nozero -- we are copying elements before appending to this slice
 	}
 	return configurations, nil

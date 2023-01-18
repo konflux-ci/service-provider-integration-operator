@@ -138,10 +138,11 @@ var _ = BeforeSuite(func() {
 	Expect(noPrivsClient).NotTo(BeNil())
 	ITest.NoPrivsClient = noPrivsClient
 
+	testProviderBaseUrl := "test-provider://baseurl"
 	ITest.TestServiceProvider = TestServiceProvider{}
 	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
 		if strings.HasPrefix(baseUrl, "test-provider://") {
-			return "test-provider://baseurl", nil
+			return testProviderBaseUrl, nil
 		}
 
 		return "", nil
@@ -162,9 +163,10 @@ var _ = BeforeSuite(func() {
 		SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{
 				{
-					ClientId:            "testClient",
-					ClientSecret:        "testSecret",
-					ServiceProviderType: testServiceProvider,
+					ClientId:               "testClient",
+					ClientSecret:           "testSecret",
+					ServiceProviderType:    testServiceProvider,
+					ServiceProviderBaseUrl: testProviderBaseUrl,
 				},
 				{
 					ServiceProviderBaseUrl: "https://spi-club.org",

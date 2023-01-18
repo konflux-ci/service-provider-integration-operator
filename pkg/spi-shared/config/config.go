@@ -140,12 +140,12 @@ func init() {
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.
-func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
+func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, error) {
 	conf := SharedConfiguration{
 		ServiceProviders: []ServiceProviderConfiguration{},
 	}
 
-	for _, sp := range c.ServiceProviders {
+	for _, sp := range persistedConfig.ServiceProviders {
 		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {
 			return nil, err

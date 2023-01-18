@@ -288,11 +288,14 @@ func TestGetBaseUrlsFromConfigs(t *testing.T) {
 	factory := Factory{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{{
-				ServiceProviderType: config.ServiceProviderTypeGitHub,
+				ServiceProviderType:    config.ServiceProviderTypeGitHub,
+				ServiceProviderBaseUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 			}, {
-				ServiceProviderType: config.ServiceProviderTypeGitLab,
+				ServiceProviderType:    config.ServiceProviderTypeGitLab,
+				ServiceProviderBaseUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl,
 			}, {
-				ServiceProviderType: config.ServiceProviderTypeQuay,
+				ServiceProviderType:    config.ServiceProviderTypeQuay,
+				ServiceProviderBaseUrl: config.ServiceProviderTypeQuay.DefaultBaseUrl,
 			}, {
 				ServiceProviderType:    config.ServiceProviderTypeGitHub,
 				ServiceProviderBaseUrl: "https://some.github.url",
