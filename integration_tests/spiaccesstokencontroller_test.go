@@ -99,9 +99,6 @@ var _ = Describe("SPIAccessToken", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
-					}
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return testCapability{}
 					}

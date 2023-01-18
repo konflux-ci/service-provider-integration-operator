@@ -43,9 +43,6 @@ var _ = Describe("SPIFileContentRequest", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return "test-provider://test"
-					}
 				},
 			},
 		}

@@ -31,9 +31,7 @@ type TestServiceProvider struct {
 	LookupTokenImpl           func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
-	OAuthScopesForImpl        func(permissions *api.Permissions) []string
 	GetTypeImpl               func() config.ServiceProviderType
-	GetOauthEndpointImpl      func() string
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
 	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
@@ -73,13 +71,6 @@ func (t TestServiceProvider) GetBaseUrl() string {
 	return t.GetBaseUrlImpl()
 }
 
-func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []string {
-	if t.OAuthScopesForImpl == nil {
-		return []string{}
-	}
-	return t.OAuthScopesForImpl(permissions)
-}
-
 func (t TestServiceProvider) GetType() config.ServiceProviderType {
 	if t.GetTypeImpl == nil {
 		return config.ServiceProviderType{Name: "TestServiceProvider", DefaultBaseUrl: "test-provider://acme"}
@@ -101,13 +92,6 @@ func (t TestServiceProvider) GetOAuthCapability() serviceprovider.OAuthCapabilit
 	return t.OAuthCapability()
 }
 
-func (t TestServiceProvider) GetOAuthEndpoint() string {
-	if t.GetOauthEndpointImpl == nil {
-		return ""
-	}
-	return t.GetOauthEndpointImpl()
-}
-
 func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
 	if t.MapTokenImpl == nil {
 		return serviceprovider.AccessTokenMapper{}, nil
@@ -127,9 +111,7 @@ func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprov
 func (t *TestServiceProvider) Reset() {
 	t.LookupTokenImpl = nil
 	t.GetBaseUrlImpl = nil
-	t.OAuthScopesForImpl = nil
 	t.GetTypeImpl = nil
-	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil
 	t.CheckRepositoryAccessImpl = nil
 	t.MapTokenImpl = nil
