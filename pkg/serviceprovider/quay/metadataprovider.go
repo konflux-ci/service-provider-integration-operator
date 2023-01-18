@@ -172,15 +172,11 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 			return
 		}
 	}
-	if quayState.Repositories == nil || quayState.Organizations == nil {
-		lg.Info("Detected quay token state with empty Repositories or Organizations")
-		if quayState.Repositories == nil {
-			quayState.Repositories = make(map[string]EntityRecord)
-		}
-
-		if quayState.Organizations == nil {
-			quayState.Organizations = make(map[string]EntityRecord)
-		}
+	if quayState.Repositories == nil {
+		quayState.Repositories = make(map[string]EntityRecord)
+	}
+	if quayState.Organizations == nil {
+		quayState.Organizations = make(map[string]EntityRecord)
 	}
 
 	var tokenData *api.Token
@@ -242,8 +238,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	var orgChanged, repoChanged bool
 	var orgRecord, repoRecord EntityRecord
 
-	cached = false
-
 	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the organization metadata")
@@ -263,9 +257,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 			lg.Error(err, "failed to persist the metadata changes")
 			return
 		}
-	} else {
-		// neither org, nor repo cache records changed, so this was read from the cache.
-		cached = true
 	}
 
 	metadata = &RepositoryMetadata{
