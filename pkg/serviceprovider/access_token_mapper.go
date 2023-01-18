@@ -18,11 +18,12 @@ package serviceprovider
 
 import (
 	"fmt"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	"net/url"
 	"strconv"
 	"strings"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Key for token using in Opaque Secret
