@@ -163,10 +163,14 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	}
 
 	quayState := TokenState{}
-	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
-		lg.Error(err, "failed to unmarshal quay token state")
-		err = fmt.Errorf("failed to unmarshal the token state: %w", err)
-		return
+	// the service provider state may be nil, so we need to be careful here
+	stateBytes := token.Status.TokenMetadata.ServiceProviderState
+	if len(stateBytes) > 0 {
+		if err = json.Unmarshal(stateBytes, &quayState); err != nil {
+			lg.Error(err, "failed to unmarshal quay token state")
+			err = fmt.Errorf("failed to unmarshal the token state: %w", err)
+			return
+		}
 	}
 	if quayState.Repositories == nil || quayState.Organizations == nil {
 		lg.Info("Detected quay token state with empty Repositories or Organizations")
