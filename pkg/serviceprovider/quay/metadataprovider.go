@@ -163,20 +163,20 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	}
 
 	quayState := TokenState{}
-	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
-		lg.Error(err, "failed to unmarshal quay token state")
-		err = fmt.Errorf("failed to unmarshal the token state: %w", err)
-		return
+	// the service provider state may be nil, so we need to be careful here
+	stateBytes := token.Status.TokenMetadata.ServiceProviderState
+	if len(stateBytes) > 0 {
+		if err = json.Unmarshal(stateBytes, &quayState); err != nil {
+			lg.Error(err, "failed to unmarshal quay token state")
+			err = fmt.Errorf("failed to unmarshal the token state: %w", err)
+			return
+		}
 	}
-	if quayState.Repositories == nil || quayState.Organizations == nil {
-		lg.Info("Detected quay token state with empty Repositories or Organizations")
-		if quayState.Repositories == nil {
-			quayState.Repositories = make(map[string]EntityRecord)
-		}
-
-		if quayState.Organizations == nil {
-			quayState.Organizations = make(map[string]EntityRecord)
-		}
+	if quayState.Repositories == nil {
+		quayState.Repositories = make(map[string]EntityRecord)
+	}
+	if quayState.Organizations == nil {
+		quayState.Organizations = make(map[string]EntityRecord)
 	}
 
 	var tokenData *api.Token
@@ -238,8 +238,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	var orgChanged, repoChanged bool
 	var orgRecord, repoRecord EntityRecord
 
-	cached = false
-
 	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the organization metadata")
@@ -259,9 +257,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 			lg.Error(err, "failed to persist the metadata changes")
 			return
 		}
-	} else {
-		// neither org, nor repo cache records changed, so this was read from the cache.
-		cached = true
 	}
 
 	metadata = &RepositoryMetadata{
