@@ -20,6 +20,9 @@ import (
 )
 
 func GetBaseUrl(url *url.URL) string {
+	if url == nil || url.Scheme == "" || url.Host == "" {
+		return ""
+	}
 	return url.Scheme + "://" + url.Host
 }
 
