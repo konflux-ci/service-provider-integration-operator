@@ -360,6 +360,25 @@ func TestNewGithubOauthCapability(t *testing.T) {
 	})
 }
 
+func TestNewGithub(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenLookupCacheTtl: 1 * time.Minute,
+		},
+		HttpClient: http.DefaultClient,
+	}
+	spConfig := &config.ServiceProviderConfiguration{}
+
+	sp, err := newGithub(factory, spConfig)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, sp)
+	assert.Nil(t, sp.GetOAuthCapability())
+	assert.NotNil(t, sp.GetDownloadFileCapability())
+	assert.Equal(t, config.ServiceProviderTypeGitHub, sp.GetType())
+	assert.Equal(t, config.ServiceProviderTypeGitHub.DefaultBaseUrl, sp.GetBaseUrl())
+}
+
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
 	metadataCache := serviceprovider.MetadataCache{
 		Client:                    cl,

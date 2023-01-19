@@ -176,15 +176,6 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 	return nil
 }
 
-func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	url, err := config.GetHostWithScheme(repoUrl)
-	if err != nil {
-		err = fmt.Errorf("failed to get host and scheme from %s: %w", repoUrl, err)
-	}
-
-	return url, err
-}
-
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	repoUrl := accessCheck.Spec.RepoUrl
 

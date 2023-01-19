@@ -99,14 +99,6 @@ func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.
 	return nil
 }
 
-func (g *HostCredentialsProvider) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	host, err := config.GetHostWithScheme(repoUrl)
-	if err != nil {
-		return "", fmt.Errorf("detecting host failed: %w", err)
-	}
-	return host, nil
-}
-
 func (g *HostCredentialsProvider) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return nil
 }
