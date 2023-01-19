@@ -77,38 +77,42 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 // mapping.
 func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
 
-	// if there are no mapping.Token - add "token" key
-	if mapping.Token == "" {
+	// if there are no field in the mapping - add "token" key
+	if mapping.Empty() {
 		existingMap[tokenKey] = at.Token
+
 	} else {
-		existingMap[mapping.Token] = at.Token
+		if mapping.Token != "" {
+			existingMap[mapping.Token] = at.Token
+		}
+
+		if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
+			existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
+		}
+
+		if mapping.Name != "" {
+			existingMap[mapping.Name] = at.Name
+		}
+
+		if mapping.Scopes != "" {
+			existingMap[mapping.Scopes] = strings.Join(at.Scopes, ",")
+		}
+
+		if mapping.ServiceProviderUrl != "" {
+			existingMap[mapping.ServiceProviderUrl] = at.ServiceProviderUrl
+		}
+
+		if mapping.ServiceProviderUserId != "" {
+			existingMap[mapping.ServiceProviderUserId] = at.ServiceProviderUserId
+		}
+
+		if mapping.ServiceProviderUserName != "" {
+			existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
+		}
+
+		if mapping.UserId != "" {
+			existingMap[mapping.UserId] = at.UserId
+		}
 	}
 
-	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
-		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
-	}
-
-	if mapping.Name != "" {
-		existingMap[mapping.Name] = at.Name
-	}
-
-	if mapping.Scopes != "" {
-		existingMap[mapping.Scopes] = strings.Join(at.Scopes, ",")
-	}
-
-	if mapping.ServiceProviderUrl != "" {
-		existingMap[mapping.ServiceProviderUrl] = at.ServiceProviderUrl
-	}
-
-	if mapping.ServiceProviderUserId != "" {
-		existingMap[mapping.ServiceProviderUserId] = at.ServiceProviderUserId
-	}
-
-	if mapping.ServiceProviderUserName != "" {
-		existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
-	}
-
-	if mapping.UserId != "" {
-		existingMap[mapping.UserId] = at.UserId
-	}
 }
