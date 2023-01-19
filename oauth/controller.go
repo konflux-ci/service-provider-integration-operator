@@ -15,6 +15,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -46,6 +47,10 @@ const (
 	oauthFinishError
 )
 
+var (
+	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
+)
+
 func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
 	lg := log.FromContext(ctx)
 
@@ -65,6 +70,8 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		ServiceProviderType:       spType,
 	}
 
+	initializedServiceProviders := map[string]bool{}
+
 	for _, sp := range cfg.ServiceProviders {
 		if sp.ServiceProviderType.Name != spType.Name {
 			continue
@@ -79,7 +86,12 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 			spHost = baseUrlParsed.Host
 		}
 
-		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
+		if _, alreadyInitialized := initializedServiceProviders[spHost]; alreadyInitialized {
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, spHost)
+		} else {
+			initializedServiceProviders[spHost] = true
+			lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
+		}
 	}
 
 	return controller, nil

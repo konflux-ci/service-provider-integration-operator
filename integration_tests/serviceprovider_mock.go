@@ -40,6 +40,20 @@ type TestServiceProvider struct {
 	OAuthCapability           func() serviceprovider.OAuthCapability
 }
 
+type testCapability struct{}
+
+func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
+	return "abcdefg", nil
+}
+
+func (c testCapability) GetOAuthEndpoint() string {
+	return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+}
+
+func (c testCapability) OAuthScopesFor(permissions *api.Permissions) []string {
+	return []string{}
+}
+
 var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {

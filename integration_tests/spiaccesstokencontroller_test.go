@@ -35,14 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c testCapability) GetOAuthEndpoint() string {
-	return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
-}
-
-func (c testCapability) OAuthScopesFor(permissions *api.Permissions) []string {
-	return []string{}
-}
-
 var _ = Describe("SPIAccessToken", func() {
 
 	Describe("Create without token data", func() {

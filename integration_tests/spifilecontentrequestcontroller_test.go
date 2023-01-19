@@ -15,7 +15,6 @@
 package integrationtests
 
 import (
-	"context"
 	"encoding/base64"
 	"time"
 
@@ -27,12 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type testCapability struct{}
-
-func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
-	return "abcdefg", nil
-}
-
 var _ = Describe("SPIFileContentRequest", func() {
 
 	Describe("Create without token data", func() {
@@ -43,6 +36,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return testCapability{} }
 				},
 			},
 		}
