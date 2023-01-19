@@ -187,7 +187,9 @@ func TestValidate(t *testing.T) {
 
 func TestQuay_OAuthScopesFor(t *testing.T) {
 
-	q := &Quay{}
+	q := &Quay{
+		OAuthCapability: &quayOAuthCapability{},
+	}
 	fullScopes := []string{"repo:read", "repo:write", "repo:create", "repo:admin"}
 
 	hasScopes := func(expectedScopes []string, ps api.Permissions) func(t *testing.T) {

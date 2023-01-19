@@ -81,6 +81,18 @@ var _ = Describe("Controller", func() {
 		return result
 	}
 
+	config.SupportedServiceProviderTypes = []config.ServiceProviderType{
+		{
+			Name:           "special",
+			DefaultHost:    "special.sp",
+			DefaultBaseUrl: "https://special.sp",
+			DefaultOAuthEndpoint: oauth2.Endpoint{
+				AuthURL:  "https://special.sp/auth",
+				TokenURL: "https://special.sp/token",
+			},
+		},
+	}
+
 	prepareAuthenticator := func(g Gomega) *Authenticator {
 		return NewAuthenticator(IT.SessionManager, IT.Client)
 	}
@@ -107,11 +119,12 @@ var _ = Describe("Controller", func() {
 					BaseUrl: "https://spi.on.my.machine",
 				},
 			},
-			K8sClient:        IT.Client,
-			TokenStorage:     IT.TokenStorage,
-			Authenticator:    prepareAuthenticator(g),
-			RedirectTemplate: tmpl,
-			StateStorage:     NewStateStorage(IT.SessionManager),
+			K8sClient:           IT.Client,
+			TokenStorage:        IT.TokenStorage,
+			Authenticator:       prepareAuthenticator(g),
+			RedirectTemplate:    tmpl,
+			StateStorage:        NewStateStorage(IT.SessionManager),
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 	}
 

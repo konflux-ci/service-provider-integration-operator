@@ -75,7 +75,9 @@ func TestValidate(t *testing.T) {
 }
 
 func TestOAuthScopesFor(t *testing.T) {
-	gitlab := &Gitlab{}
+	gitlab := &Gitlab{
+		oauthCapability: &gitlabOAuthCapability{},
+	}
 	hasExpectedScopes := func(expectedScopes []string, permissions api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
 			actualScopes := gitlab.GetOAuthCapability().OAuthScopesFor(&permissions)

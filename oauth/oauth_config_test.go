@@ -103,6 +103,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Namespace: secretNamespace,
 						Labels: map[string]string{
 							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							v1beta1.ServiceProviderHostLabel: "bleh.eh",
 						},
 					},
 					Data: map[string][]byte{
@@ -141,15 +142,11 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthCfg, err := ctrl.obtainOauthConfig(ctx, oauthState)
-		expectedEndpoint := oauth2.Endpoint{
-			AuthURL:  "http://bleh.eh/oauth/authorize",
-			TokenURL: "http://bleh.eh/oauth/token",
-		}
 		assert.NoError(t, err)
 		assert.NotNil(t, oauthCfg)
-		assert.Equal(t, oauthCfg.ClientID, "testclientid")
-		assert.Equal(t, oauthCfg.ClientSecret, "testclientsecret")
-		assert.Equal(t, expectedEndpoint, oauthCfg.Endpoint)
+		assert.Equal(t, "testclientid", oauthCfg.ClientID)
+		assert.Equal(t, "testclientsecret", oauthCfg.ClientSecret)
+		assert.Equal(t, config.ServiceProviderTypeGitHub.DefaultOAuthEndpoint, oauthCfg.Endpoint)
 		assert.Contains(t, oauthCfg.RedirectURL, "baseurl")
 	})
 

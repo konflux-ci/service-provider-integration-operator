@@ -97,8 +97,8 @@ func TestCreateOauthConfigFromSecret(t *testing.T) {
 
 		assert.Equal(t, testClientId, oauthCfg.ClientID)
 		assert.Equal(t, testClientSecret, oauthCfg.ClientSecret)
-		assert.Equal(t, "", oauthCfg.Endpoint.AuthURL)
-		assert.Equal(t, "", oauthCfg.Endpoint.TokenURL)
+		assert.Equal(t, ServiceProviderTypeGitHub.DefaultOAuthEndpoint.AuthURL, oauthCfg.Endpoint.AuthURL)
+		assert.Equal(t, ServiceProviderTypeGitHub.DefaultOAuthEndpoint.TokenURL, oauthCfg.Endpoint.TokenURL)
 	})
 }
 
@@ -216,12 +216,12 @@ func TestMultipleProviders(t *testing.T) {
 
 	secretNamespace := "test-secretConfigNamespace"
 
-	test := func(t *testing.T, oauthConfigSecrets []v1.Secret, shouldFind bool, findSecretName string, shouldError bool) {
+	test := func(t *testing.T, oauthConfigSecrets []v1.Secret, shouldFind bool, findSecretName string, shouldError bool, spHost string) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithLists(&v1.SecretList{
 			Items: oauthConfigSecrets,
 		}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, "blabol.eh")
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, spHost)
 		assert.Equal(t, shouldFind, found, "should find the secret")
 		if shouldError {
 			assert.Error(t, err, "should error")
@@ -255,10 +255,10 @@ func TestMultipleProviders(t *testing.T) {
 					},
 				},
 			},
-		}, true, "oauth-config-secret-hosted", false)
+		}, true, "oauth-config-secret-hosted", false, "blabol.eh")
 	})
 
-	t.Run("if no secret host match, use default", func(t *testing.T) {
+	t.Run("if no secret host match, not-found", func(t *testing.T) {
 		test(t, []v1.Secret{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -279,7 +279,7 @@ func TestMultipleProviders(t *testing.T) {
 					},
 				},
 			},
-		}, true, "oauth-config-secret", false)
+		}, false, "oauth-config-secret", false, "blabol.eh")
 	})
 
 	t.Run("if no secret host match or default, not-found", func(t *testing.T) {
@@ -304,7 +304,7 @@ func TestMultipleProviders(t *testing.T) {
 					},
 				},
 			},
-		}, false, "", false)
+		}, false, "", false, "blabol.eh")
 	})
 
 	t.Run("multiple secrets with same host should error", func(t *testing.T) {
@@ -329,7 +329,7 @@ func TestMultipleProviders(t *testing.T) {
 					},
 				},
 			},
-		}, false, "", true)
+		}, false, "", true, "blabol.eh")
 	})
 
 	t.Run("multiple secrets defaults without host should fail", func(t *testing.T) {
@@ -352,7 +352,55 @@ func TestMultipleProviders(t *testing.T) {
 					},
 				},
 			},
-		}, false, "", true)
+		}, false, "", true, "github.com")
+	})
+
+	t.Run("with and without default host must pick secret with host", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						v1beta1.ServiceProviderHostLabel: "github.com",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+					},
+				},
+			},
+		}, true, "oauth-config-secret", false, "github.com")
+	})
+
+	t.Run("with different host and without host must pick without for default url", func(t *testing.T) {
+		test(t, []v1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "oauth-config-secret-hosted",
+					Namespace: secretNamespace,
+					Labels: map[string]string{
+						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+					},
+				},
+			},
+		}, true, "oauth-config-secret", false, "github.com")
 	})
 }
 
