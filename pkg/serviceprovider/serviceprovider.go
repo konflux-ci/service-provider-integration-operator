@@ -89,6 +89,7 @@ type Factory struct {
 
 var (
 	errNoConstructorImplemented = errors.New("service provider has no constructor")
+	errNoInitializer            = errors.New("service provider has no initializer")
 )
 
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
@@ -144,14 +145,9 @@ func (f *Factory) NewCacheWithExpirationPolicy(policy MetadataExpirationPolicy) 
 }
 
 func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
-	lg := log.FromContext(ctx)
-
 	initializer, errFindInitializer := f.Initializers.GetInitializer(spType)
 	if errFindInitializer != nil {
-		lg.Error(errFindInitializer,
-			"Initializer not found. This should not happenin production, we should have initializers for all known service providers. But let's continue for now.",
-			"serviceprovider name", spType.Name)
-		return nil, nil
+		return nil, fmt.Errorf("failed to initialize service provider '%s': %w", spType.Name, errNoInitializer)
 	}
 
 	ctor := initializer.Constructor

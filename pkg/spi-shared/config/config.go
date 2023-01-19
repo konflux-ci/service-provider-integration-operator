@@ -42,8 +42,6 @@ var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 	ServiceProviderTypeQuay,
 }
 
-var SupportedServiceProvidersByName map[ServiceProviderName]ServiceProviderType = make(map[ServiceProviderName]ServiceProviderType)
-
 // HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
 // We can still provide limited functionality for them like manual token upload.
 var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
@@ -131,10 +129,6 @@ type ServiceProviderConfiguration struct {
 }
 
 func init() {
-	// It's handy to have serviceproviders reachable by their names. Let's fill in such map from central list 'SupportedServiceProviderTypes'.
-	for _, sp := range SupportedServiceProviderTypes {
-		SupportedServiceProvidersByName[sp.Name] = sp
-	}
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.

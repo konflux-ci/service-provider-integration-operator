@@ -155,6 +155,8 @@ func TestFromRepoUrl(t *testing.T) {
 		Initializers:     initializers,
 	}
 
+	config.SupportedServiceProviderTypes = []config.ServiceProviderType{config.ServiceProviderTypeQuay}
+
 	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo", "namespace")
 	assert.NoError(t, err)
 	assert.Equal(t, mockSP, sp)
