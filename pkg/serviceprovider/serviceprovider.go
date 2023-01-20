@@ -122,12 +122,16 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 	}
 
 	lg.Info("Specific provider is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
+	return f.createHostCredentialsProvider(parsedRepoUrl)
+}
+
+func (f *Factory) createHostCredentialsProvider(repoUrl *url.URL) (ServiceProvider, error) {
 	hostCredentialsInitializer, errHostCredsInitializerFind := f.Initializers.GetInitializer(config.ServiceProviderTypeHostCredentials)
 	if errHostCredsInitializerFind != nil {
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, config.SpConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(parsedRepoUrl)))
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, config.SpConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}

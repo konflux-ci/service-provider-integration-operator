@@ -38,6 +38,37 @@ const (
 	testTokenUrl     = "test_token_url_123"
 )
 
+func TestCreateServiceProviderConfigurationFromSecret(t *testing.T) {
+	t.Run("empty secret creates config with nil oauth", func(t *testing.T) {
+		spConfig := createServiceProviderConfigurationFromSecret(&v1.Secret{}, "bla.bol", ServiceProviderTypeGitHub)
+
+		assert.NotNil(t, spConfig)
+		assert.Equal(t, "bla.bol", spConfig.ServiceProviderBaseUrl)
+		assert.Equal(t, ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
+		assert.Nil(t, spConfig.OAuth2Config)
+	})
+
+	t.Run("configured secret creates oauth spConfig", func(t *testing.T) {
+		secret := &v1.Secret{
+			Data: map[string][]byte{
+				oauthCfgSecretFieldClientId:     []byte(testClientId),
+				oauthCfgSecretFieldClientSecret: []byte(testClientSecret),
+				oauthCfgSecretFieldAuthUrl:      []byte(testAuthUrl),
+				oauthCfgSecretFieldTokenUrl:     []byte(testTokenUrl),
+			},
+		}
+
+		spConfig := createServiceProviderConfigurationFromSecret(secret, "bla.bol", ServiceProviderTypeGitHub)
+
+		assert.NotNil(t, spConfig)
+		assert.Equal(t, "bla.bol", spConfig.ServiceProviderBaseUrl)
+		assert.Equal(t, ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
+		assert.NotNil(t, spConfig.OAuth2Config)
+		assert.Equal(t, testClientId, spConfig.OAuth2Config.ClientID)
+		assert.Equal(t, testClientSecret, spConfig.OAuth2Config.ClientSecret)
+	})
+}
+
 func TestCreateOauthConfigFromSecret(t *testing.T) {
 	t.Run("all fields set ok", func(t *testing.T) {
 		secret := &v1.Secret{
@@ -188,6 +219,18 @@ func TestFindOauthConfigSecret(t *testing.T) {
 					Group:    "test-group",
 					Resource: "test-resource",
 				}, "nenene", fmt.Errorf("test err"))
+			}}).Build()
+
+		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
+		assert.False(t, found)
+		assert.Nil(t, secret)
+		assert.NoError(t, err)
+	})
+
+	t.Run("kube unauthorized", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjectTracker(&mockTracker{
+			listImpl: func(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, ns string) (runtime.Object, error) {
+				return nil, errors.NewUnauthorized("bububu")
 			}}).Build()
 
 		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)

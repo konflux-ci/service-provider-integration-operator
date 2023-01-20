@@ -14,6 +14,7 @@
 package config
 
 import (
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -83,6 +84,26 @@ serviceProviders:
 		assert.Empty(t, cfg.BaseUrl)
 		assert.Empty(t, cfg.ServiceProviders)
 	})
+
+	t.Run("file not exist", func(t *testing.T) {
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: "blbost", BaseUrl: "blabol"})
+		assert.Error(t, err)
+		assert.Empty(t, cfg.BaseUrl)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+
+	t.Run("read error", func(t *testing.T) {
+		cfg, err := readFrom(&r{})
+
+		assert.Error(t, err)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+}
+
+type r struct{}
+
+func (r *r) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("some error")
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
