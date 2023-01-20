@@ -49,6 +49,9 @@ var _ = Describe("SPIAccessToken", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return testCapability{}
+					}
 				},
 			},
 		}
@@ -75,6 +78,40 @@ var _ = Describe("SPIAccessToken", func() {
 
 		It("have the upload URL set", func() {
 			Expect(strings.HasSuffix(createdToken.Status.UploadUrl, "/token/"+createdToken.Namespace+"/"+createdToken.Name)).To(BeTrue())
+		})
+
+		It("have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("No OAuth Capability service provider", func() {
+		var createdToken *api.SPIAccessToken
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				Tokens: []*api.SPIAccessToken{
+					StandardTestToken("create-test"),
+				},
+			},
+			Behavior: ITestBehavior{
+				AfterObjectsCreated: func(objects TestObjects) {
+					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+			createdToken = testSetup.InCluster.Tokens[0]
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("does not have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).To(BeEmpty())
 		})
 	})
 
