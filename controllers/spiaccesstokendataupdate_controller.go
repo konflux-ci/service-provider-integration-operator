@@ -97,22 +97,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 			return ctrl.Result{}, fmt.Errorf("failed to obtain the updated token: %w", err)
 		}
 	}
-	if token.Name != "" {
-		// if the token was successfully loaded, let's reset it to an initial state, so that the token reconciler
-		// can set it up with the data in mind.
-		token.Status.TokenMetadata = nil
-		token.Status.Phase = ""
-		token.Status.ErrorMessage = ""
-		token.Status.ErrorReason = ""
-		token.Status.OAuthUrl = ""
-		if err := r.Status().Update(ctx, token); err != nil {
-			lg.Error(err, "failed to clear the token metadata")
-			return ctrl.Result{}, fmt.Errorf("failed to clear token metadata: %w", err)
-		}
-	}
 
-	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token.
-	// We've already updated the token and so the SPIAccessToken reconciler will pick up from there.
 	creationTime := update.CreationTimestamp
 
 	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token
