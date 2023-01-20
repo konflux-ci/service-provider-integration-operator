@@ -16,7 +16,9 @@ package serviceprovider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 
@@ -160,6 +162,84 @@ func TestFromRepoUrl(t *testing.T) {
 	sp, err := fact.FromRepoUrl(context.TODO(), "quay.com/namespace/repo", "namespace")
 	assert.NoError(t, err)
 	assert.Equal(t, mockSP, sp)
+}
+
+func TestCreateHostCredentialsProvider(t *testing.T) {
+	mockSP := struct {
+		ServiceProvider
+	}{}
+	mockInit := Initializer{
+		Probe: struct {
+			ProbeFunc
+		}{
+			ProbeFunc: func(cl *http.Client, url string) (string, error) {
+				return "https://base-url.com", nil
+			},
+		},
+		Constructor: struct {
+			ConstructorFunc
+		}{
+			ConstructorFunc: func(factory *Factory, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+				return mockSP, nil
+			},
+		},
+	}
+
+	t.Run("created ok", func(t *testing.T) {
+		f := Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeHostCredentials, mockInit),
+		}
+
+		repoUrl, _ := url.Parse("https://blabol.sp/hey/there")
+
+		sp, err := f.createHostCredentialsProvider(repoUrl)
+
+		assert.NotNil(t, sp)
+		assert.NoError(t, err)
+	})
+
+	t.Run("missing initializer", func(t *testing.T) {
+		f := Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeQuay, mockInit),
+		}
+
+		repoUrl, _ := url.Parse("https://blabol.sp/hey/there")
+
+		sp, err := f.createHostCredentialsProvider(repoUrl)
+
+		assert.Nil(t, sp)
+		assert.Error(t, err)
+	})
+
+	t.Run("failed constructor", func(t *testing.T) {
+		mockInit := Initializer{
+			Probe: struct {
+				ProbeFunc
+			}{
+				ProbeFunc: func(cl *http.Client, url string) (string, error) {
+					return "https://base-url.com", nil
+				},
+			},
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return nil, fmt.Errorf("fial")
+				},
+			},
+		}
+
+		f := Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeHostCredentials, mockInit),
+		}
+
+		repoUrl, _ := url.Parse("https://blabol.sp/hey/there")
+
+		sp, err := f.createHostCredentialsProvider(repoUrl)
+
+		assert.Nil(t, sp)
+		assert.Error(t, err)
+	})
 }
 
 // func TestInitializeServiceProvider(t *testing.T) {
