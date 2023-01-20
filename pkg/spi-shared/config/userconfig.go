@@ -117,6 +117,9 @@ func createServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, b
 	}
 }
 
+// initializeOAuthConfigFromSecret creates `oauth2.Config` from given `Secret`.
+// In case Secret doesn't have both `clientId` and `clientSecret` keys set, we just return nil.
+// Endpoint is initially set from given `ServiceProviderType` defaults, but can be overwritten with `authUrl` and `tokenUrl` Secret keys.
 func initializeOAuthConfigFromSecret(secret *corev1.Secret, spType ServiceProviderType) *oauth2.Config {
 	oauthCfg := &oauth2.Config{
 		Endpoint: spType.DefaultOAuthEndpoint,
