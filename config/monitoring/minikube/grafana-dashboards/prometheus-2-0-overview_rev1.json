@@ -22,7 +22,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "PF224BEF3374A25F8"
         },
         "enable": true,
         "expr": "sum(changes(prometheus_config_last_reload_success_timestamp_seconds{instance=~\"$instance\"}[10m])) by (instance)",
@@ -37,7 +37,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "PF224BEF3374A25F8"
         },
         "enable": true,
         "expr": "count(sum(up{instance=\"$instance\"}) by (instance) < 1)",
@@ -64,7 +64,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -78,7 +78,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -89,7 +89,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Percentage of uptime during the most recent $interval period.  Change the period with the 'interval' dropdown above.",
       "fieldConfig": {
@@ -158,7 +158,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "avg(avg_over_time(up{instance=~\"$instance\",job=~\"$job\"}[$interval]) * 100)",
           "format": "time_series",
@@ -175,7 +175,7 @@
       "columns": [],
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Servers which are DOWN RIGHT NOW! \nFIX THEM!!",
       "fontSize": "100%",
@@ -243,7 +243,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "up{instance=~\"$instance\",job=~\"$job\"} < 1",
           "format": "table",
@@ -260,7 +260,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Total number of time series in prometheus",
       "fieldConfig": {
@@ -328,7 +328,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_tsdb_head_series{job=~\"$job\",instance=~\"$instance\"})",
           "format": "time_series",
@@ -343,7 +343,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fieldConfig": {
         "defaults": {
@@ -407,7 +407,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_tsdb_head_chunks{job=~\"$job\",instance=~\"$instance\"})",
           "format": "time_series",
@@ -423,7 +423,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -437,7 +437,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -448,7 +448,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "The total number of rule group evaluations missed due to slow rule group evaluation.",
       "fieldConfig": {
@@ -516,7 +516,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(sum_over_time(prometheus_evaluator_iterations_missed_total{job=~\"$job\",instance=~\"$instance\"}[$interval]))",
           "format": "time_series",
@@ -531,7 +531,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "The total number of rule group evaluations skipped due to throttled metric storage.",
       "fieldConfig": {
@@ -599,7 +599,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(sum_over_time(prometheus_evaluator_iterations_skipped_total{job=~\"$job\",instance=~\"$instance\"}[$interval]))",
           "format": "time_series",
@@ -614,7 +614,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Total number of scrapes that hit the sample limit and were rejected.",
       "fieldConfig": {
@@ -682,7 +682,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(sum_over_time(prometheus_target_scrapes_exceeded_sample_limit_total{job=~\"$job\",instance=~\"$instance\"}[$interval]))",
           "format": "time_series",
@@ -697,7 +697,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Number of times the database failed to reload block data from disk.",
       "fieldConfig": {
@@ -765,7 +765,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(sum_over_time(prometheus_tsdb_reloads_failures_total{job=~\"$job\",instance=~\"$instance\"}[$interval]))",
           "format": "time_series",
@@ -780,7 +780,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Sum of all skipped scrapes",
       "fieldConfig": {
@@ -848,7 +848,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(sum_over_time(prometheus_target_scrapes_exceeded_sample_limit_total{job=~\"$job\",instance=~\"$instance\"}[$interval])) + \nsum(sum_over_time(prometheus_target_scrapes_sample_duplicate_timestamp_total{job=~\"$job\",instance=~\"$instance\"}[$interval])) + \nsum(sum_over_time(prometheus_target_scrapes_sample_out_of_bounds_total{job=~\"$job\",instance=~\"$instance\"}[$interval])) + \nsum(sum_over_time(prometheus_target_scrapes_sample_out_of_order_total{job=~\"$job\",instance=~\"$instance\"}[$interval])) ",
           "format": "time_series",
@@ -864,7 +864,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -878,7 +878,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -893,7 +893,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "All non-zero failures and errors",
       "fill": 1,
@@ -935,7 +935,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(net_conntrack_dialer_conn_failed_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -947,7 +947,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_evaluator_iterations_missed_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -959,7 +959,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_evaluator_iterations_skipped_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -971,7 +971,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_rule_evaluation_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -983,7 +983,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_azure_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -995,7 +995,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_consul_rpc_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1007,7 +1007,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_dns_lookup_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1019,7 +1019,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_ec2_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1031,7 +1031,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_gce_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1043,7 +1043,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_marathon_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1055,7 +1055,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_openstack_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1067,7 +1067,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_sd_triton_refresh_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1079,7 +1079,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_target_scrapes_exceeded_sample_limit_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1091,7 +1091,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_target_scrapes_sample_duplicate_timestamp_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1103,7 +1103,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_target_scrapes_sample_out_of_bounds_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1115,7 +1115,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_target_scrapes_sample_out_of_order_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1127,7 +1127,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_treecache_zookeeper_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1139,7 +1139,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_tsdb_compactions_failed_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1151,7 +1151,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_tsdb_head_series_not_found{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1163,7 +1163,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(increase(prometheus_tsdb_reloads_failures_total{instance=~\"$instance\"}[5m])) > 0",
           "format": "time_series",
@@ -1209,7 +1209,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -1223,7 +1223,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -1238,7 +1238,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -1279,7 +1279,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "up{instance=~\"$instance\",job=~\"$job\"}",
           "format": "time_series",
@@ -1330,7 +1330,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -1371,7 +1371,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "prometheus_tsdb_head_chunks{job=~\"$job\",instance=~\"$instance\"}",
           "format": "time_series",
@@ -1417,7 +1417,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -1431,7 +1431,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -1446,7 +1446,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -1487,7 +1487,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "prometheus_tsdb_head_series{job=~\"$job\",instance=~\"$instance\"}",
           "format": "time_series",
@@ -1536,7 +1536,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -1582,7 +1582,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum( increase(prometheus_tsdb_head_series_created_total{instance=~\"$instance\"}[5m]) )",
           "format": "time_series",
@@ -1594,7 +1594,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum( increase(prometheus_tsdb_head_series_removed_total{instance=~\"$instance\"}[5m]) )",
           "format": "time_series",
@@ -1639,7 +1639,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -1653,7 +1653,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -1670,7 +1670,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Rate of total number of appended samples",
       "fill": 1,
@@ -1712,7 +1712,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "rate(prometheus_tsdb_head_samples_appended_total{job=~\"$job\",instance=~\"$instance\"}[1m])",
           "format": "time_series",
@@ -1758,7 +1758,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -1772,7 +1772,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -1787,7 +1787,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Total number of syncs that were executed on a scrape pool.",
       "fill": 1,
@@ -1829,7 +1829,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_target_scrape_pool_sync_total{job=~\"$job\",instance=~\"$instance\"}) by (scrape_job)",
           "format": "time_series",
@@ -1879,7 +1879,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Actual interval to sync the scrape pool.",
       "fill": 1,
@@ -1921,7 +1921,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(prometheus_target_sync_length_seconds_sum{job=~\"$job\",instance=~\"$instance\"}[2m])) by (scrape_job) * 1000",
           "format": "time_series",
@@ -1967,7 +1967,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -1981,7 +1981,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -1996,7 +1996,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2037,7 +2037,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "scrape_duration_seconds{instance=~\"$instance\"}",
           "format": "time_series",
@@ -2085,7 +2085,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Total number of rejected scrapes",
       "fill": 1,
@@ -2127,7 +2127,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_target_scrapes_exceeded_sample_limit_total{job=~\"$job\",instance=~\"$instance\"})",
           "format": "time_series",
@@ -2139,7 +2139,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_target_scrapes_sample_duplicate_timestamp_total{job=~\"$job\",instance=~\"$instance\"})",
           "format": "time_series",
@@ -2152,7 +2152,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_target_scrapes_sample_out_of_bounds_total{job=~\"$job\",instance=~\"$instance\"})",
           "format": "time_series",
@@ -2165,7 +2165,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_target_scrapes_sample_out_of_order_total{job=~\"$job\",instance=~\"$instance\"}) ",
           "format": "time_series",
@@ -2213,7 +2213,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -2227,7 +2227,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -2242,7 +2242,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "The duration of rule group evaluations",
       "fill": 1,
@@ -2284,7 +2284,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "1000 * rate(prometheus_evaluator_duration_seconds_sum{job=~\"$job\", instance=~\"$instance\"}[5m]) / rate(prometheus_evaluator_duration_seconds_count{job=~\"$job\", instance=~\"$instance\"}[5m])",
           "format": "time_series",
@@ -2333,7 +2333,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2374,7 +2374,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(http_request_duration_microseconds_count{job=~\"$job\",instance=~\"$instance\"}[1m])) by (handler) > 0",
           "format": "time_series",
@@ -2422,7 +2422,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2463,7 +2463,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(prometheus_engine_query_duration_seconds_sum{job=~\"$job\",instance=~\"$instance\"}) by (slice)",
           "format": "time_series",
@@ -2512,7 +2512,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "Rule-group evaluations \n - total\n - missed due to slow rule group evaluation\n - skipped due to throttled metric storage",
       "fill": 1,
@@ -2554,7 +2554,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(prometheus_evaluator_iterations_total{job=~\"$job\", instance=~\"$instance\"}[5m]))",
           "format": "time_series",
@@ -2566,7 +2566,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(prometheus_evaluator_iterations_missed_total{job=~\"$job\", instance=~\"$instance\"}[5m]))",
           "format": "time_series",
@@ -2578,7 +2578,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(prometheus_evaluator_iterations_skipped_total{job=~\"$job\", instance=~\"$instance\"}[5m]))",
           "format": "time_series",
@@ -2624,7 +2624,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -2638,7 +2638,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -2653,7 +2653,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2694,7 +2694,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "rate(prometheus_notifications_sent_total[5m])",
           "format": "time_series",
@@ -2740,7 +2740,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -2754,7 +2754,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -2769,7 +2769,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2810,7 +2810,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "(time() - prometheus_config_last_reload_success_timestamp_seconds{job=~\"$job\",instance=~\"$instance\"}) / 60",
           "format": "time_series",
@@ -2859,7 +2859,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2900,7 +2900,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "prometheus_config_last_reload_successful{job=~\"$job\",instance=~\"$instance\"}",
           "format": "time_series",
@@ -2948,7 +2948,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -2962,7 +2962,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -2977,7 +2977,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "description": "GC invocation durations",
       "fill": 1,
@@ -3019,7 +3019,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "expr": "sum(rate(go_gc_duration_seconds_sum{instance=~\"$instance\",job=~\"$job\"}[2m])) by (instance)",
           "format": "time_series",
@@ -3063,7 +3063,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "PF224BEF3374A25F8"
       },
       "gridPos": {
         "h": 1,
@@ -3080,7 +3080,7 @@
           "dashes": false,
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "description": "This is probably wrong!  Please help.",
           "fill": 1,
@@ -3121,7 +3121,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_alloc_bytes_total{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3134,7 +3134,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_alloc_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3147,7 +3147,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_buck_hash_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3159,7 +3159,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_gc_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3171,7 +3171,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_heap_alloc_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3183,7 +3183,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_heap_idle_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3195,7 +3195,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_heap_inuse_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3207,7 +3207,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_heap_released_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3219,7 +3219,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_heap_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3231,7 +3231,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_mcache_inuse_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3243,7 +3243,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_mcache_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3255,7 +3255,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_mspan_inuse_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3267,7 +3267,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_mspan_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3279,7 +3279,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_next_gc_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3291,7 +3291,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_other_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3303,7 +3303,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_stack_inuse_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3315,7 +3315,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_stack_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3327,7 +3327,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(go_memstats_sys_bytes{job=~\"$job\", instance=~\"$instance\"})",
               "format": "time_series",
@@ -3371,7 +3371,7 @@
           "dashes": false,
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "fill": 1,
           "gridPos": {
@@ -3406,7 +3406,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "prometheus_target_interval_length_seconds{instance=~\"$instance\", job=~\"$job\"}",
               "format": "time_series",
@@ -3451,7 +3451,7 @@
           "dashes": false,
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "fill": 1,
           "gridPos": {
@@ -3486,7 +3486,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
+                "uid": "PF224BEF3374A25F8"
               },
               "expr": "sum(rate(prometheus_target_interval_length_seconds_count{job=~\"$job\",instance=~\"$instance\"}[5m])) by (interval)",
               "format": "time_series",
@@ -3529,7 +3529,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "PF224BEF3374A25F8"
           },
           "refId": "A"
         }
@@ -3552,7 +3552,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "PF224BEF3374A25F8"
         },
         "definition": "",
         "hide": 0,
@@ -3581,7 +3581,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "PF224BEF3374A25F8"
         },
         "definition": "",
         "hide": 0,

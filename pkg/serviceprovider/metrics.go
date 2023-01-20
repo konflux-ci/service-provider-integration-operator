@@ -83,12 +83,12 @@ func RegisterCommonMetrics(registerer prometheus.Registerer) error {
 // collected in the http requests.
 func CommonRequestMetricsConfig(spType config.ServiceProviderType, operation string) *httptransport.HttpMetricCollectionConfig {
 	return &httptransport.HttpMetricCollectionConfig{
-		CounterPicker:            requestCountPicker(spType, operation),
-		HistogramOrSummaryPicker: responseTimePicker(spType, operation),
+		CounterPicker:            requestCountPicker(spType.Name, operation),
+		HistogramOrSummaryPicker: responseTimePicker(spType.Name, operation),
 	}
 }
 
-func requestCountPicker(spType config.ServiceProviderType, operation string) httptransport.HttpCounterMetricPickerFunc {
+func requestCountPicker(spType config.ServiceProviderName, operation string) httptransport.HttpCounterMetricPickerFunc {
 	return func(request *http.Request, response *http.Response, err error) []prometheus.Counter {
 		failed := "false"
 		if err != nil || response == nil {
@@ -98,7 +98,7 @@ func requestCountPicker(spType config.ServiceProviderType, operation string) htt
 	}
 }
 
-func responseTimePicker(spType config.ServiceProviderType, operation string) httptransport.HttpHistogramOrSummaryMetricPickerFunc {
+func responseTimePicker(spType config.ServiceProviderName, operation string) httptransport.HttpHistogramOrSummaryMetricPickerFunc {
 	return func(request *http.Request, resp *http.Response, err error) []prometheus.Observer {
 		if resp == nil {
 			return nil

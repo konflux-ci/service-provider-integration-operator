@@ -73,7 +73,7 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
-	cache := serviceprovider.NewMetadataCache(factory.KubernetesClient, &serviceprovider.NeverMetadataExpirationPolicy{})
+	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
 		httpClient:   factory.HttpClient,
 		tokenStorage: factory.TokenStorage,

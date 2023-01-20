@@ -22,10 +22,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
@@ -35,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
@@ -85,8 +87,8 @@ func init() {
 	k8sMetrics.Registry.MustRegister(metadataFetchMetric)
 }
 
-func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) (*api.TokenMetadata, error) {
-	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
+	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace).V(logs.DebugLevel)
 
 	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
@@ -96,6 +98,22 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 
 	if data == nil {
 		return nil, nil
+	}
+
+	metadata := token.Status.TokenMetadata
+	if metadata == nil {
+		metadata = &api.TokenMetadata{}
+		token.Status.TokenMetadata = metadata
+	}
+
+	if len(data.Username) > 0 {
+		metadata.Username = data.Username
+	} else {
+		metadata.Username = OAuthTokenUserName
+	}
+
+	if !includeState {
+		return metadata, nil
 	}
 
 	// This method is called when we need to refresh (or obtain anew, after cache expiry) the metadata of the token.
@@ -110,18 +128,6 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken) 
 	if err != nil {
 		lg.Error(err, "failed to serialize the token metadata, this should not happen")
 		return nil, fmt.Errorf("failed to marshal the state to JSON: %w", err)
-	}
-
-	metadata := token.Status.TokenMetadata
-	if metadata == nil {
-		metadata = &api.TokenMetadata{}
-		token.Status.TokenMetadata = metadata
-	}
-
-	if len(data.Username) > 0 {
-		metadata.Username = data.Username
-	} else {
-		metadata.Username = OAuthTokenUserName
 	}
 
 	metadata.ServiceProviderState = js
@@ -147,7 +153,7 @@ func (p metadataProvider) FetchRepo(ctx context.Context, repoUrl string, token *
 }
 
 func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token *api.SPIAccessToken) (metadata *RepositoryMetadata, cached bool, err error) {
-	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace)
+	lg := log.FromContext(ctx, "repo", repoUrl, "tokenName", token.Name, "tokenNamespace", token.Namespace).V(logs.DebugLevel)
 
 	lg.Info("fetching repository metadata")
 
@@ -157,20 +163,20 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	}
 
 	quayState := TokenState{}
-	if err = json.Unmarshal(token.Status.TokenMetadata.ServiceProviderState, &quayState); err != nil {
-		lg.Error(err, "failed to unmarshal quay token state")
-		err = fmt.Errorf("failed to unmarshal the token state: %w", err)
-		return
+	// the service provider state may be nil, so we need to be careful here
+	stateBytes := token.Status.TokenMetadata.ServiceProviderState
+	if len(stateBytes) > 0 {
+		if err = json.Unmarshal(stateBytes, &quayState); err != nil {
+			lg.Error(err, "failed to unmarshal quay token state")
+			err = fmt.Errorf("failed to unmarshal the token state: %w", err)
+			return
+		}
 	}
-	if quayState.Repositories == nil || quayState.Organizations == nil {
-		lg.Info("Detected quay token state with empty Repositories or Organizations")
-		if quayState.Repositories == nil {
-			quayState.Repositories = make(map[string]EntityRecord)
-		}
-
-		if quayState.Organizations == nil {
-			quayState.Organizations = make(map[string]EntityRecord)
-		}
+	if quayState.Repositories == nil {
+		quayState.Repositories = make(map[string]EntityRecord)
+	}
+	if quayState.Organizations == nil {
+		quayState.Organizations = make(map[string]EntityRecord)
 	}
 
 	var tokenData *api.Token
@@ -232,8 +238,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 	var orgChanged, repoChanged bool
 	var orgRecord, repoRecord EntityRecord
 
-	cached = false
-
 	orgRecord, orgChanged, err = p.getEntityRecord(log.IntoContext(ctx, lg.WithValues("entityType", "organization")), tokenData, orgOrUser, quayState.Organizations, getLoginTokenInfo, fetchOrganizationRecord)
 	if err != nil {
 		lg.Error(err, "failed to read the organization metadata")
@@ -253,9 +257,6 @@ func (p metadataProvider) doFetchRepo(ctx context.Context, repoUrl string, token
 			lg.Error(err, "failed to persist the metadata changes")
 			return
 		}
-	} else {
-		// neither org, nor repo cache records changed, so this was read from the cache.
-		cached = true
 	}
 
 	metadata = &RepositoryMetadata{

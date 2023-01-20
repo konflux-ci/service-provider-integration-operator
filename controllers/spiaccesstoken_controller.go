@@ -314,7 +314,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 		TokenName:           at.Name,
 		TokenNamespace:      at.Namespace,
 		Scopes:              sp.OAuthScopesFor(&at.Spec.Permissions),
-		ServiceProviderType: config.ServiceProviderType(sp.GetType()),
+		ServiceProviderName: config.ServiceProviderName(sp.GetType()),
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
 	if err != nil {

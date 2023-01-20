@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -427,7 +428,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 	}
 
 	tkn := api.SPIAccessToken{}
-	data, err := mp.Fetch(context.TODO(), &tkn)
+	data, err := mp.Fetch(context.TODO(), &tkn, true)
 	assert.NoError(t, err)
 
 	assert.NotNil(t, data)
@@ -481,7 +482,7 @@ func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
 	}
 
 	tkn := api.SPIAccessToken{}
-	data, err := mp.Fetch(context.TODO(), &tkn)
+	data, err := mp.Fetch(context.TODO(), &tkn, false)
 	assert.Error(t, err, expectedError)
 	assert.Nil(t, data)
 }
@@ -497,7 +498,7 @@ func TestMetadataProvider_FetchAll_fail(t *testing.T) {
 						// the letter case is important here, http client is sensitive to this
 						"X-Oauth-Scopes": {"a, b, c, d"},
 					},
-					Body: ioutil.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
+					Body: io.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
 				}, nil
 			} else {
 				return nil, expectedError
@@ -527,7 +528,74 @@ func TestMetadataProvider_FetchAll_fail(t *testing.T) {
 	}
 
 	tkn := api.SPIAccessToken{}
-	data, err := mp.Fetch(context.TODO(), &tkn)
+	data, err := mp.Fetch(context.TODO(), &tkn, true)
 	assert.Error(t, err, expectedError)
 	assert.Nil(t, data)
+}
+
+func TestMetadataProvider_Fetch_state_handling(t *testing.T) {
+	additionalRequests := make([]string, 0)
+
+	httpCl := &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			if r.URL.String() == githubUserApiEndpoint.String() {
+				return &http.Response{
+					StatusCode: 200,
+					Header: map[string][]string{
+						// the letter case is important here, http client is sensitive to this
+						"X-Oauth-Scopes": {"a, b, c, d"},
+					},
+					Body: io.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
+				}, nil
+			} else {
+				additionalRequests = append(additionalRequests, r.URL.String())
+				return &http.Response{StatusCode: 200}, nil
+			}
+		}),
+	}
+
+	ts := tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				AccessToken:  "access",
+				TokenType:    "fake",
+				RefreshToken: "refresh",
+				Expiry:       0,
+			}, nil
+		},
+	}
+	githubClientBuilder := githubClientBuilder{
+		httpClient:   httpCl,
+		tokenStorage: ts,
+	}
+
+	mp := metadataProvider{
+		ghClientBuilder: githubClientBuilder,
+		httpClient:      httpCl,
+		tokenStorage:    &ts,
+	}
+
+	t.Run("nostate", func(t *testing.T) {
+		tkn := api.SPIAccessToken{}
+		data, err := mp.Fetch(context.TODO(), &tkn, false)
+		assert.NoError(t, err)
+		assert.NotNil(t, data)
+		assert.Empty(t, additionalRequests)
+		assert.Nil(t, data.ServiceProviderState)
+		assert.Equal(t, "42", data.UserId)
+		assert.Equal(t, "test_user", data.Username)
+		assert.Equal(t, []string{"a", "b", "c", "d"}, data.Scopes)
+	})
+
+	t.Run("state", func(t *testing.T) {
+		tkn := api.SPIAccessToken{}
+		data, err := mp.Fetch(context.TODO(), &tkn, true)
+		assert.NoError(t, err)
+		assert.NotNil(t, data)
+		assert.NotEmpty(t, additionalRequests)
+		assert.NotNil(t, data.ServiceProviderState)
+		assert.Equal(t, "42", data.UserId)
+		assert.Equal(t, "test_user", data.Username)
+		assert.Equal(t, []string{"a", "b", "c", "d"}, data.Scopes)
+	})
 }

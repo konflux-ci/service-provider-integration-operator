@@ -229,7 +229,7 @@ kubectl wait --for=condition=Available=True deployment/grafana-deployment -n gra
 
 echo
 PROM_INTERNAL_URL='http://'$(kubectl get endpoints/prometheus-operated -o json | jq -r '.subsets[0].addresses[0].ip')':9090'
-echo 'Creating Prometheus DS for Grafana. Connecting to:'${PROM_INTERNALIP}
+echo 'Creating prometheus-appstudio-ds DS for Grafana. Connecting to:'${PROM_INTERNALIP}
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDataSource
@@ -238,7 +238,7 @@ metadata:
 spec:
   name: middleware.yaml
   datasources:
-    - name: Prometheus
+    - name: prometheus-appstudio-ds
       type: prometheus
       access: proxy
       url: ${PROM_INTERNAL_URL}
@@ -250,19 +250,7 @@ spec:
         timeInterval: "30s"
 EOF
 
-# id 3662
-kubectl create configmap grafana-dashboard-prometheus-2-0-overview --from-file=$SCRIPT_DIR/grafana-dashboards/prometheus-2-0-overview_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
-
-# id 15920
-kubectl create configmap grafana-dashboard-controller-runtime --from-file=$SCRIPT_DIR/grafana-dashboards/controller-runtime-controllers-detail_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
-
-
-# id 6671
-kubectl create configmap grafana-dashboard-go-processes --from-file=$SCRIPT_DIR/grafana-dashboards/go-processes_rev1.json  -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl create configmap grafana-dashboard-spi-health --from-file=$SCRIPT_DIR/grafana-dashboards/spi-health.json -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl create configmap grafana-dashboard-spi-outbound-traffic --from-file=$SCRIPT_DIR/grafana-dashboards/spi-outbound-traffic.json -n grafana-operator-system --dry-run=client -o yaml | kubectl apply -f -
+kustomize build ${SCRIPT_DIR}/../config/monitoring/minikube | kubectl apply -f -
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
@@ -278,9 +266,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-prometheus-2-0-overview
     key: prometheus-2-0-overview_rev1.json
-  datasources:
-  - inputName: "DS_THEMIS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 
@@ -298,9 +283,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-controller-runtime
     key: controller-runtime-controllers-detail_rev1.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: Go Processes'
@@ -317,9 +299,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-go-processes
     key: go-processes_rev1.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: SPI Health'
@@ -336,9 +315,6 @@ spec:
   configMapRef:
     name: grafana-dashboard-spi-health
     key: spi-health.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
 EOF
 
 echo 'Creating Grafana dashboard: SPI Outbound Traffic'
@@ -355,9 +331,22 @@ spec:
   configMapRef:
     name: grafana-dashboard-spi-outbound-traffic
     key: spi-outbound-traffic.json
-  datasources:
-  - inputName: "DS_PROMETHEUS"
-    datasourceName: "spi-prometheus-grafanadatasource"
+EOF
+
+echo 'Creating Grafana dashboard: SPI SLO'
+cat <<EOF | kubectl apply -n grafana-operator-system -f -
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: spi-slo
+  labels:
+    app: grafana
+spec:
+  json:
+    ""
+  configMapRef:
+    name: grafana-dashboard-spi-slo
+    key: spi-slo.json
 EOF
 
 function decode() {

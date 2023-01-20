@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
+        "datasource": "$datasource",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -30,10 +27,7 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The individual requests made to the service providers.",
       "fieldConfig": {
         "defaults": {
@@ -134,10 +128,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum by(sp, status, hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_count[$__rate_interval]))",
           "interval": "",
@@ -146,10 +137,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le, sp, status, hostname, operation) (rate(redhat_appstudio_spi_service_provider_response_time_seconds_bucket[$__rate_interval])))",
           "hide": false,
@@ -162,10 +150,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The overall time to fetch the metadata of a single repository for a single token in Quay. This is a compound of the number of requests to Quay + the processing and storage time.",
       "fieldConfig": {
         "defaults": {
@@ -266,10 +251,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum by() (rate(redhat_appstudio_spi_quay_single_repo_metadata_fetch_seconds_count[$__rate_interval]))",
           "interval": "",
@@ -278,10 +260,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_quay_single_repo_metadata_fetch_seconds_bucket[$__rate_interval])))",
           "hide": false,
@@ -295,10 +274,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The mean of the overall time to fetch the metadata of a single repository for a single token in Quay.",
       "fieldConfig": {
         "defaults": {
@@ -346,10 +322,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(redhat_appstudio_spi_quay_single_repo_metadata_fetch_seconds_sum{failure=\"false\"}) / sum(redhat_appstudio_spi_quay_single_repo_metadata_fetch_seconds_count{failure=\"false\"})",
           "interval": "",
@@ -362,10 +335,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The overall time to fetch the metadata of all repositories accessible by a single token in Github. This is a compound of the number of requests to Github + the processing and storage time.",
       "fieldConfig": {
         "defaults": {
@@ -466,10 +436,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(rate(redhat_appstudio_spi_github_token_metadata_fetch_seconds_count[$__rate_interval]))",
           "interval": "",
@@ -478,10 +445,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_github_token_metadata_fetch_seconds_bucket[$__rate_interval])))",
           "hide": false,
@@ -495,10 +459,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The mean of the overall time to fetch the metadata of all repositories accessible by a single token in Github.",
       "fieldConfig": {
         "defaults": {
@@ -546,10 +507,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "code",
           "expr": "sum(redhat_appstudio_spi_github_token_metadata_fetch_seconds_sum{failure=\"false\"}) / sum(redhat_appstudio_spi_github_token_metadata_fetch_seconds_count{failure=\"false\"}) ",
           "interval": "",
@@ -562,10 +520,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The overall time to fetch the metadata of a single token in GitLab.",
       "fieldConfig": {
         "defaults": {
@@ -666,10 +621,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count[$__rate_interval]))",
           "interval": "",
@@ -678,10 +630,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_bucket[$__rate_interval])))",
           "hide": false,
@@ -695,10 +644,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The mean of the overall time to fetch the metadata of a single token in GitLab.",
       "fieldConfig": {
         "defaults": {
@@ -746,10 +692,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "code",
           "expr": "sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_sum{failure=\"false\"}) / sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count{failure=\"false\"}) ",
           "interval": "",
@@ -762,10 +705,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The number of individual requests made to the Quay API (both REST and docker endpoints) in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
@@ -816,10 +756,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(count_over_time(redhat_appstudio_spi_service_provider_request_count_total{sp=\"Quay\"}[24h]))",
           "legendFormat": "__auto",
@@ -831,10 +768,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The number of individual requests made to the Github API in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
@@ -885,10 +819,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(count_over_time(redhat_appstudio_spi_service_provider_request_count_total{sp=\"GitHub\"}[24h]))",
           "legendFormat": "__auto",
@@ -900,10 +831,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The number of individual requests made to the GitLab API in the last 24 hours.",
       "fieldConfig": {
         "defaults": {
@@ -954,10 +882,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum(count_over_time(redhat_appstudio_spi_service_provider_request_count_total{sp=\"GitLab\"}[24h]))",
           "legendFormat": "__auto",
@@ -969,10 +894,7 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1072,10 +994,7 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "sum by(method, status) (rate(redhat_appstudio_spi_vault_request_count_total[$__rate_interval]))",
           "interval": "",
@@ -1084,10 +1003,7 @@
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_vault_response_time_seconds_bucket[$__rate_interval])))",
           "hide": false,
@@ -1101,10 +1017,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The time that is user spent to complete GitHub OAuth flow.",
       "fieldConfig": {
         "defaults": {
@@ -1166,10 +1079,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "rate(redhat_appstudio_spi_oauth_flow_complete_time_seconds_bucket{type=\"GitHub\"}[$__rate_interval])",
           "format": "heatmap",
@@ -1182,10 +1092,7 @@
       "type": "heatmap"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The time that is user spent to complete Quay OAuth flow.",
       "fieldConfig": {
         "defaults": {
@@ -1247,10 +1154,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "rate(redhat_appstudio_spi_oauth_flow_complete_time_seconds_bucket{type=\"Quay\"}[$__rate_interval])",
           "format": "heatmap",
@@ -1263,10 +1167,7 @@
       "type": "heatmap"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "datasource": "$datasource",
       "description": "The time that is user spent to complete GitLab OAuth flow.",
       "fieldConfig": {
         "defaults": {
@@ -1328,10 +1229,7 @@
       "pluginVersion": "9.1.7",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
           "expr": "rate(redhat_appstudio_spi_oauth_flow_complete_time_seconds_bucket{type=\"GitLab\"}[$__rate_interval])",
           "format": "heatmap",
@@ -1349,7 +1247,26 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "prometheus-appstudio-ds",
+          "value": "prometheus-appstudio-ds"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": ".*-(appstudio)-.*",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",

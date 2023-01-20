@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,13 +54,13 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 			Status: api.SPIAccessTokenStatus{},
 		}
 
-		data, err := mp.Fetch(context.TODO(), &tkn)
+		data, err := mp.Fetch(context.TODO(), &tkn, false)
 
 		assert.NoError(t, err)
 		assert.Nil(t, data)
 	})
 
-	t.Run("initializes state", func(t *testing.T) {
+	t.Run("handles state", func(t *testing.T) {
 		test := func(t *testing.T, ts tokenstorage.TokenStorage, expectedUsername string) {
 			mp := metadataProvider{
 				tokenStorage: ts,
@@ -70,7 +71,13 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 				Status: api.SPIAccessTokenStatus{},
 			}
 
-			data, err := mp.Fetch(context.TODO(), &tkn)
+			data, err := mp.Fetch(context.TODO(), &tkn, false)
+			assert.NoError(t, err)
+			assert.NotNil(t, data)
+			assert.Equal(t, expectedUsername, data.Username)
+			assert.Nil(t, data.ServiceProviderState)
+
+			data, err = mp.Fetch(context.TODO(), &tkn, true)
 
 			assert.NoError(t, err)
 			assert.NotNil(t, data)
@@ -224,7 +231,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 	t.Run("fetch from quay", func(t *testing.T) {
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host != "quay.io" {
+				if r.URL.Host != config.ServiceProviderTypeQuay.DefaultHost {
 					assert.Fail(t, "only traffic to quay.io should happen")
 					return nil, nil
 				}
@@ -276,39 +283,57 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(api.AddToScheme(scheme))
 
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "token",
-				Namespace: "default",
-			},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					ServiceProviderState: stateBytes,
+		testWithToken := func(token *api.SPIAccessToken, t *testing.T) {
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
+
+			mp := metadataProvider{
+				tokenStorage: tokenstorage.TestTokenStorage{
+					GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+						return &api.Token{
+							AccessToken: "token",
+						}, nil
+					},
 				},
-			},
+				httpClient:       httpClient,
+				kubernetesClient: k8sClient,
+				ttl:              0, // make sure the cache is stale
+			}
+
+			repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
+			assert.NoError(t, err)
+
+			// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
+			assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
+			assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
 		}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
-
-		mp := metadataProvider{
-			tokenStorage: tokenstorage.TestTokenStorage{
-				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
-					return &api.Token{
-						AccessToken: "token",
-					}, nil
+		t.Run("with initialized service provider state", func(t *testing.T) {
+			testWithToken(&api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "token",
+					Namespace: "default",
 				},
-			},
-			httpClient:       httpClient,
-			kubernetesClient: k8sClient,
-			ttl:              0, // make sure the cache is stale
-		}
+				Status: api.SPIAccessTokenStatus{
+					TokenMetadata: &api.TokenMetadata{
+						ServiceProviderState: stateBytes,
+					},
+				},
+			}, t)
+		})
 
-		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
-		assert.NoError(t, err)
-
-		// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
-		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
-		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
+		t.Run("with nil service provider state", func(t *testing.T) {
+			testWithToken(&api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "token",
+					Namespace: "default",
+				},
+				Status: api.SPIAccessTokenStatus{
+					TokenMetadata: &api.TokenMetadata{
+						ServiceProviderState: nil,
+					},
+				},
+			}, t)
+		})
 	})
 }
 
@@ -334,7 +359,7 @@ func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T)
 		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host != "quay.io" {
+				if r.URL.Host != config.ServiceProviderTypeQuay.DefaultHost {
 					assert.Fail(t, "only traffic to quay.io should happen")
 					return nil, nil
 				}
