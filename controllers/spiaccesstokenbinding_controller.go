@@ -364,7 +364,7 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 // suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
 func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (token *api.SPIAccessToken, matching bool, err error) {
 	lg := log.FromContext(ctx)
-	tokens, err := sp.LookupToken(ctx, r.Client, binding)
+	tokens, err := sp.LookupTokens(ctx, r.Client, binding)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
 		return nil, false, fmt.Errorf("failed to lookup the matching tokens in the service provider: %w", err)

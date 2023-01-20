@@ -27,7 +27,7 @@ import (
 // supplying custom implementations of each of the interface methods. It provides dummy implementations of them, too, so
 // that no null pointer dereferences should occur under normal operation.
 type TestServiceProvider struct {
-	LookupTokenImpl           func(context.Context, client.Client, *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
+	LookupTokensImpl          func(context.Context, client.Client, *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
 	OAuthScopesForImpl        func(permissions *api.Permissions) []string
@@ -49,11 +49,11 @@ func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl clien
 	return t.CheckRepositoryAccessImpl(ctx, cl, accessCheck)
 }
 
-func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	if t.LookupTokenImpl == nil {
+func (t TestServiceProvider) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+	if t.LookupTokensImpl == nil {
 		return nil, nil
 	}
-	return t.LookupTokenImpl(ctx, cl, binding)
+	return t.LookupTokensImpl(ctx, cl, binding)
 }
 
 func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
@@ -116,7 +116,7 @@ func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprov
 }
 
 func (t *TestServiceProvider) Reset() {
-	t.LookupTokenImpl = nil
+	t.LookupTokensImpl = nil
 	t.GetBaseUrlImpl = nil
 	t.OAuthScopesForImpl = nil
 	t.GetTypeImpl = nil

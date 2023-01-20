@@ -84,7 +84,7 @@ func (g *HostCredentialsProvider) OAuthScopesFor(_ *api.Permissions) []string {
 	return []string{}
 }
 
-func (g *HostCredentialsProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+func (g *HostCredentialsProvider) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("token lookup failed: %w", err)

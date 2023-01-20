@@ -159,7 +159,7 @@ func translateToQuayScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (q *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 	tokens, err := q.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("quay token lookup failure: %w", err)

@@ -103,7 +103,7 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 	}, nil
 }
 
-func (g Gitlab) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+func (g Gitlab) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 	tokens, err := g.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab token lookup failure: %w", err)
