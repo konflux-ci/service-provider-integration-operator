@@ -242,59 +242,206 @@ func TestCreateHostCredentialsProvider(t *testing.T) {
 	})
 }
 
-// func TestInitializeServiceProvider(t *testing.T) {
-// 	factory := Factory{}
-// 	urlWithProtocol := "https://with.service.url"
-// 	urlWoutProtocol := "without.service.url"
+func TestInitializeServiceProvider(t *testing.T) {
+	ctx := context.TODO()
 
-// 	test := func(repoUrl string, expectedSPBaseUrl string, baseUrls []string) {
-// 		mockSP := struct {
-// 			ServiceProvider
-// 		}{}
+	mockSP := struct {
+		ServiceProvider
+	}{}
 
-// 		initializer := Initializer{Probe: struct {
-// 			ProbeFunc
-// 		}{
-// 			ProbeFunc: func(cl *http.Client, url string) (string, error) {
-// 				assert.FailNow(t, "should not be called")
-// 				return "", nil
-// 			},
-// 		}, Constructor: struct {
-// 			ConstructorFunc
-// 		}{
-// 			ConstructorFunc: func(factory *Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-// 				assert.Equal(t, expectedSPBaseUrl, baseUrl)
-// 				return mockSP, nil
-// 			},
-// 		}}
+	t.Run("initialize ok", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return mockSP, nil
+				},
+			}}
 
-// 		// t.Run("should create service provider with base URL: "+expectedSPBaseUrl, func(t *testing.T) {
-// 		// 	sp := factory.initializeServiceProvider(&initializer, repoUrl, baseUrls)
-// 		// 	assert.NotNil(t, sp)
-// 		// 	assert.Equal(t, mockSP, sp)
-// 		// })
-// 	}
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
 
-// 	test("with.service.url/repo/path", urlWithProtocol, []string{urlWithProtocol})
-// 	test("https://with.service.url/with/repo/path", urlWithProtocol, []string{urlWithProtocol})
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, &config.ServiceProviderConfiguration{}, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
 
-// 	test("without.service.url/with/path", "https://"+urlWoutProtocol, []string{urlWoutProtocol})
-// 	test("https://without.service.url/with/path", "https://"+urlWoutProtocol, []string{urlWoutProtocol})
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+	})
 
-// 	initializer := Initializer{Probe: struct {
-// 		ProbeFunc
-// 	}{
-// 		ProbeFunc: func(cl *http.Client, url string) (string, error) {
-// 			return "", fmt.Errorf("no urls matching found")
-// 		},
-// 	}, Constructor: struct {
-// 		ConstructorFunc
-// 	}{
-// 		ConstructorFunc: func(factory *Factory, baseUrl string, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-// 			assert.FailNow(t, "should not be called")
-// 			return nil, nil
-// 		},
-// 	}}
-// 	sp := factory.initializeServiceProvider(&initializer, "another.service.url/with/path", []string{urlWithProtocol, urlWoutProtocol})
-// 	assert.Nil(t, sp)
-// }
+	t.Run("error if no initializer", func(t *testing.T) {
+		f := &Factory{
+			Initializers: NewInitializers(),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, &config.ServiceProviderConfiguration{}, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.Error(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("error if no constructor", func(t *testing.T) {
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, Initializer{}),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, &config.ServiceProviderConfiguration{}, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.Error(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("err if constructor fails", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return nil, fmt.Errorf("fail")
+				},
+			}}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, &config.ServiceProviderConfiguration{}, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.Error(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("spconf nil and no probe returns nil", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return mockSP, nil
+				},
+			},
+			Probe: nil,
+		}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, nil, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.Nil(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("if spconf nil, try probe", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return mockSP, nil
+				},
+			},
+			Probe: struct {
+				ProbeFunc
+			}{
+				ProbeFunc: func(cl *http.Client, url string) (string, error) {
+					return "https://base-url.com", nil
+				},
+			},
+		}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, nil, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+	})
+
+	t.Run("if spconf nil and probe fails, nil", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return mockSP, nil
+				},
+			},
+			Probe: struct {
+				ProbeFunc
+			}{
+				ProbeFunc: func(cl *http.Client, url string) (string, error) {
+					return "", fmt.Errorf("fail")
+				},
+			},
+		}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, nil, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.NoError(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("if spconf nil and probe return empty, nil", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return mockSP, nil
+				},
+			},
+			Probe: struct {
+				ProbeFunc
+			}{
+				ProbeFunc: func(cl *http.Client, url string) (string, error) {
+					return "", nil
+				},
+			},
+		}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, nil, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.NoError(t, err)
+		assert.Nil(t, sp)
+	})
+
+	t.Run("if spconf nil, probe ok, construct fail returns error", func(t *testing.T) {
+		initializer := Initializer{
+			Constructor: struct {
+				ConstructorFunc
+			}{
+				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+					return nil, fmt.Errorf("fail")
+				},
+			},
+			Probe: struct {
+				ProbeFunc
+			}{
+				ProbeFunc: func(cl *http.Client, url string) (string, error) {
+					return "eh", nil
+				},
+			},
+		}
+
+		f := &Factory{
+			Initializers: NewInitializers().AddKnownInitializer(config.ServiceProviderTypeGitHub, initializer),
+		}
+
+		sp, err := f.initializeServiceProvider(ctx, config.ServiceProviderTypeGitHub, nil, config.ServiceProviderTypeGitHub.DefaultBaseUrl)
+
+		assert.Error(t, err)
+		assert.Nil(t, sp)
+	})
+}
