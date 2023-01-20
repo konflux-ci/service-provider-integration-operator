@@ -30,15 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestSpConfigWithBaseUrl(t *testing.T) {
-	spConfig := SpConfigWithBaseUrl(ServiceProviderTypeGitHub, "blabol")
-
-	assert.Equal(t, ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
-	assert.Equal(t, "blabol", spConfig.ServiceProviderBaseUrl)
-	assert.Nil(t, spConfig.OAuth2Config)
-	assert.Empty(t, spConfig.Extra)
-}
-
 func TestSpConfigFromUserSecret(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1.AddToScheme(scheme))

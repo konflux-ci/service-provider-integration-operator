@@ -143,8 +143,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 	t.Run("no secrets", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -164,8 +163,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.True(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.NotNil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -185,8 +183,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -206,8 +203,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 			},
 		}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -221,8 +217,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				}, "nenene", fmt.Errorf("test err"))
 			}}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -233,8 +228,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewUnauthorized("bububu")
 			}}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.NoError(t, err)
 	})
@@ -245,8 +239,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewBadRequest("nenenene")
 			}}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
-		assert.False(t, found)
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)
 		assert.Nil(t, secret)
 		assert.Error(t, err)
 	})
@@ -264,8 +257,7 @@ func TestMultipleProviders(t *testing.T) {
 			Items: oauthConfigSecrets,
 		}).Build()
 
-		found, secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, spHost)
-		assert.Equal(t, shouldFind, found, "should find the secret")
+		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, spHost)
 		if shouldError {
 			assert.Error(t, err, "should error")
 		} else {
@@ -274,6 +266,8 @@ func TestMultipleProviders(t *testing.T) {
 		if shouldFind {
 			assert.NotNil(t, secret)
 			assert.Equal(t, findSecretName, secret.Name)
+		} else {
+			assert.Nil(t, secret)
 		}
 	}
 

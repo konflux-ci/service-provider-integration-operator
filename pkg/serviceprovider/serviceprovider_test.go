@@ -445,3 +445,12 @@ func TestInitializeServiceProvider(t *testing.T) {
 		assert.Nil(t, sp)
 	})
 }
+
+func TestSpConfigWithBaseUrl(t *testing.T) {
+	spConfig := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
+
+	assert.Equal(t, config.ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
+	assert.Equal(t, "blabol", spConfig.ServiceProviderBaseUrl)
+	assert.Nil(t, spConfig.OAuth2Config)
+	assert.Empty(t, spConfig.Extra)
+}

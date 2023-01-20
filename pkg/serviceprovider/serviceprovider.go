@@ -131,7 +131,7 @@ func (f *Factory) createHostCredentialsProvider(repoUrl *url.URL) (ServiceProvid
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, config.SpConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl)))
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, spConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
@@ -173,7 +173,7 @@ func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.S
 				return nil, nil //nolint:nilerr
 			}
 			if probeBaseUrl != "" {
-				sp, errConstructSp := ctor.Construct(f, config.SpConfigWithBaseUrl(spType, probeBaseUrl))
+				sp, errConstructSp := ctor.Construct(f, spConfigWithBaseUrl(spType, probeBaseUrl))
 				if errConstructSp != nil {
 					return nil, fmt.Errorf("failed to construct service provider after probing: %w", errConstructSp)
 				}
@@ -201,6 +201,14 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		CheckRedirect: cl.CheckRedirect,
 		Jar:           cl.Jar,
 		Timeout:       cl.Timeout,
+	}
+}
+
+// spConfigWithBaseUrl simple helper function that creates `config.ServiceProviderConfiguration` of given `ServiceProviderType` with base url set by given `baseUrl`
+func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) *config.ServiceProviderConfiguration {
+	return &config.ServiceProviderConfiguration{
+		ServiceProviderType:    spType,
+		ServiceProviderBaseUrl: baseUrl,
 	}
 }
 

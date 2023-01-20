@@ -39,7 +39,15 @@ var (
 	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
 )
 
-func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spType ServiceProviderType, spHost string) (bool, *corev1.Secret, error) {
+// findUserServiceProviderConfigSecret tries to find user's service provider configuration secret in given namespace based on labels.
+// Secret must match `spi.appstudio.redhat.com/service-provider-type` label with given `ServiceProviderType`.
+// For service providers running on non-default host, `spi.appstudio.redhat.com/service-provider-host` must match with given `spHost`.
+// If `spi.appstudio.redhat.com/service-provider-host` is not set, we can still pick the secret for service providers running on default host (like `github.com`).
+// Returned *Secret can be nil in cases we haven't find any matching secret.
+// Error in cases when we:
+//   - find multiple secrets that matches given parametes
+//   - kubernetes request error
+func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.Client, tokenNamespace string, spType ServiceProviderType, spHost string) (*corev1.Secret, error) {
 	lg := log.FromContext(ctx).WithValues("spHost", spHost)
 
 	lg.V(logs.DebugLevel).Info("looking for sp configuration secrets", "namespace", tokenNamespace, "spname", spType.Name, "sphost", spHost)
@@ -50,19 +58,19 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
 			lg.Info("not enough permissions to list the secrets")
-			return false, nil, nil
+			return nil, nil
 		} else if kuberrors.IsUnauthorized(listErr) {
 			lg.Info("request is not authorized to list the secrets in user's namespace")
-			return false, nil, nil
+			return nil, nil
 		} else {
-			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+			return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
 		}
 	}
 
 	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
 
 	if len(secrets.Items) < 1 {
-		return false, nil, nil
+		return nil, nil
 	}
 
 	var oauthSecretWithoutHost *corev1.Secret
@@ -74,7 +82,7 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
 			if labelSpHost == spHost {
 				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
-					return false, nil, errMultipleMatchingSecrets
+					return nil, errMultipleMatchingSecrets
 				}
 				oauthSecretWithHost = oauthSecret.DeepCopy()
 			}
@@ -83,21 +91,23 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 				continue
 			}
 			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
-				return false, nil, errMultipleMatchingSecrets
+				return nil, errMultipleMatchingSecrets
 			}
 			oauthSecretWithoutHost = oauthSecret.DeepCopy()
 		}
 	}
 
 	if oauthSecretWithHost != nil {
-		return true, oauthSecretWithHost, nil
+		return oauthSecretWithHost, nil
 	} else if oauthSecretWithoutHost != nil {
-		return true, oauthSecretWithoutHost, nil
+		return oauthSecretWithoutHost, nil
 	} else {
-		return false, nil, nil
+		return nil, nil
 	}
 }
 
+// createServiceProviderConfigurationFromSecret creates `ServiceProviderConfiguration` of given `ServiceProviderType` with given `baseUrl`.
+// It extracts data from given user configuration `Secret` and set it to `OAuth2Config` property of returned `ServiceProviderConfiguration`.
 func createServiceProviderConfigurationFromSecret(configSecret *corev1.Secret, baseUrl string, spType ServiceProviderType) *ServiceProviderConfiguration {
 	return &ServiceProviderConfiguration{
 		ServiceProviderType:    spType,

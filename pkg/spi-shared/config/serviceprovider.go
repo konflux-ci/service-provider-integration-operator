@@ -21,18 +21,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// SpConfigFromUserSecret tries to find user's service provider secret. If it finds one, it creates and returns ServiceProviderConfiguration based on found secret.
+// Returns nil if no matching secret found or in some cases error (see 'findUserServiceProviderConfigSecret' doc)
 func SpConfigFromUserSecret(ctx context.Context, k8sClient client.Client, namespace string, spType ServiceProviderType, repoUrl *url.URL) (*ServiceProviderConfiguration, error) {
 	// first try to find service provider configuration in user's secrets
-	foundSecret, configSecret, findErr := findUserServiceProviderConfigSecret(ctx, k8sClient, namespace, spType, repoUrl.Host)
+	configSecret, findErr := findUserServiceProviderConfigSecret(ctx, k8sClient, namespace, spType, repoUrl.Host)
 	if findErr != nil {
 		return nil, findErr
 	}
-	if foundSecret {
+	if configSecret != nil {
 		return createServiceProviderConfigurationFromSecret(configSecret, GetBaseUrl(repoUrl), spType), nil
 	}
 	return nil, nil
 }
 
+// SpConfigFromGlobalConfig finds configuration of given `ServiceProviderType` and `repoBaseUrl` in given `SharedConfiguration`.
+// Returns the configuration if found, or nil otherwise.
 func SpConfigFromGlobalConfig(globalConfiguration *SharedConfiguration, spType ServiceProviderType, repoBaseUrl string) *ServiceProviderConfiguration {
 	for _, configuredSp := range globalConfiguration.ServiceProviders {
 		if configuredSp.ServiceProviderType.Name != spType.Name {
@@ -52,11 +56,4 @@ func SpConfigFromGlobalConfig(globalConfiguration *SharedConfiguration, spType S
 	}
 
 	return nil
-}
-
-func SpConfigWithBaseUrl(spType ServiceProviderType, baseUrl string) *ServiceProviderConfiguration {
-	return &ServiceProviderConfiguration{
-		ServiceProviderType:    spType,
-		ServiceProviderBaseUrl: baseUrl,
-	}
 }
