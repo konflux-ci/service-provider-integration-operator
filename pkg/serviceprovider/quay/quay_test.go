@@ -27,6 +27,7 @@ import (
 	"time"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"golang.org/x/oauth2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -643,6 +644,34 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
+	})
+}
+
+func TestNewQuay(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenMatchPolicy: opconfig.AnyTokenPolicy,
+			SharedConfiguration: config.SharedConfiguration{
+				BaseUrl: "bejsjuarel",
+			},
+		},
+	}
+
+	t.Run("no oauth info => nil oauth capability", func(t *testing.T) {
+		sp, err := newQuay(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://yauq.oi"})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.Nil(t, sp.GetOAuthCapability())
+	})
+
+	t.Run("oauth info => oauth capability", func(t *testing.T) {
+		sp, err := newQuay(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc", OAuth2Config: &oauth2.Config{ClientID: "123", ClientSecret: "456"}})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.NotNil(t, sp.GetOAuthCapability())
+		assert.Contains(t, sp.GetOAuthCapability().GetOAuthEndpoint(), "bejsjuarel")
 	})
 }
 
