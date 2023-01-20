@@ -200,11 +200,11 @@ func (in *SPIAccessTokenBinding) Validate() SPIAccessTokenBindingValidation {
 	saAnnotation := in.Spec.Secret.Annotations[corev1.ServiceAccountNameKey]
 
 	if in.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && saAnnotation == "" && in.Spec.ServiceAccount == nil {
-		ret.Consistency = append(ret.Consistency, fmt.Sprintf("the secret is configured with \"%s\" type, but \"%s\" annotation is configured neither in the definition of the binding secret, nor is a service account configured in the binding. This is invalid.", corev1.SecretTypeServiceAccountToken, corev1.ServiceAccountNameKey))
+		ret.Consistency = append(ret.Consistency, fmt.Sprintf("the secret is configured with \"%s\" type, but there is no explicit service account configured in the binding, nor is the \"%s\" annotation configured in the definition of the binding secret. This is invalid.", corev1.SecretTypeServiceAccountToken, corev1.ServiceAccountNameKey))
 	}
 
 	if in.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && saAnnotation != "" && in.Spec.ServiceAccount != nil && in.Spec.ServiceAccount.Name != saAnnotation {
-		ret.Consistency = append(ret.Consistency, "both the service account name annotation on the secret and an explicit service account are configured but differ in valuei. Either define just one of them or make sure the values match.")
+		ret.Consistency = append(ret.Consistency, "both the service account name annotation on the secret definition and an explicit service account are configured but differ in value. Either define just one of them or make sure the values match.")
 	}
 
 	return ret
