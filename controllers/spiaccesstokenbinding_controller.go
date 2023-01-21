@@ -526,8 +526,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		return api.TargetObjectRef{}, fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
 	}
 
-	stringData := at.ToSecretType(binding.Spec.Secret.Type)
-	at.FillByMapping(&binding.Spec.Secret.Fields, stringData)
+	stringData := at.ToSecretType(binding.Spec.Secret.Type, &binding.Spec.Secret.Fields)
 
 	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
 	// used the Secret.StringData, but Sync gives us other goodies.
