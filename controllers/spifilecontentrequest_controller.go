@@ -47,6 +47,7 @@ const linkedBindingLabel = "spi.appstudio.redhat.com/file-content-request-name"
 
 var (
 	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
+	multipleLinkedBindingsError    = stderrors.New("multiple bindings found for the same file content request")
 	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
 	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
 )
@@ -146,11 +147,22 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if len(bindingList.Items) > 0 {
 		associatedBinding = &bindingList.Items[0]
+	} else if len(bindingList.Items) > 1 {
+		lg.Error(multipleLinkedBindingsError, "found multiple bindings for the same SPIFileContentRequest", "request", request.Name)
+		r.updateFileRequestStatusError(ctx, &request, multipleLinkedBindingsError)
+		return ctrl.Result{}, nil
 	}
 
 	if associatedBinding == nil {
 		// check if the URL is processable and create binding, otherwise fail fast
-		sp, _ := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
+		sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
+		if err != nil {
+			lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
+			// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+			// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+			r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			return ctrl.Result{}, nil
+		}
 		if sp.GetDownloadFileCapability() == nil {
 			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
