@@ -59,7 +59,6 @@ var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
 	noCredentialsFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
-	refreshNotSupportedError  = stderrors.New("does not support token refreshing")
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
@@ -338,7 +337,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 
 func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
 	lg := logs.AuditLog(ctx)
-	lg.Info("initiated token refresh", "SPIAccessToken", at)
+	lg.Info("initiated token refresh")
 	token, err := r.TokenStorage.Get(ctx, at)
 	if err != nil {
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)
@@ -361,12 +360,12 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return noCredentialsFoundError
 	}
 
-	refreshableSP, ok := sp.(serviceprovider.RefreshableTokenServiceProvider)
-	if !ok {
-		return fmt.Errorf("%s service provider: %w", sp.GetType(), refreshNotSupportedError)
+	refreshCapability := sp.GetRefreshTokenCapability()
+	if refreshCapability == nil {
+		return fmt.Errorf("%s service provider type: %w", sp.GetType(), serviceprovider.RefreshTokenNotSupportedError{})
 	}
 
-	refreshedToken, err := refreshableSP.RefreshToken(ctx, token, clientId, clientSecret)
+	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, clientId, clientSecret)
 	if err != nil {
 		return fmt.Errorf("unable to refresh token: %w", err)
 	}
@@ -375,7 +374,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("unable to store refresh token: %w", err)
 	}
 
-	lg.Info("token refreshed successfully", "SPIAccessToken", at)
+	lg.Info("token refreshed successfully")
 	return nil
 }
 

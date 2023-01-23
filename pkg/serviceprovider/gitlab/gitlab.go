@@ -16,10 +16,8 @@ package gitlab
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -55,7 +53,6 @@ var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(con
 var notGitlabUrlError = errors.New("not a gitlab repository url")
 
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
-var _ serviceprovider.RefreshableTokenServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
 	Configuration          *opconfig.OperatorConfiguration
@@ -66,63 +63,7 @@ type Gitlab struct {
 	glClientBuilder        gitlabClientBuilder
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
-}
-
-func (g Gitlab) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
-	lg := log.FromContext(ctx)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		g.baseUrl+"/oauth/token?client_id="+clientId+
-			"&client_secret="+clientSecret+
-			"&refresh_token="+token.RefreshToken+
-			"&grant_type=refresh_token"+
-			"&redirect_uri="+g.Configuration.BaseUrl+oauth.CallBackRoutePath, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a request to refresh a token: %w", err)
-	}
-
-	req.Header.Add("content-type", "application/json")
-	resp, err := g.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to request a refresh token: %w", err)
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			lg.Error(err, "unable to close body of refresh token response")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		lg.Error(nonOkResponseError, "cannot refresh token", "status code", resp.StatusCode)
-		return nil, nonOkResponseError
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body of refresh token response: %w", err)
-	}
-
-	refreshResponse := struct {
-		AccessToken  string `json:"access_token"`
-		TokenType    string `json:"token_type"`
-		Expiry       uint64 `json:"expires_in"`
-		RefreshToken string `json:"refresh_token"`
-		Scope        string `json:"scope"`
-		CreationTime uint64 `json:"created_at"`
-	}{}
-
-	err = json.Unmarshal(body, &refreshResponse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the refresh token response: %w", err)
-	}
-
-	return &api.Token{
-		AccessToken:  refreshResponse.AccessToken,
-		TokenType:    refreshResponse.TokenType,
-		RefreshToken: refreshResponse.RefreshToken,
-		Expiry:       refreshResponse.Expiry,
-	}, nil
+	refreshTokenCapability serviceprovider.RefreshTokenCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -161,6 +102,11 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		glClientBuilder:        glClientBuilder,
 		baseUrl:                baseUrl,
 		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
+		refreshTokenCapability: refreshTokenCapability{
+			httpClient:          factory.HttpClient,
+			gitlabBaseUrl:       baseUrl,
+			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
+		},
 	}, nil
 }
 
@@ -190,6 +136,10 @@ func (g Gitlab) GetBaseUrl() string {
 
 func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
+}
+
+func (g *Gitlab) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return g.refreshTokenCapability
 }
 
 func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {

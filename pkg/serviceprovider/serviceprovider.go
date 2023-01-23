@@ -70,6 +70,10 @@ type ServiceProvider interface {
 	// or nil for those which are not
 	GetDownloadFileCapability() DownloadFileCapability
 
+	// GetRefreshTokenCapability returns capability object for the providers which are able to refresh OAuth access tokens.
+	// or nil
+	GetRefreshTokenCapability() RefreshTokenCapability
+
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
 	MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error)
@@ -78,13 +82,6 @@ type ServiceProvider interface {
 	Validate(ctx context.Context, validated Validated) (ValidationResult, error)
 
 	//RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
-}
-
-// RefreshableTokenServiceProvider represents a service provider which issues refreshable access tokens
-type RefreshableTokenServiceProvider interface {
-	// RefreshToken requests new access token from the service provider using refresh token as authorization.
-	// This invalidates the old access token and refresh token
-	RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
 }
 
 // ValidationResult represents the results of the ServiceProvider.Validate method.

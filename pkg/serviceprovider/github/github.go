@@ -113,6 +113,10 @@ func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapabil
 	return g.downloadFileCapability
 }
 
+func (g *Github) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return nil
+}
+
 func (g *Github) GetType() api.ServiceProviderType {
 	return api.ServiceProviderTypeGitHub
 }
