@@ -174,29 +174,6 @@ This OAuth2 microservice would be responsible for:
 
 Also, this service provides an HTTP API to support manual upload of tokens for service providers that have the capability to manually generate individual tokens. Like GitHub's personal access tokens or Quay's robo-accounts.
 
-## User OAuth configuration
-
-In situations when OAuth configuration of SPI does not fit user's use case (like on-prem installations), one may define their own OAuth service provider configuration using a Kubernetes secret:
-```yaml
-...
-metadata:
-  labels:
-    spi.appstudio.redhat.com/service-provider-type: GitHub
-data:
-  clientId: ...
-  clientSecret: ...
-  authUrl: ...
-  tokenUrl: ...
-
-```
-Such secret must be labeled with `spi.appstudio.redhat.com/service-provider-type` label with value of service provider name (`GitHub`, `Quay`).
-Data of the secret must contain `clientId` and `clientSecret` keys.
-`authUrl` and `tokenUrl` are optional, if not set, default values for the service provider are used.
-
-The secret must live in same namespace as `SPIAccessToken` and used authorization token must have permissions to `list` and `get` secrets in such namespace.
-If matching secret is found, it is used for oauth flow. In other cases, default SPI configuration is used.
-If format of the user's oauth configuration secret is not valid, oauth flow will fail with a descriptive error.
-
 ## Go through the OAuth flow manually
 
 Let's assume that a) we're using the default namespace and that b) the default service account has permissions
@@ -259,8 +236,27 @@ different permission areas are supported.
 * PAT - Personal Access Token
 ** In case of Snyk and other providers that do not support OAuth, the permission area does not matter.
 
+## User Service Provider configuration
 
-#Service Provider Integration Kubernetes API (CRDs)
+In situations when Service Provider configuration of SPI does not fit user's use case (like on-prem installations), one may define their own service provider configuration using a Kubernetes secret:
+```yaml
+...
+metadata:
+  labels:
+    spi.appstudio.redhat.com/service-provider-type: GitHub
+data:
+  clientId: ...
+  clientSecret: ...
+  authUrl: ...
+  tokenUrl: ...
+
+```
+Such secret must have label `spi.appstudio.redhat.com/service-provider-type` with value of one of our supported service provider's name (`GitHub`, `Quay`, `GitLab`).
+Secret data can contain keys from template above or can be empty. If both `clientId` and `clientSecret` are set, we consider it as valid OAuth configuration and will generate OAuth URL to the user. In other cases, we won't generate OAuth URL. User can always use manual token upload.
+
+The secret must live in same namespace as `SPIAccessToken`. If matching secret is found, it is always used over SPI configuration. If format of the user's oauth configuration secret is not valid, oauth flow will fail with a descriptive error.
+
+# Service Provider Integration Kubernetes API (CRDs)
 
 ## SPIAccessToken
 CRs of this CRD are used to represent an access token for some concrete “repository” or “repositories” in some service provider. The fact whether a certain token can give access to one or more repos is service-provider specific.
