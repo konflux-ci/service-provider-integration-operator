@@ -199,5 +199,5 @@ func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prome
 	} else {
 		nilSafeRegistry = metricsRegistry
 	}
-	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh, metrics: nilSafeRegistry}, roleId, secretId
+	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh, config: &VaultStorageConfig{DataPathPrefix: "test/spi", MetricsRegisterer: nilSafeRegistry}}, roleId, secretId
 }

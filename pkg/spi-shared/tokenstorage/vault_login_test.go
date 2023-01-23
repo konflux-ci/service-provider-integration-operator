@@ -60,6 +60,9 @@ func TestVaultLogin_Renewal(t *testing.T) {
 
 	notRenewingTokenStorage := &vaultTokenStorage{
 		Client: expiredClient,
+		config: &VaultStorageConfig{
+			DataPathPrefix: "spi",
+		},
 	}
 	assert.Error(t, notRenewingTokenStorage.Store(context.TODO(), testSpiAccessToken, testToken))
 }
