@@ -27,8 +27,7 @@ import (
 
 var (
 	errNoOAuthConfiguration = errors.New("no OAuth configuration found for the service provider")
-	errUserConfigNoOAuth    = errors.New("we found user's sp config, but it has no oauth information. This should never happen because we should not have the oauth url at all")
-	errGlobalConfigNoOAuth  = errors.New("we want to use global sp config, but it has no oauth information. This should never happen because we should not have the oauth url at all")
+	errConfigNoOAuth        = errors.New("found sp configuration has no OAuth information. This should never happen, because Operator should find same configuration and thus not generate OAuth URL and we should not get to the OAuth service at all")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -49,7 +48,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 
 	if spConfig != nil {
 		if spConfig.OAuth2Config == nil {
-			return nil, errUserConfigNoOAuth
+			return nil, fmt.Errorf("user config error: %w", errConfigNoOAuth)
 		}
 		oauthConfig := spConfig.OAuth2Config
 		oauthConfig.RedirectURL = c.redirectUrl()
@@ -59,7 +58,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	// if we don't have user's config, we
 	if globalSpConfig := config.SpConfigFromGlobalConfig(&c.SharedConfiguration, c.ServiceProviderType, config.GetBaseUrl(spUrl)); globalSpConfig != nil {
 		if globalSpConfig.OAuth2Config == nil {
-			return nil, errGlobalConfigNoOAuth
+			return nil, fmt.Errorf("global config error: %w", errConfigNoOAuth)
 		}
 		oauthConfig := globalSpConfig.OAuth2Config
 		oauthConfig.RedirectURL = c.redirectUrl()
