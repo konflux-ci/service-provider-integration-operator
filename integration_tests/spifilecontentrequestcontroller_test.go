@@ -35,8 +35,8 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
-					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -70,7 +70,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
@@ -114,7 +114,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -157,7 +157,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready", Namespace: "default"})[0]

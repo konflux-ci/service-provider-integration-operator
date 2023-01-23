@@ -50,7 +50,7 @@ var _ = Describe("SPIAccessToken", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
-						return testCapability{}
+						return TestCapability{}
 					}
 				},
 			},
@@ -129,7 +129,7 @@ var _ = Describe("SPIAccessToken", func() {
 				BeforeObjectsCreated: func() {
 					ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
-						return testCapability{}
+						return TestCapability{}
 					}
 				},
 			},

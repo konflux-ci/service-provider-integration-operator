@@ -57,7 +57,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
-						return testCapability{}
+						return TestCapability{}
 					}
 					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
 				},

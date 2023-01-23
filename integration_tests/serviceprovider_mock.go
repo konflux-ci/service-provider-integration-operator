@@ -40,17 +40,19 @@ type TestServiceProvider struct {
 	OAuthCapability           func() serviceprovider.OAuthCapability
 }
 
-type testCapability struct{}
+// TestCapability is test implementation for capabilities that Service Provider can have.
+// Currently it aggregates DownloadFileCapability and OAuthCapability. All of these have valid results (i.e. do not result in any errors).
+type TestCapability struct{}
 
-func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
+func (f TestCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
 	return "abcdefg", nil
 }
 
-func (c testCapability) GetOAuthEndpoint() string {
+func (c TestCapability) GetOAuthEndpoint() string {
 	return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
 }
 
-func (c testCapability) OAuthScopesFor(permissions *api.Permissions) []string {
+func (c TestCapability) OAuthScopesFor(permissions *api.Permissions) []string {
 	return []string{}
 }
 
