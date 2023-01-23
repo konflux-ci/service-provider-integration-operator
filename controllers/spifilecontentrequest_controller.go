@@ -19,7 +19,13 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -43,13 +49,14 @@ import (
 )
 
 const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
-const linkedBindingLabel = "spi.appstudio.redhat.com/file-content-request-name"
+const LinkedFileRequestLabel = "spi.appstudio.redhat.com/file-content-request-name"
 
 var (
 	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
 	multipleLinkedBindingsError    = stderrors.New("multiple bindings found for the same file content request")
 	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
 	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
+	labelSelectorPredicate         predicate.Predicate
 )
 
 type SPIFileContentRequestReconciler struct {
@@ -63,6 +70,19 @@ type SPIFileContentRequestReconciler struct {
 
 var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
 
+func init() {
+	var err error
+	labelSelectorPredicate, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Operator: metav1.LabelSelectorOpExists,
+				Key:      LinkedFileRequestLabel,
+			},
+		},
+	})
+	utilruntime.Must(err)
+}
+
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests/finalizers,verbs=update
@@ -73,9 +93,18 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 	if err := r.finalizers.Register(linkedFileRequestBindingsFinalizerName, &linkedFileRequestBindingsFinalizer{client: r.K8sClient}); err != nil {
 		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
 	}
-
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIFileContentRequest{}).
+		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			ret := make([]reconcile.Request, 0, 1)
+			ret = append(ret, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      o.GetLabels()[LinkedFileRequestLabel],
+					Namespace: o.GetNamespace(),
+				},
+			})
+			return ret
+		}), builder.WithPredicates(labelSelectorPredicate)).
 		Complete(r)
 	if err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
@@ -141,7 +170,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	// find associated binding
 	var associatedBinding *api.SPIAccessTokenBinding = nil
 	bindingList := &api.SPIAccessTokenBindingList{}
-	if err := r.K8sClient.List(context.Background(), bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{linkedBindingLabel: request.Name}); err != nil {
+	if err := r.K8sClient.List(context.Background(), bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
 		spiFileContentRequestLog.Error(err, "Unable to fetch bindings list", "namespace", request.GetNamespace())
 		return ctrl.Result{}, err
 	}
@@ -177,11 +206,11 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 			log.FromContext(ctx).Error(err, "failed to update the file binding link", "error", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{Requeue: true}, nil //TODO: better to requeue after some interval
+		return ctrl.Result{}, nil
 	} else {
 		//binding not yet fully ready to work with, let's try next time
 		if associatedBinding.Status.Phase == "" || associatedBinding.Status.UploadUrl == "" {
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{}, nil
 		}
 
 		lg = lg.WithValues("linked_binding", associatedBinding.Name)
@@ -245,7 +274,7 @@ func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(cr *api.SPI
 
 func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) (string, error) {
 	newBinding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{GenerateName: "file-retriever-binding-", Namespace: request.GetNamespace(), Labels: map[string]string{linkedBindingLabel: request.Name}},
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "file-retriever-binding-", Namespace: request.GetNamespace(), Labels: map[string]string{LinkedFileRequestLabel: request.Name}},
 		Spec: api.SPIAccessTokenBindingSpec{
 			RepoUrl: request.RepoUrl(),
 			Permissions: api.Permissions{
@@ -264,25 +293,25 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 	if err := r.K8sClient.Create(ctx, newBinding); err != nil {
 		return "", fmt.Errorf("failed to create token binding: %w", err)
 	}
-	request.Status.LinkedBindingName = newBinding.GetName()
 	return newBinding.Name, nil
 }
 
 func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *api.SPIFileContentRequest) error {
-	binding := &api.SPIAccessTokenBinding{}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: request.Status.LinkedBindingName, Namespace: request.Namespace}, binding); err != nil {
+	bindings := &api.SPIAccessTokenBindingList{}
+	if err := k8sClient.List(ctx, bindings, client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("error getting Token Binding item during cleanup: %w", err)
+			return fmt.Errorf("error getting Token Binding items during cleanup: %w", err)
 		} else {
 			// already deleted, nothing to do
 			return nil
 		}
 	}
 
-	if err := k8sClient.Delete(ctx, binding); err != nil {
-		return fmt.Errorf("failed to delete token binding: %w", err)
+	for _, binding := range bindings.Items {
+		if err := k8sClient.Delete(ctx, &binding); err != nil {
+			return fmt.Errorf("failed to delete token binding: %w", err)
+		}
 	}
-	request.Status.LinkedBindingName = ""
 	return nil
 }
 
