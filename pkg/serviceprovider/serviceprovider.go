@@ -16,11 +16,12 @@ package serviceprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
-	"strings"
-
+	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
+	"net/http"
+	"net/url"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -52,19 +53,10 @@ type ServiceProvider interface {
 	// SPIAccessTokens so that later on, the OAuth service can use it to construct the OAuth flow URLs.
 	GetBaseUrl() string
 
-	// OAuthScopesFor translates all the permissions into a list of service-provider-specific scopes. This method
-	// is used to compose the OAuth flow URL. There is a generic helper, GetAllScopes, that can be used if all that is
-	// needed is just a translation of permissions into scopes.
-	OAuthScopesFor(permissions *api.Permissions) []string
-
 	// GetType merely returns the type of the service provider this instance talks to.
-	GetType() api.ServiceProviderType
+	GetType() config.ServiceProviderType
 
 	CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
-
-	// GetOAuthEndpoint returns the URL of the OAuth initiation. This must point to the SPI oauth service, NOT
-	//the service provider itself.
-	GetOAuthEndpoint() string
 
 	// GetDownloadFileCapability returns capability object for the providers which are able to download files from the repository
 	// or nil for those which are not
@@ -73,6 +65,10 @@ type ServiceProvider interface {
 	// GetRefreshTokenCapability returns capability object for the providers which are able to refresh OAuth access tokens.
 	// or nil
 	GetRefreshTokenCapability() RefreshTokenCapability
+
+	// GetOAuthCapability returns oauth capability of the service provider.
+	// It can be null in case service provider don't support OAuth or it is not configured.
+	GetOAuthCapability() OAuthCapability
 
 	// MapToken creates an access token mapper for given binding and token using the service-provider specific data.
 	// The implementations can use the DefaultMapToken method if they don't use any custom logic.
@@ -99,53 +95,51 @@ type Factory struct {
 	TokenStorage     tokenstorage.TokenStorage
 }
 
+var (
+	errNoConstructorImplemented = errors.New("service provider has no constructor")
+	errNoInitializer            = errors.New("service provider has no initializer")
+)
+
 // FromRepoUrl returns the service provider instance able to talk to the repository on the provided URL.
 func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace string) (ServiceProvider, error) {
 	lg := log.FromContext(ctx)
 	// this method is ready for multiple instances of some service provider configured with different base urls.
 	// currently, we don't have any like that though :)
 
-	serviceProvidersBaseUrls, err := f.getBaseUrlsFromConfigs(ctx, namespace)
-	if err != nil {
-		return nil, err
+	parsedRepoUrl, errUrlParse := url.Parse(repoUrl)
+	if errUrlParse != nil {
+		return nil, fmt.Errorf("failed to parse repo url: %w", errUrlParse)
 	}
 
-	for _, spc := range f.Configuration.ServiceProviders {
-		initializer, errFindInitializer := f.Initializers.GetInitializer(spc.ServiceProviderType)
-		if errFindInitializer != nil {
-			lg.Error(errFindInitializer,
-				"Initializer not found. This should not happen, we should have initializers for all known service providers. But let's continue for now.",
-				"serviceprovider name", spc.ServiceProviderType.Name)
-			continue
+	for _, sp := range config.SupportedServiceProviderTypes {
+		var spConfig *config.ServiceProviderConfiguration
+		var err error
+		// first try to find configuration in secret
+		if spConfig, err = config.SpConfigFromUserSecret(ctx, f.KubernetesClient, namespace, sp, parsedRepoUrl); err != nil {
+			return nil, fmt.Errorf("failed to create service provider configuration from user secret: %w", err)
+		} else if spConfig == nil { // then try to find it in global configuration
+			spConfig = config.SpConfigFromGlobalConfig(&f.Configuration.SharedConfiguration, sp, config.GetBaseUrl(parsedRepoUrl))
 		}
-		if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[spc.ServiceProviderType.Name]); sp != nil {
+
+		// we try to initialize with what we have. if spConfig is nil, this function tries probe as last chance
+		if sp, err := f.initializeServiceProvider(ctx, sp, spConfig, config.GetBaseUrl(parsedRepoUrl)); err != nil {
+			return nil, err
+		} else if sp != nil {
 			return sp, nil
 		}
 	}
 
-	for _, sp := range config.SupportedServiceProviderTypes {
-		initializer, errFindInitializer := f.Initializers.GetInitializer(sp)
-		if errFindInitializer != nil {
-			lg.Error(errFindInitializer,
-				"Initializer not found. This should not happen, we should have initializers for all known service providers. But let's continue for now.",
-				"serviceprovider name", sp.Name)
-			continue
-		}
+	lg.Info("Specific provider is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
+	return f.createHostCredentialsProvider(parsedRepoUrl)
+}
 
-		if initializer.SupportsManualUploadOnlyMode {
-			if sp := f.initializeServiceProvider(initializer, repoUrl, serviceProvidersBaseUrls[sp.Name]); sp != nil {
-				return sp, nil
-			}
-		}
-	}
-
-	lg.Info("Specific provided is not found for given URL. General credentials provider will be used", "repositoryURL", repoUrl)
+func (f *Factory) createHostCredentialsProvider(repoUrl *url.URL) (ServiceProvider, error) {
 	hostCredentialsInitializer, errHostCredsInitializerFind := f.Initializers.GetInitializer(config.ServiceProviderTypeHostCredentials)
 	if errHostCredsInitializerFind != nil {
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, repoUrl)
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, spConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
@@ -176,8 +170,10 @@ func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace st
 
 	for _, secret := range secretList.Items {
 		conf := config.ServiceProviderConfiguration{
-			ClientId:            string(secret.Data["clientId"]),
-			ClientSecret:        string(secret.Data["clientSecret"]),
+			OAuth2Config: &oauth2.Config{
+				ClientID:     string(secret.Data["clientId"]),
+				ClientSecret: string(secret.Data["clientSecret"]),
+			},
 			ServiceProviderType: config.ServiceProviderType{},
 		}
 
@@ -210,37 +206,41 @@ func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) 
 	return allBaseUrls, nil
 }
 
-func (f *Factory) initializeServiceProvider(initializer *Initializer, repoUrl string, baseUrlsForProvider []string) ServiceProvider {
-	probe := initializer.Probe
+func (f *Factory) initializeServiceProvider(_ context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
+	initializer, errFindInitializer := f.Initializers.GetInitializer(spType)
+	if errFindInitializer != nil {
+		return nil, fmt.Errorf("failed to initialize service provider '%s': %w", spType.Name, errNoInitializer)
+	}
+
 	ctor := initializer.Constructor
-	if probe == nil || ctor == nil {
-		return nil
+	if ctor == nil {
+		return nil, fmt.Errorf("service provider '%s': %w", spConfig.ServiceProviderType.Name, errNoConstructorImplemented)
 	}
 
-	baseUrl := ""
-	for _, providerBaseUrl := range baseUrlsForProvider {
-		repoUrlTrimmed := strings.TrimPrefix(repoUrl, "https://")
-		baseUrlTrimmed := strings.TrimPrefix(providerBaseUrl, "https://")
-		if strings.HasPrefix(repoUrlTrimmed, baseUrlTrimmed) {
-			baseUrl = "https://" + baseUrlTrimmed
-			break
+	if spConfig != nil {
+		sp, errConstructSp := ctor.Construct(f, spConfig)
+		if errConstructSp != nil {
+			return nil, fmt.Errorf("failed to construct service provider: %w", errConstructSp)
 		}
-	}
-	if baseUrl == "" {
-		var err error
-		if baseUrl, err = probe.Examine(f.HttpClient, repoUrl); err != nil {
-			return nil
+		return sp, nil
+	} else {
+		if initializer.Probe != nil {
+			probeBaseUrl, errProbe := initializer.Probe.Examine(f.HttpClient, repoBaseUrl)
+			if errProbe != nil {
+				// in current implementation of some probes, we have to consider probe error as not match state
+				return nil, nil //nolint:nilerr
+			}
+			if probeBaseUrl != "" {
+				sp, errConstructSp := ctor.Construct(f, spConfigWithBaseUrl(spType, probeBaseUrl))
+				if errConstructSp != nil {
+					return nil, fmt.Errorf("failed to construct service provider after probing: %w", errConstructSp)
+				}
+				return sp, nil
+			}
 		}
 	}
 
-	if baseUrl != "" {
-		sp, err := ctor.Construct(f, baseUrl)
-		if err != nil {
-			return nil
-		}
-		return sp
-	}
-	return nil
+	return nil, nil
 }
 
 func AuthenticatingHttpClient(cl *http.Client) *http.Client {
@@ -259,6 +259,14 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 		CheckRedirect: cl.CheckRedirect,
 		Jar:           cl.Jar,
 		Timeout:       cl.Timeout,
+	}
+}
+
+// spConfigWithBaseUrl simple helper function that creates `config.ServiceProviderConfiguration` of given `ServiceProviderType` with base url set by given `baseUrl`
+func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) *config.ServiceProviderConfiguration {
+	return &config.ServiceProviderConfiguration{
+		ServiceProviderType:    spType,
+		ServiceProviderBaseUrl: baseUrl,
 	}
 }
 

@@ -48,7 +48,7 @@ const (
 )
 
 var (
-	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
+	errMultipleConfigsForSameHost = errors.New("failed to initialize - multiple configurations for one service provider host")
 )
 
 func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
@@ -61,43 +61,36 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 	}
 
 	controller := &commonController{
-		K8sClient:               cfg.K8sClient,
-		TokenStorage:            ts,
-		BaseUrl:                 cfg.BaseUrl,
-		Authenticator:           cfg.Authenticator,
-		StateStorage:            cfg.StateStorage,
-		RedirectTemplate:        cfg.RedirectTemplate,
-		ServiceProviderInstance: map[string]oauthConfiguration{},
-		ServiceProviderType:     spType,
+		OAuthServiceConfiguration: cfg.OAuthServiceConfiguration,
+		K8sClient:                 cfg.K8sClient,
+		TokenStorage:              ts,
+		Authenticator:             cfg.Authenticator,
+		StateStorage:              cfg.StateStorage,
+		RedirectTemplate:          cfg.RedirectTemplate,
+		ServiceProviderType:       spType,
 	}
+
+	initializedServiceProviders := map[string]bool{}
 
 	for _, sp := range cfg.ServiceProviders {
 		if sp.ServiceProviderType.Name != spType.Name {
 			continue
 		}
 
-		baseUrl := spType.DefaultHost
+		spHost := spType.DefaultHost
 		if sp.ServiceProviderBaseUrl != "" {
 			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
 			if parseUrlErr != nil {
 				return nil, fmt.Errorf("failed to parse service provider url: %w", parseUrlErr)
 			}
-			baseUrl = baseUrlParsed.Host
+			spHost = baseUrlParsed.Host
 		}
 
-		lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", baseUrl)
-		if _, alreadyHasBaseUrl := controller.ServiceProviderInstance[baseUrl]; alreadyHasBaseUrl {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, baseUrl)
-		}
-
-		endpoint := spType.DefaultOAuthEndpoint
-		if sp.ServiceProviderBaseUrl != "" {
-			endpoint = createDefaultEndpoint(sp.ServiceProviderBaseUrl)
-		}
-
-		controller.ServiceProviderInstance[baseUrl] = oauthConfiguration{
-			Config:   sp,
-			Endpoint: endpoint,
+		if _, alreadyInitialized := initializedServiceProviders[spHost]; alreadyInitialized {
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errMultipleConfigsForSameHost, spType.Name, spHost)
+		} else {
+			initializedServiceProviders[spHost] = true
+			lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
 		}
 	}
 

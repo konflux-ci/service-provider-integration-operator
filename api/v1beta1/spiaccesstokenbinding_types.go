@@ -146,3 +146,9 @@ func (in *SPIAccessTokenBinding) ObjNamespace() string {
 func (in *SPIAccessTokenBinding) Permissions() *Permissions {
 	return &in.Spec.Permissions
 }
+
+func (mapping *TokenFieldMapping) Empty() bool {
+	return mapping.Token == "" && mapping.ExpiredAfter == "" && mapping.Name == "" && mapping.Scopes == "" &&
+		mapping.UserId == "" && mapping.ServiceProviderUrl == "" && mapping.ServiceProviderUserId == "" &&
+		mapping.ServiceProviderUserName == ""
+}

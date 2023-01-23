@@ -49,6 +49,9 @@ var _ = Describe("SPIAccessToken", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return TestCapability{}
+					}
 				},
 			},
 		}
@@ -76,6 +79,40 @@ var _ = Describe("SPIAccessToken", func() {
 		It("have the upload URL set", func() {
 			Expect(strings.HasSuffix(createdToken.Status.UploadUrl, "/token/"+createdToken.Namespace+"/"+createdToken.Name)).To(BeTrue())
 		})
+
+		It("have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("No OAuth Capability service provider", func() {
+		var createdToken *api.SPIAccessToken
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				Tokens: []*api.SPIAccessToken{
+					StandardTestToken("create-test"),
+				},
+			},
+			Behavior: ITestBehavior{
+				AfterObjectsCreated: func(objects TestObjects) {
+					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+			createdToken = testSetup.InCluster.Tokens[0]
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("does not have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).To(BeEmpty())
+		})
 	})
 
 	Describe("Status", func() {
@@ -91,8 +128,8 @@ var _ = Describe("SPIAccessToken", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return TestCapability{}
 					}
 				},
 			},
@@ -410,7 +447,7 @@ var _ = Describe("SPIAccessToken", func() {
 					g.Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(createdToken.Status.ErrorReason).To(BeEmpty())
 					g.Expect(createdToken.Status.ErrorMessage).To(BeEmpty())
-					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
+					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal(string(ITest.HostCredsServiceProvider.GetTypeImpl().Name)))
 				}).Should(Succeed())
 			})
 		})

@@ -37,18 +37,17 @@ type ProbeFunc func(*http.Client, string) (string, error)
 // the base URL of the service provider.
 type Constructor interface {
 	// Construct creates a new instance of service provider
-	Construct(factory *Factory, baseUrl string) (ServiceProvider, error)
+	Construct(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error)
 }
 
 // ConstructorFunc converts a compatible function into the Constructor interface
-type ConstructorFunc func(factory *Factory, baseUrl string) (ServiceProvider, error)
+type ConstructorFunc func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error)
 
 // Initializer is struct that contains all necessary data to initialize a service provider instance from a URL using
 // a Factory.
 type Initializer struct {
-	Probe                        Probe
-	Constructor                  Constructor
-	SupportsManualUploadOnlyMode bool
+	Probe       Probe
+	Constructor Constructor
 }
 
 // implementation guards
@@ -59,8 +58,8 @@ func (p ProbeFunc) Examine(cl *http.Client, url string) (string, error) {
 	return p(cl, url)
 }
 
-func (c ConstructorFunc) Construct(factory *Factory, baseUrl string) (ServiceProvider, error) {
-	return c(factory, baseUrl)
+func (c ConstructorFunc) Construct(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
+	return c(factory, spConfig)
 }
 
 type Initializers struct {
