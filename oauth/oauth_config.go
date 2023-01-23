@@ -26,9 +26,9 @@ import (
 )
 
 var (
-	errUnknownServiceProvider = errors.New("haven't found oauth configuration for service provider")
-	errUserConfigNoOAuth      = errors.New("we found user's sp config, but it has no oauth information. This should never happen because we should not have the oauth url at all")
-	errGlobalConfigNoOAuth    = errors.New("we want to use global sp config, but it has no oauth information. This should not happend because we should not have the oauth url at all")
+	errNoOAuthConfiguration = errors.New("no OAuth configuration found for the service provider")
+	errUserConfigNoOAuth    = errors.New("we found user's sp config, but it has no oauth information. This should never happen because we should not have the oauth url at all")
+	errGlobalConfigNoOAuth  = errors.New("we want to use global sp config, but it has no oauth information. This should never happen because we should not have the oauth url at all")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
@@ -66,5 +66,5 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 		return oauthConfig, nil
 	}
 
-	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderName, info.ServiceProviderUrl)
+	return nil, fmt.Errorf("%w '%s' url: '%s'", errNoOAuthConfiguration, info.ServiceProviderName, info.ServiceProviderUrl)
 }
