@@ -252,7 +252,7 @@ data:
 
 ```
 Such secret must have label `spi.appstudio.redhat.com/service-provider-type` with value of one of our supported service provider's name (`GitHub`, `Quay`, `GitLab`).
-Secret data can contain keys from template above or can be empty. If both `clientId` and `clientSecret` are set, we consider it as valid OAuth configuration and will generate OAuth URL to the user. In other cases, we won't generate OAuth URL. User can always use manual token upload.
+Secret data can contain keys from template above or can be empty. If both `clientId` and `clientSecret` are set, we consider it as valid OAuth configuration and will generate OAuth URL in matching `SPIAccessTokens`. In other cases, we won't generate OAuth URL. User can always use manual token upload.
 
 The secret must live in same namespace as `SPIAccessToken`. If matching secret is found, it is always used over SPI configuration. If format of the user's oauth configuration secret is not valid, oauth flow will fail with a descriptive error.
 
