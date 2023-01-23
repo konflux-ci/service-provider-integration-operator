@@ -16,4 +16,3 @@ configMapGenerator:
     files:
       - poststart.sh
       - root.sh
-      - spi_policy.hcl
