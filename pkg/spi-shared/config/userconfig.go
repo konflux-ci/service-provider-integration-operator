@@ -77,7 +77,7 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 	oauthSecretsWithHost := []*corev1.Secret{}
 	oauthSecretsWithoutHost := []*corev1.Secret{}
 
-	// go through all found oauth secret configs
+	// go through all found sp config secrets
 	for _, oauthSecret := range secrets.Items {
 		// if we find one labeled for sp host, we store it as a candidate
 		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
