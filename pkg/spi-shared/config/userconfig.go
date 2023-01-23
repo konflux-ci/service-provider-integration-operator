@@ -63,47 +63,50 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 			lg.Info("request is not authorized to list the secrets in user's namespace")
 			return nil, nil
 		} else {
-			return nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+			return nil, fmt.Errorf("failed to list sp config secrets: %w", listErr)
 		}
 	}
 
-	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
-
 	if len(secrets.Items) < 1 {
+		lg.V(logs.DebugLevel).Info("found no secrets with sp configuration")
 		return nil, nil
 	}
 
-	var oauthSecretWithoutHost *corev1.Secret
-	var oauthSecretWithHost *corev1.Secret
+	lg.V(logs.DebugLevel).Info("found secrets with sp configuration", "count", len(secrets.Items))
+
+	oauthSecretsWithHost := []*corev1.Secret{}
+	oauthSecretsWithoutHost := []*corev1.Secret{}
 
 	// go through all found oauth secret configs
 	for _, oauthSecret := range secrets.Items {
-		// if we find one labeled for sp host, we take it
+		// if we find one labeled for sp host, we store it as a candidate
 		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
 			if labelSpHost == spHost {
-				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
-					return nil, errMultipleMatchingSecrets
-				}
-				oauthSecretWithHost = oauthSecret.DeepCopy()
+				oauthSecretsWithHost = append(oauthSecretsWithHost, oauthSecret.DeepCopy())
 			}
 		} else { // if we found one without host label we check if it matches with default sp host value, then we can save it for later
-			if spHost != spType.DefaultHost {
-				continue
+			if spHost == spType.DefaultHost {
+				oauthSecretsWithoutHost = append(oauthSecretsWithoutHost, oauthSecret.DeepCopy())
 			}
-			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
-				return nil, errMultipleMatchingSecrets
-			}
-			oauthSecretWithoutHost = oauthSecret.DeepCopy()
 		}
 	}
 
-	if oauthSecretWithHost != nil {
-		return oauthSecretWithHost, nil
-	} else if oauthSecretWithoutHost != nil {
-		return oauthSecretWithoutHost, nil
-	} else {
-		return nil, nil
+	// if we found exactly one secret with matching host, we return it
+	if len(oauthSecretsWithHost) == 1 {
+		return oauthSecretsWithHost[0], nil
+	} else if len(oauthSecretsWithHost) > 1 {
+		return nil, errMultipleMatchingSecrets
 	}
+
+	// if we havent find one with host, we try without the host. Again we need to have exactly one
+	if len(oauthSecretsWithoutHost) == 1 {
+		return oauthSecretsWithoutHost[0], nil
+	} else if len(oauthSecretsWithoutHost) > 1 {
+		return nil, errMultipleMatchingSecrets
+	}
+
+	// we found no matching secrets, nothing to return. this is not error state either
+	return nil, nil
 }
 
 // createServiceProviderConfigurationFromSecret creates `ServiceProviderConfiguration` of given `ServiceProviderType` with given `baseUrl`.
