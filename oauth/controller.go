@@ -48,7 +48,7 @@ const (
 )
 
 var (
-	errServiceProviderAlreadyInitialized = errors.New("service provider already initialized")
+	errMultipleConfigsForSameHost = errors.New("failed to initialize - multiple configurations for one service provider host")
 )
 
 func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
@@ -87,7 +87,7 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		}
 
 		if _, alreadyInitialized := initializedServiceProviders[spHost]; alreadyInitialized {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errServiceProviderAlreadyInitialized, spType.Name, spHost)
+			return nil, fmt.Errorf("%w '%s' base url '%s'", errMultipleConfigsForSameHost, spType.Name, spHost)
 		} else {
 			initializedServiceProviders[spHost] = true
 			lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
