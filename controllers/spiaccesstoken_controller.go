@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -226,7 +228,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if at.EnsureLabels(string(sp.GetType().Name)) {
+	if ensureLabels(&at, sp.GetType().Name) {
 		if err := r.Update(ctx, &at); err != nil {
 			lg.Error(err, "failed to update the object with the changes")
 			return ctrl.Result{}, fmt.Errorf("failed to update the object with the changes: %w", err)
@@ -373,4 +375,30 @@ func hasLinkedBindings(ctx context.Context, token *api.SPIAccessToken, k8sClient
 	}
 
 	return len(list.Items) > 0, nil
+}
+
+// EnsureLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
+// token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
+func ensureLabels(t *api.SPIAccessToken, detectedSp config.ServiceProviderName) (changed bool) {
+	if t.Labels == nil {
+		t.Labels = map[string]string{}
+	}
+
+	if t.Labels[api.ServiceProviderTypeLabel] != string(detectedSp) {
+		t.Labels[api.ServiceProviderTypeLabel] = string(detectedSp)
+		changed = true
+	}
+
+	if len(t.Spec.ServiceProviderUrl) > 0 {
+		// we can't use the full service provider URL as a label value, because K8s doesn't allow :// in label values.
+		spUrl, err := url.Parse(t.Spec.ServiceProviderUrl)
+		if err == nil {
+			if t.Labels[api.ServiceProviderHostLabel] != spUrl.Host {
+				t.Labels[api.ServiceProviderHostLabel] = spUrl.Host
+				changed = true
+			}
+		}
+	}
+
+	return
 }
