@@ -55,6 +55,7 @@ var (
 	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
 	multipleLinkedBindingsError    = stderrors.New("multiple bindings found for the same file content request")
 	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
+	unableToFetchBindingsError     = stderrors.New("unable to fetch the SPI Access token bindings list")
 	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
 	labelSelectorPredicate         predicate.Predicate
 )
@@ -170,9 +171,9 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	// find associated binding
 	var associatedBinding *api.SPIAccessTokenBinding = nil
 	bindingList := &api.SPIAccessTokenBindingList{}
-	if err := r.K8sClient.List(context.Background(), bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
+	if err := r.K8sClient.List(ctx, bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
 		spiFileContentRequestLog.Error(err, "Unable to fetch bindings list", "namespace", request.GetNamespace())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, unableToFetchBindingsError
 	}
 	if len(bindingList.Items) > 0 {
 		associatedBinding = &bindingList.Items[0]
@@ -307,8 +308,8 @@ func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *
 		}
 	}
 
-	for _, binding := range bindings.Items {
-		if err := k8sClient.Delete(ctx, &binding); err != nil {
+	for i := range bindings.Items {
+		if err := k8sClient.Delete(ctx, &bindings.Items[i]); err != nil {
 			return fmt.Errorf("failed to delete token binding: %w", err)
 		}
 	}
