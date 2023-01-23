@@ -16,6 +16,7 @@ package integrationtests
 
 import (
 	"github.com/onsi/ginkgo"
+	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -146,11 +147,12 @@ var _ = BeforeSuite(func() {
 
 		return "", nil
 	})
+	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
 
 	ITest.HostCredsServiceProvider = TestServiceProvider{}
 	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {
-		provider.GetTypeImpl = func() api.ServiceProviderType {
-			return "HostCredsServiceProvider"
+		provider.GetTypeImpl = func() config.ServiceProviderType {
+			return config.ServiceProviderTypeHostCredentials
 		}
 		provider.GetBaseUrlImpl = func() string {
 			return "not-test-provider://not-baseurl"
@@ -162,8 +164,10 @@ var _ = BeforeSuite(func() {
 		SharedConfiguration: config.SharedConfiguration{
 			ServiceProviders: []config.ServiceProviderConfiguration{
 				{
-					ClientId:            "testClient",
-					ClientSecret:        "testSecret",
+					OAuth2Config: &oauth2.Config{
+						ClientID:     "testClient",
+						ClientSecret: "testSecret",
+					},
 					ServiceProviderType: testServiceProvider,
 				},
 				{
@@ -208,7 +212,7 @@ var _ = BeforeSuite(func() {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
 					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 					return ITest.TestServiceProvider, nil
 				}),
 			}).
@@ -217,7 +221,7 @@ var _ = BeforeSuite(func() {
 				Probe: serviceprovider.ProbeFunc(func(cl *http.Client, baseUrl string) (string, error) {
 					return ITest.TestServiceProviderProbe.Examine(cl, baseUrl)
 				}),
-				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+				Constructor: serviceprovider.ConstructorFunc(func(f *serviceprovider.Factory, _ *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 					return ITest.HostCredsServiceProvider, nil
 				}),
 			})

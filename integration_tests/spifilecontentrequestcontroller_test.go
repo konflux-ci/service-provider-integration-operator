@@ -15,7 +15,6 @@
 package integrationtests
 
 import (
-	"context"
 	"encoding/base64"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"time"
@@ -28,12 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type testCapability struct{}
-
-func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
-	return "abcdefg", nil
-}
-
 var _ = Describe("SPIFileContentRequest", func() {
 
 	Describe("Create without token data", func() {
@@ -43,10 +36,8 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return "test-provider://test"
-					}
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -80,7 +71,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
@@ -124,7 +115,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -173,7 +164,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready", Namespace: "default"})[0]

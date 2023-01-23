@@ -283,39 +283,57 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(api.AddToScheme(scheme))
 
-		token := &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "token",
-				Namespace: "default",
-			},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					ServiceProviderState: stateBytes,
+		testWithToken := func(token *api.SPIAccessToken, t *testing.T) {
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
+
+			mp := metadataProvider{
+				tokenStorage: tokenstorage.TestTokenStorage{
+					GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+						return &api.Token{
+							AccessToken: "token",
+						}, nil
+					},
 				},
-			},
+				httpClient:       httpClient,
+				kubernetesClient: k8sClient,
+				ttl:              0, // make sure the cache is stale
+			}
+
+			repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
+			assert.NoError(t, err)
+
+			// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
+			assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
+			assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
 		}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
-
-		mp := metadataProvider{
-			tokenStorage: tokenstorage.TestTokenStorage{
-				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
-					return &api.Token{
-						AccessToken: "token",
-					}, nil
+		t.Run("with initialized service provider state", func(t *testing.T) {
+			testWithToken(&api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "token",
+					Namespace: "default",
 				},
-			},
-			httpClient:       httpClient,
-			kubernetesClient: k8sClient,
-			ttl:              0, // make sure the cache is stale
-		}
+				Status: api.SPIAccessTokenStatus{
+					TokenMetadata: &api.TokenMetadata{
+						ServiceProviderState: stateBytes,
+					},
+				},
+			}, t)
+		})
 
-		repoMetadata, err := mp.FetchRepo(context.TODO(), "quay.io/org/repo:latest", token)
-		assert.NoError(t, err)
-
-		// the http client responses give us all the permissions (unlike the initial state which didn't give org and user perms)
-		assert.Equal(t, []Scope{ScopeRepoRead, ScopePull, ScopeRepoWrite, ScopePush, ScopeRepoAdmin, ScopeRepoCreate}, repoMetadata.Repository.PossessedScopes)
-		assert.Equal(t, []Scope{ScopeOrgAdmin}, repoMetadata.Organization.PossessedScopes)
+		t.Run("with nil service provider state", func(t *testing.T) {
+			testWithToken(&api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "token",
+					Namespace: "default",
+				},
+				Status: api.SPIAccessTokenStatus{
+					TokenMetadata: &api.TokenMetadata{
+						ServiceProviderState: nil,
+					},
+				},
+			}, t)
+		})
 	})
 }
 

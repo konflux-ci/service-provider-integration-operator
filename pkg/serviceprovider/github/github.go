@@ -24,10 +24,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
 	"k8s.io/utils/pointer"
 
 	"k8s.io/client-go/rest"
@@ -36,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,15 +55,19 @@ type Github struct {
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
 	downloadFileCapability downloadFileCapability
+	oauthCapability        serviceprovider.OAuthCapability
+}
+
+type githubOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        githubProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newGithub),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       githubProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newGithub),
 }
 
-func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.TtlMetadataExpirationPolicy{Ttl: factory.Configuration.TokenLookupCacheTtl})
 
 	httpClient := serviceprovider.AuthenticatingHttpClient(factory.HttpClient)
@@ -74,6 +75,7 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 		tokenStorage: factory.TokenStorage,
 		httpClient:   factory.HttpClient,
 	}
+
 	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
@@ -94,9 +96,21 @@ func newGithub(factory *serviceprovider.Factory, _ string) (serviceprovider.Serv
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
 		},
+		oauthCapability: newGithubOAuthCapability(factory, spConfig),
 	}
 
 	return github, nil
+}
+
+func newGithubOAuthCapability(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) serviceprovider.OAuthCapability {
+	if spConfig != nil && spConfig.OAuth2Config != nil {
+		return &githubOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
+	}
+	return nil
 }
 
 var _ serviceprovider.ConstructorFunc = newGithub
@@ -105,19 +119,19 @@ func (g *Github) GetBaseUrl() string {
 	return config.ServiceProviderTypeGitHub.DefaultBaseUrl
 }
 
-func (g *Github) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
-}
-
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
 }
 
-func (g *Github) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeGitHub
+func (g *Github) GetOAuthCapability() serviceprovider.OAuthCapability {
+	return g.oauthCapability
 }
 
-func (g *Github) OAuthScopesFor(permissions *api.Permissions) []string {
+func (g *Github) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeGitHub
+}
+
+func (g *githubOAuthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
 	return serviceprovider.GetAllScopes(translateToScopes, permissions)
 }
 
@@ -160,15 +174,6 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 		return fmt.Errorf("failed to persist github metadata: %w", err)
 	}
 	return nil
-}
-
-func (g *Github) GetServiceProviderUrlForRepo(repoUrl string) (string, error) {
-	url, err := serviceprovider.GetHostWithScheme(repoUrl)
-	if err != nil {
-		err = fmt.Errorf("failed to get host and scheme from %s: %w", repoUrl, err)
-	}
-
-	return url, err
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
