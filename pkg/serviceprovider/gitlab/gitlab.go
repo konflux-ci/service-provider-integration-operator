@@ -24,8 +24,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	"github.com/xanzy/go-gitlab"
 
 	"k8s.io/utils/strings/slices"
@@ -62,17 +60,21 @@ type Gitlab struct {
 	glClientBuilder        gitlabClientBuilder
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
+	oauthCapability        serviceprovider.OAuthCapability
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        gitlabProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newGitlab),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       gitlabProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newGitlab),
 }
 
-func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovider.ServiceProvider, error) {
+type gitlabOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
+}
+
+func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
 		httpClient:   factory.HttpClient,
@@ -82,7 +84,16 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		tokenStorage:    factory.TokenStorage,
 		httpClient:      factory.HttpClient,
 		glClientBuilder: glClientBuilder,
-		baseUrl:         baseUrl,
+		baseUrl:         spConfig.ServiceProviderBaseUrl,
+	}
+
+	var oauthCapability serviceprovider.OAuthCapability
+	if spConfig.OAuth2Config != nil {
+		oauthCapability = &gitlabOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
 	}
 
 	return &Gitlab{
@@ -98,8 +109,9 @@ func newGitlab(factory *serviceprovider.Factory, baseUrl string) (serviceprovide
 		metadataProvider:       mp,
 		httpClient:             factory.HttpClient,
 		glClientBuilder:        glClientBuilder,
-		baseUrl:                baseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, baseUrl),
+		baseUrl:                spConfig.ServiceProviderBaseUrl,
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl),
+		oauthCapability:        oauthCapability,
 	}, nil
 }
 
@@ -131,7 +143,11 @@ func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapabil
 	return g.downloadFileCapability
 }
 
-func (g *Gitlab) OAuthScopesFor(permissions *api.Permissions) []string {
+func (g *Gitlab) GetOAuthCapability() serviceprovider.OAuthCapability {
+	return g.oauthCapability
+}
+
+func (g *gitlabOAuthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
 	// We need ScopeReadUser by default to be able to read user metadata.
 	scopes := serviceprovider.GetAllScopes(translateToGitlabScopes, permissions)
 	if !slices.Contains(scopes, string(ScopeReadUser)) {
@@ -159,8 +175,8 @@ func translateToGitlabScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (g Gitlab) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeGitLab
+func (g Gitlab) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeGitLab
 }
 
 func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -279,10 +295,6 @@ func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error)
 		return "", fmt.Errorf("%w: '%s'", notGitlabUrlError, repoUrl)
 	}
 	return strings.TrimPrefix(repoUrl, g.GetBaseUrl()), nil
-}
-
-func (g Gitlab) GetOAuthEndpoint() string {
-	return g.Configuration.BaseUrl + oauth.AuthenticateRoutePath
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {

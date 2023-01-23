@@ -20,6 +20,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"golang.org/x/oauth2"
 
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
@@ -330,6 +332,51 @@ func TestValidate(t *testing.T) {
 	assert.Equal(t, 1, len(res.ScopeValidation))
 	assert.NotNil(t, res.ScopeValidation[0])
 	assert.Equal(t, "unknown scope: 'blah'", res.ScopeValidation[0].Error())
+}
+
+func TestNewGithubOauthCapability(t *testing.T) {
+	t.Run("nil when nil config", func(t *testing.T) {
+		oauthCapability := newGithubOAuthCapability(&serviceprovider.Factory{}, nil)
+		assert.Nil(t, oauthCapability)
+	})
+	t.Run("nil when empty config", func(t *testing.T) {
+		oauthCapability := newGithubOAuthCapability(&serviceprovider.Factory{}, &config.ServiceProviderConfiguration{})
+		assert.Nil(t, oauthCapability)
+	})
+	t.Run("created when config ok", func(t *testing.T) {
+		oauthCapability := newGithubOAuthCapability(
+			&serviceprovider.Factory{
+				Configuration: &opconfig.OperatorConfiguration{
+					SharedConfiguration: config.SharedConfiguration{
+						BaseUrl: "base.url",
+					},
+				},
+			},
+			&config.ServiceProviderConfiguration{
+				OAuth2Config: &oauth2.Config{},
+			})
+		assert.NotNil(t, oauthCapability)
+		assert.Contains(t, oauthCapability.GetOAuthEndpoint(), "base.url")
+	})
+}
+
+func TestNewGithub(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenLookupCacheTtl: 1 * time.Minute,
+		},
+		HttpClient: http.DefaultClient,
+	}
+	spConfig := &config.ServiceProviderConfiguration{}
+
+	sp, err := newGithub(factory, spConfig)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, sp)
+	assert.Nil(t, sp.GetOAuthCapability())
+	assert.NotNil(t, sp.GetDownloadFileCapability())
+	assert.Equal(t, config.ServiceProviderTypeGitHub, sp.GetType())
+	assert.Equal(t, config.ServiceProviderTypeGitHub.DefaultBaseUrl, sp.GetBaseUrl())
 }
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {

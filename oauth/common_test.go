@@ -81,6 +81,18 @@ var _ = Describe("Controller", func() {
 		return result
 	}
 
+	config.SupportedServiceProviderTypes = []config.ServiceProviderType{
+		{
+			Name:           "special",
+			DefaultHost:    "special.sp",
+			DefaultBaseUrl: "https://special.sp",
+			DefaultOAuthEndpoint: oauth2.Endpoint{
+				AuthURL:  "https://special.sp/auth",
+				TokenURL: "https://special.sp/token",
+			},
+		},
+	}
+
 	prepareAuthenticator := func(g Gomega) *Authenticator {
 		return NewAuthenticator(IT.SessionManager, IT.Client)
 	}
@@ -88,26 +100,31 @@ var _ = Describe("Controller", func() {
 		tmpl, err := template.ParseFiles("../static/redirect_notice.html")
 		g.Expect(err).NotTo(HaveOccurred())
 		return &commonController{
-			ServiceProviderInstance: map[string]oauthConfiguration{
-				"special.sp": {
-					Config: config.ServiceProviderConfiguration{
-						ClientId:            "clientId",
-						ClientSecret:        "clientSecret",
-						ServiceProviderType: config.ServiceProviderTypeGitHub,
-					},
-					Endpoint: oauth2.Endpoint{
-						AuthURL:   "https://special.sp/login",
-						TokenURL:  "https://special.sp/toekn",
-						AuthStyle: oauth2.AuthStyleAutoDetect,
-					},
+			OAuthServiceConfiguration: OAuthServiceConfiguration{
+				SharedConfiguration: config.SharedConfiguration{
+					ServiceProviders: []config.ServiceProviderConfiguration{
+						{
+							ServiceProviderBaseUrl: "https://special.sp",
+							OAuth2Config: &oauth2.Config{
+								ClientID:     "clientId",
+								ClientSecret: "clientSecret",
+								Endpoint: oauth2.Endpoint{
+									AuthURL:   "https://special.sp/login",
+									TokenURL:  "https://special.sp/toekn",
+									AuthStyle: oauth2.AuthStyleAutoDetect,
+								},
+							},
+							ServiceProviderType: config.ServiceProviderTypeGitHub,
+						}},
+					BaseUrl: "https://spi.on.my.machine",
 				},
 			},
-			K8sClient:        IT.Client,
-			TokenStorage:     IT.TokenStorage,
-			BaseUrl:          "https://spi.on.my.machine",
-			Authenticator:    prepareAuthenticator(g),
-			RedirectTemplate: tmpl,
-			StateStorage:     NewStateStorage(IT.SessionManager),
+			K8sClient:           IT.Client,
+			TokenStorage:        IT.TokenStorage,
+			Authenticator:       prepareAuthenticator(g),
+			RedirectTemplate:    tmpl,
+			StateStorage:        NewStateStorage(IT.SessionManager),
+			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 	}
 

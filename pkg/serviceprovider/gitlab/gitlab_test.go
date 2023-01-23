@@ -24,10 +24,12 @@ import (
 	"testing"
 	"time"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
+	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,10 +77,12 @@ func TestValidate(t *testing.T) {
 }
 
 func TestOAuthScopesFor(t *testing.T) {
-	gitlab := &Gitlab{}
+	gitlab := &Gitlab{
+		oauthCapability: &gitlabOAuthCapability{},
+	}
 	hasExpectedScopes := func(expectedScopes []string, permissions api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
-			actualScopes := gitlab.OAuthScopesFor(&permissions)
+			actualScopes := gitlab.GetOAuthCapability().OAuthScopesFor(&permissions)
 			assert.Equal(t, len(expectedScopes), len(actualScopes))
 			for _, s := range expectedScopes {
 				assert.Contains(t, actualScopes, s)
@@ -327,4 +331,32 @@ func mockK8sClient() client.WithWatch {
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(token).Build()
+}
+
+func TestNewGitlab(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenMatchPolicy: opconfig.AnyTokenPolicy,
+			SharedConfiguration: config.SharedConfiguration{
+				BaseUrl: "bejsjuarel",
+			},
+		},
+	}
+
+	t.Run("no oauth info => nil oauth capability", func(t *testing.T) {
+		sp, err := newGitlab(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc"})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.Nil(t, sp.GetOAuthCapability())
+	})
+
+	t.Run("oauth info => oauth capability", func(t *testing.T) {
+		sp, err := newGitlab(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc", OAuth2Config: &oauth2.Config{ClientID: "123", ClientSecret: "456"}})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.NotNil(t, sp.GetOAuthCapability())
+		assert.Contains(t, sp.GetOAuthCapability().GetOAuthEndpoint(), "bejsjuarel")
+	})
 }

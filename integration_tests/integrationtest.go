@@ -765,7 +765,7 @@ func diff[T client.Object](a T, b T) string {
 
 func toPointerArray[T any](arr []T) []*T {
 	ret := make([]*T, 0, len(arr))
-	for i, _ := range arr {
+	for i := range arr {
 		// we cannot use the second var from the range assignment here, because that is a single memory location for all
 		// elements. We'd therefore end up with an array of pointers to a single memory location.
 		ret = append(ret, &arr[i])

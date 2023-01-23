@@ -12,26 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1beta1
+package config
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"fmt"
+	"net/url"
 )
 
-func TestPermissions(t *testing.T) {
-	var pt PermissionType
+func GetBaseUrl(url *url.URL) string {
+	if url == nil || url.Scheme == "" || url.Host == "" {
+		return ""
+	}
+	return url.Scheme + "://" + url.Host
+}
 
-	pt = PermissionTypeRead
-	assert.True(t, pt.IsRead())
-	assert.False(t, pt.IsWrite())
-
-	pt = PermissionTypeReadWrite
-	assert.True(t, pt.IsRead())
-	assert.True(t, pt.IsWrite())
-
-	pt = PermissionTypeWrite
-	assert.False(t, pt.IsRead())
-	assert.True(t, pt.IsWrite())
+// GetHostWithScheme is a helper function to extract the scheme and host portion of the provided url.
+func GetHostWithScheme(repoUrl string) (string, error) {
+	u, err := url.Parse(repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse %s as URL: %w", repoUrl, err)
+	}
+	return GetBaseUrl(u), nil
 }
