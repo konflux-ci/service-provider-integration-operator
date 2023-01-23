@@ -242,7 +242,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
-	lg.Info("testing for refresh...")
+	lg.V(logs.DebugLevel).Info("looking for label to initiate token refresh...")
 	if _, ok := at.ObjectMeta.Labels[tokenRefreshLabelName]; ok {
 		if err := r.refreshToken(ctx, &at, sp); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to refresh the token: %w", err)
@@ -337,7 +337,8 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 }
 
 func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
-	lg := log.FromContext(ctx)
+	lg := logs.AuditLog(ctx)
+	lg.Info("initiated token refresh", "SPIAccessToken", at)
 	token, err := r.TokenStorage.Get(ctx, at)
 	if err != nil {
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)
