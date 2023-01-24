@@ -18,10 +18,10 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/vault v1.12.2
 	github.com/hashicorp/vault-plugin-secrets-kv v0.13.3
-	github.com/hashicorp/vault/api v1.8.2
+	github.com/hashicorp/vault/api v1.8.3
 	github.com/hashicorp/vault/api/auth/approle v0.3.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
-	github.com/hashicorp/vault/sdk v0.6.1-0.20221102145943-1e9b0a1225c3
+	github.com/hashicorp/vault/sdk v0.7.0
 	github.com/migueleliasweb/go-github-mock v0.0.14
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
