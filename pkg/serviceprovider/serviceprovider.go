@@ -18,8 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/oauth2"
-	corev1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 
@@ -154,56 +152,6 @@ func (f *Factory) NewCacheWithExpirationPolicy(policy MetadataExpirationPolicy) 
 		ExpirationPolicy:          policy,
 		CacheServiceProviderState: f.Configuration.TokenMatchPolicy == opconfig.ExactTokenPolicy,
 	}
-}
-
-func (f *Factory) GetAllServiceProviderConfigs(ctx context.Context, namespace string) ([]config.ServiceProviderConfiguration, error) {
-	configurations := make([]config.ServiceProviderConfiguration, len(f.Configuration.SharedConfiguration.ServiceProviders))
-	copy(configurations, f.Configuration.SharedConfiguration.ServiceProviders)
-
-	secretList := &corev1.SecretList{}
-	err := f.KubernetesClient.List(ctx, secretList, client.InNamespace(namespace), client.HasLabels{
-		api.ServiceProviderTypeLabel,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list oauth config secrets: %w", err)
-	}
-
-	for _, secret := range secretList.Items {
-		conf := config.ServiceProviderConfiguration{
-			OAuth2Config: &oauth2.Config{
-				ClientID:     string(secret.Data["clientId"]),
-				ClientSecret: string(secret.Data["clientSecret"]),
-			},
-			ServiceProviderType: config.ServiceProviderType{},
-		}
-
-		providerType, err := config.GetServiceProviderTypeByName(config.ServiceProviderName(secret.ObjectMeta.Labels[api.ServiceProviderTypeLabel]))
-		if err != nil {
-			return nil, fmt.Errorf("failed to find service provider: %w", err)
-		}
-		conf.ServiceProviderType = providerType
-		host, ok := secret.ObjectMeta.Labels[api.ServiceProviderHostLabel]
-		if !ok {
-			host = providerType.DefaultHost
-		}
-		conf.ServiceProviderBaseUrl = host
-		configurations = append(configurations, conf) // nozero -- we are copying elements before appending to this slice
-	}
-	return configurations, nil
-}
-
-func (f *Factory) getBaseUrlsFromConfigs(ctx context.Context, namespace string) (map[config.ServiceProviderName][]string, error) {
-	allConfigs, err := f.GetAllServiceProviderConfigs(ctx, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to group all known service provider configurations: %w", err)
-	}
-
-	allBaseUrls := make(map[config.ServiceProviderName][]string)
-	for _, spConfig := range allConfigs {
-		allBaseUrls[spConfig.ServiceProviderType.Name] = append(allBaseUrls[spConfig.ServiceProviderType.Name], spConfig.ServiceProviderBaseUrl)
-	}
-
-	return allBaseUrls, nil
 }
 
 func (f *Factory) initializeServiceProvider(_ context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {

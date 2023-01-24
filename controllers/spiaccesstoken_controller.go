@@ -21,7 +21,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -349,29 +348,28 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)
 	}
 
-	configs, err := r.ServiceProviderFactory.GetAllServiceProviderConfigs(ctx, at.Namespace)
+	parsedUrl, err := url.Parse(at.Spec.ServiceProviderUrl)
 	if err != nil {
-		return fmt.Errorf("failed to get all known service provider configurations: %w", err)
+		return fmt.Errorf("failed to parse service provider url from token: %w", err)
 	}
 
-	var clientId, clientSecret string
-	for _, conf := range configs {
-		if strings.TrimPrefix(conf.ServiceProviderBaseUrl, "https://") == strings.TrimPrefix(at.Spec.ServiceProviderUrl, "https://") {
-			clientId = conf.OAuth2Config.ClientID
-			clientSecret = conf.OAuth2Config.ClientSecret
-			break
-		}
+	spConfig, err := config.SpConfigFromUserSecret(ctx, r.Client, at.Namespace, sp.GetType(), parsedUrl)
+	if err != nil {
+		return fmt.Errorf("failed to find service provider configuration in user secrets: %w", err)
 	}
-	if clientId == "" || clientSecret == "" {
+	if spConfig == nil {
+		spConfig = config.SpConfigFromGlobalConfig(&r.Configuration.SharedConfiguration, sp.GetType(), at.Spec.ServiceProviderUrl)
+	}
+	if spConfig == nil || spConfig.OAuth2Config == nil {
 		return noCredentialsFoundError
 	}
 
 	refreshCapability := sp.GetRefreshTokenCapability()
 	if refreshCapability == nil {
-		return fmt.Errorf("%s service provider type: %w", sp.GetType(), serviceprovider.RefreshTokenNotSupportedError{})
+		return fmt.Errorf("%s service provider type: %w", sp.GetType().Name, serviceprovider.RefreshTokenNotSupportedError{})
 	}
 
-	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, clientId, clientSecret)
+	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, spConfig.OAuth2Config.ClientID, spConfig.OAuth2Config.ClientSecret)
 	if err != nil {
 		return fmt.Errorf("unable to refresh token: %w", err)
 	}

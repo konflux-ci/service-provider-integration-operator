@@ -44,6 +44,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	rbac "k8s.io/api/rbac/v1"
 
@@ -137,11 +139,10 @@ var _ = BeforeSuite(func() {
 	Expect(noPrivsClient).NotTo(BeNil())
 	ITest.NoPrivsClient = noPrivsClient
 
-	testProviderBaseUrl := "test-provider://baseurl"
 	ITest.TestServiceProvider = TestServiceProvider{}
 	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
 		if strings.HasPrefix(baseUrl, "test-provider://") {
-			return testProviderBaseUrl, nil
+			return "test-provider://baseurl", nil
 		}
 
 		return "", nil
@@ -167,8 +168,7 @@ var _ = BeforeSuite(func() {
 						ClientID:     "testClient",
 						ClientSecret: "testSecret",
 					},
-					ServiceProviderType:    testServiceProvider,
-					ServiceProviderBaseUrl: testProviderBaseUrl,
+					ServiceProviderType: testServiceProvider,
 				},
 				{
 					ServiceProviderBaseUrl: "https://spi-club.org",
