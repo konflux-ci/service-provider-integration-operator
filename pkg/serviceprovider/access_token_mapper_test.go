@@ -52,6 +52,18 @@ func init() {
 	at.UserId = "userid"
 }
 
+func TestEmpty(t *testing.T) {
+	t.Run("should be empty", func(t *testing.T) {
+		mapping := &api.TokenFieldMapping{}
+		assert.True(t, mapping.Empty(), "should be empty")
+	})
+
+	t.Run("should no be empty", func(t *testing.T) {
+		mapping := &api.TokenFieldMapping{Token: "jdoe"}
+		assert.False(t, mapping.Empty(), "should be empty")
+	})
+}
+
 func TestSecretTypeDefaultFields(t *testing.T) {
 	mapping := &api.TokenFieldMapping{}
 	t.Run("basicAuth", func(t *testing.T) {

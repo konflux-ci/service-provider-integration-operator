@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -148,7 +150,5 @@ func (in *SPIAccessTokenBinding) Permissions() *Permissions {
 }
 
 func (mapping *TokenFieldMapping) Empty() bool {
-	return mapping.Token == "" && mapping.ExpiredAfter == "" && mapping.Name == "" && mapping.Scopes == "" &&
-		mapping.UserId == "" && mapping.ServiceProviderUrl == "" && mapping.ServiceProviderUserId == "" &&
-		mapping.ServiceProviderUserName == ""
+	return reflect.DeepEqual(mapping, &TokenFieldMapping{})
 }
