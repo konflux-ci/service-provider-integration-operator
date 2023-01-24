@@ -60,6 +60,7 @@ type Gitlab struct {
 	glClientBuilder        gitlabClientBuilder
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
+	refreshTokenCapability serviceprovider.RefreshTokenCapability
 	oauthCapability        serviceprovider.OAuthCapability
 }
 
@@ -105,10 +106,15 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			MetadataCache:       &cache,
 			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
 		},
-		tokenStorage:           factory.TokenStorage,
-		metadataProvider:       mp,
-		httpClient:             factory.HttpClient,
-		glClientBuilder:        glClientBuilder,
+		tokenStorage:     factory.TokenStorage,
+		metadataProvider: mp,
+		httpClient:       factory.HttpClient,
+		glClientBuilder:  glClientBuilder,
+		refreshTokenCapability: refreshTokenCapability{
+			httpClient:          factory.HttpClient,
+			gitlabBaseUrl:       spConfig.ServiceProviderBaseUrl,
+			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
+		},
 		baseUrl:                spConfig.ServiceProviderBaseUrl,
 		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl),
 		oauthCapability:        oauthCapability,
@@ -141,6 +147,10 @@ func (g Gitlab) GetBaseUrl() string {
 
 func (g *Gitlab) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return g.downloadFileCapability
+}
+
+func (g *Gitlab) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return g.refreshTokenCapability
 }
 
 func (g *Gitlab) GetOAuthCapability() serviceprovider.OAuthCapability {

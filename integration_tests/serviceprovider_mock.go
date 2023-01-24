@@ -37,6 +37,7 @@ type TestServiceProvider struct {
 	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
 	CustomizeReset            func(provider *TestServiceProvider)
 	DownloadFileCapability    func() serviceprovider.DownloadFileCapability
+	RefreshTokenCapability    func() serviceprovider.RefreshTokenCapability
 	OAuthCapability           func() serviceprovider.OAuthCapability
 }
 
@@ -101,6 +102,13 @@ func (t TestServiceProvider) GetDownloadFileCapability() serviceprovider.Downloa
 	return t.DownloadFileCapability()
 }
 
+func (t TestServiceProvider) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	if t.RefreshTokenCapability == nil {
+		return nil
+	}
+	return t.RefreshTokenCapability()
+}
+
 func (t TestServiceProvider) GetOAuthCapability() serviceprovider.OAuthCapability {
 	if t.OAuthCapability == nil {
 		return nil
@@ -133,6 +141,7 @@ func (t *TestServiceProvider) Reset() {
 	t.MapTokenImpl = nil
 	t.ValidateImpl = nil
 	t.DownloadFileCapability = nil
+	t.RefreshTokenCapability = nil
 	t.OAuthCapability = nil
 	if t.CustomizeReset != nil {
 		t.CustomizeReset(t)

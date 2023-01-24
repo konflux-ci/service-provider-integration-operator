@@ -60,6 +60,10 @@ type ServiceProvider interface {
 	// or nil for those which are not
 	GetDownloadFileCapability() DownloadFileCapability
 
+	// GetRefreshTokenCapability returns capability object for the providers which are able to refresh OAuth access tokens.
+	// or nil
+	GetRefreshTokenCapability() RefreshTokenCapability
+
 	// GetOAuthCapability returns oauth capability of the service provider.
 	// It can be null in case service provider don't support OAuth or it is not configured.
 	GetOAuthCapability() OAuthCapability
@@ -148,7 +152,7 @@ func (f *Factory) NewCacheWithExpirationPolicy(policy MetadataExpirationPolicy) 
 	}
 }
 
-func (f *Factory) initializeServiceProvider(ctx context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
+func (f *Factory) initializeServiceProvider(_ context.Context, spType config.ServiceProviderType, spConfig *config.ServiceProviderConfiguration, repoBaseUrl string) (ServiceProvider, error) {
 	initializer, errFindInitializer := f.Initializers.GetInitializer(spType)
 	if errFindInitializer != nil {
 		return nil, fmt.Errorf("failed to initialize service provider '%s': %w", spType.Name, errNoInitializer)

@@ -117,6 +117,10 @@ func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapabilit
 	return nil
 }
 
+func (q *Quay) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return nil
+}
+
 func (q *Quay) GetOAuthCapability() serviceprovider.OAuthCapability {
 	return q.OAuthCapability
 }

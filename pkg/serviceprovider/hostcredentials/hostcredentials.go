@@ -107,6 +107,10 @@ func (p *HostCredentialsProvider) GetOAuthCapability() serviceprovider.OAuthCapa
 	return nil
 }
 
+func (g *HostCredentialsProvider) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return nil
+}
+
 func (g *HostCredentialsProvider) CheckRepositoryAccess(ctx context.Context, _ client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	repoUrl := accessCheck.Spec.RepoUrl
 	log.FromContext(ctx).Info(fmt.Sprintf("%s is a generic service provider. Access check for generic service providers is not supported.", repoUrl))

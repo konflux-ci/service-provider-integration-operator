@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
@@ -53,10 +52,12 @@ import (
 
 const linkedBindingsFinalizerName = "spi.appstudio.redhat.com/linked-bindings"
 const tokenStorageFinalizerName = "spi.appstudio.redhat.com/token-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
+const tokenRefreshLabelName = "spi.appstudio.redhat.com/refresh-token"     //#nosec G101 -- false positive, just label name, no sensitive data
 
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
+	noCredentialsFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
@@ -239,6 +240,17 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
+	lg.V(logs.DebugLevel).Info("looking for label to initiate token refresh...")
+	if val, ok := at.ObjectMeta.Labels[tokenRefreshLabelName]; ok && val == "true" { // intentional string
+		if err := r.refreshToken(ctx, &at, sp); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to refresh the token: %w", err)
+		}
+		delete(at.ObjectMeta.Labels, tokenRefreshLabelName)
+		if err := r.Update(ctx, &at); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove token refresh request label: %w", err)
+		}
+	}
+
 	// this will get picked up by the time tracker
 	lg = lg.WithValues("phase_at_reconcile_end", at.Status.Phase)
 
@@ -326,6 +338,48 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	}
 
 	return oauthBaseUrl + "?state=" + state, nil
+}
+
+func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
+	lg := logs.AuditLog(ctx)
+	lg.Info("initiated token refresh")
+	token, err := r.TokenStorage.Get(ctx, at)
+	if err != nil {
+		return fmt.Errorf("unable to get refresh token from storage: %w", err)
+	}
+
+	parsedUrl, err := url.Parse(at.Spec.ServiceProviderUrl)
+	if err != nil {
+		return fmt.Errorf("failed to parse service provider url from token: %w", err)
+	}
+
+	spConfig, err := config.SpConfigFromUserSecret(ctx, r.Client, at.Namespace, sp.GetType(), parsedUrl)
+	if err != nil {
+		return fmt.Errorf("failed to find service provider configuration in user secrets: %w", err)
+	}
+	if spConfig == nil {
+		spConfig = config.SpConfigFromGlobalConfig(&r.Configuration.SharedConfiguration, sp.GetType(), at.Spec.ServiceProviderUrl)
+	}
+	if spConfig == nil || spConfig.OAuth2Config == nil {
+		return noCredentialsFoundError
+	}
+
+	refreshCapability := sp.GetRefreshTokenCapability()
+	if refreshCapability == nil {
+		return fmt.Errorf("%s service provider type: %w", sp.GetType().Name, serviceprovider.RefreshTokenNotSupportedError{})
+	}
+
+	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, spConfig.OAuth2Config)
+	if err != nil {
+		return fmt.Errorf("unable to refresh token: %w", err)
+	}
+
+	if err := r.TokenStorage.Store(ctx, at, refreshedToken); err != nil {
+		return fmt.Errorf("unable to store refresh token: %w", err)
+	}
+
+	lg.Info("token refreshed successfully")
+	return nil
 }
 
 type linkedBindingsFinalizer struct {
