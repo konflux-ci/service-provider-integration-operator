@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var nonOkResponseError = errors.New("GitLab responded with non-ok status")
 var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")

@@ -17,10 +17,13 @@ package gitlab
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+
+	"golang.org/x/oauth2"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -34,19 +37,16 @@ type refreshTokenCapability struct {
 	oauthServiceBaseUrl string
 }
 
-var (
-// unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
-// fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
-)
+var nonOkResponseError = errors.New("GitLab responded with non-ok status")
 
 var _ serviceprovider.RefreshTokenCapability = (*refreshTokenCapability)(nil)
 
-func (r refreshTokenCapability) RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error) {
+func (r refreshTokenCapability) RefreshToken(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error) {
 	lg := log.FromContext(ctx)
 
 	v := url.Values{}
-	v.Set("client_id", clientId)
-	v.Set("client_secret", clientSecret)
+	v.Set("client_id", config.ClientID)
+	v.Set("client_secret", config.ClientSecret)
 	v.Set("refresh_token", token.RefreshToken)
 	v.Set("grant_type", "refresh_token")
 	v.Set("redirect_uri", r.oauthServiceBaseUrl+oauth.CallBackRoutePath)

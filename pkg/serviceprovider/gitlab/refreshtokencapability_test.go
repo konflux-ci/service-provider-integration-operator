@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"testing"
 
+	"golang.org/x/oauth2"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +52,7 @@ func mockRefreshTokenCapability(returnCode int, body string, responseError error
 func TestRefreshToken(t *testing.T) {
 	refreshCapability := mockRefreshTokenCapability(http.StatusOK, `{"access_token": "42"}`, nil)
 
-	token, err := refreshCapability.RefreshToken(context.TODO(), &api.Token{}, "hello", "world")
+	token, err := refreshCapability.RefreshToken(context.TODO(), &api.Token{}, &oauth2.Config{ClientID: "hello", ClientSecret: "world"})
 
 	assert.NoError(t, err)
 	assert.Equal(t, "42", token.AccessToken)
@@ -59,7 +61,7 @@ func TestRefreshToken(t *testing.T) {
 func TestRefreshTokenError(t *testing.T) {
 	test := func(refreshCapabilityInstance refreshTokenCapability, expectedErrorSubstring string) {
 		t.Run(fmt.Sprintf("should return error containing: %s", expectedErrorSubstring), func(t *testing.T) {
-			_, err := refreshCapabilityInstance.RefreshToken(context.TODO(), &api.Token{}, "hello", "world")
+			_, err := refreshCapabilityInstance.RefreshToken(context.TODO(), &api.Token{}, &oauth2.Config{ClientID: "hello", ClientSecret: "world"})
 			assert.ErrorContains(t, err, expectedErrorSubstring)
 		})
 	}

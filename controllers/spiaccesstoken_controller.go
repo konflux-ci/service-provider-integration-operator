@@ -369,7 +369,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		return fmt.Errorf("%s service provider type: %w", sp.GetType().Name, serviceprovider.RefreshTokenNotSupportedError{})
 	}
 
-	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, spConfig.OAuth2Config.ClientID, spConfig.OAuth2Config.ClientSecret)
+	refreshedToken, err := refreshCapability.RefreshToken(ctx, token, spConfig.OAuth2Config)
 	if err != nil {
 		return fmt.Errorf("unable to refresh token: %w", err)
 	}

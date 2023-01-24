@@ -17,6 +17,8 @@ package serviceprovider
 import (
 	"context"
 
+	"golang.org/x/oauth2"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
@@ -31,5 +33,5 @@ func (f RefreshTokenNotSupportedError) Error() string {
 type RefreshTokenCapability interface {
 	// RefreshToken requests new access token from the service provider using refresh token as authorization.
 	// This invalidates the old access token and refresh token
-	RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
+	RefreshToken(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error)
 }

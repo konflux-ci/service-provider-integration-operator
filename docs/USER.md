@@ -160,10 +160,11 @@ After reconcillation SPIAccessToken should be filled with the Access Token metad
 In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
 
 ## Refreshing OAuth Access Tokens
-If a service provider issues OAuth access tokens with an `expiry` time, such tokens need to be refreshed after this time.
-There is a work in progress on an automatic solution. However, the user can manually request a token refresh by
-adding the label `spi.appstudio.redhat.com/refresh-token: true` to SPIAccessToken after the token is in the `ready` phase.
-Note that currently, only GitLab allows refreshing OAuth tokens.
+Supported tokens: Gitlab OAuth access tokens
+
+If a service provider issues OAuth access tokens together with a `refresh token` and an `expiry` time, such access tokens need to be refreshed after this time.
+The user can manually request a token refresh by adding the label `spi.appstudio.redhat.com/refresh-token: true` to
+SPIAccessToken after the token is in the `ready` phase.
 
 While the token is being refreshed, there might be a slight period during which the access token injected by a
 SPIAccessTokenBinding (linked to SPIAccessToken) is invalid.
