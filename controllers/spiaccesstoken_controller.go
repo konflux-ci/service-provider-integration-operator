@@ -241,7 +241,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	lg.V(logs.DebugLevel).Info("looking for label to initiate token refresh...")
-	if _, ok := at.ObjectMeta.Labels[tokenRefreshLabelName]; ok {
+	if val, ok := at.ObjectMeta.Labels[tokenRefreshLabelName]; ok && val == "true" { // intentional string
 		if err := r.refreshToken(ctx, &at, sp); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to refresh the token: %w", err)
 		}

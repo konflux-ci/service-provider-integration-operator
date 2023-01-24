@@ -7,6 +7,7 @@ In this Manual we consider the main SPI usecases as well as give SPI API referen
     - [Retrieving file content from SCM repository]
     - [Storing username and password credentials for any provider by it's URL]
     - [Uploading Access Token to SPI using Kubernetes Secret]
+    - [Refreshing OAuth Access Tokens](#Refreshing-OAuth-Access-Tokens)
 - [SPI OAuth Service](#OAuth)
     - [User OAuth configuration]
     - [Go through the OAuth flow manually]
@@ -157,6 +158,15 @@ stringData:
 ```
 After reconcillation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
 In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
+
+## Refreshing OAuth Access Tokens
+If a service provider issues OAuth access tokens with an `expiry` time, such tokens need to be refreshed after this time.
+There is a work in progress on an automatic solution. However, the user can manually request a token refresh by
+adding the label `spi.appstudio.redhat.com/refresh-token: true` to SPIAccessToken after the token is in the `ready` phase.
+Note that currently, only GitLab allows refreshing OAuth tokens.
+
+While the token is being refreshed, there might be a slight period during which the access token injected by a
+SPIAccessTokenBinding (linked to SPIAccessToken) is invalid.
 
 # Service Provider Integration OAuth Service
 
