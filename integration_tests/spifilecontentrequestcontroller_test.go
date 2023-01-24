@@ -16,8 +16,9 @@ package integrationtests
 
 import (
 	"encoding/base64"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
