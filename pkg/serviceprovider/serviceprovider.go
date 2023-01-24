@@ -74,8 +74,6 @@ type ServiceProvider interface {
 
 	// Validate checks that the provided object (token or binding) is valid in this service provider
 	Validate(ctx context.Context, validated Validated) (ValidationResult, error)
-
-	//RefreshToken(ctx context.Context, token *api.Token, clientId string, clientSecret string) (*api.Token, error)
 }
 
 // ValidationResult represents the results of the ServiceProvider.Validate method.
