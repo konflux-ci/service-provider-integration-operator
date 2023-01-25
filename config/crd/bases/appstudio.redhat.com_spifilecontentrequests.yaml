@@ -73,6 +73,7 @@ spec:
                   to access target repository
                 type: string
             required:
+            - linkedBindingName
             - phase
             type: object
         type: object
