@@ -17,8 +17,9 @@ limitations under the License.
 package serviceprovider
 
 import (
-	"encoding/base64"
-	"fmt"
+	"bytes"
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
 	"net/url"
 	"strconv"
 	"strings"
@@ -61,12 +62,12 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 		if err == nil && parsed.Host != "" {
 			host = parsed.Host
 		}
-		authStr := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", at.ServiceProviderUserName, at.Token)))
-		ret[corev1.DockerConfigJsonKey] = fmt.Sprintf(`{"auths":{"%s":{"username":"%s","password":"%s","auth":"%s"}}}`,
-			host,
-			at.ServiceProviderUserName,
-			at.Token,
-			authStr)
+		buffer := new(bytes.Buffer)
+		conf := configfile.ConfigFile{AuthConfigs: map[string]types.AuthConfig{host: {Username: at.ServiceProviderUserName, Password: at.Token}}}
+		if err := conf.SaveToWriter(buffer); err != nil {
+			return nil // TODO: propagate error
+		}
+		ret[corev1.DockerConfigJsonKey] = buffer.String()
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
