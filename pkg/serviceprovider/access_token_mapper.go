@@ -69,7 +69,7 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 		buff := new(bytes.Buffer)
 		conf := configfile.ConfigFile{AuthConfigs: map[string]types.AuthConfig{host: {Username: at.ServiceProviderUserName, Password: at.Token}}}
 		if err := conf.SaveToWriter(buff); err != nil {
-			return nil, fmt.Errorf("failed to create dockerconfigjson string")
+			return nil, fmt.Errorf("failed to create dockerconfigjson string: %w", err)
 		}
 		ret[corev1.DockerConfigJsonKey] = buff.String()
 	case corev1.SecretTypeSSHAuth:
