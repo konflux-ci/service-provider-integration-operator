@@ -29,7 +29,7 @@ type SPIFileContentRequestSpec struct {
 type SPIFileContentRequestStatus struct {
 	// Phase of the current file request
 	Phase SPIFileContentRequestPhase `json:"phase"`
-	// LinkedBindingName name o// f the binding used for repository authentication
+	// LinkedBindingName name of the binding used for repository authentication
 	// + optional
 	LinkedBindingName string `json:"linkedBindingName"`
 	// ErrorMessage defines error message if file request failed
