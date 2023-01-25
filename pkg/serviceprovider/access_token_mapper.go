@@ -27,6 +27,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Key for token using in Opaque Secret
+const tokenKey = "token"
+
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
 // secrets according to the secret type.
 type AccessTokenMapper struct {
@@ -41,7 +44,7 @@ type AccessTokenMapper struct {
 }
 
 // ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[string]string {
+func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) map[string]string {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -66,43 +69,53 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType) map[strin
 			authStr)
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
+	default:
+		at.fillByMapping(mapping, ret)
 	}
 
 	return ret
 }
 
-// FillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
+// fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
 // mapping.
-func (at AccessTokenMapper) FillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
-	if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
-		existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
+func (at AccessTokenMapper) fillByMapping(mapping *api.TokenFieldMapping, existingMap map[string]string) {
+
+	// if there are no field in the mapping - add "token" key
+	if mapping.Empty() {
+		existingMap[tokenKey] = at.Token
+
+	} else {
+		if mapping.Token != "" {
+			existingMap[mapping.Token] = at.Token
+		}
+
+		if mapping.ExpiredAfter != "" && at.ExpiredAfter != nil {
+			existingMap[mapping.ExpiredAfter] = strconv.FormatUint(*at.ExpiredAfter, 10)
+		}
+
+		if mapping.Name != "" {
+			existingMap[mapping.Name] = at.Name
+		}
+
+		if mapping.Scopes != "" {
+			existingMap[mapping.Scopes] = strings.Join(at.Scopes, ",")
+		}
+
+		if mapping.ServiceProviderUrl != "" {
+			existingMap[mapping.ServiceProviderUrl] = at.ServiceProviderUrl
+		}
+
+		if mapping.ServiceProviderUserId != "" {
+			existingMap[mapping.ServiceProviderUserId] = at.ServiceProviderUserId
+		}
+
+		if mapping.ServiceProviderUserName != "" {
+			existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
+		}
+
+		if mapping.UserId != "" {
+			existingMap[mapping.UserId] = at.UserId
+		}
 	}
 
-	if mapping.Name != "" {
-		existingMap[mapping.Name] = at.Name
-	}
-
-	if mapping.Scopes != "" {
-		existingMap[mapping.Scopes] = strings.Join(at.Scopes, ",")
-	}
-
-	if mapping.ServiceProviderUrl != "" {
-		existingMap[mapping.ServiceProviderUrl] = at.ServiceProviderUrl
-	}
-
-	if mapping.ServiceProviderUserId != "" {
-		existingMap[mapping.ServiceProviderUserId] = at.ServiceProviderUserId
-	}
-
-	if mapping.ServiceProviderUserName != "" {
-		existingMap[mapping.ServiceProviderUserName] = at.ServiceProviderUserName
-	}
-
-	if mapping.Token != "" {
-		existingMap[mapping.Token] = at.Token
-	}
-
-	if mapping.UserId != "" {
-		existingMap[mapping.UserId] = at.UserId
-	}
 }

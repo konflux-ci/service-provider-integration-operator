@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -145,4 +147,8 @@ func (in *SPIAccessTokenBinding) ObjNamespace() string {
 
 func (in *SPIAccessTokenBinding) Permissions() *Permissions {
 	return &in.Spec.Permissions
+}
+
+func (mapping *TokenFieldMapping) Empty() bool {
+	return reflect.DeepEqual(mapping, &TokenFieldMapping{})
 }

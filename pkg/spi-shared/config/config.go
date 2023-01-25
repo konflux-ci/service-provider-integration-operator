@@ -42,8 +42,6 @@ var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 	ServiceProviderTypeQuay,
 }
 
-var SupportedServiceProvidersByName map[ServiceProviderName]ServiceProviderType = make(map[ServiceProviderName]ServiceProviderType)
-
 // HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
 // We can still provide limited functionality for them like manual token upload.
 var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
@@ -115,12 +113,6 @@ type SharedConfiguration struct {
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
 // mainly contains config.yaml of the OAuth application within the service provider.
 type ServiceProviderConfiguration struct {
-	// ClientId is the client ID of the OAuth application that the SPI uses to access the service provider.
-	ClientId string
-
-	// ClientSecret is the client secret of the OAuth application that the SPI uses to access the service provider.
-	ClientSecret string
-
 	// ServiceProviderType is the type of the service provider.
 	ServiceProviderType ServiceProviderType
 
@@ -130,34 +122,67 @@ type ServiceProviderConfiguration struct {
 
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string
+
+	// OAuth2Config holds oauth2 configuration of the service provider.
+	// It can be nil in case provider does not support OAuth or we don't have it configured.
+	OAuth2Config *oauth2.Config
 }
 
 func init() {
-	// It's handy to have serviceproviders reachable by their names. Let's fill in such map from central list 'SupportedServiceProviderTypes'.
-	for _, sp := range SupportedServiceProviderTypes {
-		SupportedServiceProvidersByName[sp.Name] = sp
-	}
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.
-func (c persistedConfiguration) convert() (*SharedConfiguration, error) {
+func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, error) {
 	conf := SharedConfiguration{
 		ServiceProviders: []ServiceProviderConfiguration{},
 	}
 
-	for _, sp := range c.ServiceProviders {
-		spType, err := GetServiceProviderTypeByName(ServiceProviderName(sp.ServiceProviderName))
+	for _, sp := range persistedConfig.ServiceProviders {
+		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {
 			return nil, err
 		}
-		conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
-			ClientId:               sp.ClientId,
-			ClientSecret:           sp.ClientSecret,
+
+		newSp := ServiceProviderConfiguration{
 			ServiceProviderType:    spType,
 			ServiceProviderBaseUrl: sp.ServiceProviderBaseUrl,
 			Extra:                  sp.Extra,
-		})
+		}
+
+		if sp.ClientId != "" && sp.ClientSecret != "" {
+			newSp.OAuth2Config = &oauth2.Config{
+				ClientID:     sp.ClientId,
+				ClientSecret: sp.ClientSecret,
+				Endpoint:     spType.DefaultOAuthEndpoint,
+			}
+		}
+
+		// if we don't have url defined in configuration, we set default one
+		if sp.ServiceProviderBaseUrl == "" {
+			newSp.ServiceProviderBaseUrl = spType.DefaultBaseUrl
+		}
+
+		conf.ServiceProviders = append(conf.ServiceProviders, newSp)
 	}
+
+	// if we don't have all supported service providers explicitly configured by config file, we add it with default values without OAuth configuration
+	for _, spDefault := range SupportedServiceProviderTypes {
+		explicitlyConfigured := false
+		for _, sp := range conf.ServiceProviders {
+			if sp.ServiceProviderType.Name == spDefault.Name {
+				explicitlyConfigured = true
+				break
+			}
+		}
+
+		if !explicitlyConfigured {
+			conf.ServiceProviders = append(conf.ServiceProviders, ServiceProviderConfiguration{
+				ServiceProviderType:    spDefault,
+				ServiceProviderBaseUrl: spDefault.DefaultBaseUrl,
+			})
+		}
+	}
+
 	return &conf, nil
 }
 

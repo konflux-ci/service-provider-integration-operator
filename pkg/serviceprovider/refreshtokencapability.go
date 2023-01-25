@@ -15,27 +15,23 @@
 package serviceprovider
 
 import (
+	"context"
+
+	"golang.org/x/oauth2"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
-// GetAllScopes is a helper method to translate all the provided permissions into a list of service-provided-specific
-// scopes.
-func GetAllScopes(convertToScopes func(permission api.Permission) []string, perms *api.Permissions) []string {
-	scopesSet := make(map[string]bool)
+type RefreshTokenNotSupportedError struct {
+}
 
-	for _, s := range perms.AdditionalScopes {
-		scopesSet[s] = true
-	}
+func (f RefreshTokenNotSupportedError) Error() string {
+	return "service provider does not support token refreshing"
+}
 
-	for _, p := range perms.Required {
-		for _, s := range convertToScopes(p) {
-			scopesSet[s] = true
-		}
-	}
-
-	allScopes := make([]string, 0)
-	for s := range scopesSet {
-		allScopes = append(allScopes, s)
-	}
-	return allScopes
+// RefreshTokenCapability indicates an ability of given SCM provider to refresh issued OAuth access tokens.
+type RefreshTokenCapability interface {
+	// RefreshToken requests new access token from the service provider using refresh token as authorization.
+	// This invalidates the old access token and refresh token
+	RefreshToken(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error)
 }

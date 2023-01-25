@@ -24,10 +24,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
+	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,10 +79,12 @@ func TestValidate(t *testing.T) {
 }
 
 func TestOAuthScopesFor(t *testing.T) {
-	gitlab := &Gitlab{}
+	gitlab := &Gitlab{
+		oauthCapability: &gitlabOAuthCapability{},
+	}
 	hasExpectedScopes := func(expectedScopes []string, permissions api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
-			actualScopes := gitlab.OAuthScopesFor(&permissions)
+			actualScopes := gitlab.GetOAuthCapability().OAuthScopesFor(&permissions)
 			assert.Equal(t, len(expectedScopes), len(actualScopes))
 			for _, s := range expectedScopes {
 				assert.Contains(t, actualScopes, s)
@@ -158,7 +164,7 @@ func TestIsPublicRepo(t *testing.T) {
 
 func TestCheckRepositoryAccess(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, nil)
+	gitlab := mockGitlab(k8sClient, http.StatusOK, "", nil, nil)
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -176,7 +182,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 func TestCheckRepositoryAccess_FailWithGithubHttp(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil)
+	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, "", fmt.Errorf("fail to talk to github api"), nil)
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -190,7 +196,7 @@ func TestCheckRepositoryAccess_FailWithGithubHttp(t *testing.T) {
 
 func TestCheckRepositoryAccess_Private(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, nil)
+	gitlab := mockGitlab(k8sClient, http.StatusNotFound, "", nil, nil)
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
 	}
@@ -207,7 +213,7 @@ func TestCheckRepositoryAccess_Private(t *testing.T) {
 
 func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, errors.New("expected error"))
+	gitlab := mockGitlab(k8sClient, http.StatusOK, "", nil, errors.New("expected error"))
 
 	accessCheck := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -227,7 +233,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 func TestCheckRepositoryAccess_LookupFailing_With_PrivateRepo(t *testing.T) {
 	k8sClient := mockK8sClient()
 	expectedError := errors.New("expected error")
-	gitlab := mockGitlab(k8sClient, http.StatusNotFound, nil, expectedError)
+	gitlab := mockGitlab(k8sClient, http.StatusNotFound, "", nil, expectedError)
 
 	accessCheck := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -246,7 +252,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PrivateRepo(t *testing.T) {
 
 func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 	k8sClient := mockK8sClient()
-	gitlab := mockGitlab(k8sClient, http.StatusOK, nil, nil)
+	gitlab := mockGitlab(k8sClient, http.StatusOK, "", nil, nil)
 	ac := api.SPIAccessCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "access-check",
@@ -260,7 +266,7 @@ func TestCheckRepositoryAccess_With_MatchingTokens(t *testing.T) {
 	assert.NotNil(t, status)
 }
 
-func mockGitlab(cl client.Client, returnCode int, responseError error, lookupError error) *Gitlab {
+func mockGitlab(cl client.Client, returnCode int, body string, responseError error, lookupError error) *Gitlab {
 	metadataCache := serviceprovider.MetadataCache{
 		Client:                    cl,
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
@@ -275,13 +281,15 @@ func mockGitlab(cl client.Client, returnCode int, responseError error, lookupErr
 			return &http.Response{
 				StatusCode: returnCode,
 				Header:     http.Header{},
-				Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"message": "one_ring_to_rule_them_all"}`))),
+				Body:       io.NopCloser(bytes.NewBuffer([]byte(body))),
 				Request:    r,
 			}, responseError
 		}),
 	}
 
-	return &Gitlab{httpClient: httpClientMock,
+	return &Gitlab{
+		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{BaseUrl: "https://test.url"}},
+		httpClient:    httpClientMock,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitLab,
 			MetadataCache:       &metadataCache,
@@ -327,4 +335,32 @@ func mockK8sClient() client.WithWatch {
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(token).Build()
+}
+
+func TestNewGitlab(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenMatchPolicy: opconfig.AnyTokenPolicy,
+			SharedConfiguration: config.SharedConfiguration{
+				BaseUrl: "bejsjuarel",
+			},
+		},
+	}
+
+	t.Run("no oauth info => nil oauth capability", func(t *testing.T) {
+		sp, err := newGitlab(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc"})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.Nil(t, sp.GetOAuthCapability())
+	})
+
+	t.Run("oauth info => oauth capability", func(t *testing.T) {
+		sp, err := newGitlab(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc", OAuth2Config: &oauth2.Config{ClientID: "123", ClientSecret: "456"}})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.NotNil(t, sp.GetOAuthCapability())
+		assert.Contains(t, sp.GetOAuthCapability().GetOAuthEndpoint(), "bejsjuarel")
+	})
 }

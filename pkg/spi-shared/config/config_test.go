@@ -14,6 +14,7 @@
 package config
 
 import (
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -24,30 +25,8 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	kubeConfigContent := `
-apiVersion: v1
-clusters:
-- cluster:
-    insecure-skip-tls-verify: true
-    server: cluster.host
-  name: cluster
-contexts:
-- context:
-    cluster: cluster
-    user: user
-  name: ctx
-current-context: ctx
-kind: Config
-preferences: {}
-users:
-- name: user
-  user:
-    token: "123"
-`
-	kcfgFilePath := createFile(t, "testKubeConfig", kubeConfigContent)
-	defer os.Remove(kcfgFilePath)
-
-	configFileContent := `
+	t.Run("all supported service providers are set", func(t *testing.T) {
+		configFileContent := `
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -56,14 +35,75 @@ serviceProviders:
   clientId: "456"
   clientSecret: "54"
 `
-	cfgFilePath := createFile(t, "config", configFileContent)
-	defer os.Remove(cfgFilePath)
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
 
-	cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
-	assert.NoError(t, err)
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		assert.NoError(t, err)
 
-	assert.Equal(t, "blabol", cfg.BaseUrl)
-	assert.Len(t, cfg.ServiceProviders, 2)
+		assert.Equal(t, "blabol", cfg.BaseUrl)
+		assert.Len(t, cfg.ServiceProviders, len(SupportedServiceProviderTypes))
+	})
+
+	t.Run("all supported service providers are set even if config is empty", func(t *testing.T) {
+		configFileContent := `
+`
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
+
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		assert.NoError(t, err)
+
+		assert.Equal(t, "blabol", cfg.BaseUrl)
+		assert.Len(t, cfg.ServiceProviders, len(SupportedServiceProviderTypes))
+	})
+
+	t.Run("unknown service provider result in error", func(t *testing.T) {
+		configFileContent := `
+serviceProviders:
+- type: blabol
+  clientId: "123"
+  clientSecret: "42"
+`
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
+
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		assert.Error(t, err)
+		assert.Empty(t, cfg.BaseUrl)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+
+	t.Run("wrong content result in error", func(t *testing.T) {
+		configFileContent := `blabol`
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
+
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		assert.Error(t, err)
+		assert.Empty(t, cfg.BaseUrl)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+
+	t.Run("file not exist", func(t *testing.T) {
+		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: "blbost", BaseUrl: "blabol"})
+		assert.Error(t, err)
+		assert.Empty(t, cfg.BaseUrl)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+
+	t.Run("read error", func(t *testing.T) {
+		cfg, err := readFrom(&r{})
+
+		assert.Error(t, err)
+		assert.Empty(t, cfg.ServiceProviders)
+	})
+}
+
+type r struct{}
+
+func (r *r) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("some error")
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
