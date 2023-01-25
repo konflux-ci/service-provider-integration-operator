@@ -408,6 +408,10 @@ type testClient struct {
 	inspectList func(ctx context.Context, list client.ObjectList, opts ...client.ListOption)
 }
 
+func (c *testClient) SubResource(subResource string) client.SubResourceClient {
+	return c.client.SubResource(subResource)
+}
+
 func newTestClient(cl client.Client) *testClient {
 	return &testClient{client: cl}
 }
