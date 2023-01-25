@@ -18,11 +18,13 @@ package serviceprovider
 
 import (
 	"bytes"
-	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/cli/cli/config/types"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +47,7 @@ type AccessTokenMapper struct {
 }
 
 // ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) map[string]string {
+func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) (map[string]string, error) {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -56,25 +58,27 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 	case corev1.SecretTypeDockercfg:
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
-		// parse host from ServiceProviderUrl if that is not possible use the whole ServiceProviderUrl as host
-		host := at.ServiceProviderUrl
 		parsed, err := url.Parse(at.ServiceProviderUrl)
-		if err == nil && parsed.Host != "" {
-			host = parsed.Host
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse service provider url: %w", err)
 		}
-		buffer := new(bytes.Buffer)
+		host := parsed.Host
+		if host == "" {
+			host = at.ServiceProviderUrl
+		}
+		buff := new(bytes.Buffer)
 		conf := configfile.ConfigFile{AuthConfigs: map[string]types.AuthConfig{host: {Username: at.ServiceProviderUserName, Password: at.Token}}}
-		if err := conf.SaveToWriter(buffer); err != nil {
-			return nil // TODO: propagate error
+		if err := conf.SaveToWriter(buff); err != nil {
+			return nil, fmt.Errorf("failed to create dockerconfigjson string")
 		}
-		ret[corev1.DockerConfigJsonKey] = buffer.String()
+		ret[corev1.DockerConfigJsonKey] = buff.String()
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
 		at.fillByMapping(mapping, ret)
 	}
 
-	return ret
+	return ret, nil
 }
 
 // fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided

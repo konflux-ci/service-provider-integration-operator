@@ -67,23 +67,27 @@ func TestEmpty(t *testing.T) {
 func TestSecretTypeDefaultFields(t *testing.T) {
 	mapping := &api.TokenFieldMapping{}
 	t.Run("basicAuth", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeBasicAuth, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeBasicAuth, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.ServiceProviderUserName, converted[corev1.BasicAuthUsernameKey])
 		assert.Equal(t, at.Token, converted[corev1.BasicAuthPasswordKey])
 	})
 
 	t.Run("serviceAccountToken", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeServiceAccountToken, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeServiceAccountToken, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted["extra"])
 	})
 
 	t.Run("dockercfg", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeDockercfg, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeDockercfg, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigKey])
 	})
 
 	t.Run("dockerconfigjson", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t,
 			`{
 	"auths": {
@@ -98,7 +102,8 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 	t.Run("dockerconfigjson-urlWithScheme", func(t *testing.T) {
 		newAt := at // copy to not affect other tests
 		newAt.ServiceProviderUrl = "http://quay.io/somepath"
-		converted := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		converted, err := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t,
 			`{
 	"auths": {
@@ -110,18 +115,29 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 			converted[corev1.DockerConfigJsonKey])
 	})
 
+	t.Run("dockerconfigjson-urlWithScheme", func(t *testing.T) {
+		newAt := at
+		newAt.ServiceProviderUrl = "::quay.io-"
+		converted, err := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		assert.Error(t, err)
+		assert.Nil(t, converted)
+	})
+
 	t.Run("ssh-privatekey", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeSSHAuth, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeSSHAuth, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
 	})
 
 	t.Run("default", func(t *testing.T) {
-		converted := at.ToSecretType("", mapping)
+		converted, err := at.ToSecretType("", mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
 	})
 
 	t.Run("opaque", func(t *testing.T) {
-		converted := at.ToSecretType(corev1.SecretTypeOpaque, mapping)
+		converted, err := at.ToSecretType(corev1.SecretTypeOpaque, mapping)
+		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
 	})
 }
