@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -35,12 +36,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const vaultDataPathFormat = "spi/data/%s/%s"
+const vaultDataPathFormat = "%s/data/%s/%s"
 
 type vaultTokenStorage struct {
 	*vault.Client
 	loginHandler *loginHandler
-	metrics      prometheus.Registerer
+
+	config *VaultStorageConfig
 }
 
 var (
@@ -100,6 +102,8 @@ type VaultStorageConfig struct {
 	SecretIdFilePath string
 
 	MetricsRegisterer prometheus.Registerer
+
+	DataPathPrefix string
 }
 
 type VaultCliArgs struct {
@@ -110,6 +114,7 @@ type VaultCliArgs struct {
 	VaultApproleSecretIdFilePath   string          `arg:"--vault-secretid-filepath, env" default:"/etc/spi/secret_id" help:"Used with Vault approle authentication. Filepath with secret_id."`
 	VaultKubernetesSATokenFilePath string          `arg:"--vault-k8s-sa-token-filepath, env" help:"Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development."`
 	VaultKubernetesRole            string          `arg:"--vault-k8s-role, env"  help:"Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount."`
+	VaultDataPathPrefix            string          `arg:"--vault-data-path-prefix, env" default:"spi" help:"Path prefix in Vault token storage under which all SPI data will be stored. No leading or trailing '/' should be used, it will be trimmed."`
 }
 
 // VaultStorageConfigFromCliArgs returns an instance of the VaultStorageConfig with some fields initialized from
@@ -124,6 +129,7 @@ func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *VaultStorageConfig {
 		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
 		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
 		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
+		DataPathPrefix:              strings.Trim(args.VaultDataPathPrefix, "/"),
 	}
 }
 
@@ -160,7 +166,7 @@ func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage,
 			client:     vaultClient,
 			authMethod: authMethod,
 		},
-		metrics: vaultTokenStorageConfig.MetricsRegisterer,
+		config: vaultTokenStorageConfig,
 	}, nil
 }
 
@@ -173,12 +179,12 @@ func (v *vaultTokenStorage) Initialize(ctx context.Context) error {
 		log.FromContext(ctx).Info("no login handler configured for Vault - token refresh disabled")
 	}
 
-	if v.metrics != nil {
-		if err := v.metrics.Register(vaultRequestCountMetric); err != nil {
+	if v.config.MetricsRegisterer != nil {
+		if err := v.config.MetricsRegisterer.Register(vaultRequestCountMetric); err != nil {
 			return fmt.Errorf("failed to register request count metric: %w", err)
 		}
 
-		if err := v.metrics.Register(vaultResponseTimeMetric); err != nil {
+		if err := v.config.MetricsRegisterer.Register(vaultResponseTimeMetric); err != nil {
 			return fmt.Errorf("failed to register response time metric: %w", err)
 		}
 	} else {
@@ -193,7 +199,7 @@ func (v *vaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken
 		"data": token,
 	}
 	lg := log.FromContext(ctx)
-	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+	path := fmt.Sprintf(vaultDataPathFormat, v.config.DataPathPrefix, owner.Namespace, owner.Name)
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 	s, err := v.Client.Logical().WriteWithContext(ctx, path, data)
@@ -215,7 +221,7 @@ func (v *vaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) 
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+	path := fmt.Sprintf(vaultDataPathFormat, v.config.DataPathPrefix, owner.Namespace, owner.Name)
 	secret, err := v.Client.Logical().ReadWithContext(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
@@ -284,7 +290,7 @@ func ifaceMapFieldToString(source map[string]interface{}, fieldName string) stri
 func (v *vaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := fmt.Sprintf(vaultDataPathFormat, owner.Namespace, owner.Name)
+	path := fmt.Sprintf(vaultDataPathFormat, v.config.DataPathPrefix, owner.Namespace, owner.Name)
 	s, err := v.Client.Logical().DeleteWithContext(ctx, path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
