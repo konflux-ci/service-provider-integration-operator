@@ -50,11 +50,12 @@ type AuthenticateRoute struct {
 // RouterConfiguration configuration needed to create new Router
 type RouterConfiguration struct {
 	OAuthServiceConfiguration
-	Authenticator    *Authenticator
-	StateStorage     StateStorage
-	K8sClient        client.Client
-	TokenStorage     tokenstorage.TokenStorage
-	RedirectTemplate *template.Template
+	Authenticator     *Authenticator
+	StateStorage      StateStorage
+	UserAuthK8sClient AuthenticatingClient
+	SaK8sClient       client.Client
+	TokenStorage      tokenstorage.TokenStorage
+	RedirectTemplate  *template.Template
 }
 
 func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config.ServiceProviderType) (*Router, error) {

@@ -119,7 +119,7 @@ var _ = Describe("Controller", func() {
 					BaseUrl: "https://spi.on.my.machine",
 				},
 			},
-			K8sClient:           IT.Client,
+			UserAuthK8sClient:   IT.Client,
 			TokenStorage:        IT.TokenStorage,
 			Authenticator:       prepareAuthenticator(g),
 			RedirectTemplate:    tmpl,

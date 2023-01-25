@@ -26,7 +26,7 @@ import (
 func TestCreateClient(t *testing.T) {
 	// the custom mapper is there to avoid the dynamic mapper used by the client by default. This is so that the
 	// dynamic mapper doesn't try to discover the API that is just not there...
-	cl, err := CreateClient(&rest.Config{}, client.Options{
+	cl, err := CreateUserAuthClient(&rest.Config{}, client.Options{
 		Mapper: meta.NewDefaultRESTMapper([]schema.GroupVersion{}),
 	})
 	assert.NoError(t, err)

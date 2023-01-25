@@ -15,11 +15,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"html/template"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,20 +30,11 @@ import (
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	authz "k8s.io/api/authorization/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	certutil "k8s.io/client-go/util/cert"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func main() {
@@ -64,36 +52,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeConfig, err := kubernetesConfig(&args)
-	if err != nil {
-		setupLog.Error(err, "failed to create kubernetes configuration")
-		os.Exit(1)
-	}
-
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := mux.NewRouter()
 
-	// insecure mode only allowed when the trusted root certificate is not specified...
-	if args.KubeInsecureTLS && kubeConfig.TLSClientConfig.CAFile == "" {
-		kubeConfig.Insecure = true
+	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&args)
+	if errUserAuthClient != nil {
+		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
+		os.Exit(1)
 	}
 
-	// we can't use the default dynamic rest mapper, because we don't have a token that would enable us to connect
-	// to the cluster just yet. Therefore, we need to list all the resources that we are ever going to query using our
-	// client here thus making the mapper not reach out to the target cluster at all.
-	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
-	mapper.Add(authz.SchemeGroupVersion.WithKind("SelfSubjectAccessReview"), meta.RESTScopeRoot)
-	//	mapper.Add(auth.SchemeGroupVersion.WithKind("TokenReview"), meta.RESTScopeRoot)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
-	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
-
-	cl, err := oauth.CreateClient(kubeConfig, client.Options{
-		Mapper: mapper,
-	})
-
-	if err != nil {
-		setupLog.Error(err, "failed to create kubernetes client")
+	saK8sClient, errK8sClient := oauth.CreateServiceAccountClient()
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
 	}
 
@@ -111,9 +81,9 @@ func main() {
 	}
 
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: cl,
+		K8sClient: userAuthClient,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       cl,
+			Client:       userAuthClient,
 			TokenStorage: strg,
 		},
 	}
@@ -125,7 +95,7 @@ func main() {
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
-	authenticator := oauth.NewAuthenticator(sessionManager, cl)
+	authenticator := oauth.NewAuthenticator(sessionManager, userAuthClient)
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
@@ -148,7 +118,8 @@ func main() {
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
-		K8sClient:                 cl,
+		UserAuthK8sClient:         userAuthClient,
+		SaK8sClient:               saK8sClient,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
@@ -202,49 +173,4 @@ func main() {
 	// to finalize based on context cancellation.
 	setupLog.Info("OAuth server exited properly")
 	os.Exit(0)
-}
-
-func kubernetesConfig(args *oauth.OAuthServiceCliArgs) (*rest.Config, error) {
-	if args.KubeConfig != "" {
-		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create rest configuration: %w", err)
-		}
-
-		return cfg, nil
-	} else if args.ApiServer != "" {
-		// here we're essentially replicating what is done in rest.InClusterConfig() but we're using our own
-		// configuration - this is to support going through an alternative API server to the one we're running with...
-		// Note that we're NOT adding the Token or the TokenFile to the configuration here. This is supposed to be
-		// handled on per-request basis...
-		cfg := rest.Config{}
-
-		apiServerUrl, err := url.Parse(args.ApiServer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
-		}
-
-		cfg.Host = "https://" + net.JoinHostPort(apiServerUrl.Hostname(), apiServerUrl.Port())
-
-		tlsConfig := rest.TLSClientConfig{}
-
-		if args.ApiServerCAPath != "" {
-			// rest.InClusterConfig is doing this most possibly only for early error handling so let's do the same
-			if _, err := certutil.NewPool(args.ApiServerCAPath); err != nil {
-				return nil, fmt.Errorf("expected to load root CA config from %s, but got err: %w", args.ApiServerCAPath, err)
-			} else {
-				tlsConfig.CAFile = args.ApiServerCAPath
-			}
-		}
-
-		cfg.TLSClientConfig = tlsConfig
-
-		return &cfg, nil
-	} else {
-		cfg, err := rest.InClusterConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize in-cluster config: %w", err)
-		}
-		return cfg, nil
-	}
 }
