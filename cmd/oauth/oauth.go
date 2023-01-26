@@ -61,7 +61,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	saK8sClient, errK8sClient := oauth.CreateServiceAccountClient()
+	saK8sClient, errK8sClient := oauth.CreateServiceAccountClient(&args)
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)

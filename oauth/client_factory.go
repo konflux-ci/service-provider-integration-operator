@@ -37,7 +37,7 @@ type AuthenticatingClient client.Client
 // CreateUserAuthClient creates a new client based on the provided configuration. Note that configuration is potentially
 // modified during the call.
 func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, error) {
-	kubeConfig, err := kubernetesConfig(args)
+	kubeConfig, err := kubernetesConfig(args, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes user authenticated config: %w", err)
 	}
@@ -61,7 +61,12 @@ func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, erro
 	})
 }
 
-func CreateServiceAccountClient() (client.Client, error) {
+func CreateServiceAccountClient(args *OAuthServiceCliArgs) (client.Client, error) {
+	kubeConfig, err := kubernetesConfig(args, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes user authenticated config: %w", err)
+	}
+
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 
@@ -104,7 +109,8 @@ func createClient(cfg *rest.Config, options client.Options) (client.Client, erro
 	return cl, nil
 }
 
-func kubernetesConfig(args *OAuthServiceCliArgs) (*rest.Config, error) {
+// TODO comment
+func kubernetesConfig(args *OAuthServiceCliArgs, userconfig bool) (*rest.Config, error) {
 	if args.KubeConfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
 		if err != nil {
@@ -112,7 +118,7 @@ func kubernetesConfig(args *OAuthServiceCliArgs) (*rest.Config, error) {
 		}
 
 		return cfg, nil
-	} else if args.ApiServer != "" {
+	} else if userconfig && args.ApiServer != "" {
 		// here we're essentially replicating what is done in rest.InClusterConfig() but we're using our own
 		// configuration - this is to support going through an alternative API server to the one we're running with...
 		// Note that we're NOT adding the Token or the TokenFile to the configuration here. This is supposed to be
