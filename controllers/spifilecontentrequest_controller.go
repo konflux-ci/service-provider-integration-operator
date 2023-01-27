@@ -98,14 +98,14 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIFileContentRequest{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			ret := make([]reconcile.Request, 0, 1)
-			ret = append(ret, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      o.GetLabels()[LinkedFileRequestLabel],
-					Namespace: o.GetNamespace(),
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      o.GetLabels()[LinkedFileRequestLabel],
+						Namespace: o.GetNamespace(),
+					},
 				},
-			})
-			return ret
+			}
 		}), builder.WithPredicates(labelSelectorPredicate)).
 		Complete(r)
 	if err != nil {
