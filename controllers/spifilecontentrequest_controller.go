@@ -170,7 +170,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 	// find associated binding
-	var associatedBinding *api.SPIAccessTokenBinding = nil
+	var associatedBinding *api.SPIAccessTokenBinding
 	bindingList := &api.SPIAccessTokenBindingList{}
 	if err := r.K8sClient.List(ctx, bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
 		spiFileContentRequestLog.Error(err, "Unable to fetch bindings list", "namespace", request.GetNamespace())
