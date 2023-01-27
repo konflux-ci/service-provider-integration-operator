@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/vault/api/auth/approle v0.3.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
 	github.com/hashicorp/vault/sdk v0.6.1-0.20221102145943-1e9b0a1225c3
-	github.com/migueleliasweb/go-github-mock v0.0.14
+	github.com/migueleliasweb/go-github-mock v0.0.15
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.26.0
@@ -114,7 +114,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
-	github.com/google/go-github/v41 v41.0.0 // indirect
+	github.com/google/go-github/v50 v50.0.0 // indirect
 	github.com/google/go-metrics-stackdriver v0.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
