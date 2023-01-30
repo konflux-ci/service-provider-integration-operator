@@ -42,3 +42,29 @@ jobs:
         uses: securego/gosec@master
         with:
           args: ./...
+  kube-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # This prepares directory where github/codeql-action/upload-sarif@v1 looks up report files by default.
+      - name: Create ./.kube-linter/ for deployment files
+        shell: bash
+        run: mkdir -p ./.kube-linter/
+      - name: Generate production configuration
+        shell: bash
+        run: kustomize build config/openshift/ >  ./.kube-linter/deploy-spi-openshift.yaml
+      - name: Generate monitoring configuration
+        shell: bash
+        run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml
+      - name: Generate vault configuration
+        shell: bash
+        run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml
+      - name: Scan yaml files with kube-linter
+        uses: stackrox/kube-linter-action@v1
+        id: kube-linter-action-scan
+        with:
+          # Adjust this directory to the location where your kubernetes resources and helm charts are located.
+          directory: ./.kube-linter/
+          # Adjust this to the location of kube-linter config you're using, or remove the setting if you'd like to use
+          # the default config.
+          config: ./.github/.kube-linter-config.yaml

@@ -28,6 +28,7 @@ spec:
           name: oauth
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           livenessProbe:
             httpGet:
               path: /health
@@ -71,6 +72,9 @@ spec:
             - containerPort: 8443
               protocol: TCP
               name: https
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
