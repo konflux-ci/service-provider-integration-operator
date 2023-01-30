@@ -366,7 +366,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		// Third, the service account needs to be updated with the link to the secret.
 
 		// TODO this can leave the SA behind if we subsequently fail to update the status of the binding
-		serviceAccount, err := r.getOrCreateServiceAccount(ctx, &binding)
+		serviceAccount, err := r.ensureServiceAccount(ctx, &binding)
 		if err != nil {
 			lg.Error(err, "unable to sync the service account")
 			return ctrl.Result{}, fmt.Errorf("failed to sync the service account: %w", err)
@@ -428,6 +428,8 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
 }
 
+// migrateFinalizers checks if the finalizer list containst the obsolete "linked-secrets" finalizer and replaces it with the new "linked-objects".
+// It performs the update straight away if there is an obsolete finalizer.
 func (r *SPIAccessTokenBindingReconciler) migrateFinalizers(ctx context.Context, binding *api.SPIAccessTokenBinding) error {
 	updateNeeded := false
 	for i, f := range binding.Finalizers {
@@ -682,7 +684,9 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 	return obj.(*corev1.Secret), nil
 }
 
-func (r *SPIAccessTokenBindingReconciler) getOrCreateServiceAccount(ctx context.Context, binding *api.SPIAccessTokenBinding) (*corev1.ServiceAccount, error) {
+// ensureServiceAccount loads the service account configured in the binding from the cluster or creates a new one if needed.
+// It also makes sure that the service account is correctly labeled.
+func (r *SPIAccessTokenBindingReconciler) ensureServiceAccount(ctx context.Context, binding *api.SPIAccessTokenBinding) (*corev1.ServiceAccount, error) {
 	spec := binding.Spec.ServiceAccount
 
 	if spec == nil {
@@ -746,6 +750,7 @@ func (r *SPIAccessTokenBindingReconciler) getOrCreateServiceAccount(ctx context.
 	return sa, nil
 }
 
+// linkSecretToServiceAccount links the secret with the service account according to the type of the secret.
 func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context.Context, secret *corev1.Secret, sa *corev1.ServiceAccount) error {
 	updated := false
 	if secret.Type == corev1.SecretTypeServiceAccountToken {
