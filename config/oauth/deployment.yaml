@@ -43,10 +43,10 @@ spec:
           resources:
             limits:
               cpu: 200m
-              memory: 200Mi
+              memory: 100Mi
             requests:
               cpu: 100m
-              memory: 100Mi
+              memory: 20Mi
           volumeMounts:
           - mountPath: /etc/spi/config.yaml
             name: config-file
