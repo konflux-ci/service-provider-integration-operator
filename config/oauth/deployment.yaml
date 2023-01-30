@@ -71,6 +71,13 @@ spec:
             - containerPort: 8443
               protocol: TCP
               name: https
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50Mi
+            requests:
+              cpu: 20m
+              memory: 20Mi
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:

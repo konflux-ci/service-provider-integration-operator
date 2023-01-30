@@ -378,6 +378,13 @@ spec:
           name: poststart
         - mountPath: /vault/userconfig/keys
           name: keys
+      resources:
+        limits:
+          cpu: 50m
+          memory: 50Mi
+        requests:
+          cpu: 20m
+          memory: 10Mi
   volumes:
     - configMap:
         defaultMode: 356
