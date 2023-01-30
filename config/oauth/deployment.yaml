@@ -77,7 +77,7 @@ spec:
               memory: 50Mi
             requests:
               cpu: 20m
-              memory: 20Mi
+              memory: 10Mi
       serviceAccountName: oauth-sa
       terminationGracePeriodSeconds: 10
       volumes:
