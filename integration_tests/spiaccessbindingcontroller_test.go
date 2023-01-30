@@ -26,6 +26,7 @@ import (
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -55,8 +56,8 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return "test-provider://acme"
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return TestCapability{}
 					}
 					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
 				},
@@ -112,6 +113,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				g.Expect(binding.Status.OAuthUrl).NotTo(BeEmpty())
 				g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
 				g.Expect(binding.Status.ErrorReason).To(BeEmpty())
+
 				g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
 			})
 		})
@@ -152,8 +154,8 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 		})
 
 		It("migrates old quay permission areas to new ones", func() {
-			ITest.TestServiceProvider.GetTypeImpl = func() api.ServiceProviderType {
-				return api.ServiceProviderTypeQuay
+			ITest.TestServiceProvider.GetTypeImpl = func() config.ServiceProviderType {
+				return config.ServiceProviderTypeQuay
 			}
 			createdBinding = &api.SPIAccessTokenBinding{
 				ObjectMeta: metav1.ObjectMeta{

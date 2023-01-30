@@ -97,16 +97,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := tokenstorage.NewVaultStorage(&tokenstorage.VaultStorageConfig{
-		Host:                        args.VaultHost,
-		AuthType:                    args.VaultAuthMethod,
-		Insecure:                    args.VaultInsecureTLS,
-		Role:                        args.VaultKubernetesRole,
-		ServiceAccountTokenFilePath: args.VaultKubernetesSATokenFilePath,
-		RoleIdFilePath:              args.VaultApproleRoleIdFilePath,
-		SecretIdFilePath:            args.VaultApproleSecretIdFilePath,
-		MetricsRegisterer:           metrics.Registry,
-	})
+	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	vaultConfig.MetricsRegisterer = metrics.Registry
+	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")
 		os.Exit(1)

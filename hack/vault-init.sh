@@ -10,6 +10,9 @@ VAULT_PODNAME=${VAULT_PODNAME:-vault-0}
 KEYS_FILE=${KEYS_FILE:-$( mktemp )}
 ROOT_TOKEN=""
 
+SPI_DATA_PATH_PREFIX=${SPI_DATA_PATH_PREFIX:-spi}
+SPI_POLICY_NAME=${SPI_DATA_PATH_PREFIX//\//-}
+
 function vaultExec() {
   COMMAND=${1}
   kubectl --kubeconfig=${VAULT_KUBE_CONFIG} exec ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -- sh -c "${COMMAND}" 2> /dev/null
@@ -123,7 +126,11 @@ function audit() {
 }
 
 function auth() {
-  vaultExec "vault policy write spi /vault/userconfig/scripts/spi_policy.hcl"
+  POLICY_FILE=/tmp/spi_policy.hcl
+  vaultExec "echo 'path \"${SPI_DATA_PATH_PREFIX}/*\" { capabilities = [\"read\", \"create\", \"list\", \"delete\", \"update\"] }' > ${POLICY_FILE}"
+  vaultExec "vault policy write ${SPI_POLICY_NAME} ${POLICY_FILE}"
+  vaultExec "rm ${POLICY_FILE}"
+
   k8sAuth
   approleAuth
 }
@@ -136,11 +143,11 @@ function k8sAuth() {
   vaultExec "vault write auth/kubernetes/role/spi-controller-manager \
         bound_service_account_names=spi-controller-manager \
         bound_service_account_namespaces=spi-system \
-        policies=spi"
+        policies=${SPI_POLICY_NAME}"
   vaultExec "vault write auth/kubernetes/role/spi-oauth \
           bound_service_account_names=spi-oauth-sa \
           bound_service_account_namespaces=spi-system \
-          policies=spi"
+          policies=${SPI_POLICY_NAME}"
   # shellcheck disable=SC2016
   vaultExec 'vault write auth/kubernetes/config \
         kubernetes_host=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT'
@@ -156,7 +163,7 @@ function approleAuth() {
   SECRET_FILE=$( realpath .tmp/approle_secret.yaml )
 
   function approleSet() {
-    vaultExec "vault write auth/approle/role/${1} token_policies=spi"
+    vaultExec "vault write auth/approle/role/${1} token_policies=${SPI_POLICY_NAME}"
     ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
     SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
     echo "---" >> ${SECRET_FILE}
@@ -181,9 +188,9 @@ EOF
 }
 
 function spiSecretEngine() {
-  if ! vaultExec "vault secrets list | grep -q spi" ; then
+  if ! vaultExec "vault secrets list | grep -q ${SPI_DATA_PATH_PREFIX}" ; then
     echo "creating SPI secret engine ..."
-    vaultExec "vault secrets enable -path=spi kv-v2"
+    vaultExec "vault secrets enable -path=${SPI_DATA_PATH_PREFIX} kv-v2"
   fi
 }
 

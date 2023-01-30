@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1beta1
+package tokenstorage
 
 import (
 	"testing"
@@ -20,18 +20,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPermissions(t *testing.T) {
-	var pt PermissionType
+func TestConfigDataPathPrefix(t *testing.T) {
+	test := func(cliPrefix, expectedPrefix string) {
+		t.Run("simple single path level", func(t *testing.T) {
+			config := VaultStorageConfigFromCliArgs(&VaultCliArgs{VaultDataPathPrefix: cliPrefix})
+			assert.Equal(t, expectedPrefix, config.DataPathPrefix)
+		})
+	}
 
-	pt = PermissionTypeRead
-	assert.True(t, pt.IsRead())
-	assert.False(t, pt.IsWrite())
-
-	pt = PermissionTypeReadWrite
-	assert.True(t, pt.IsRead())
-	assert.True(t, pt.IsWrite())
-
-	pt = PermissionTypeWrite
-	assert.False(t, pt.IsRead())
-	assert.True(t, pt.IsWrite())
+	test("spi", "spi")
+	test("spi/at/some/deep/paath", "spi/at/some/deep/paath")
+	test("/cut/leading/slash", "cut/leading/slash")
+	test("cut/trailing/slash/", "cut/trailing/slash")
+	test("/cut/both/slashes/", "cut/both/slashes")
+	test("/spi/", "spi")
 }

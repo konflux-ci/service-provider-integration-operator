@@ -15,9 +15,10 @@
 package integrationtests
 
 import (
-	"context"
 	"encoding/base64"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -26,12 +27,6 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type testCapability struct{}
-
-func (f testCapability) DownloadFile(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error) {
-	return "abcdefg", nil
-}
 
 var _ = Describe("SPIFileContentRequest", func() {
 
@@ -42,10 +37,8 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return "test-provider://test"
-					}
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -79,7 +72,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
@@ -123,7 +116,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 			},
 		}
@@ -140,7 +133,13 @@ var _ = Describe("SPIFileContentRequest", func() {
 			// let's just double-check that we indeed have the binding
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				req := testSetup.InCluster.FileContentRequests[0]
-				g.Expect(testSetup.InCluster.GetBinding(client.ObjectKey{Name: req.Status.LinkedBindingName, Namespace: req.Namespace})).NotTo(BeNil())
+				var linkedBinding *api.SPIAccessTokenBinding = nil
+				for _, binding := range testSetup.InCluster.Bindings {
+					if binding.GetLabels()[controllers.LinkedFileRequestLabel] == req.Name {
+						linkedBinding = binding
+					}
+				}
+				g.Expect(linkedBinding).NotTo(BeNil())
 			})
 
 			Expect(ITest.Client.Delete(ITest.Context, testSetup.InCluster.FileContentRequests[0])).To(Succeed())
@@ -166,7 +165,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return testCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready", Namespace: "default"})[0]
