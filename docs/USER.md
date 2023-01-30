@@ -1,23 +1,24 @@
-In this Manual we consider the main SPI usecases as well as give SPI API references for more advanced cases.    
+In this Manual we consider the main SPI use cases as well as give SPI API references for more advanced cases.    
 
 ## Table of Contents
-- [CookBook]
-    - [Accessing the private repository] - TODO
-    - [Checking permission to the particular repository] - TODO
-    - [Retrieving file content from SCM repository]
-    - [Storing username and password credentials for any provider by it's URL]
-    - [Uploading Access Token to SPI using Kubernetes Secret]
-- [SPI OAuth Service](#OAuth)
-    - [User OAuth configuration]
-    - [Go through the OAuth flow manually]
-- [Supported Service Providers](#SP)
-- [Service Provider Integration Kubernetes API (CRDs)](#K8sAPI)
+- [Use Cases](#use-cases)
+    - [Accessing the private repository](#accessing-the-private-repository) - TODO
+    - [Checking permission to the particular repository](#checking-permission-to-the-particular-repository) - TODO
+    - [Retrieving file content from SCM repository](#retrieving-file-content-from-scm-repository)
+    - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
+    - [Uploading Access Token to SPI using Kubernetes Secret \(PR in-progress\)](#uploading-access-token-to-spi-using-kubernetes-secret-pr-in-progress)
+    - [Providing secrets to a service account](#providing-secrets-to-a-service-account)
+- [SPI OAuth Service](#spi-oauth-service)
+    - [User OAuth configuration](#user-oauth-configuration)
+    - [Go through the OAuth flow manually](#go-through-the-oauth-flow-manually)
+- [Supported Service Providers](#supported-service-providers)
+- [Service Provider Integration Kubernetes API (CRDs)](#service-provider-integration-kubernetes-api-crds)
     - [SPIAccessToken](#SPIAccessToken)
     - [SPIAccessTokenBinding](#SPIAccessTokenBinding)
     - [SPIAccessTokenDataUpdate](#SPIAccessTokenDataUpdate)
     - [SPIAccessCheck](#SPIAccessCheck)
     - [SPIFileContentRequest](#SPIFileContentRequest)
-- [Service Provider Integration HTTP API](#RESTAPI)
+- [HTTP API Endpoints](#http-api-endpoints)
     - [POST /login](#post-login)
     - [GET {sp_type}/authenticate](#get-sp_typeauthenticate)
     - [GET /{sp_type}/callback](#get-sp_typecallback)
@@ -79,7 +80,7 @@ Default lifetime for file content requests is 30 min and can be changed via oper
 It is now possible to store username + token/password credentials for nearly any
 provider that may offer them (like Snyk.io etc). It is can be done in a few steps:
 
-- Create simple SPIAccessTokenBinging, indicating provider-s URL only:
+- Create simple SPIAccessTokenBinding, indicating provider-s URL only:
 ```
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIAccessTokenBinding
@@ -155,8 +156,67 @@ type: Opaque
 stringData:
   tokenData: $AT_DATA
 ```
-After reconcillation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
+After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
 In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
+
+## Providing secrets to a service account
+
+The access token binding (the SPIAccessTokenBinding) can optionally specify a service account that should be the "recipient" of the secret containing the credentials obtained using the binding. This can be used to inject additional secrets to an existing service account or to create a new service account that should contain the secrets. The lifecycle of the service account can both be managed by the binding (the service account is created by the operator and deleted along with the binding) or can predate and outlive the binding.
+
+It is possible to provide both secrets and image pull secrets to the service account.
+
+### Linking a secret to a pre-existing service account
+
+Using the following definition of the binding one can add a binding secret to a pre-existing service account. Note that if the service account with the provided name doesn't exist, it is automatically created but IS NOT deleted with the binding (i.e. such secret outlives the binding).
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+...
+spec:
+  secret:
+    type: kubernetes.io/service-account-token
+  serviceAccount:
+    name: mysa
+  ...
+```
+
+Notice that it is important to specify the correct type of the secret that dictates how the secret is linked to the service account. Also note that the secret is merely added to the list of the secrets the service account is linked to, not overwriting any pre-existing links.
+
+### Linking a secret to a pre-existing service account as image pull secret
+
+To use the binding secret as an image pull secret for the service account, one needs to provide the definition of the service account and the secret with the `dockerconfigjson` type.
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+...
+spec:
+  secret:
+    type: kubernetes.io/dockerconfigjson
+  serviceAccount:
+    name: mysa
+  ...
+```
+
+This also merely adds the secret to list of linked image pull secrets of the service account not overwriting any pre-existing ones.
+
+### Using a managed service account
+
+If the caller doesn't have a service account available and doesn't need the service account after the binding and the secret are "consumed", it is possible to mark the service account as managed. Such service accounts will be created by the SPI operator together with the binding secret and will be deleted automatically along with the binding. To avoid naming conflicts with pre-existing service accounts in the namespace, it is advised to use a randomized name (using the `generateName` field).
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+...
+spec:
+  secret:
+    type: kubernetes.io/service-account-token
+  serviceAccount:
+    generateName: mysa-
+    managed: true
+  ...
+```
 
 # Service Provider Integration OAuth Service
 
@@ -213,7 +273,7 @@ Let's create the `SPIAccessTokenBinding`:
 kubectl apply -f samples/spiaccesstokenbinding.yaml --as system:serviceaccount:default:default
 ```
 
-Now, we need initiate the OAuth flow. We've already created the spi access token binding. Let's examine
+Now, we need initiate the OAuth flow. We've already created the SPI access token binding. Let's examine
 it to see what access token it bound to:
 
 ```
@@ -260,7 +320,7 @@ different permission areas are supported.
 ** In case of Snyk and other providers that do not support OAuth, the permission area does not matter.
 
 
-#Service Provider Integration Kubernetes API (CRDs)
+# Service Provider Integration Kubernetes API (CRDs)
 
 ## SPIAccessToken
 CRs of this CRD are used to represent an access token for some concrete “repository” or “repositories” in some service provider. The fact whether a certain token can give access to one or more repos is service-provider specific.
@@ -326,6 +386,11 @@ When a 3rd party application requires access to a token, it creates an `SPIAcces
 | spec.secret.fields.userId                  | string            | The key for the userId of the App Studio user that created the token in the SPI.                                                                                                    | K8S_USER             | false     |
 | spec.secret.fields.expiredAfter            | string            | The key for the token expiry date.                                                                                                                                                  | TOKEN_VALID_UNTIL    | false     |
 | spec.secret.fields.scopes                  | string            | The key for the comma-separated list of scopes that the token is valid for in the service provider                                                                                  | GITHUB_SCOPES        | false     |
+| spec.serviceAccount.name                   | string            | the name of the service account to create/link. Either this or generateName must be specified.                                                                                      | taskSA               | false
+| spec.serviceAccount.generateName           | string            | the generate name to be used when creating the service account. It only really makes sense for the Managed service accounts that are cleaned up with the binding.                   | taskSA-              | false
+| spec.serviceAccount.managed                | string            | Managed specifies if the lifetime of the service account is bound to the lifetime of the binding or not (the default). A managed service account must not already be present in the cluster and is owned by the binding. If the service account is not managed (which is the default), it may or may not exist prior to the binding. When the binding is deleted the secret is merely unlinked from the unmanaged service account and the service account itself is left in the cluster. | true | false
+| spec.serviceAccount.labels                 | map[string]string | the labels that the created service account should be labeled with | { team: vikings } | false
+| spec.serviceAccount.annotations | map[string]string | the annotations that the created service account should be annotated with. | { important: "true" } | false
 | status.phase                               | enum              | One of AwaitingTokenData, Injected, Error                                                                                                                                           |                      | false     |
 | status.errorReason                         | enum              | Detailed error reason                                                                                                                                                               |                      | false     |
 | status.errorMessage                        | string            | Error message if phase==Error                                                                                                                                                       |                      | false     |

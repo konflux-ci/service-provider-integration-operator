@@ -158,18 +158,19 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
-                    description: Annotations is the keys and values that the create
-                      secret should be annotated with.
+                    description: Annotations is the keys and values that the created
+                      service account should be annotated with.
                     type: object
                   generateName:
                     description: GenerateName is the generate name to be used when
-                      creating the service account.
+                      creating the service account. It only really makes sense for
+                      the Managed service accounts that are cleaned up with the binding.
                     type: string
                   labels:
                     additionalProperties:
                       type: string
-                    description: Labels contains the labels that the created secret
-                      should be labeled with.
+                    description: Labels contains the labels that the created service
+                      account should be labeled with.
                     type: object
                   managed:
                     description: Managed specifies if the lifetime of the service
@@ -183,8 +184,7 @@ spec:
                     type: boolean
                   name:
                     description: Name is the name of the service account to create/link.
-                      A random name is chosen if not specified (and GenerateName is
-                      empty, too).
+                      Either this or GenerateName must be specified.
                     type: string
                 required:
                 - managed

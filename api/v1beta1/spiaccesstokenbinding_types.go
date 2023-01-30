@@ -44,11 +44,12 @@ type SPIAccessTokenBindingSpec struct {
 }
 
 type ServiceAccountSpec struct {
-	// Name is the name of the service account to create/link. A random name is chosen if not
-	// specified (and GenerateName is empty, too).
+	// Name is the name of the service account to create/link. Either this or GenerateName
+	// must be specified.
 	// +optional
 	Name string `json:"name"`
-	// GenerateName is the generate name to be used when creating the service account.
+	// GenerateName is the generate name to be used when creating the service account. It only
+	// really makes sense for the Managed service accounts that are cleaned up with the binding.
 	// +optional
 	GenerateName string `json:"generateName"`
 	// Managed specifies if the lifetime of the service account is bound to the lifetime of
@@ -58,9 +59,9 @@ type ServiceAccountSpec struct {
 	// is deleted the secret is merely unlinked from the unmanaged service account and
 	// the service account itself is left in the cluster.
 	Managed bool `json:"managed"`
-	// Labels contains the labels that the created secret should be labeled with.
+	// Labels contains the labels that the created service account should be labeled with.
 	Labels map[string]string `json:"labels,omitempty"`
-	// Annotations is the keys and values that the create secret should be annotated with.
+	// Annotations is the keys and values that the created service account should be annotated with.
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
