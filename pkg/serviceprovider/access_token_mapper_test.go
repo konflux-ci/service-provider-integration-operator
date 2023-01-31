@@ -46,7 +46,7 @@ func init() {
 	at.Name = "name"
 	at.Scopes = []string{"scope1", "scope2"}
 	at.ServiceProviderUserName = "spusername"
-	at.ServiceProviderUrl = "spurl"
+	at.ServiceProviderUrl = "https://spurl"
 	at.ServiceProviderUserId = "spuserid"
 	at.Token = "token"
 	at.UserId = "userid"
@@ -95,32 +95,7 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 			"auth": "c3B1c2VybmFtZTp0b2tlbg=="
 		}
 	}
-}`,
-			converted[corev1.DockerConfigJsonKey])
-	})
-
-	t.Run("dockerconfigjson-urlWithScheme", func(t *testing.T) {
-		newAt := at // copy to not affect other tests
-		newAt.ServiceProviderUrl = "http://quay.io/somepath"
-		converted, err := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
-		assert.NoError(t, err)
-		assert.Equal(t,
-			`{
-	"auths": {
-		"quay.io": {
-			"auth": "c3B1c2VybmFtZTp0b2tlbg=="
-		}
-	}
-}`,
-			converted[corev1.DockerConfigJsonKey])
-	})
-
-	t.Run("dockerconfigjson-urlWithScheme", func(t *testing.T) {
-		newAt := at
-		newAt.ServiceProviderUrl = "::quay.io-"
-		converted, err := newAt.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
-		assert.Error(t, err)
-		assert.Nil(t, converted)
+}`, converted[corev1.DockerConfigJsonKey])
 	})
 
 	t.Run("ssh-privatekey", func(t *testing.T) {
@@ -139,6 +114,35 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 		converted, err := at.ToSecretType(corev1.SecretTypeOpaque, mapping)
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
+	})
+}
+
+func TestEncodeDockerConfig(t *testing.T) {
+	at = AccessTokenMapper{
+		Token:                   "access-token",
+		ServiceProviderUrl:      "https://url.com",
+		ServiceProviderUserName: "joel",
+	}
+
+	t.Run("success", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig()
+		assert.NoError(t, err)
+		assert.Equal(t,
+			`{
+	"auths": {
+		"url.com": {
+			"auth": "am9lbDphY2Nlc3MtdG9rZW4="
+		}
+	}
+}`, encoded)
+	})
+
+	t.Run("url-parse-failure", func(t *testing.T) {
+		newAt := at
+		newAt.ServiceProviderUrl = "::bad.url"
+		encoded, err := newAt.encodeDockerConfig()
+		assert.Error(t, err)
+		assert.Empty(t, encoded)
 	})
 }
 
