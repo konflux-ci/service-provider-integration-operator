@@ -390,7 +390,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			UserAuthK8sClient:   testC,
-			InClusterK8sClient:  testC,
+			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
