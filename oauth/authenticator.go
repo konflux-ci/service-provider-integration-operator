@@ -72,9 +72,7 @@ func (a *Authenticator) GetToken(ctx context.Context, r *http.Request) (string, 
 }
 
 func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	lg := log.FromContext(ctx)
+	lg := log.FromContext(r.Context())
 	defer logs.TimeTrack(lg, time.Now(), "/Login")
 
 	token := r.FormValue("k8s_token")
@@ -84,12 +82,12 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token == "" {
-		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "failed extract authorization info either from headers or form parameters")
+		LogDebugAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "failed extract authorization info either from headers or form parameters")
 		return
 	}
 	hasAccess, err := a.tokenReview(token, r)
 	if err != nil {
-		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "failed to determine if the authenticated user has access", err)
+		LogErrorAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "failed to determine if the authenticated user has access", err)
 		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
 			"and the API_SERVER environment variable points it to the incorrect Kubernetes API server. "+
 			"If SPI is running with Devsandbox Proxy, make sure this env var points to the Kubernetes API proxy,"+
@@ -98,13 +96,13 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hasAccess {
-		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
-		logs.AuditLog(ctx).Info("unsuccessful authentication with Kubernetes token occurred") //more details will be logged after real TokenReview will be in action
+		LogDebugAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
+		logs.AuditLog(r.Context()).Info("unsuccessful authentication with Kubernetes token occurred") //more details will be logged after real TokenReview will be in action
 		return
 	}
 
-	a.SessionManager.Put(ctx, "k8s_token", token)
-	logs.AuditLog(ctx).Info("successful authentication with Kubernetes token")
+	a.SessionManager.Put(r.Context(), "k8s_token", token)
+	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token")
 	w.WriteHeader(http.StatusOK)
 }
 
