@@ -17,3 +17,8 @@
   - Installation method.
   - steps to reproduce.
  -->
+
+```
+quay.io/redhat-appstudio/pull-request-builds:spi-operator-#
+quay.io/redhat-appstudio/pull-request-builds:spi-oauth-#
+```
