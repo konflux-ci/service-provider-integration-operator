@@ -120,6 +120,7 @@ var _ = Describe("Controller", func() {
 				},
 			},
 			UserAuthK8sClient:   IT.Client,
+			InClusterK8sClient:  IT.Client,
 			TokenStorage:        IT.TokenStorage,
 			Authenticator:       prepareAuthenticator(g),
 			RedirectTemplate:    tmpl,

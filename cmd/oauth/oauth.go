@@ -61,7 +61,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	saK8sClient, errK8sClient := oauth.CreateInClusterClient(&args)
+	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&args)
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
@@ -119,7 +119,7 @@ func main() {
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
 		UserAuthK8sClient:         userAuthClient,
-		SaK8sClient:               saK8sClient,
+		InClusterK8sClient:        inClusterK8sClient,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}

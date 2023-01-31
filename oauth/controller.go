@@ -63,7 +63,7 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 	controller := &commonController{
 		OAuthServiceConfiguration: cfg.OAuthServiceConfiguration,
 		UserAuthK8sClient:         cfg.UserAuthK8sClient,
-		SaK8sClient:               cfg.SaK8sClient,
+		InClusterK8sClient:        cfg.InClusterK8sClient,
 		TokenStorage:              ts,
 		Authenticator:             cfg.Authenticator,
 		StateStorage:              cfg.StateStorage,

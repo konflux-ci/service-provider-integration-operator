@@ -56,6 +56,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -98,6 +99,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -151,6 +153,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -211,6 +214,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -265,6 +269,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -346,6 +351,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 			UserAuthK8sClient:   cl,
+			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{},

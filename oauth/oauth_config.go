@@ -40,7 +40,7 @@ func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthsta
 	}
 
 	// first try to find configuration in user's secret
-	spConfig, errSpConfig := config.SpConfigFromUserSecret(ctx, c.SaK8sClient, info.TokenNamespace, c.ServiceProviderType, spUrl)
+	spConfig, errSpConfig := config.SpConfigFromUserSecret(ctx, c.InClusterK8sClient, info.TokenNamespace, c.ServiceProviderType, spUrl)
 	if errSpConfig != nil {
 		return nil, fmt.Errorf("failed to create service provider config from user config secret: %w", errSpConfig)
 	}

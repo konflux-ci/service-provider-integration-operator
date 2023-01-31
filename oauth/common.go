@@ -44,7 +44,7 @@ var (
 type commonController struct {
 	OAuthServiceConfiguration
 	UserAuthK8sClient   AuthenticatingClient
-	SaK8sClient         client.Client
+	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
 	Authenticator       *Authenticator
