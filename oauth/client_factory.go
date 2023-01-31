@@ -34,8 +34,8 @@ import (
 // WithAuthFromRequestIntoContext functions with clients having this type.
 type AuthenticatingClient client.Client
 
-// CreateUserAuthClient creates a new client based on the provided configuration. Note that configuration is potentially
-// modified during the call.
+// CreateUserAuthClient creates a new client based on the provided configuration. We use this client for k8s requests with user's token (e.g.: SelfSubjectAccessReview).
+// Note that configuration is potentially modified during the call.
 func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, error) {
 	kubeConfig, err := kubernetesConfig(args, true)
 	if err != nil {
@@ -52,7 +52,6 @@ func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, erro
 	// client here thus making the mapper not reach out to the target cluster at all.
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(authz.SchemeGroupVersion.WithKind("SelfSubjectAccessReview"), meta.RESTScopeRoot)
-	//	mapper.Add(auth.SchemeGroupVersion.WithKind("TokenReview"), meta.RESTScopeRoot)
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
 
@@ -61,14 +60,15 @@ func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, erro
 	})
 }
 
+// CreateInClusterClient creates a new client based on the provided configuration. We use this client for k8s requests with ServiceAccount (e.g.: reading configuration secrets).
 func CreateInClusterClient(args *OAuthServiceCliArgs) (client.Client, error) {
+	kubeConfig, err := kubernetesConfig(args, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes incluster config: %w", err)
+	}
+
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
-
-	kubeConfig, errKubeConfig := rest.InClusterConfig()
-	if errKubeConfig != nil {
-		return nil, fmt.Errorf("failed to create incluster kubeconfig: %w", errKubeConfig)
-	}
 
 	return createClient(kubeConfig, client.Options{
 		Mapper: mapper,
@@ -104,7 +104,8 @@ func createClient(cfg *rest.Config, options client.Options) (client.Client, erro
 	return cl, nil
 }
 
-// TODO comment
+// kubernetesConfig returns proper configuration based on given cli args. `userconfig=true` allows setting apiserver url in cli args.
+// If `kubeconfig` is set in cli args, it is always used.
 func kubernetesConfig(args *OAuthServiceCliArgs, userconfig bool) (*rest.Config, error) {
 	if args.KubeConfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
