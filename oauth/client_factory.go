@@ -61,12 +61,7 @@ func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, erro
 	})
 }
 
-func CreateServiceAccountClient(args *OAuthServiceCliArgs) (client.Client, error) {
-	kubeConfig, err := kubernetesConfig(args, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kubernetes user authenticated config: %w", err)
-	}
-
+func CreateInClusterClient(args *OAuthServiceCliArgs) (client.Client, error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 
