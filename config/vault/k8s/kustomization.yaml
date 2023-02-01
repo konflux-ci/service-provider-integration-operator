@@ -9,3 +9,6 @@ commonLabels:
 resources:
   - ../base/
   - deployment.yaml
+
+patches:
+  - delete-vault-test.yaml
