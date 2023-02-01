@@ -481,7 +481,10 @@ func (r *SPIAccessTokenBindingReconciler) migrateFinalizers(ctx context.Context,
 		}
 	}
 
-	if updateNeeded {
+	if updateNeeded && binding.DeletionTimestamp == nil {
+		// only update in cluster if the object is not being deleted. Adding a finalizer while an object is being
+		// deleted is disallowed. But that is not a problem because we've already changed that in memory and the Finalizer
+		// doesn't reload the object from the cluster.
 		if err := r.Client.Update(ctx, binding); err != nil {
 			return fmt.Errorf("failed to update the deprecated finalizer names: %w", err)
 		}
