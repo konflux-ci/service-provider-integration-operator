@@ -45,10 +45,10 @@ spec:
         resources:
           limits:
             cpu: 200m
-            memory: 800Mi
+            memory: 600Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 50Mi
         volumeMounts:
           - mountPath: /etc/spi/config.yaml
             name: config-file
@@ -76,6 +76,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 20m
+            memory: 10Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
