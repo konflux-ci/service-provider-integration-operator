@@ -163,31 +163,19 @@ In a case if something goes wrong the reason will be written to K8s Event, you c
 
 ## Providing secrets to a service account
 
-The access token binding (the SPIAccessTokenBinding) can optionally specify a service account that should be the "recipient" of the secret containing the credentials obtained using the binding. This can be used to inject additional secrets to an existing service account or to create a new service account that should contain the secrets. The lifecycle of the service account can both be managed by the binding (the service account is created by the operator and deleted along with the binding) or can predate and outlive the binding.
+The access token binding (the SPIAccessTokenBinding) can optionally specify a service account that the secret containing 
+the credentials obtained using the binding should be linked with. This can be used to inject additional secrets to 
+an existing service account or to create a new service account that should contain the secrets. The lifecycle of 
+the service account can both be managed by the binding (the service account is created by the operator and deleted along 
+with the binding) or can predate and outlive the binding.
 
 It is possible to provide both secrets and image pull secrets to the service account.
 
 ### Linking a secret to a pre-existing service account
 
-Using the following definition of the binding one can add a binding secret to a pre-existing service account. Note that if the service account with the provided name doesn't exist, it is automatically created but IS NOT deleted with the binding (i.e. such secret outlives the binding).
-
-```yaml
-apiVersion: appstudio.redhat.com/v1beta1
-kind: SPIAccessTokenBinding
-...
-spec:
-  secret:
-    type: kubernetes.io/service-account-token
-  serviceAccount:
-    name: mysa
-  ...
-```
-
-Notice that it is important to specify the correct type of the secret that dictates how the secret is linked to the service account. Also note that the secret is merely added to the list of the secrets the service account is linked to, not overwriting any pre-existing links.
-
-### Linking a secret to a pre-existing service account as image pull secret
-
-To use the binding secret as an image pull secret for the service account, one needs to provide the definition of the service account and the secret with the `dockerconfigjson` type.
+Using the following definition of the binding one can add a binding secret to a pre-existing service account. Note that
+if the service account with the provided name doesn't exist, it is automatically created but IS NOT deleted with 
+the binding (i.e. such secret outlives the binding).
 
 ```yaml
 apiVersion: appstudio.redhat.com/v1beta1
@@ -201,11 +189,14 @@ spec:
   ...
 ```
 
-This also merely adds the secret to list of linked image pull secrets of the service account not overwriting any pre-existing ones.
+Note that the secret is merely added to the list of the secrets the service account is linked to, not overwriting any 
+pre-existing links.
 
-### Using a managed service account
+### Linking a secret to a pre-existing service account as image pull secret
 
-If the caller doesn't have a service account available and doesn't need the service account after the binding and the secret are "consumed", it is possible to mark the service account as managed. Such service accounts will be created by the SPI operator together with the binding secret and will be deleted automatically along with the binding. To avoid naming conflicts with pre-existing service accounts in the namespace, it is advised to use a randomized name (using the `generateName` field).
+To use the binding secret as an image pull secret for the service account, one needs to provide the definition of 
+the service account explicitly requesting linking as an image pull secret. The secret needs to have
+the `dockerconfigjson` type.
 
 ```yaml
 apiVersion: appstudio.redhat.com/v1beta1
@@ -213,7 +204,31 @@ kind: SPIAccessTokenBinding
 ...
 spec:
   secret:
-    type: kubernetes.io/service-account-token
+    type: kubernetes.io/dockerconfigjson
+  serviceAccount:
+    linkSecretAs: imagePullSecret
+    name: mysa
+  ...
+```
+
+This also merely adds the secret to list of linked image pull secrets of the service account not overwriting any 
+pre-existing ones.
+
+### Using a managed service account
+
+If the caller doesn't have a service account available and doesn't need the service account after the binding and 
+the secret are "consumed", it is possible to mark the service account as managed. Such service accounts will be created
+by the SPI operator together with the binding secret and will be deleted automatically along with the binding. To avoid
+naming conflicts with pre-existing service accounts in the namespace, it is advised to use a randomized name (using
+the `generateName` field).
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+...
+spec:
+  secret:
+    type: kubernetes.io/basic-auth
   serviceAccount:
     generateName: mysa-
     managed: true

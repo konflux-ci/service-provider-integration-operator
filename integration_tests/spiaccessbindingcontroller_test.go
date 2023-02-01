@@ -802,8 +802,23 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeServiceAccountToken,
 								},
-								ServiceAccount: &api.ServiceAccountSpec{
+								ServiceAccount: api.ServiceAccountSpec{
 									GenerateName: "sa-token-sa-",
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-secret-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeOpaque,
+								},
+								ServiceAccount: api.ServiceAccountSpec{
+									GenerateName: "sa-secret-sa-",
 								},
 							},
 						},
@@ -817,8 +832,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 								},
-								ServiceAccount: &api.ServiceAccountSpec{
+								ServiceAccount: api.ServiceAccountSpec{
 									GenerateName: "sa-image-pull-secret-sa-",
+									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
 								},
 							},
 						},
@@ -874,7 +890,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				Expect(sa.Secrets[0].Name).To(Equal(secret.Name))
 			})
 
-			It("should link the service account with docker-config-json secret", func() {
+			It("should link the service account with docker-config-json secret as image pull secret", func() {
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-image-pull-secret-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
@@ -907,6 +923,75 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					//g.Expect(sas.Items).NotTo(BeEmpty())
 				}).Should(Succeed())
 			})
+
+			It("should link the service account with an opaque secret", func() {
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-secret-sync", Namespace: "default"})[0]
+				sa := &corev1.ServiceAccount{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(BeEmpty())
+				Expect(sa.Secrets).To(HaveLen(1))
+				Expect(sa.Secrets[0].Name).To(Equal(secret.Name))
+			})
+
+			It("should not link the service account with an opaque secret as image pull secret", func() {
+				binding := &api.SPIAccessTokenBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:    "default",
+						GenerateName: "sa-invalid-sync-",
+					},
+					Spec: api.SPIAccessTokenBindingSpec{
+						RepoUrl: "test-provider:///",
+						Secret: api.SecretSpec{
+							Type: corev1.SecretTypeOpaque,
+						},
+						ServiceAccount: api.ServiceAccountSpec{
+							LinkSecretAs: api.SecretLinkTypeImagePullSecret,
+							GenerateName: "sa-secret-sa-",
+						},
+					},
+				}
+
+				Expect(ITest.Client.Create(ITest.Context, binding)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					b := &api.SPIAccessTokenBinding{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), b)).To(Succeed())
+
+					g.Expect(b.Status.ServiceAccountName).To(BeEmpty())
+					g.Expect(b.Status.SyncedObjectRef.Name).To(BeEmpty())
+					g.Expect(b.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+					g.Expect(b.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInconsistentSpec))
+				}).Should(Succeed())
+			})
+
+			It("should let k8s API autofill service account secret data", func() {
+				// pretend the Kubernetes API and fill in the data that is otherwise auto-filled by the kubernetes
+				// control plane
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				secret.Data["ca.crt"] = []byte("certificate")
+				secret.Data["namespace"] = []byte("namespace")
+				secret.Data["token"] = []byte("token")
+
+				Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
+
+				// from that point on, we should not see the operator remove the auto-filled data
+				Consistently(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					secret := &corev1.Secret{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+					g.Expect(secret.Data).To(HaveKey("ca.crt"))
+					g.Expect(secret.Data).To(HaveKey("token"))
+					g.Expect(secret.Data).To(HaveKey("namespace"))
+					g.Expect(secret.Data).To(HaveKey("extra"))
+				}, "5s").Should(Succeed())
+			})
 		})
 
 		Context("with pre-existing SAs", func() {
@@ -925,7 +1010,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeServiceAccountToken,
 								},
-								ServiceAccount: &api.ServiceAccountSpec{
+								ServiceAccount: api.ServiceAccountSpec{
 									Name: "test-service-account",
 								},
 							},
@@ -940,8 +1025,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 								},
-								ServiceAccount: &api.ServiceAccountSpec{
-									Name: "test-service-account",
+								ServiceAccount: api.ServiceAccountSpec{
+									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
+									Name:         "test-service-account",
 								},
 							},
 						},
@@ -1135,7 +1221,8 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 								},
-								ServiceAccount: &api.ServiceAccountSpec{
+								ServiceAccount: api.ServiceAccountSpec{
+									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
 									GenerateName: "sa-managed-sa-",
 									Managed:      true,
 								},

@@ -62,13 +62,40 @@ import (
 const deprecatedLinkedSecretsFinalizerName = "spi.appstudio.redhat.com/linked-secrets" //#nosec G101 -- false positive, this is not a private data
 const linkedObjectsFinalizerName = "spi.appstudio.redhat.com/linked-objects"
 
-var spiAccessTokenBindingLog = log.Log.WithName("spiaccesstokenbinding-controller")
-
 var (
+	// pre-allocated empty map so that we don't have to allocate new empty instances in the serviceAccountSecretDiffOpts
+	emptySecretData = map[string][]byte{}
+
 	secretDiffOpts = cmp.Options{
 		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
 	}
 
+	// the service account secrets are treated specially by Kubernetes that automatically adds "ca.crt", "namespace" and
+	// "token" entries into the secret's data.
+	serviceAccountSecretDiffOpts = cmp.Options{
+		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
+		cmp.FilterPath(func(p cmp.Path) bool {
+			return p.Last().String() == ".Data"
+		}, cmp.Comparer(func(a map[string][]byte, b map[string][]byte) bool {
+			// cmp.Equal short-circuits if it sees nil maps - but we don't want that...
+			if a == nil {
+				a = emptySecretData
+			}
+			if b == nil {
+				b = emptySecretData
+			}
+
+			return cmp.Equal(a, b, cmpopts.IgnoreMapEntries(func(key string, _ []byte) bool {
+				switch key {
+				case "ca.crt", "namespace", "token":
+					return true
+				default:
+					return false
+				}
+			}))
+		}),
+		),
+	}
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
@@ -120,10 +147,12 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Watches(&source.Kind{Type: &api.SPIAccessToken{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(_ api.SPIAccessTokenBinding) bool { return true })
 			if err != nil {
-				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
+				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to SPIAccessToken",
 					"SPIAccessTokenName", o.GetName(), "SPIAccessTokenNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
+
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "SPIAccessToken")
 
 			return requests
 		})).
@@ -133,10 +162,13 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 			})
 			if err != nil {
-				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to Secret",
+				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to Secret",
 					"SecretName", o.GetName(), "SecretNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
+
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "Secret")
+
 			return requests
 		})).
 		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
@@ -144,10 +176,13 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 				return binding.Name == o.GetLabels()[SPIAccessTokenBindingLinkLabel]
 			})
 			if err != nil {
-				spiAccessTokenBindingLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to a ServiceAccount",
+				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to a ServiceAccount",
 					"ServiceAccountName", o.GetName(), "ServiceAccountNamespace", o.GetNamespace())
 				return []reconcile.Request{}
 			}
+
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "ServiceAccount")
+
 			return requests
 		}), builder.WithPredicates(serviceAccountLabelPredicate)).
 		Complete(r)
@@ -387,9 +422,11 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Info("secret synced", "secretName", secret.Name)
 
-		if err = r.linkSecretToServiceAccount(ctx, secret, serviceAccount); err != nil {
-			lg.Error(err, "failed to link the secret with the service account")
-			return ctrl.Result{}, fmt.Errorf("failed to link the secret with the service account: %w", err)
+		if serviceAccount != nil {
+			if err = r.linkSecretToServiceAccount(ctx, binding.Spec.ServiceAccount.EffectiveSecretLinkType(), secret, serviceAccount); err != nil {
+				lg.Error(err, "failed to link the secret with the service account")
+				return ctrl.Result{}, fmt.Errorf("failed to link the secret with the service account: %w", err)
+			}
 		}
 
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
@@ -413,7 +450,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 			}
 		}
-		if serviceAccountName != "" && binding.Spec.ServiceAccount != nil && binding.Spec.ServiceAccount.Managed {
+		if serviceAccountName != "" && binding.Spec.ServiceAccount.Managed {
 			if err := deleteSyncedServiceAccount(ctx, r.Client, serviceAccountName, binding.Namespace); err != nil {
 				lg.Error(err, "failed to deleted the stale managed service account")
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
@@ -422,11 +459,15 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if expectedLifetimeDuration == nil {
+		lg.V(logs.DebugLevel).Info("binding with unlimited lifetime", "requeueIn", "never")
 		// no need to re-schedule by any timeout
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{RequeueAfter: time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))}, nil
+	delay := time.Until(binding.CreationTimestamp.Add(*expectedLifetimeDuration).Add(r.Configuration.DeletionGracePeriod))
+	lg.V(logs.DebugLevel).Info("binding with limited lifetime", "requeueIn", delay)
+
+	return ctrl.Result{RequeueAfter: delay}, nil
 }
 
 // migrateFinalizers checks if the finalizer list containst the obsolete "linked-secrets" finalizer and replaces it with the new "linked-objects".
@@ -648,7 +689,11 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 
 	annos := binding.Spec.Secret.Annotations
 
+	diffOpts := secretDiffOpts
+
 	if binding.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken && serviceAccount != nil {
+		diffOpts = serviceAccountSecretDiffOpts
+
 		// we assume the binding has already been validated using its Validate() method so that we don't have
 		// to check for corner cases here anymore.
 		if annos == nil {
@@ -676,7 +721,7 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		secret.GenerateName = binding.Name + "-secret-"
 	}
 
-	_, obj, err := r.syncer.Sync(ctx, nil, secret, secretDiffOpts)
+	_, obj, err := r.syncer.Sync(ctx, nil, secret, diffOpts)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 		return nil, fmt.Errorf("failed to sync the secret with the token data: %w", err)
@@ -689,13 +734,13 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 func (r *SPIAccessTokenBindingReconciler) ensureServiceAccount(ctx context.Context, binding *api.SPIAccessTokenBinding) (*corev1.ServiceAccount, error) {
 	spec := binding.Spec.ServiceAccount
 
-	if spec == nil {
+	if spec.Name == "" && spec.GenerateName == "" {
 		return nil, nil
 	}
 
 	name := binding.Status.ServiceAccountName
 	if name == "" {
-		name = binding.Spec.ServiceAccount.Name
+		name = spec.Name
 	}
 
 	requestedLabels := spec.Labels
@@ -751,9 +796,10 @@ func (r *SPIAccessTokenBindingReconciler) ensureServiceAccount(ctx context.Conte
 }
 
 // linkSecretToServiceAccount links the secret with the service account according to the type of the secret.
-func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context.Context, secret *corev1.Secret, sa *corev1.ServiceAccount) error {
+func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context.Context, linkType api.SecretLinkType, secret *corev1.Secret, sa *corev1.ServiceAccount) error {
 	updated := false
-	if secret.Type == corev1.SecretTypeServiceAccountToken {
+
+	if linkType == api.SecretLinkTypeSecret {
 		hasLink := false
 
 		for _, r := range sa.Secrets {
@@ -767,7 +813,7 @@ func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context
 			sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secret.Name})
 			updated = true
 		}
-	} else if secret.Type == corev1.SecretTypeDockerConfigJson {
+	} else if linkType == api.SecretLinkTypeImagePullSecret {
 		hasLink := false
 
 		for _, r := range sa.ImagePullSecrets {
@@ -856,15 +902,18 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 		lg.V(logs.DebugLevel).Info("deleted the synced secret in the finalizer", "secretName", binding.Status.SyncedObjectRef.Name)
 	}
 
-	if binding.Spec.ServiceAccount != nil && binding.Spec.ServiceAccount.Managed && binding.Status.ServiceAccountName != "" {
-		if err := deleteSyncedServiceAccount(ctx, f.client, binding.Status.ServiceAccountName, binding.Namespace); err != nil {
-			lg.Error(err, "failed to delete the synced service account in the finalizer", "saName", binding.Status.ServiceAccountName)
-			return res, err
+	if binding.Status.ServiceAccountName != "" {
+		saName := binding.Status.ServiceAccountName
+		if binding.Spec.ServiceAccount.Managed {
+			if err := deleteSyncedServiceAccount(ctx, f.client, saName, binding.Namespace); err != nil {
+				lg.Error(err, "failed to delete the synced service account in the finalizer", "saName", saName)
+				return res, err
+			} else {
+				lg.V(logs.DebugLevel).Info("deleted the managed service account in the finalizer", "saName", saName)
+			}
 		} else {
-			lg.V(logs.DebugLevel).Info("deleted the managed service account in the finalizer", "saName", binding.Status.ServiceAccountName)
+			lg.V(logs.DebugLevel).Info("leaving the unmanaged service account in the cluster by the finalizer", "saName", saName)
 		}
-	} else if binding.Spec.ServiceAccount != nil && !binding.Spec.ServiceAccount.Managed && binding.Status.ServiceAccountName != "" {
-		lg.V(logs.DebugLevel).Info("leaving the unmanaged service account in the cluster by the finalizer", "saName", binding.Status.ServiceAccountName)
 	}
 	return finalizer.Result{}, nil
 }

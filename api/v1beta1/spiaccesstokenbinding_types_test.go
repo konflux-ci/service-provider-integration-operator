@@ -25,7 +25,9 @@ func TestValidate(t *testing.T) {
 	validate := func(secretType corev1.SecretType) SPIAccessTokenBindingValidation {
 		binding := SPIAccessTokenBinding{
 			Spec: SPIAccessTokenBindingSpec{
-				ServiceAccount: &ServiceAccountSpec{},
+				ServiceAccount: ServiceAccountSpec{
+					LinkSecretAs: SecretLinkTypeImagePullSecret,
+				},
 				Secret: SecretSpec{
 					Type: secretType,
 				},
@@ -57,7 +59,7 @@ func TestValidate(t *testing.T) {
 	})
 	t.Run(string(corev1.SecretTypeServiceAccountToken), func(t *testing.T) {
 		res := validate(corev1.SecretTypeServiceAccountToken)
-		assert.Empty(t, res.Consistency)
+		assert.NotEmpty(t, res.Consistency)
 	})
 	t.Run(string(corev1.SecretTypeSSHAuth), func(t *testing.T) {
 		res := validate(corev1.SecretTypeSSHAuth)
