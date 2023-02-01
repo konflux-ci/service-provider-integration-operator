@@ -12,3 +12,4 @@ resources:
 
 patches:
   - delete-vault-test.yaml
+
