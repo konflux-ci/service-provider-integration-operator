@@ -1,4 +1,4 @@
-hecks:
+checks:
 
   # include explicitly adds checks, by name. You can reference any of the built-in checks.
   # Note that customChecks defined above are included automatically.
