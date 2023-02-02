@@ -177,7 +177,8 @@ spec:
           secret:
             optional: true
             secretName: spi-vault-keys
-        - emptyDir: {}
+        - emptyDir:
+            medium: Memory
           name: tmp
         - name: home
           emptyDir: {}
@@ -397,6 +398,7 @@ spec:
       secret:
         optional: true
         secretName: spi-vault-keys
-    - emptyDir: {}
+    - emptyDir:
+        medium: Memory
       name: tmp
   restartPolicy: Never

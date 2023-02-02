@@ -79,7 +79,8 @@ server:
         secretName: spi-vault-keys
         optional: true
     - name: tmp
-      emptyDir: {}
+      emptyDir:
+        medium: Memory
 
 
   volumeMounts:
