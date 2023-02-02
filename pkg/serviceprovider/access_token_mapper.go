@@ -17,6 +17,8 @@ limitations under the License.
 package serviceprovider
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -34,7 +36,7 @@ const tokenKey = "token"
 type AccessTokenMapper struct {
 	Name                    string   `json:"name"`
 	Token                   string   `json:"token"`
-	ServiceProviderUrl      string   `json:"serviceProviderUrl"`
+	ServiceProviderUrl      string   `json:"serviceProviderUrl"` // We assume ServiceProviderUrl contains scheme, otherwise we can't parse the host properly.
 	ServiceProviderUserName string   `json:"serviceProviderUserName"`
 	ServiceProviderUserId   string   `json:"serviceProviderUserId"`
 	UserId                  string   `json:"userId"`
@@ -43,7 +45,7 @@ type AccessTokenMapper struct {
 }
 
 // ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) map[string]string {
+func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) (map[string]string, error) {
 	ret := map[string]string{}
 	switch secretType {
 	case corev1.SecretTypeBasicAuth:
@@ -54,23 +56,46 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 	case corev1.SecretTypeDockercfg:
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
-		// parse host from ServiceProviderUrl if that is not possible use the whole ServiceProviderUrl as host
-		host := at.ServiceProviderUrl
-		parsed, err := url.Parse(at.ServiceProviderUrl)
-		if err == nil && parsed.Host != "" {
-			host = parsed.Host
+		dockerConfig, err := at.encodeDockerConfig()
+		if err != nil {
+			return nil, err
 		}
-		ret[corev1.DockerConfigJsonKey] = fmt.Sprintf(`{"auths":{"%s":{"username":"%s","password":"%s"}}}`,
-			host,
-			at.ServiceProviderUserName,
-			at.Token)
+		ret[corev1.DockerConfigJsonKey] = dockerConfig
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
 		at.fillByMapping(mapping, ret)
 	}
 
-	return ret
+	return ret, nil
+}
+
+// encodeDockerConfig constructs docker config json which can be used to pull private images from remote image registry.
+func (at AccessTokenMapper) encodeDockerConfig() (string, error) {
+	parsed, err := url.Parse(at.ServiceProviderUrl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse service provider url: %w", err)
+	}
+	encoded := base64.StdEncoding.EncodeToString([]byte(at.ServiceProviderUserName + ":" + at.Token))
+
+	type Auths map[string]struct {
+		Auth string `json:"auth"`
+	}
+	dockerConfig := struct {
+		Auths Auths `json:"auths"`
+	}{
+		Auths: Auths{
+			parsed.Host: {
+				Auth: encoded,
+			},
+		},
+	}
+
+	jsonBytes, err := json.MarshalIndent(dockerConfig, "", "\t")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal docker config json: %w", err)
+	}
+	return string(jsonBytes), nil
 }
 
 // fillByMapping sets the data from the mapper into the provided map according to the settings specified in the provided
