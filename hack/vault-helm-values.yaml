@@ -81,6 +81,7 @@ server:
     - name: tmp
       emptyDir:
         medium: Memory
+        sizeLimit: "64Mi"
 
 
   volumeMounts:

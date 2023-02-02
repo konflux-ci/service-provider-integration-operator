@@ -184,6 +184,7 @@ spec:
             secretName: spi-vault-keys
         - emptyDir:
             medium: Memory
+            sizeLimit: 128Mi
           name: tmp
         - name: home
           emptyDir: {}
@@ -412,5 +413,6 @@ spec:
         secretName: spi-vault-keys
     - emptyDir:
         medium: Memory
+        sizeLimit: 128Mi
       name: tmp
   restartPolicy: Never
