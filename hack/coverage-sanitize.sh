@@ -12,7 +12,8 @@ if [ ! -f ${COVER_FILE} ]; then
 fi
 
 echo "creating backup of ${COVER_FILE} to ${COVER_FILE}_bck"
-cp ${COVER_FILE} ${COVER_FILE}_bck
+mkdir -p ${REPO_DIR}/.tmp
+cp ${COVER_FILE} ${REPO_DIR}/.tmp/cover.out_bck
 
 declare -a EXCLUDE=("integration_tests" "test_util.go" "testtokenstorage.go")
 
