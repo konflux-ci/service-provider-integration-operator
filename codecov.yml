@@ -10,9 +10,9 @@ coverage:
     # Allows coverage to drop by a 3% when compared against the base commit.
     project:
       default:
-        target: auto
+        target: 65%
         # this allows a 3% drop from the previous base commit coverage
-        threshold: 3%
+        threshold: 1%
     # Sets the expected status for `codecov/patch` check.
     # We set this to be only informational hence it does not cause the check to fail.
     patch:
