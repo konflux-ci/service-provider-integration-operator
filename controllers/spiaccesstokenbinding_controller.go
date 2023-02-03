@@ -392,9 +392,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
 	binding.Status.UploadUrl = token.Status.UploadUrl
 
-	secretName := binding.Status.SyncedObjectRef.Name
-	serviceAccountName := binding.Status.ServiceAccountName
-
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
 		// linking the service account with a secret is a 3-step process.
 		// First, an empty service account needs to be created.
@@ -444,15 +441,14 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	// now that we set up the binding correctly, we need to clean up the potentially dangling secret (that might contain
 	// stale data if the data of the token disappeared from the token)
 	if binding.Status.Phase != api.SPIAccessTokenBindingPhaseInjected {
-		if secretName != "" {
-			if err := deleteSyncedSecret(ctx, r.Client, secretName, binding.Namespace); err != nil {
-				lg.Error(err, "failed to delete the stale synced object")
+		if binding.Spec.ServiceAccount.Managed {
+			if err := cleanupDependentObjectsManaged(ctx, r.Client, &binding); err != nil {
+				lg.Error(err, "failed to delete the stale synced secret(s) and service account(s)")
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 			}
-		}
-		if serviceAccountName != "" && binding.Spec.ServiceAccount.Managed {
-			if err := deleteSyncedServiceAccount(ctx, r.Client, serviceAccountName, binding.Namespace); err != nil {
-				lg.Error(err, "failed to deleted the stale managed service account")
+		} else {
+			if err := cleanupDependentObjectsUnmanaged(ctx, r.Client, &binding); err != nil {
+				lg.Error(err, "failed to delete the stale synced secret(s) and service account(s)")
 				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
 			}
 		}
@@ -724,6 +720,12 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		secret.GenerateName = binding.Name + "-secret-"
 	}
 
+	if secret.Labels == nil {
+		secret.Labels = map[string]string{}
+	}
+
+	secret.Labels[SPIAccessTokenBindingLinkLabel] = binding.Name
+
 	_, obj, err := r.syncer.Sync(ctx, nil, secret, diffOpts)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
@@ -839,33 +841,81 @@ func (r *SPIAccessTokenBindingReconciler) linkSecretToServiceAccount(ctx context
 	return nil
 }
 
-func deleteSyncedSecret(ctx context.Context, cl client.Client, secretName string, secretNamespace string) error {
-	if err := deleteIfExists(ctx, cl, client.ObjectKey{Name: secretName, Namespace: secretNamespace}, &corev1.Secret{}, "secret"); err != nil {
-		return fmt.Errorf("failed to delete the injected secret: %w", err)
-	}
+// unlinkSecretFromServiceAccount removes the provided secret from any links in the service account (either secrets or image pull secrets fields).
+// Returns `true` if the service account object was changed, `false` otherwise. This does not update the object in the cluster!
+func unlinkSecretFromServiceAccount(secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) bool {
+	updated := false
 
-	return nil
-}
-
-func deleteSyncedServiceAccount(ctx context.Context, cl client.Client, saName string, saNamespace string) error {
-	if err := deleteIfExists(ctx, cl, client.ObjectKey{Name: saName, Namespace: saNamespace}, &corev1.ServiceAccount{}, "service account"); err != nil {
-		return fmt.Errorf("failed to delete the managed service account: %w", err)
-	}
-
-	return nil
-}
-
-func deleteIfExists(ctx context.Context, cl client.Client, key client.ObjectKey, obj client.Object, kind string) error {
-	if err := cl.Get(ctx, key, obj); err != nil {
-		if errors.IsNotFound(err) {
-			return nil
+	if len(serviceAccount.Secrets) > 0 {
+		saSecrets := make([]corev1.ObjectReference, 0, len(serviceAccount.Secrets))
+		for i := range serviceAccount.Secrets {
+			r := serviceAccount.Secrets[i]
+			if r.Name == secret.Name {
+				updated = true
+			} else {
+				saSecrets = append(saSecrets, r)
+			}
 		}
-
-		return fmt.Errorf("unexpected error while finding the %s to delete (%s): %w", kind, key.String(), err)
+		serviceAccount.Secrets = saSecrets
 	}
 
-	if err := cl.Delete(ctx, obj); err != nil {
-		return fmt.Errorf("failed to delete the %s %s: %w", kind, key.String(), err)
+	if len(serviceAccount.ImagePullSecrets) > 0 {
+		saIPSecrets := make([]corev1.LocalObjectReference, 0, len(serviceAccount.ImagePullSecrets))
+		for i := range serviceAccount.ImagePullSecrets {
+			r := serviceAccount.ImagePullSecrets[i]
+			if r.Name == secret.Name {
+				updated = true
+			} else {
+				saIPSecrets = append(saIPSecrets, r)
+			}
+		}
+		serviceAccount.ImagePullSecrets = saIPSecrets
+	}
+
+	return updated
+}
+
+func cleanupDependentObjectsManaged(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
+	if err := cl.DeleteAllOf(ctx, &corev1.Secret{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to delete the secret(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	if err := cl.DeleteAllOf(ctx, &corev1.ServiceAccount{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to delete the service account(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	return nil
+}
+
+func cleanupDependentObjectsUnmanaged(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
+	// we need to first unlink the secrets from the service account(s) and then delete the secrets
+
+	sal := &corev1.ServiceAccountList{}
+	if err := cl.List(ctx, sal, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to list the service accounts associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	sl := &corev1.SecretList{}
+	if err := cl.List(ctx, sl, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to list the secrets associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	for i := range sal.Items {
+		sa := sal.Items[i]
+		persist := false
+		for j := range sl.Items {
+			s := sl.Items[j]
+			persist = persist || unlinkSecretFromServiceAccount(&s, &sa)
+		}
+		if persist {
+			if err := cl.Update(ctx, &sa); err != nil {
+				return fmt.Errorf("failed to remove the linked secrets from the service account %+v while cleaning up dependent objects of binding %+v: %w", client.ObjectKeyFromObject(&sa), client.ObjectKeyFromObject(binding), err)
+			}
+		}
+	}
+
+	if err := cl.DeleteAllOf(ctx, &corev1.Secret{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to delete the secret(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
 	}
 
 	return nil
@@ -898,25 +948,17 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 
 	lg := log.FromContext(ctx)
 
-	if err := deleteSyncedSecret(ctx, f.client, binding.Status.SyncedObjectRef.Name, binding.Namespace); err != nil {
-		lg.Error(err, "failed to delete the synced secret in the finalizer", "secretName", binding.Status.SyncedObjectRef.Name)
-		return res, err
+	if binding.Spec.ServiceAccount.Managed {
+		if err := cleanupDependentObjectsManaged(ctx, f.client, binding); err != nil {
+			lg.Error(err, "failed to clean up managed dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(binding))
+			return res, err
+		}
 	} else {
-		lg.V(logs.DebugLevel).Info("deleted the synced secret in the finalizer", "secretName", binding.Status.SyncedObjectRef.Name)
-	}
-
-	if binding.Status.ServiceAccountName != "" {
-		saName := binding.Status.ServiceAccountName
-		if binding.Spec.ServiceAccount.Managed {
-			if err := deleteSyncedServiceAccount(ctx, f.client, saName, binding.Namespace); err != nil {
-				lg.Error(err, "failed to delete the synced service account in the finalizer", "saName", saName)
-				return res, err
-			} else {
-				lg.V(logs.DebugLevel).Info("deleted the managed service account in the finalizer", "saName", saName)
-			}
-		} else {
-			lg.V(logs.DebugLevel).Info("leaving the unmanaged service account in the cluster by the finalizer", "saName", saName)
+		if err := cleanupDependentObjectsUnmanaged(ctx, f.client, binding); err != nil {
+			lg.Error(err, "failed to clean up unmanaged dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(binding))
+			return res, err
 		}
 	}
-	return finalizer.Result{}, nil
+
+	return res, nil
 }

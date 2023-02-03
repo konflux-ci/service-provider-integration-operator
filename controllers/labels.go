@@ -16,5 +16,5 @@ package controllers
 
 const SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //#nosec G101 -- false positive, this is not a private data
 
-// SPIAccessTokenBindingLinkLabel is used to link the binding to the service account
+// SPIAccessTokenBindingLinkLabel is used to associate the binding to the service account and secret
 const SPIAccessTokenBindingLinkLabel = "spi.appstudio.redhat.com/linked-access-token-binding" //#nosec G101 -- false positive, this is just a label
