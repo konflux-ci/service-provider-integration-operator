@@ -25,7 +25,7 @@ spec:
         awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/base/kustomization.yaml
         awk  -i inplace -v n=2 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/base/kustomization.yaml
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/vault/openshift?ref=\)\(.*\)|\1{{ revision }}|' components/spi-vault/kustomization.yaml
-        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/monitoring/base?ref=\)\(.*\)|\1{{ revision }}|' components/monitoring/grafana/base/kustomization.yaml
+        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/monitoring/base?ref=\)\(.*\)|\1{{ revision }}|' components/monitoring/grafana/base/spi/kustomization.yaml
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
