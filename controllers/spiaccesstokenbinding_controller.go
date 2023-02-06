@@ -879,12 +879,49 @@ func unlinkSecretFromServiceAccount(secret *corev1.Secret, serviceAccount *corev
 	return updated
 }
 
+func deleteDependentSecrets(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
+	sl := &corev1.SecretList{}
+	if err := cl.List(ctx, sl, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to list the secrets(s) associated with the binding %+v while trying to delete them: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	for i := range sl.Items {
+		s := sl.Items[i]
+		if err := cl.Delete(ctx, &s); err != nil {
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete the secret %+v while trying to clean up dependent object of binding %+v: %w", client.ObjectKeyFromObject(&s), client.ObjectKeyFromObject(binding), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func deleteDependentServiceAccounts(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
+	sal := &corev1.ServiceAccountList{}
+	if err := cl.List(ctx, sal, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+		return fmt.Errorf("failed to list the service account(s) associated with the binding %+v while trying to delete them: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	for i := range sal.Items {
+		sa := sal.Items[i]
+		if err := cl.Delete(ctx, &sa); err != nil {
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete the service account %+v while trying to clean up dependent object of binding %+v: %w", client.ObjectKeyFromObject(&sa), client.ObjectKeyFromObject(binding), err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func cleanupDependentObjectsManaged(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
-	if err := cl.DeleteAllOf(ctx, &corev1.Secret{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+
+	if err := deleteDependentSecrets(ctx, cl, binding); err != nil {
 		return fmt.Errorf("failed to delete the secret(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
 	}
 
-	if err := cl.DeleteAllOf(ctx, &corev1.ServiceAccount{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+	if err := deleteDependentServiceAccounts(ctx, cl, binding); err != nil {
 		return fmt.Errorf("failed to delete the service account(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
 	}
 
@@ -918,7 +955,7 @@ func cleanupDependentObjectsUnmanaged(ctx context.Context, cl client.Client, bin
 		}
 	}
 
-	if err := cl.DeleteAllOf(ctx, &corev1.Secret{}, client.MatchingLabels{SPIAccessTokenBindingLinkLabel: binding.Name}, client.InNamespace(binding.Namespace)); err != nil {
+	if err := deleteDependentSecrets(ctx, cl, binding); err != nil {
 		return fmt.Errorf("failed to delete the secret(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
 	}
 
