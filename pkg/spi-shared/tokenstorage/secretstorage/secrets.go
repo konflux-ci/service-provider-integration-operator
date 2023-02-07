@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenstorage
+package secretstorage
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -33,10 +34,10 @@ type secretsTokenStorage struct {
 	syncer sync.Syncer
 }
 
-var _ TokenStorage = (*secretsTokenStorage)(nil)
+var _ tokenstorage.TokenStorage = (*secretsTokenStorage)(nil)
 
 // NewSecretsStorage creates a new `TokenStorage` instance using the provided Kubernetes client.
-func NewSecretsStorage(cl client.Client) (TokenStorage, error) {
+func NewSecretsStorage(cl client.Client) (tokenstorage.TokenStorage, error) {
 	return &secretsTokenStorage{Client: cl, syncer: sync.New(cl)}, nil
 }
 

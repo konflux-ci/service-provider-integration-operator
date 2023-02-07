@@ -19,11 +19,11 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 )
 
-var ts = tokenstorage.TestTokenStorage{
+var ts = vaultstorage.TestTokenStorage{
 	GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{
 			Username:     "test_user",
