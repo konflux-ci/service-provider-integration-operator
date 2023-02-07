@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +52,7 @@ func TestGetFileHead(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -100,7 +100,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -147,7 +147,7 @@ func TestGetFileOnBranch(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
 		}),
 	}
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -196,7 +196,7 @@ func TestGetFileOnCommitId(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -234,7 +234,7 @@ func TestGetUnexistingFile(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",

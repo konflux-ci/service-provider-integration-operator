@@ -28,6 +28,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -111,7 +112,7 @@ var _ = BeforeSuite(func() {
 	IT.Clientset, err = kubernetes.NewForConfig(IT.TestEnvironment.Config)
 	Expect(err).NotTo(HaveOccurred())
 
-	IT.VaultTestCluster, IT.TokenStorage = tokenstorage.CreateTestVaultTokenStorage(GinkgoT())
+	IT.VaultTestCluster, IT.TokenStorage = vaultstorage.CreateTestVaultTokenStorage(GinkgoT())
 
 	err = IT.TokenStorage.Initialize(ctx)
 	Expect(err).NotTo(HaveOccurred())

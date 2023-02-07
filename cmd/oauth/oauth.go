@@ -38,6 +38,7 @@ import (
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -97,9 +98,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
 	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
+	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to create token storage interface")
 		os.Exit(1)

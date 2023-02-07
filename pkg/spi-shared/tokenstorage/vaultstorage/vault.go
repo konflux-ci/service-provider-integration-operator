@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenstorage
+package vaultstorage
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -134,7 +135,7 @@ func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *VaultStorageConfig {
 }
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (TokenStorage, error) {
+func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (tokenstorage.TokenStorage, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultTokenStorageConfig.Host
 	config.Logger = hclog.Default()

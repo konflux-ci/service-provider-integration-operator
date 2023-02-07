@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +40,7 @@ import (
 func TestMetadataProvider_Fetch(t *testing.T) {
 
 	t.Run("returns nil when no token data", func(t *testing.T) {
-		ts := tokenstorage.TestTokenStorage{
+		ts := vaultstorage.TestTokenStorage{
 			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			},
@@ -94,7 +95,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 		}
 
 		t.Run("using oauth token", func(t *testing.T) {
-			ts := tokenstorage.TestTokenStorage{
+			ts := vaultstorage.TestTokenStorage{
 				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 					return &api.Token{
 						AccessToken: "token",
@@ -106,7 +107,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 		})
 
 		t.Run("using robot token", func(t *testing.T) {
-			ts := tokenstorage.TestTokenStorage{
+			ts := vaultstorage.TestTokenStorage{
 				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 					return &api.Token{
 						AccessToken: "token",
@@ -160,7 +161,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		k8sClient := fake.NewClientBuilder().Build()
 
 		mp := metadataProvider{
-			tokenStorage: tokenstorage.TestTokenStorage{
+			tokenStorage: vaultstorage.TestTokenStorage{
 				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 					return &api.Token{
 						AccessToken: "token",
@@ -187,7 +188,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		k8sClient := fake.NewClientBuilder().Build()
 
 		mp := metadataProvider{
-			tokenStorage:     tokenstorage.TestTokenStorage{},
+			tokenStorage:     vaultstorage.TestTokenStorage{},
 			httpClient:       failingHttpClient,
 			kubernetesClient: k8sClient,
 			ttl:              10 * time.Hour,
@@ -211,7 +212,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		k8sClient := fake.NewClientBuilder().Build()
 
 		mp := metadataProvider{
-			tokenStorage: tokenstorage.TestTokenStorage{
+			tokenStorage: vaultstorage.TestTokenStorage{
 				GetImpl: func(_ context.Context, _ *api.SPIAccessToken) (*api.Token, error) {
 					// this is the default case, but let's be explicit here
 					return nil, nil
@@ -287,7 +288,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
 
 			mp := metadataProvider{
-				tokenStorage: tokenstorage.TestTokenStorage{
+				tokenStorage: vaultstorage.TestTokenStorage{
 					GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 						return &api.Token{
 							AccessToken: "token",
@@ -408,7 +409,7 @@ func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T)
 			}),
 		}
 		mp := metadataProvider{
-			tokenStorage: tokenstorage.TestTokenStorage{
+			tokenStorage: vaultstorage.TestTokenStorage{
 				GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 					return &api.Token{
 						AccessToken: "token",

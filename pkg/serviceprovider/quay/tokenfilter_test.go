@@ -24,7 +24,7 @@ import (
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -113,7 +113,7 @@ func TestMatches_RobotToken(t *testing.T) {
 			metadataProvider: &metadataProvider{
 				kubernetesClient: kubernetesClient,
 				httpClient:       httpClient,
-				tokenStorage: tokenstorage.TestTokenStorage{
+				tokenStorage: vaultstorage.TestTokenStorage{
 					StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, token2 *api.Token) error {
 						return nil
 					},
