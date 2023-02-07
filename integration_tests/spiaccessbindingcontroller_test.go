@@ -30,12 +30,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func checkTokenNameInStatus(g Gomega, binding *api.SPIAccessTokenBinding, linkMatcher OmegaMatcher) {
@@ -774,18 +776,23 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			sas := &corev1.ServiceAccountList{}
 			g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
 
+			deleted := []client.ObjectKey{}
+
 			for _, sa := range sas.Items {
 				err := ITest.Client.Delete(ITest.Context, &sa)
 				if err != nil && !errors.IsNotFound(err) {
 					g.Expect(err).To(Succeed())
 				}
+				deleted = append(deleted, client.ObjectKeyFromObject(&sa))
 			}
 
 			g.Eventually(func(gg Gomega) {
 				sas := &corev1.ServiceAccountList{}
-				gg.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
+				gg.Expect(ITest.Client.List(ITest.Context, sas, client.InNamespace("default"))).To(Succeed())
 				gg.Expect(sas.Items).To(BeEmpty())
 			}).Should(Succeed())
+
+			log.Log.Info("service accounts deleted", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
 		}
 
 		Context("syncing", func() {
@@ -1181,11 +1188,10 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 
 				AfterEach(func() {
+					testSetup.AfterEach()
 					Expect(ITest.Client.Delete(ITest.Context, linkedTokenSecret)).To(Succeed())
 					Expect(ITest.Client.Delete(ITest.Context, linkedDockerConfigJsonSecret)).To(Succeed())
 					deleteSAs(Default)
-
-					testSetup.AfterEach()
 				})
 
 				It("keeps the pre-existing links in SA secrets", func() {
