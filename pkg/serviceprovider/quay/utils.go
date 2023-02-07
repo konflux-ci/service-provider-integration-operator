@@ -85,11 +85,13 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	if resp == nil {
 		return false, nil
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			lg.Error(err, "failed to close response body")
-		}
-	}()
+	if resp.Body != nil {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				lg.Error(err, "failed to close response body")
+			}
+		}()
+	}
 
 	return resp.StatusCode == 200, nil
 }
