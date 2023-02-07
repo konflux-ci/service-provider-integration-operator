@@ -218,6 +218,7 @@ func oauthRepositoryRecord(ctx context.Context, cl *http.Client, repository stri
 
 func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token string) (bool, *string, error) {
 	url := quayApiBaseUrl + "/repository/" + repository
+	lg := log.FromContext(ctx, "url", url)
 
 	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
@@ -226,13 +227,15 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 	if resp == nil {
 		return false, nil, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "failed to close response body")
+		}
+	}()
 
 	if resp.StatusCode != 200 {
 		return false, nil, nil
 	}
-
-	lg := log.FromContext(ctx, "url", url)
 
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -265,6 +268,7 @@ func hasRepoRead(ctx context.Context, cl *http.Client, repository string, token 
 
 func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token string, description *string) (bool, error) {
 	url := quayApiBaseUrl + "/repository/" + repository
+	lg := log.FromContext(ctx, "url", url)
 
 	var val string
 	if description == nil {
@@ -281,7 +285,11 @@ func hasRepoWrite(ctx context.Context, cl *http.Client, repository string, token
 	if resp == nil {
 		return false, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "failed to close response body")
+		}
+	}()
 
 	return resp.StatusCode == 200, nil
 }
@@ -314,7 +322,11 @@ func hasRepoCreate(ctx context.Context, cl *http.Client, repository string, toke
 	if resp == nil {
 		return false, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "failed to close response body")
+		}
+	}()
 
 	// here, we exploit the order of input validation in Quay. The ability to write to a certain namespace is checked
 	// before the validity of the repository name.
