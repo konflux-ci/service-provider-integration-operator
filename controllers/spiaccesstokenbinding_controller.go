@@ -785,10 +785,20 @@ func (r *SPIAccessTokenBindingReconciler) ensureServiceAccount(ctx context.Conte
 
 		for k, rv := range requestedLabels {
 			v, ok := sa.Labels[k]
-			if !ok || (ok && v != rv) {
+			if !ok || v != rv {
 				needsUpdate = true
 			}
-			sa.Labels[k] = v
+			sa.Labels[k] = rv
+		}
+
+		if len(spec.Annotations) > 0 {
+			for k, rv := range spec.Annotations {
+				v, ok := sa.Annotations[k]
+				if !ok || v != rv {
+					needsUpdate = true
+				}
+				sa.Annotations[k] = rv
+			}
 		}
 
 		if needsUpdate {
@@ -894,6 +904,8 @@ func deleteDependentSecrets(ctx context.Context, cl client.Client, binding *api.
 		}
 	}
 
+	log.FromContext(ctx).V(logs.DebugLevel).Info("dependent secret(s) deleted", "binding", client.ObjectKeyFromObject(binding))
+
 	return nil
 }
 
@@ -912,11 +924,12 @@ func deleteDependentServiceAccounts(ctx context.Context, cl client.Client, bindi
 		}
 	}
 
+	log.FromContext(ctx).V(logs.DebugLevel).Info("dependent service account(s) deleted", "binding", client.ObjectKeyFromObject(binding))
+
 	return nil
 }
 
 func cleanupDependentObjectsManaged(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) error {
-
 	if err := deleteDependentSecrets(ctx, cl, binding); err != nil {
 		return fmt.Errorf("failed to delete the secret(s) associated with the binding %+v: %w", client.ObjectKeyFromObject(binding), err)
 	}
@@ -987,19 +1000,24 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 		return res, unexpectedObjectTypeError
 	}
 
-	lg := log.FromContext(ctx)
+	lg := log.FromContext(ctx).V(logs.DebugLevel)
 
+	key := client.ObjectKeyFromObject(binding)
+
+	lg.Info("linked objects finalizer starting to clean up dependent objects", "binding", key)
 	if binding.Spec.ServiceAccount.Managed {
 		if err := cleanupDependentObjectsManaged(ctx, f.client, binding); err != nil {
-			lg.Error(err, "failed to clean up managed dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(binding))
+			lg.Error(err, "failed to clean up managed dependent objects in the finalizer", "binding", key)
 			return res, err
 		}
 	} else {
 		if err := cleanupDependentObjectsUnmanaged(ctx, f.client, binding); err != nil {
-			lg.Error(err, "failed to clean up unmanaged dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(binding))
+			lg.Error(err, "failed to clean up unmanaged dependent objects in the finalizer", "binding", key)
 			return res, err
 		}
 	}
+
+	lg.Info("linked objects finalizer completed without failure", "binding", key)
 
 	return res, nil
 }
