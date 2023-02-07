@@ -55,8 +55,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -98,8 +97,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -152,8 +150,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -213,8 +210,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -268,8 +264,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{
@@ -313,8 +308,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			}}).Build()
 
 		ctrl := commonController{
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 
@@ -351,8 +345,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			UserAuthK8sClient:   cl,
-			InClusterK8sClient:  cl,
+			K8sClient:           cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
 					ServiceProviders: []config.ServiceProviderConfiguration{},
@@ -389,8 +382,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		ctrl := commonController{
-			UserAuthK8sClient:   testC,
-			InClusterK8sClient:  cl,
+			K8sClient:           testC,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
 

@@ -43,8 +43,7 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	UserAuthK8sClient   AuthenticatingClient
-	InClusterK8sClient  client.Client
+	K8sClient           AuthenticatingClient
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
 	Authenticator       *Authenticator
@@ -197,7 +196,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
-	if err := c.UserAuthK8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
+	if err := c.K8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
 		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
 	}
 
@@ -228,7 +227,7 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 		},
 	}
 
-	if err := c.UserAuthK8sClient.Create(ctx, &review); err != nil {
+	if err := c.K8sClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
 	}
 
