@@ -297,7 +297,7 @@ func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token str
 		}
 		return code, nil, fmt.Errorf("failed to request quay on %s: %w", requestUrl, err)
 	} else if resp != nil && resp.StatusCode == http.StatusOK {
-		jsonResponse, jsonErr := readResponseBodyToJsonMap(resp)
+		jsonResponse, jsonErr := readResponseBodyToJsonMap(ctx, resp)
 		if jsonErr != nil {
 			return resp.StatusCode, nil, jsonErr
 		}
