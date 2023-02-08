@@ -49,7 +49,7 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	}
 
 	if err := tokenStorage.Initialize(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize token storage: %w", err)
 	}
 
 	return tokenStorage, nil
@@ -61,7 +61,7 @@ func createVaultStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.
 	vaultConfig.MetricsRegisterer = metrics.Registry
 	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create vault token storage: %w", err)
 	}
 	return strg, nil
 }
