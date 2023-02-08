@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/cli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -51,7 +52,7 @@ import (
 )
 
 func main() {
-	args := oauth.OAuthServiceCliArgs{}
+	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
@@ -59,7 +60,7 @@ func main() {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
-	cfg, err := oauth.LoadOAuthServiceConfiguration(args)
+	cfg, err := LoadOAuthServiceConfiguration(args)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the configuration")
 		os.Exit(1)
@@ -205,7 +206,16 @@ func main() {
 	os.Exit(0)
 }
 
-func kubernetesConfig(args *oauth.OAuthServiceCliArgs) (*rest.Config, error) {
+func LoadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthServiceConfiguration, error) {
+	baseCfg, err := config.LoadFrom(args.ConfigFile, args.BaseUrl)
+	if err != nil {
+		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
+	}
+
+	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
+}
+
+func kubernetesConfig(args *cli.OAuthServiceCliArgs) (*rest.Config, error) {
 	if args.KubeConfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
 		if err != nil {

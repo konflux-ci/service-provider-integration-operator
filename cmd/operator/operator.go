@@ -20,22 +20,22 @@ import (
 	"fmt"
 	"os"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/cli"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	sharedconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
@@ -49,8 +49,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 )
 
 var (
@@ -71,14 +69,14 @@ func init() {
 
 func initServiceProviders() {
 	initializers.
-		AddKnownInitializer(config.ServiceProviderTypeGitHub, github.Initializer).
-		AddKnownInitializer(config.ServiceProviderTypeGitLab, gitlab.Initializer).
-		AddKnownInitializer(config.ServiceProviderTypeQuay, quay.Initializer).
-		AddKnownInitializer(config.ServiceProviderTypeHostCredentials, hostcredentials.Initializer)
+		AddKnownInitializer(sharedconfig.ServiceProviderTypeGitHub, github.Initializer).
+		AddKnownInitializer(sharedconfig.ServiceProviderTypeGitLab, gitlab.Initializer).
+		AddKnownInitializer(sharedconfig.ServiceProviderTypeQuay, quay.Initializer).
+		AddKnownInitializer(sharedconfig.ServiceProviderTypeHostCredentials, hostcredentials.Initializer)
 }
 
 func main() {
-	args := opconfig.OperatorCliArgs{}
+	args := cli.OperatorCliArgs{}
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
@@ -93,23 +91,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := opconfig.LoadFrom(&args)
+	cfg, err := LoadFrom(&args)
 	if err != nil {
 		setupLog.Error(err, "Failed to load the configuration")
 		os.Exit(1)
 	}
 
-	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
-	// use the same metrics registry as the controller-runtime
-	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
+	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
-		os.Exit(1)
-	}
-
-	if err = strg.Initialize(ctx); err != nil {
-		setupLog.Error(err, "failed to log in to the token storage")
 		os.Exit(1)
 	}
 
@@ -136,7 +126,27 @@ func main() {
 	}
 }
 
-func createManager(args opconfig.OperatorCliArgs) (manager.Manager, error) {
+func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error) {
+	baseCfg, err := sharedconfig.LoadFrom(args.ConfigFile, args.BaseUrl)
+	if err != nil {
+		return opconfig.OperatorConfiguration{}, fmt.Errorf("failed to load the configuration file from %s: %w", args.ConfigFile, err)
+	}
+	ret := opconfig.OperatorConfiguration{SharedConfiguration: baseCfg}
+
+	ret.TokenLookupCacheTtl = args.TokenMetadataCacheTtl
+	ret.AccessCheckTtl = args.AccessCheckLifetimeDuration
+	ret.AccessTokenTtl = args.TokenLifetimeDuration
+	ret.AccessTokenBindingTtl = args.BindingLifetimeDuration
+	ret.FileContentRequestTtl = args.FileRequestLifetimeDuration
+	ret.TokenMatchPolicy = args.TokenMatchPolicy
+	ret.DeletionGracePeriod = args.DeletionGracePeriod
+	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
+	ret.EnableTokenUpload = args.EnableTokenUpload
+
+	return ret, nil
+}
+
+func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
