@@ -1,0 +1,17 @@
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessTokenBinding
+metadata:
+  name: binding-sa
+spec:
+  permissions:
+    required:
+      - type: r
+        area: repository
+  repoUrl: https://github.com/revapi/revapi
+  secret:
+    name: token-sa
+    type: kubernetes.io/basic-auth
+  serviceAccount:
+    managed: true
+    generateName: token-sa-
+
