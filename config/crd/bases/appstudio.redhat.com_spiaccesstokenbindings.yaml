@@ -138,7 +138,7 @@ spec:
                       linked to. Currently, only service accounts are supported.
                     items:
                       properties:
-                        serviceAccounts:
+                        serviceAccount:
                           description: ServiceAccounts lists the service accounts
                             that the secret is linked to.
                           properties:
