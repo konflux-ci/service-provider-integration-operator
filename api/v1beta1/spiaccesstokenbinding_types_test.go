@@ -25,11 +25,15 @@ func TestValidate(t *testing.T) {
 	validate := func(secretType corev1.SecretType) SPIAccessTokenBindingValidation {
 		binding := SPIAccessTokenBinding{
 			Spec: SPIAccessTokenBindingSpec{
-				ServiceAccount: ServiceAccountSpec{
-					LinkSecretAs: SecretLinkTypeImagePullSecret,
-				},
 				Secret: SecretSpec{
 					Type: secretType,
+					LinkedTo: []SecretLink{
+						{
+							ServiceAccount: ServiceAccountLink{
+								As: ServiceAccountLinkTypeImagePullSecret,
+							},
+						},
+					},
 				},
 			},
 		}

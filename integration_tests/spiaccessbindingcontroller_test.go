@@ -807,10 +807,20 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
+									// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
 									Type: corev1.SecretTypeServiceAccountToken,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									GenerateName: "sa-token-sa-",
+									Annotations: map[string]string{
+										corev1.ServiceAccountNameKey: "sa-token",
+									},
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Reference: corev1.LocalObjectReference{
+													Name: "sa-token",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -823,9 +833,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeOpaque,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									GenerateName: "sa-secret-sa-",
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-secret-sa-",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -838,10 +854,16 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									GenerateName: "sa-image-pull-secret-sa-",
-									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-image-pull-secret-sa-",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -867,6 +889,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			}
 
 			BeforeEach(func() {
+				Expect(ITest.Client.Create(ITest.Context, &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sa-token",
+						Namespace: "default",
+					},
+				})).To(Succeed())
+
 				testSetup.BeforeEach(nil)
 			})
 
@@ -877,37 +906,37 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 			It("should persist service account name in status", func() {
 				for _, binding := range testSetup.InCluster.Bindings {
-					Expect(binding.Status.ServiceAccountName).NotTo(BeEmpty())
+					Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
 
 					sa := &corev1.ServiceAccount{}
-					Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
+					Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
 				}
 			})
 
 			It("should link the service account with service-account-token secret", func() {
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
-				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
 				secret := &corev1.Secret{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 
 				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(Equal(sa.Name))
-				Expect(sa.Secrets).To(HaveLen(1))
+				Expect(sa.Secrets).NotTo(BeEmpty())
 				Expect(sa.ImagePullSecrets).To(BeEmpty())
-				Expect(sa.Secrets[0].Name).To(Equal(secret.Name))
+				Expect(sa.Secrets).To(ContainElement(corev1.ObjectReference{Name: secret.Name}))
 			})
 
 			It("should link the service account with docker-config-json secret as image pull secret", func() {
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-image-pull-secret-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
-				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
 				secret := &corev1.Secret{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 
 				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(BeEmpty())
 				Expect(sa.Secrets).To(BeEmpty())
-				Expect(sa.ImagePullSecrets).To(HaveLen(1))
-				Expect(sa.ImagePullSecrets[0].Name).To(Equal(secret.Name))
+				Expect(sa.ImagePullSecrets).NotTo(BeEmpty())
+				Expect(sa.ImagePullSecrets).To(ContainElement(corev1.LocalObjectReference{Name: secret.Name}))
 			})
 
 			It("is not deleted with the binding when unmanaged", func() {
@@ -934,7 +963,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			It("should link the service account with an opaque secret", func() {
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-secret-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
-				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountName, Namespace: binding.Namespace}, sa)).To(Succeed())
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
 				secret := &corev1.Secret{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 
@@ -953,10 +982,16 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 						RepoUrl: "test-provider:///",
 						Secret: api.SecretSpec{
 							Type: corev1.SecretTypeOpaque,
-						},
-						ServiceAccount: api.ServiceAccountSpec{
-							LinkSecretAs: api.SecretLinkTypeImagePullSecret,
-							GenerateName: "sa-secret-sa-",
+							LinkedTo: []api.SecretLink{
+								{
+									ServiceAccount: api.ServiceAccountLink{
+										As: api.ServiceAccountLinkTypeImagePullSecret,
+										Managed: api.ManagedServiceAccountSpec{
+											GenerateName: "sa-secret-sa-",
+										},
+									},
+								},
+							},
 						},
 					},
 				}
@@ -967,7 +1002,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					b := &api.SPIAccessTokenBinding{}
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), b)).To(Succeed())
 
-					g.Expect(b.Status.ServiceAccountName).To(BeEmpty())
+					g.Expect(b.Status.ServiceAccountNames).To(BeEmpty())
 					g.Expect(b.Status.SyncedObjectRef.Name).To(BeEmpty())
 					g.Expect(b.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
 					g.Expect(b.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInconsistentSpec))
@@ -1015,10 +1050,16 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeServiceAccountToken,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									Name: "test-service-account",
+									Type: corev1.SecretTypeBasicAuth,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Reference: corev1.LocalObjectReference{
+													Name: "test-service-account",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -1031,10 +1072,16 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
-									Name:         "test-service-account",
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Reference: corev1.LocalObjectReference{
+													Name: "test-service-account",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -1229,11 +1276,16 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								RepoUrl: "test-provider:///",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
-								},
-								ServiceAccount: api.ServiceAccountSpec{
-									LinkSecretAs: api.SecretLinkTypeImagePullSecret,
-									GenerateName: "sa-managed-sa-",
-									Managed:      true,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-managed-sa-",
+												},
+											},
+										},
+									},
 								},
 							},
 						},

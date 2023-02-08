@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package bindings
 
-const SPIAccessTokenLinkLabel = "spi.appstudio.redhat.com/linked-access-token" //#nosec G101 -- false positive, this is not a private data
+import "errors"
+
+var (
+	AccessTokenDataNotFoundError = errors.New("access token data not found")
+)
