@@ -352,7 +352,15 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			return ctrl.Result{}, fmt.Errorf("failed to sync the dependent objects: %w", err)
 		}
 
-		lg.Info("linked dependent objects", "objects", deps)
+		if lg.Enabled() {
+			serviceAccounts := []client.ObjectKey{}
+
+			for i := range deps.ServiceAccounts {
+				serviceAccounts = append(serviceAccounts, client.ObjectKeyFromObject(deps.ServiceAccounts[i]))
+			}
+
+			lg.Info("linked dependent objects", "secret", client.ObjectKeyFromObject(deps.Secret), "serviceAccounts", serviceAccounts)
+		}
 
 		sas := make([]string, 0, len(deps.ServiceAccounts))
 		for _, sa := range deps.ServiceAccounts {
