@@ -163,10 +163,10 @@ In a case if something goes wrong the reason will be written to K8s Event, you c
 
 ## Providing secrets to a service account
 
-The access token binding (the SPIAccessTokenBinding) can optionally specify a service account that the secret containing 
+The access token binding (the SPIAccessTokenBinding) can optionally specify a service account(s) that the secret containing 
 the credentials obtained using the binding should be linked with. This can be used to inject additional secrets to 
-an existing service account or to create a new service account that should contain the secrets. The lifecycle of 
-the service account can both be managed by the binding (the service account is created by the operator and deleted along 
+an existing service accounts or to create a new service accounts that should contain the secrets. The lifecycle of 
+the service accounts can both be managed by the binding (the service account is created by the operator and deleted along 
 with the binding) or can predate and outlive the binding.
 
 It is possible to provide both secrets and image pull secrets to the service account.
@@ -184,13 +184,16 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-  serviceAccount:
-    name: mysa
+	linkedTo:
+	- serviceAccount:
+		reference:
+			name: mysa
   ...
 ```
 
 Note that the secret is merely added to the list of the secrets the service account is linked to, not overwriting any 
-pre-existing links.
+pre-existing links. When the binding and its secret is deleted, the secret is also removed from the list of the secrets
+in the service account.
 
 ### Linking a secret to a pre-existing service account as image pull secret
 
@@ -205,9 +208,11 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-  serviceAccount:
-    linkSecretAs: imagePullSecret
-    name: mysa
+	linkedTo:
+	- serviceAccount:
+		as: imagePullSecret
+		reference:
+			name: mysa
   ...
 ```
 
@@ -229,9 +234,10 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/basic-auth
-  serviceAccount:
-    generateName: mysa-
-    managed: true
+	linkedTo:
+	- serviceAccount:
+		managed:
+			generateName: mysa-
   ...
 ```
 ## Refreshing OAuth Access Tokens
@@ -393,34 +399,35 @@ When a 3rd party application requires access to a token, it creates an `SPIAcces
 
 ### Optional Fields
 
-| Name                                       | Type              | Description                                                                                                                                                                         | Example              | Immutable |
-|--------------------------------------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|-----------|
-| spec.lifetime                              | string            | Expected lifetime for given binging, which overrides default cluster-wide setting                                                                                                   | 5h10s,  '-1'         | false     |
-| spec.secret.name                           | string            | The name of the secret that should contain the token data once the data is available. If not specified, a random name is used.                                                      |                      | true      |
-| spec.secret.labels                         | map[string]string | The labels to be put on the created secret                                                                                                                                          | acme.com/for=app1    | false     |
-| spec.secret.annotations                    | map[string]string | The annotations to be put on the created secret                                                                                                                                     |                      | false     |
-| spec.secret.type                           | enum              | The type of the secret created as specified by Kubernetes. If type is not defined or is "Opaque" data is written to the "token" field or use Secret's FieldMapping to fill the data.|                      | false     |
-| spec.secret.fields.token                   | string            | The name of the key in the secret for the access token.                                                                                                                             | “access_token”       | false     |
-| spec.secret.fields.name                    | string            | The name of the key in the secret where the name of the token object should be stored.                                                                                              | “spiAccessTokenName” | true      |
-| spec.secret.fields.serviceProviderUrl      | string            | The key for the URL of the service provider that the token was obtained from.                                                                                                       | REPO_HOST            | false     |
-| spec.secret.fields.serviceProviderUserName | string            | The key for the user name in the service provider that the token was obtained from.                                                                                                 | GITHUB_USERNAME      | false     |
-| spec.secret.fields.serviceProviderUserId   | string            | The key for the user id of the service provider that the token was obtained from.                                                                                                   | GITHUB_USERID        | false     |
-| spec.secret.fields.userId                  | string            | The key for the userId of the App Studio user that created the token in the SPI.                                                                                                    | K8S_USER             | false     |
-| spec.secret.fields.expiredAfter            | string            | The key for the token expiry date.                                                                                                                                                  | TOKEN_VALID_UNTIL    | false     |
-| spec.secret.fields.scopes                  | string            | The key for the comma-separated list of scopes that the token is valid for in the service provider                                                                                  | GITHUB_SCOPES        | false     |
-| spec.serviceAccount.name                   | string            | the name of the service account to create/link. Either this or generateName must be specified.                                                                                      | taskSA               | false
-| spec.serviceAccount.generateName           | string            | the generate name to be used when creating the service account. It only really makes sense for the Managed service accounts that are cleaned up with the binding.                   | taskSA-              | false
-| spec.serviceAccount.managed                | string            | Managed specifies if the lifetime of the service account is bound to the lifetime of the binding or not (the default). A managed service account must not already be present in the cluster and is owned by the binding. If the service account is not managed (which is the default), it may or may not exist prior to the binding. When the binding is deleted the secret is merely unlinked from the unmanaged service account and the service account itself is left in the cluster. | true | false
-| spec.serviceAccount.linkSecretAs           | string            | Specifies how the secret generated by the binding is linked to the service account. This can be either `secret` meaning that the secret is listed as one of the mountable secrets in the `.secrets` of the service account, or `imagePullSecret` which makes the secret listed as one of the image pull secrets associated with the service account. If not specified, it defaults to `secret`. | `imagePullSecret` | false 
-| spec.serviceAccount.labels                 | map[string]string | the labels that the created service account should be labeled with | { team: vikings } | false
-| spec.serviceAccount.annotations | map[string]string | the annotations that the created service account should be annotated with. | { important: "true" } | false
-| status.phase                               | enum              | One of AwaitingTokenData, Injected, Error                                                                                                                                           |                      | false     |
-| status.errorReason                         | enum              | Detailed error reason                                                                                                                                                               |                      | false     |
-| status.errorMessage                        | string            | Error message if phase==Error                                                                                                                                                       |                      | false     |
-| status.linkedAccessTokenName               | string            | The name of the linked SPIAccessToken object                                                                                                                                        |                      | false     |
-| status.oauthUrl                            | string            | When the phase is “AwaitingTokenData” this field contains the URL for initiating the OAuth flow.                                                                                    |                      | false     |
-| status.uploadUrl                           | string            | URL for manual upload token data                                                                                                                                                    |                      | true      |
-| status.syncedObjectRef.name                | string            | The name of the secret that contains the data of the bound token. Empty if the token is not bound (the phase is AwaitingTokenData). If not empty, this should be identical to spec. |                      | false     |
+| Name                                                       | Type              | Description                                                                                                                                                                         | Example              | Immutable |
+|------------------------------------------------------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|-----------|
+| spec.lifetime                                              | string            | Expected lifetime for given binging, which overrides default cluster-wide setting                                                                                                   | 5h10s,  '-1'         | false     |
+| spec.secret.name                                           | string            | The name of the secret that should contain the token data once the data is available. If not specified, a random name is used.                                                      |                      | true      |
+| spec.secret.labels                                         | map[string]string | The labels to be put on the created secret                                                                                                                                          | acme.com/for=app1    | false     |
+| spec.secret.annotations                                    | map[string]string | The annotations to be put on the created secret                                                                                                                                     |                      | false     |
+| spec.secret.type                                           | enum              | The type of the secret created as specified by Kubernetes. If type is not defined or is "Opaque" data is written to the "token" field or use Secret's FieldMapping to fill the data.|                      | false     |
+| spec.secret.fields.token                                   | string            | The name of the key in the secret for the access token.                                                                                                                             | “access_token”       | false     |
+| spec.secret.fields.name                                    | string            | The name of the key in the secret where the name of the token object should be stored.                                                                                              | “spiAccessTokenName” | true      |
+| spec.secret.fields.serviceProviderUrl                      | string            | The key for the URL of the service provider that the token was obtained from.                                                                                                       | REPO_HOST            | false     |
+| spec.secret.fields.serviceProviderUserName                 | string            | The key for the user name in the service provider that the token was obtained from.                                                                                                 | GITHUB_USERNAME      | false     |
+| spec.secret.fields.serviceProviderUserId                   | string            | The key for the user id of the service provider that the token was obtained from.                                                                                                   | GITHUB_USERID        | false     |
+| spec.secret.fields.userId                                  | string            | The key for the userId of the App Studio user that created the token in the SPI.                                                                                                    | K8S_USER             | false     |
+| spec.secret.fields.expiredAfter                            | string            | The key for the token expiry date.                                                                                                                                                  | TOKEN_VALID_UNTIL    | false     |
+| spec.secret.fields.scopes                                  | string            | The key for the comma-separated list of scopes that the token is valid for in the service provider                                                                                  | GITHUB_SCOPES        | false     |
+| spec.secret.linkedTo                                       | array             | the list of objects the secret should be linked to. Currently only service accounts are supported.
+| spec.secret.linkedTo[].serviceAccount.as                   | string            | specifies how the secret generated by the binding is linked to the service account. This can be either `secret` meaning that the secret is listed as one of the mountable secrets in the `secrets` of the service account, or `imagePullSecret` which makes the secret listed as one of the image pull secrets associated with the service account. Defaults to `secret`.
+| spec.secret.linkedTo[].serviceAccount.reference.name       | string            | the name of the pre-existing service account to link with the secret.
+| spec secret.linkedTo[].serviceAccount.managed.name         | string            | the name of the managed service account to link with the secret.
+| spec.secret.linkedTo[].serviceAccount.managed.generateName | string            | the generate name of the service account to link with the secret. This is preferable to using `name` because it ensures that no naming conflicts will arise.
+| spec.secret.linkedTo[].serviceAccount.managed.labels       | map[string]string | the additional labels to put on the service account.
+| spec.secret.linkedTo[].serviceAccount.managed.annotations  | map[string]string | the additional annotations to put on the service account.
+| status.phase                                               | enum              | One of AwaitingTokenData, Injected, Error                                                                                                                                           |                      | false     |
+| status.errorReason                                         | enum              | Detailed error reason                                                                                                                                                               |                      | false     |
+| status.errorMessage                                        | string            | Error message if phase==Error                                                                                                                                                       |                      | false     |
+| status.linkedAccessTokenName                               | string            | The name of the linked SPIAccessToken object                                                                                                                                        |                      | false     |
+| status.oauthUrl                                            | string            | When the phase is “AwaitingTokenData” this field contains the URL for initiating the OAuth flow.                                                                                    |                      | false     |
+| status.uploadUrl                                           | string            | URL for manual upload token data                                                                                                                                                    |                      | true      |
+| status.syncedObjectRef.name                                | string            | The name of the secret that contains the data of the bound token. Empty if the token is not bound (the phase is AwaitingTokenData). If not empty, this should be identical to spec. |                      | false     |
 
 
 ## SPIAccessTokenDataUpdate
