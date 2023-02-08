@@ -69,6 +69,7 @@ var (
 	accessTokenDataNotFoundError    = stderrors.New("access token data not found")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
+	emptyUrlHostError               = stderrors.New("parsed host out of url is empty")
 )
 
 // SPIAccessTokenBindingReconciler reconciles a SPIAccessTokenBinding object
@@ -162,6 +163,10 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
+	}
+
+	if r.assureDefaultsInBinding(ctx, &binding) {
+		return ctrl.Result{}, nil
 	}
 
 	sp, rerr := r.getServiceProvider(ctx, &binding)
@@ -571,6 +576,45 @@ func (r *SPIAccessTokenBindingReconciler) syncSecret(ctx context.Context, sp ser
 		return api.TargetObjectRef{}, fmt.Errorf("failed to sync the secret with the token data: %w", err)
 	}
 	return toObjectRef(obj), nil
+}
+
+// assureDefaultsInBinding updates the binding, replacing values which we are valid in multiple formats, but we would
+// like to work with some specific format in the rest of the codebase.
+// For example, we allow the repoUrl to with or without scheme but we want to parse out the host and for that we need the scheme.
+func (r *SPIAccessTokenBindingReconciler) assureDefaultsInBinding(ctx context.Context, binding *api.SPIAccessTokenBinding) bool {
+	updateBinding := func(err error) bool {
+		if err != nil {
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType,
+				fmt.Errorf("failed to parse host out of repoUrl: %w", err))
+		} else {
+			if err := r.Update(ctx, binding); err != nil {
+				log.FromContext(ctx).Error(err, "failed to update the binding's spec with new repoUrl")
+			}
+		}
+		return true // we want to reconcile everytime we update binding
+	}
+
+	parsedUrl, err := url.Parse(binding.Spec.RepoUrl)
+	if err != nil {
+		return updateBinding(err) // we cannot parse repoUrl at all, so update binding with error
+	}
+	if parsedUrl.Host != "" {
+		return false // no change to repoUrl, no need to reconcile
+	}
+
+	// The url most likely does not have a scheme, so we assume that it's `https` and add it.
+	// Note that there might be different reasons for which we can't parse the host properly, but we try
+	// to fix just the one where user omitted the scheme.
+	parsedUrl, err = url.Parse("https://" + binding.Spec.RepoUrl)
+	if err != nil {
+		return updateBinding(err)
+	}
+	if parsedUrl.Host != "" {
+		binding.Spec.RepoUrl = "https://" + binding.Spec.RepoUrl
+		return updateBinding(nil) // by adding the scheme we can parse the host so let's update the spec
+	}
+
+	return updateBinding(emptyUrlHostError) // even after adding the scheme we cannot parse host
 }
 
 func deleteSyncedSecret(ctx context.Context, cl client.Client, secretName string, secretNamespace string) error {

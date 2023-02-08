@@ -32,3 +32,7 @@ func TestValidateServiceProviderUrl(t *testing.T) {
 	assert.NoError(t, validateServiceProviderUrl(config.ServiceProviderTypeQuay.DefaultBaseUrl))
 	assert.NoError(t, validateServiceProviderUrl("http://random.ogre"))
 }
+
+func TestAssureDefaultsInBinding(t *testing.T) {
+	
+}
