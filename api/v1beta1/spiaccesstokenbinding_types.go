@@ -150,7 +150,7 @@ type TokenFieldMapping struct {
 
 type SecretLink struct {
 	// ServiceAccounts lists the service accounts that the secret is linked to.
-	ServiceAccount ServiceAccountLink `json:"serviceAccounts,omitempty"`
+	ServiceAccount ServiceAccountLink `json:"serviceAccount,omitempty"`
 }
 
 type ServiceAccountLink struct {
