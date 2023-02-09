@@ -15,7 +15,16 @@
 package controllers
 
 import (
+	"context"
 	"testing"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/stretchr/testify/assert"
@@ -33,6 +42,66 @@ func TestValidateServiceProviderUrl(t *testing.T) {
 	assert.NoError(t, validateServiceProviderUrl("http://random.ogre"))
 }
 
-func TestAssureDefaultsInBinding(t *testing.T) {
-	
+func TestAssureProperRepoUrl(t *testing.T) {
+	t.Run("keeps scheme", func(t *testing.T) {
+		oldUrl := "scheme://url"
+		newUrl, err := assureProperRepoUrl(oldUrl)
+		assert.NoError(t, err)
+		assert.Equal(t, oldUrl, newUrl)
+	})
+
+	t.Run("adds https", func(t *testing.T) {
+		oldUrl := "url.without.scheme"
+		newUrl, err := assureProperRepoUrl(oldUrl)
+		assert.NoError(t, err)
+		assert.Equal(t, "https://"+oldUrl, newUrl)
+	})
+
+	t.Run("bad url", func(t *testing.T) {
+		oldUrl := "::/bad.url"
+		_, err := assureProperRepoUrl(oldUrl)
+		assert.Error(t, err)
+	})
+}
+
+func TestAssureProperValuesInBinding(t *testing.T) {
+	binding := api.SPIAccessTokenBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "binding",
+			Namespace: "default",
+		},
+	}
+	r := SPIAccessTokenBindingReconciler{
+		Client: mockK8sClient(&binding),
+	}
+
+	t.Run("url changed", func(t *testing.T) {
+		binding.Spec.RepoUrl = "url.without.scheme"
+		r.assureProperValuesInBinding(context.TODO(), &binding)
+		assert.Equal(t, "https://url.without.scheme", binding.Spec.RepoUrl)
+		assert.Empty(t, binding.Status.ErrorReason)
+		assert.Empty(t, binding.Status.ErrorMessage)
+	})
+
+	t.Run("no change", func(t *testing.T) {
+		binding.Spec.RepoUrl = "http://url.with.scheme"
+		r.assureProperValuesInBinding(context.TODO(), &binding)
+		assert.Equal(t, "http://url.with.scheme", binding.Spec.RepoUrl)
+		assert.Empty(t, binding.Status.ErrorReason)
+		assert.Empty(t, binding.Status.ErrorMessage)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		binding.Spec.RepoUrl = ":://bad.url"
+		r.assureProperValuesInBinding(context.TODO(), &binding)
+		assert.NotEmpty(t, binding.Status.ErrorReason)
+		assert.NotEmpty(t, binding.Status.ErrorMessage)
+	})
+}
+
+func mockK8sClient(objects ...client.Object) client.WithWatch {
+	sch := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(sch))
+	utilruntime.Must(api.AddToScheme(sch))
+	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }
