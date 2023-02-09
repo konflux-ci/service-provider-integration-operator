@@ -116,10 +116,11 @@ To create OAuth application follow [GitHub - Creating an OAuth App](https://docs
 ### GitLab
 To create OAuth application follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html).
 
-When creating the OAuth application on GitLab, it is required to choose scopes that the application __can ask for__. SPIAccessTokenBindings ask for different
+When creating the OAuth application on GitLab, it is required to choose a set of scopes that the application __can ask for__. SPIAccessTokenBindings ask for different
 scopes depending on the `spec.permissions.required` and `spec.permissions.additionalScopes`. For additional information about permissions format, see [SPIAccessTokenBinding](docs/USER.md).
 
-All scopes in the table below should be permitted to avoid integration issues with SPI.
+The table below defines what GitLab scopes are required based on permissions of an SPIAccessTokenBinding.
+All described scopes should be permitted to avoid integration issues with SPI.
 
 | Scope            | Permissions Area | Permission Types | Description                                                         |
 |------------------|------------------|------------------|---------------------------------------------------------------------|
