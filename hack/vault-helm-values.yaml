@@ -17,6 +17,11 @@ server:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+              drop:
+                - ALL
   resources:
     requests:
       memory: 100Mi

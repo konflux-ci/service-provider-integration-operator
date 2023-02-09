@@ -176,7 +176,7 @@ itest: manifests generate envtest ## Run only integration tests. Use make itest 
 itest_debug: manifests generate envtest ## Start the integration tests in the debugger (suited for "remote debugging")
 	$(shell rm ./debug.out)
 	$(shell touch ./debug.out)
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests -- -test.v -test.run=TestSuite
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests/... -- -test.v -test.run=TestSuite -ginkgo.focus="${focus}" -ginkgo.progress
 
 ##@ Build
 
