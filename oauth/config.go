@@ -33,7 +33,7 @@ type OAuthServiceCliArgs struct {
 }
 
 type OAuthServiceConfiguration struct {
-	config.SharedConfiguration
+	config.SharedConfiguration `validate:"required"`
 }
 
 func LoadOAuthServiceConfiguration(args OAuthServiceCliArgs) (OAuthServiceConfiguration, error) {

@@ -48,7 +48,7 @@ type OperatorCliArgs struct {
 }
 
 type OperatorConfiguration struct {
-	config.SharedConfiguration
+	config.SharedConfiguration `validate:"required"`
 
 	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
 	TokenLookupCacheTtl time.Duration

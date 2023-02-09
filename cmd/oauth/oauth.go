@@ -16,6 +16,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-playground/validator/v10"
 	"html/template"
 	"net"
 	"net/http"
@@ -29,7 +31,6 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
@@ -49,6 +50,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var validate *validator.Validate
+
 func main() {
 	args := oauth.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
@@ -58,9 +61,22 @@ func main() {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
+	validate = validator.New()
+	err := validate.RegisterValidation("https_only", config.IsHttpsUrl)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the validators")
+		os.Exit(1)
+	}
+
 	cfg, err := oauth.LoadOAuthServiceConfiguration(args)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the configuration")
+		os.Exit(1)
+	}
+
+	err = validate.Struct(cfg)
+	if err != nil {
+		setupLog.Error(err, "failed to validate the shared configuration")
 		os.Exit(1)
 	}
 
@@ -98,6 +114,11 @@ func main() {
 	}
 
 	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	err = validate.Struct(vaultConfig)
+	if err != nil {
+		setupLog.Error(err, "failed to validate the storage configuration")
+		os.Exit(1)
+	}
 	vaultConfig.MetricsRegisterer = metrics.Registry
 	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
 	if err != nil {

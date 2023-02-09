@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -58,6 +59,7 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 
 	initializers = serviceprovider.NewInitializers()
+	validate     *validator.Validate
 )
 
 func init() {
@@ -82,6 +84,13 @@ func main() {
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
+	validate = validator.New()
+	err := validate.RegisterValidation("https_only", config.IsHttpsUrl)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the validators")
+		os.Exit(1)
+	}
+
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
@@ -99,7 +108,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = validate.Struct(cfg)
+	if err != nil {
+		setupLog.Error(err, "failed to validate the shared configuration")
+		os.Exit(1)
+	}
+
 	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	err = validate.Struct(vaultConfig)
+	if err != nil {
+		setupLog.Error(err, "failed to validate the storage configuration")
+		os.Exit(1)
+	}
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
 	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
