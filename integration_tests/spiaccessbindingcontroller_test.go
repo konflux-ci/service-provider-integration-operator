@@ -805,7 +805,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "sa-token-sync-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
 									Type: corev1.SecretTypeServiceAccountToken,
@@ -830,7 +830,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "sa-secret-sync-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeOpaque,
 									LinkedTo: []api.SecretLink{
@@ -851,7 +851,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "sa-image-pull-secret-sync-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 									LinkedTo: []api.SecretLink{
@@ -979,7 +979,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 						GenerateName: "sa-invalid-sync-",
 					},
 					Spec: api.SPIAccessTokenBindingSpec{
-						RepoUrl: "test-provider:///",
+						RepoUrl: "test-provider://test/",
 						Secret: api.SecretSpec{
 							Type: corev1.SecretTypeOpaque,
 							LinkedTo: []api.SecretLink{
@@ -1048,7 +1048,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "sa-token-sync-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeBasicAuth,
 									LinkedTo: []api.SecretLink{
@@ -1069,7 +1069,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "sa-image-pull-secret-sync-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 									LinkedTo: []api.SecretLink{
@@ -1273,7 +1273,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 								GenerateName: "binding-managed-sa-",
 							},
 							Spec: api.SPIAccessTokenBindingSpec{
-								RepoUrl: "test-provider:///",
+								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
 									Type: corev1.SecretTypeDockerConfigJson,
 									LinkedTo: []api.SecretLink{
