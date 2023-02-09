@@ -21,10 +21,12 @@ import (
 	"strings"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -58,43 +60,65 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 		return specInconsistentWithStatusError
 	}
 
+	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
+
 	for i, link := range h.Binding.Spec.Secret.LinkedTo {
 		saSpec := link.ServiceAccount
 		sa := serviceAccounts[i]
-		updated := false
-		hasLink := false
 		linkType := saSpec.EffectiveSecretLinkType()
 
-		if linkType == api.ServiceAccountLinkTypeSecret {
-			for _, r := range sa.Secrets {
-				if r.Name == secret.Name {
-					hasLink = true
-					break
+		// we first try with the state of the service account as is, but because service accounts are treated somewhat specially at least in OpenShift
+		// the environment might be making updates to them under our hands. So let's have a couple of retries here so that we don't have to retry until
+		// "everything" (our updates and OpenShift udates to the SA) clicks just in the right order.
+		for i := 0; i < 10; i++ {
+
+			updated := false
+			hasLink := false
+
+			if linkType == api.ServiceAccountLinkTypeSecret {
+				for _, r := range sa.Secrets {
+					if r.Name == secret.Name {
+						hasLink = true
+						break
+					}
+				}
+
+				if !hasLink {
+					sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secret.Name})
+					updated = true
+				}
+			} else if linkType == api.ServiceAccountLinkTypeImagePullSecret {
+				for _, r := range sa.ImagePullSecrets {
+					if r.Name == secret.Name {
+						hasLink = true
+						break
+					}
+				}
+
+				if !hasLink {
+					sa.ImagePullSecrets = append(sa.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.Name})
+					updated = true
 				}
 			}
 
-			if !hasLink {
-				sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secret.Name})
-				updated = true
-			}
-		} else if linkType == api.ServiceAccountLinkTypeImagePullSecret {
-			for _, r := range sa.ImagePullSecrets {
-				if r.Name == secret.Name {
-					hasLink = true
-					break
+			if updated {
+				if err := h.Client.Update(ctx, sa); err != nil {
+					if errors.IsConflict(err) {
+						// try to reload the SA. If that fails, we have to give up...
+						if gerr := h.Client.Get(ctx, client.ObjectKeyFromObject(sa), sa); gerr == nil {
+							debugLog.Info("retrying SA secret linking update due to conflict", "sa", client.ObjectKeyFromObject(sa))
+							continue
+						} else {
+							debugLog.Error(gerr, "failed to re-get the SA during secret linking", "sa", client.ObjectKeyFromObject(sa))
+						}
+					}
+
+					return fmt.Errorf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s': %w", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding), err)
 				}
 			}
 
-			if !hasLink {
-				sa.ImagePullSecrets = append(sa.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.Name})
-				updated = true
-			}
-		}
-
-		if updated {
-			if err := h.Client.Update(ctx, sa); err != nil {
-				return fmt.Errorf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s': %w", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding), err)
-			}
+			// yay, everything worked...
+			break
 		}
 	}
 

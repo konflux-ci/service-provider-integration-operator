@@ -37,6 +37,21 @@ type Dependents struct {
 	ServiceAccounts []*corev1.ServiceAccount
 }
 
+type CheckPoint struct {
+	secretName          string
+	serviceAccountNames []string
+}
+
+func (d *DependentsHandler) CheckPoint() CheckPoint {
+	names := make([]string, 0, len(d.Binding.Status.ServiceAccountNames))
+	copy(names, d.Binding.Status.ServiceAccountNames)
+
+	return CheckPoint{
+		secretName:          d.Binding.Status.SyncedObjectRef.Name,
+		serviceAccountNames: names,
+	}
+}
+
 func (d *DependentsHandler) Sync(ctx context.Context, token *api.SPIAccessToken, sp serviceprovider.ServiceProvider) (*Dependents, api.SPIAccessTokenBindingErrorReason, error) {
 
 	// syncing the service accounts and secrets is a 3 step process.
@@ -111,6 +126,39 @@ func (d *DependentsHandler) Cleanup(ctx context.Context) error {
 	return nil
 }
 
+// RevertTo reverts the reconciliation "transaction". I.e. this should be called after Sync in case the subsequent steps in the reconciliation
+// fail and the operator needs to revert the changes made in sync so that the changes remain idempontent. The provided checkpoint represents
+// the state obtained from the DependentsHandler.Binding prior to making any changes by Sync().
+func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint) error {
+	secretHandler, serviceAccountHandler := d.childHandlers()
+
+	sl, err := secretHandler.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, s := range sl {
+		if s.Name != checkPoint.secretName {
+			if err := d.Client.Delete(ctx, s); err != nil {
+				return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
+			}
+		}
+	}
+
+	sal, err := serviceAccountHandler.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, sa := range sal {
+		if !containsName(checkPoint.serviceAccountNames, sa.Name) {
+			if err := d.Client.Delete(ctx, sa); err != nil {
+				return fmt.Errorf("failed to delete obsolete service account %s: %w", sa.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (d *DependentsHandler) childHandlers() (*secretHandler, *serviceAccountHandler) {
 	secretsHandler := &secretHandler{
 		Binding:      d.Binding,
@@ -124,4 +172,14 @@ func (d *DependentsHandler) childHandlers() (*secretHandler, *serviceAccountHand
 	}
 
 	return secretsHandler, saHandler
+}
+
+func containsName(list []string, name string) bool {
+	for _, o := range list {
+		if o == name {
+			return true
+		}
+	}
+
+	return false
 }
