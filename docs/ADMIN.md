@@ -110,9 +110,22 @@ OAuth requires to create OAuth Application on Service Provider side. Service pro
  - __application homepage URL__: URL of the root of main Route/Ingress to SPI OAuth Service. For minikube: `https://spi.<minikube_ip>.nip.io`, for openshift: `https://<name>-<namespace>.<cluster_host>`. Example for minikube: `https://spi.192.168.64.166.nip.io`.
  - __application callback URL__: homepage URL + `/oauth/callback`. Example for minikube: `https://spi.192.168.64.166.nip.io/oauth/callback`.
 
-_To create OAuth application at:_
- - __GitHub__, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)
- - __GitLab__, follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
+### GitHub
+To create OAuth application follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app).
+
+### GitLab
+To create OAuth application follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html).
+
+When creating the OAuth application on GitLab, it is required to choose scopes that the application __can ask for__. SPIAccessTokenBindings ask for different
+scopes depending on the `spec.permissions.required` and `spec.permissions.additionalScopes`. For additional information about permissions format, see [SPIAccessTokenBinding](docs/USER.md).
+
+All scopes in the table below should be permitted to avoid integration issues with SPI.
+
+| Scope            | Permissions Area | Permission Types | Description                                                         |
+|------------------|------------------|------------------|---------------------------------------------------------------------|
+| read_user        | every area       | every type       | Every SPIAccessTokenBinding needs this scope to read user metadata. |
+| read_repository  | "repository"     | "r"              | Grants read-only access to repositories on private projects.        |
+| write_repository | "repository"     | "w", "rw"        | Grants read-write access to repositories on private projects        |
 
 ## Vault
 
