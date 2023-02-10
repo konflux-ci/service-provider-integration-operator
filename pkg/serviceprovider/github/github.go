@@ -272,7 +272,12 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		lg.Error(err, "failed to request the repo", "repo", accessCheck.Spec.RepoUrl)
 		return false, fmt.Errorf("error performing HTTP request for access check to %v: %w", accessCheck.Spec.RepoUrl, err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "Failed to close response body doing access check", "accessCheck", accessCheck)
+		}
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		return true, nil

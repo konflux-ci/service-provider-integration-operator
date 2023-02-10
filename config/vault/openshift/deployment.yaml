@@ -211,8 +211,13 @@ spec:
    
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: HOST_IP
               valueFrom:

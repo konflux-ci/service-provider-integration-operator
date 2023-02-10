@@ -286,18 +286,28 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 }
 
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
-	lg := log.FromContext(ctx)
-
 	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiBaseUrl, owner, repository)
-	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, ""); err != nil {
-		lg.Error(err, "failed to request quay.io api for repository info", "url", requestUrl)
+	lg := log.FromContext(ctx, "repository", repository, "url", requestUrl)
+
+	resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, "")
+	if err != nil {
+		lg.Error(err, "failed to request quay.io api for repository info")
 		code := 0
 		if resp != nil {
 			code = resp.StatusCode
 		}
 		return code, nil, fmt.Errorf("failed to request quay on %s: %w", requestUrl, err)
-	} else if resp != nil && resp.StatusCode == http.StatusOK {
-		jsonResponse, jsonErr := readResponseBodyToJsonMap(resp)
+	}
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				lg.Error(err, "failed to close response body")
+			}
+		}()
+	}
+
+	if resp != nil && resp.StatusCode == http.StatusOK {
+		jsonResponse, jsonErr := readResponseBodyToJsonMap(ctx, resp)
 		if jsonErr != nil {
 			return resp.StatusCode, nil, jsonErr
 		}
