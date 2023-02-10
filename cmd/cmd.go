@@ -21,6 +21,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 )
 
@@ -36,6 +37,8 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	switch args.TokenStorage {
 	case VaultTokenStorage:
 		tokenStorage, errTokenStorage = createVaultStorage(ctx, args)
+	case AWSTokenStorage:
+		tokenStorage, errTokenStorage = createAWSStorage(ctx, args)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedTokenStorage, args.TokenStorage)
 	}
@@ -64,4 +67,8 @@ func createVaultStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.
 		return nil, fmt.Errorf("failed to create vault token storage: %w", err)
 	}
 	return strg, nil
+}
+
+func createAWSStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.TokenStorage, error) {
+	return awsstorage.NewAwsTokenStorage(ctx, &args.AWSCliArgs)
 }
