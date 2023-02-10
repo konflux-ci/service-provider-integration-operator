@@ -35,7 +35,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -92,7 +92,7 @@ func TestMapToken(t *testing.T) {
 		KubernetesClient: k8sClient,
 		HttpClient:       httpClient,
 		Initializers:     initializers,
-		TokenStorage: tokenstorage.TestTokenStorage{
+		TokenStorage: vaultstorage.TestTokenStorage{
 			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{
 					AccessToken: "accessToken",
@@ -368,7 +368,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			},
 		},
 	}
-	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	ts := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
@@ -583,7 +583,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -606,7 +606,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -629,7 +629,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
 			}},
 		}
