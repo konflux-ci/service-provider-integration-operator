@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
 )
 
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
@@ -35,7 +35,7 @@ type CommonCliArgs struct {
 	ConfigFile   string           `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
 	BaseUrl      string           `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
 	TokenStorage TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault'"`
-	vaultstorage.VaultCliArgs
+	vaultcli.VaultCliArgs
 }
 
 type TokenStorageType string

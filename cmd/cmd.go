@@ -20,8 +20,7 @@ import (
 	"fmt"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
 )
 
 var (
@@ -35,7 +34,7 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		tokenStorage, errTokenStorage = createVaultStorage(ctx, args)
+		tokenStorage, errTokenStorage = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedTokenStorage, args.TokenStorage)
 	}
@@ -53,15 +52,4 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	}
 
 	return tokenStorage, nil
-}
-
-func createVaultStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.TokenStorage, error) {
-	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
-	// use the same metrics registry as the controller-runtime
-	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault token storage: %w", err)
-	}
-	return strg, nil
 }
