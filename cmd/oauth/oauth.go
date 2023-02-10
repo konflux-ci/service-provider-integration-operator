@@ -16,9 +16,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/alexedwards/scs/v2"
-	"github.com/go-playground/validator/v10"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/validators"
 	"html/template"
 	"net"
 	"net/http"
@@ -27,6 +24,10 @@ import (
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-playground/validator/v10"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/validators"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 

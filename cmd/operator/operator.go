@@ -18,9 +18,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/validators"
-	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
