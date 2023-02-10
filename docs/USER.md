@@ -135,7 +135,7 @@ spec:
 ```
 
 
-## Uploading Access Token to SPI using Kubernetes Secret (PR in-progress)
+## Uploading Access Token to SPI using Kubernetes Secret
 
 There is an ability to upload Personal Access Token using very short living K8s Secret.
 Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secret: token` label, gets the PAT and the Name of the SPIAccessToken associated with it, then deletes the Secret (for better security reason) and uploads the Token (which in turn updates the Status of associated SPIAccess/Token/TokenBinding).
