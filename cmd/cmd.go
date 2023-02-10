@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (
