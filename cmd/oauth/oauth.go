@@ -62,7 +62,12 @@ func main() {
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	validate = validator.New()
-	err := validate.RegisterValidation("https_only", config.IsHttpsUrl)
+	var err error
+	if args.AllowInsecureURLs {
+		err = validate.RegisterValidation("https_only", config.AlwaysTrue)
+	} else {
+		err = validate.RegisterValidation("https_only", config.IsHttpsUrl)
+	}
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)

@@ -91,7 +91,7 @@ const (
 )
 
 type VaultStorageConfig struct {
-	Host     string `validate:"required, https_only"`
+	Host     string `validate:"required,https_only"`
 	AuthType VaultAuthMethod
 	Insecure bool
 
