@@ -36,7 +36,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
@@ -119,7 +119,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vaultConfig := tokenstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
+	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
 	err = validate.Struct(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to validate the storage configuration")
@@ -127,7 +127,7 @@ func main() {
 	}
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := tokenstorage.NewVaultStorage(vaultConfig)
+	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

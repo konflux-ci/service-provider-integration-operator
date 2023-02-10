@@ -27,9 +27,9 @@ import (
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
@@ -272,7 +272,7 @@ func mockGitlab(cl client.Client, returnCode int, body string, responseError err
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
 		CacheServiceProviderState: true,
 	}
-	tokenStorageMock := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	tokenStorageMock := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "access_tolkien"}, nil
 	}}
 

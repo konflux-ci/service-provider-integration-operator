@@ -17,13 +17,13 @@ import (
 	"fmt"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 )
 
 type OAuthServiceCliArgs struct {
 	config.CommonCliArgs
 	config.LoggingCliArgs
-	tokenstorage.VaultCliArgs
+	vaultstorage.VaultCliArgs
 	ServiceAddr       string `arg:"--service-addr, env" default:"0.0.0.0:8000" help:"Service address to listen on"`
 	AllowedOrigins    string `arg:"--allowed-origins, env" default:"https://console.dev.redhat.com,https://prod.foo.redhat.com:1337" help:"Comma-separated list of domains allowed for cross-domain requests"`
 	KubeConfig        string `arg:"--kubeconfig, env" default:"" help:""`
