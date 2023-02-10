@@ -61,7 +61,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
-	emptyUrlHostError               = stderrors.New("parsed host out of url is empty")
+	emptyUrlHostError               = stderrors.New("the host part, parsed from the whole repoUrl, is empty")
 	bindingConsistencyError         = stderrors.New("binding consistency error")
 )
 
@@ -597,6 +597,7 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 // assureProperValuesInBinding updates the binding, replacing values which we are valid in multiple formats, but we would
 // like to work with some specific format in the rest of the codebase.
 // For example, we allow the repoUrl to be with or without scheme, but we need to parse out the host and for that we need the url to contain scheme.
+// Returns whether the binding was updated with any changes.
 func (r *SPIAccessTokenBindingReconciler) assureProperValuesInBinding(ctx context.Context, binding *api.SPIAccessTokenBinding) bool {
 	repoUrl, err := assureProperRepoUrl(binding.RepoUrl())
 	if err != nil {
@@ -615,7 +616,7 @@ func (r *SPIAccessTokenBindingReconciler) assureProperValuesInBinding(ctx contex
 	return true
 }
 
-// assureProperRepoUrl prepends https scheme to an url if it does not have a scheme and checks that the host part of the url can be parsed.
+// assureProperRepoUrl returns inputted url or this url prepended with https scheme if the host can be parsed from it, otherwise error.
 func assureProperRepoUrl(repoUrl string) (string, error) {
 	parsedUrl, err := url.Parse(repoUrl)
 	if err != nil {

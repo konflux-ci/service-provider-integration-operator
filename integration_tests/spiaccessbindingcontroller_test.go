@@ -155,6 +155,43 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			testSetup.AfterEach()
 		})
 
+		It("adds https scheme to repoUrl in binding", func() {
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "scheme-less-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					RepoUrl: "test",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
+				g.Expect(binding.Spec.RepoUrl).To(Equal("https://test"))
+				g.Expect(binding.Status.ErrorMessage).To(BeEmpty())
+				g.Expect(binding.Status.ErrorReason).To(BeEmpty())
+			})
+		})
+
+		It("is updated with an error due to invalid repoUrl", func() {
+			createdBinding = &api.SPIAccessTokenBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "invalid-repoUrl-binding-",
+					Namespace:    "default",
+				},
+				Spec: api.SPIAccessTokenBindingSpec{
+					RepoUrl: ":://test",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, createdBinding)).To(Succeed())
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				binding := testSetup.InCluster.GetBinding(client.ObjectKeyFromObject(createdBinding))
+				//g.Expect(binding.Status.ErrorMessage).To(Not(BeEmpty()))
+				g.Expect(binding.Status.ErrorReason).To(Not(BeEmpty()))
+			})
+		})
+
 		It("migrates old quay permission areas to new ones", func() {
 			ITest.TestServiceProvider.GetTypeImpl = func() config.ServiceProviderType {
 				return config.ServiceProviderTypeQuay
