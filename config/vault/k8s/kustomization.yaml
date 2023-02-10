@@ -10,6 +10,6 @@ resources:
   - ../base/
   - deployment.yaml
 
-patches:
+patchesStrategicMerge:
   - delete-vault-test.yaml
 
