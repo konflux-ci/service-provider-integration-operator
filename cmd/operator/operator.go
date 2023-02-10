@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/validators"
 	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -87,9 +88,9 @@ func main() {
 	validate = validator.New()
 	var err error
 	if args.AllowInsecureURLs {
-		err = validate.RegisterValidation("https_only", config.AlwaysTrue)
+		err = validate.RegisterValidation("https_only", validators.AlwaysTrue)
 	} else {
-		err = validate.RegisterValidation("https_only", config.IsHttpsUrl)
+		err = validate.RegisterValidation("https_only", validators.IsHttpsUrl)
 	}
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
