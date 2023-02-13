@@ -33,9 +33,16 @@ import (
 // WithAuthFromRequestIntoContext functions with clients having this type.
 type AuthenticatingClient client.Client
 
+type ClientFactoryConfig struct {
+	KubeInsecureTLS bool
+	KubeConfig      string
+	ApiServer       string
+	ApiServerCAPath string
+}
+
 // CreateUserAuthClient creates a new client based on the provided configuration. We use this client for k8s requests with user's token (e.g.: SelfSubjectAccessReview).
 // Note that configuration is potentially modified during the call.
-func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, error) {
+func CreateUserAuthClient(args *ClientFactoryConfig) (AuthenticatingClient, error) {
 	// we can't use the default dynamic rest mapper, because we don't have a token that would enable us to connect
 	// to the cluster just yet. Therefore, we need to list all the resources that we are ever going to query using our
 	// client here thus making the mapper not reach out to the target cluster at all.
@@ -48,14 +55,14 @@ func CreateUserAuthClient(args *OAuthServiceCliArgs) (AuthenticatingClient, erro
 }
 
 // CreateInClusterClient creates a new client based on the provided configuration. We use this client for k8s requests with ServiceAccount (e.g.: reading configuration secrets).
-func CreateInClusterClient(args *OAuthServiceCliArgs) (client.Client, error) {
+func CreateInClusterClient(args *ClientFactoryConfig) (client.Client, error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 
 	return createClient(args, mapper, false)
 }
 
-func createClient(args *OAuthServiceCliArgs, mapper meta.RESTMapper, userAuthentication bool) (client.Client, error) {
+func createClient(args *ClientFactoryConfig, mapper meta.RESTMapper, userAuthentication bool) (client.Client, error) {
 	kubeconfig, err := baseKubernetesConfig(args, userAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes incluster config: %w", err)
@@ -79,7 +86,7 @@ func createClient(args *OAuthServiceCliArgs, mapper meta.RESTMapper, userAuthent
 	return cl, nil
 }
 
-func customizeKubeconfig(kubeconfig *rest.Config, args *OAuthServiceCliArgs, userAuthentication bool) (*rest.Config, error) {
+func customizeKubeconfig(kubeconfig *rest.Config, args *ClientFactoryConfig, userAuthentication bool) (*rest.Config, error) {
 	// insecure mode only allowed when the trusted root certificate is not specified...
 	if args.KubeInsecureTLS && kubeconfig.TLSClientConfig.CAFile == "" {
 		kubeconfig.Insecure = true
@@ -116,7 +123,7 @@ func clientOptions(mapper meta.RESTMapper) (*client.Options, error) {
 // baseKubernetesConfig returns proper configuration based on given cli args. `userAuthentication=true` allows setting apiserver url in cli args
 // and enables using bearer token in authorization header to authenticate kubernetes requests. This is used for requests we're doing on behalf of end-user.
 // If `kubeconfig` is set in cli args, it is always used.
-func baseKubernetesConfig(args *OAuthServiceCliArgs, userAuthentication bool) (*rest.Config, error) {
+func baseKubernetesConfig(args *ClientFactoryConfig, userAuthentication bool) (*rest.Config, error) {
 	if args.KubeConfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
 		if err != nil {

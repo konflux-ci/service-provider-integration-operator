@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -22,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/cli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -34,12 +37,11 @@ import (
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
-	args := oauth.OAuthServiceCliArgs{}
+	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
@@ -47,7 +49,7 @@ func main() {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
-	cfg, err := oauth.LoadOAuthServiceConfiguration(args)
+	cfg, err := loadOAuthServiceConfiguration(args)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the configuration")
 		os.Exit(1)
@@ -56,28 +58,23 @@ func main() {
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := mux.NewRouter()
 
-	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&args)
+	clientFactoryConfig := createClientFactoryConfig(args)
+
+	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
 	if errUserAuthClient != nil {
 		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
 		os.Exit(1)
 	}
 
-	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&args)
+	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&clientFactoryConfig)
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
 	}
 
-	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
-	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
+	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
 	if err != nil {
-		setupLog.Error(err, "failed to create token storage interface")
-		os.Exit(1)
-	}
-
-	if err := strg.Initialize(context.Background()); err != nil {
-		setupLog.Error(err, "failed to login to token storage")
+		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
 
@@ -174,4 +171,22 @@ func main() {
 	// to finalize based on context cancellation.
 	setupLog.Info("OAuth server exited properly")
 	os.Exit(0)
+}
+
+func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthServiceConfiguration, error) {
+	baseCfg, err := config.LoadFrom(args.ConfigFile, args.BaseUrl)
+	if err != nil {
+		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
+	}
+
+	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
+}
+
+func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
+	return oauth.ClientFactoryConfig{
+		KubeConfig:      args.KubeConfig,
+		KubeInsecureTLS: args.KubeInsecureTLS,
+		ApiServer:       args.ApiServer,
+		ApiServerCAPath: args.ApiServerCAPath,
+	}
 }

@@ -27,14 +27,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// func TestCreateClient(t *testing.T) {
-// 	// the custom mapper is there to avoid the dynamic mapper used by the client by default. This is so that the
-// 	// dynamic mapper doesn't try to discover the API that is just not there...
-// 	cl, err := CreateUserAuthClient(&OAuthServiceCliArgs{})
-// 	assert.NoError(t, err)
-// 	assert.NotEmpty(t, cl.Scheme().AllKnownTypes())
-// }
-
 // minimal kubeconfig for testing
 const kubeconfigContent = `
 apiVersion: v1
@@ -54,9 +46,9 @@ current-context: testkube
 func TestCustomizeKubeconfig(t *testing.T) {
 	t.Run("auth provider is set", func(t *testing.T) {
 		inKubeconfig := &rest.Config{}
-		cliArgs := &OAuthServiceCliArgs{}
+		factoryConfig := &ClientFactoryConfig{}
 
-		outKubeconfig, err := customizeKubeconfig(inKubeconfig, cliArgs, true)
+		outKubeconfig, err := customizeKubeconfig(inKubeconfig, factoryConfig, true)
 
 		assert.NotNil(t, outKubeconfig)
 		assert.NotNil(t, outKubeconfig.AuthProvider)
@@ -65,9 +57,9 @@ func TestCustomizeKubeconfig(t *testing.T) {
 
 	t.Run("auth provider is not set", func(t *testing.T) {
 		inKubeconfig := &rest.Config{}
-		cliArgs := &OAuthServiceCliArgs{}
+		factoryConfig := &ClientFactoryConfig{}
 
-		outKubeconfig, err := customizeKubeconfig(inKubeconfig, cliArgs, false)
+		outKubeconfig, err := customizeKubeconfig(inKubeconfig, factoryConfig, false)
 
 		assert.NotNil(t, outKubeconfig)
 		assert.Nil(t, outKubeconfig.AuthProvider)
@@ -76,9 +68,9 @@ func TestCustomizeKubeconfig(t *testing.T) {
 
 	t.Run("insecure tls", func(t *testing.T) {
 		inKubeconfig := &rest.Config{}
-		cliArgs := &OAuthServiceCliArgs{KubeInsecureTLS: true}
+		factoryConfig := &ClientFactoryConfig{KubeInsecureTLS: true}
 
-		outKubeconfig, err := customizeKubeconfig(inKubeconfig, cliArgs, false)
+		outKubeconfig, err := customizeKubeconfig(inKubeconfig, factoryConfig, false)
 
 		assert.NotNil(t, outKubeconfig)
 		assert.True(t, outKubeconfig.Insecure)
@@ -100,7 +92,7 @@ func TestClientOptions(t *testing.T) {
 
 func TestBaseKubernetesConfig(t *testing.T) {
 	t.Run("set apiserver", func(t *testing.T) {
-		config, err := baseKubernetesConfig(&OAuthServiceCliArgs{
+		config, err := baseKubernetesConfig(&ClientFactoryConfig{
 			ApiServer: "https://testapiserver:1234",
 		}, true)
 
@@ -117,7 +109,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 		os.Unsetenv("KUBERNETES_SERVICE_HOST")
 		defer os.Setenv("KUBERNETES_SERVICE_HOST", kubeHostBackup)
 
-		config, err := baseKubernetesConfig(&OAuthServiceCliArgs{
+		config, err := baseKubernetesConfig(&ClientFactoryConfig{
 			ApiServer: "https://testapiserver:1234",
 		}, false)
 
@@ -130,7 +122,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 		caFile := createFile(t, "cafile", "brokencert")
 		defer os.Remove(caFile)
 
-		config, err := baseKubernetesConfig(&OAuthServiceCliArgs{
+		config, err := baseKubernetesConfig(&ClientFactoryConfig{
 			ApiServer:       "https://testapiserver:1234",
 			ApiServerCAPath: caFile,
 		}, true)
@@ -142,7 +134,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 	})
 
 	t.Run("set apiserver without port", func(t *testing.T) {
-		config, err := baseKubernetesConfig(&OAuthServiceCliArgs{
+		config, err := baseKubernetesConfig(&ClientFactoryConfig{
 			ApiServer: "https://testapiserver",
 		}, true)
 
@@ -155,7 +147,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 		kubeconfigPath := createFile(t, "kubeconfig", kubeconfigContent)
 		defer os.Remove(kubeconfigPath)
 
-		args := &OAuthServiceCliArgs{
+		args := &ClientFactoryConfig{
 			KubeConfig: kubeconfigPath,
 			ApiServer:  "https://testapiserver",
 		}
@@ -170,7 +162,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 		kubeconfigPath := createFile(t, "kubeconfig", kubeconfigContent)
 		defer os.Remove(kubeconfigPath)
 
-		args := &OAuthServiceCliArgs{
+		args := &ClientFactoryConfig{
 			KubeConfig: kubeconfigPath,
 		}
 		config, err := baseKubernetesConfig(args, true)
@@ -184,7 +176,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 		kubeconfigPath := createFile(t, "kubeconfig", "eh")
 		defer os.Remove(kubeconfigPath)
 
-		args := &OAuthServiceCliArgs{
+		args := &ClientFactoryConfig{
 			KubeConfig: kubeconfigPath,
 		}
 		config, err := baseKubernetesConfig(args, true)
@@ -194,7 +186,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 	})
 
 	t.Run("unknown kubeconfig file", func(t *testing.T) {
-		args := &OAuthServiceCliArgs{
+		args := &ClientFactoryConfig{
 			KubeConfig: "/blblblbl",
 		}
 		config, err := baseKubernetesConfig(args, true)
@@ -204,7 +196,7 @@ func TestBaseKubernetesConfig(t *testing.T) {
 	})
 
 	t.Run("incluster kubeconfig", func(t *testing.T) {
-		args := &OAuthServiceCliArgs{}
+		args := &ClientFactoryConfig{}
 
 		// if for some reason this is running in pod, we temporarly unset KUBERNETES_SERVICE_HOST env so in-cluster configuration can fail
 		// we want it to fail because we're testing that with some given cli args we try to create in-cluster config. not that it's actually created
