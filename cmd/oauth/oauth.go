@@ -78,11 +78,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := strg.Initialize(context.Background()); err != nil {
-		setupLog.Error(err, "failed to login to token storage")
-		os.Exit(1)
-	}
-
 	tokenUploader := oauth.SpiTokenUploader{
 		K8sClient: userAuthClient,
 		Storage: tokenstorage.NotifyingTokenStorage{
