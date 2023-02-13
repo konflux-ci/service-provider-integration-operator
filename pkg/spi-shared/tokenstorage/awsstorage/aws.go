@@ -76,7 +76,7 @@ func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.Tok
 
 func (s *secretManagerTokenStorage) Initialize(ctx context.Context) error {
 	log.FromContext(ctx).Info("AWS storage has nothing to initialize")
-	s.client.
+	// s.client.
 	return nil
 }
 
