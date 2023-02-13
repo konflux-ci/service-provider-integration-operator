@@ -48,7 +48,7 @@ func ValidateStruct(s interface{}) error {
 	return getInstance().Struct(s)
 }
 
-func SetupValidations(options ValidationOptions) error {
+func SetupCustomValidations(options ValidationOptions) error {
 	var err error
 	if options.AllowInsecureURLs {
 		err = registerValidation("https_only", alwaysTrue)

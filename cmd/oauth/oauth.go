@@ -60,7 +60,7 @@ func main() {
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	var err error
-	err = config.SetupValidations(config.ValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = config.SetupCustomValidations(config.ValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
