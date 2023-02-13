@@ -45,11 +45,10 @@ type OperatorCliArgs struct {
 	DeletionGracePeriod         time.Duration `arg:"--deletion-grace-period, env" default:"2s" help:"The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted."`
 	MaxFileDownloadSize         int           `arg:"--max-download-size-bytes, env" default:"2097152" help:"A maximum file size in bytes for file downloading from SCM capabilities supporting providers"`
 	EnableTokenUpload           bool          `arg:"--enable-token-upload, env" default:"false" help:"Experimental: Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets."`
-	AllowInsecureURLs           bool          `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 }
 
 type OperatorConfiguration struct {
-	config.SharedConfiguration `validate:"required"`
+	config.SharedConfiguration
 
 	// TokenLookupCacheTtl is the time for which the lookup cache results are considered valid
 	TokenLookupCacheTtl time.Duration
@@ -96,5 +95,8 @@ func LoadFrom(args *OperatorCliArgs) (OperatorConfiguration, error) {
 	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
 	ret.EnableTokenUpload = args.EnableTokenUpload
 
+	if err := config.ValidateStruct(ret); err != nil {
+		return OperatorConfiguration{}, fmt.Errorf("error validating operator config: %w", err)
+	}
 	return ret, nil
 }

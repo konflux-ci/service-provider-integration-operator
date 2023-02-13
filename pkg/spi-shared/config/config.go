@@ -65,10 +65,11 @@ type LoggingCliArgs struct {
 // CommonCliArgs are the command line arguments and environment variable definitions understood by the configuration
 // infrastructure shared between the operator and the oauth service.
 type CommonCliArgs struct {
-	MetricsAddr string `arg:"--metrics-bind-address, env" default:"127.0.0.1:8080" help:"The address the metric endpoint binds to."`
-	ProbeAddr   string `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
-	ConfigFile  string `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
-	BaseUrl     string `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
+	MetricsAddr       string `arg:"--metrics-bind-address, env" default:"127.0.0.1:8080" help:"The address the metric endpoint binds to."`
+	ProbeAddr         string `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
+	ConfigFile        string `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
+	BaseUrl           string `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
+	AllowInsecureURLs bool   `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 }
 
 // persistedConfiguration is the on-disk format of the configuration that references other files for shared secret
@@ -118,7 +119,7 @@ type ServiceProviderConfiguration struct {
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
 	// types, like GitHub that only can have 1 well-known base URL.
-	ServiceProviderBaseUrl string `validate:"required,https_only"`
+	ServiceProviderBaseUrl string `validate:"omitempty,https_only"`
 
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string
@@ -126,9 +127,6 @@ type ServiceProviderConfiguration struct {
 	// OAuth2Config holds oauth2 configuration of the service provider.
 	// It can be nil in case provider does not support OAuth or we don't have it configured.
 	OAuth2Config *oauth2.Config
-}
-
-func init() {
 }
 
 // convert converts persisted configuration into the SharedConfiguration instance.
@@ -197,7 +195,10 @@ func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
 		return SharedConfiguration{}, err
 	}
 	cfg.BaseUrl = strings.TrimSuffix(args.BaseUrl, "/")
-
+	err = ValidateStruct(cfg)
+	if err != nil {
+		return SharedConfiguration{}, err
+	}
 	return *cfg, nil
 }
 

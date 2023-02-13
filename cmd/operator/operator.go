@@ -20,9 +20,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/validators"
-
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -61,7 +58,6 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 
 	initializers = serviceprovider.NewInitializers()
-	validate     *validator.Validate
 )
 
 func init() {
@@ -86,13 +82,8 @@ func main() {
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	validate = validator.New()
 	var err error
-	if args.AllowInsecureURLs {
-		err = validate.RegisterValidation("https_only", validators.AlwaysTrue)
-	} else {
-		err = validate.RegisterValidation("https_only", validators.IsHttpsUrl)
-	}
+	err = config.SetupValidations(config.ValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
@@ -115,18 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = validate.Struct(cfg)
-	if err != nil {
-		setupLog.Error(err, "failed to validate the shared configuration")
-		os.Exit(1)
-	}
-
 	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
-	err = validate.Struct(vaultConfig)
-	if err != nil {
-		setupLog.Error(err, "failed to validate the storage configuration")
-		os.Exit(1)
-	}
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
 	strg, err := vaultstorage.NewVaultStorage(vaultConfig)

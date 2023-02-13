@@ -149,6 +149,7 @@ var _ = BeforeSuite(func() {
 		return "", nil
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
+	config.SetupValidations(config.ValidationOptions{AllowInsecureURLs: true}) //TODO: figure out wht true fails some tests
 
 	ITest.HostCredsServiceProvider = TestServiceProvider{}
 	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {

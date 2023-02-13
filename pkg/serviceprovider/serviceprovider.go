@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
@@ -115,6 +114,13 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 			return nil, fmt.Errorf("failed to create service provider configuration from user secret: %w", err)
 		} else if spConfig == nil { // then try to find it in global configuration
 			spConfig = config.SpConfigFromGlobalConfig(&f.Configuration.SharedConfiguration, sp, config.GetBaseUrl(parsedRepoUrl))
+		}
+
+		if spConfig != nil {
+			err = config.ValidateStruct(spConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
+			}
 		}
 
 		// we try to initialize with what we have. if spConfig is nil, this function tries probe as last chance
