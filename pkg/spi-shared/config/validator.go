@@ -15,28 +15,23 @@
 package config
 
 import (
+	"github.com/go-playground/validator/v10"
 	"strings"
 	"sync"
-
-	"github.com/go-playground/validator/v10"
 )
 
 type ValidationOptions struct {
 	AllowInsecureURLs bool
 }
 
-var lock = &sync.Mutex{}
+var once sync.Once
 
 var validatorInstance *validator.Validate
 
 func getInstance() *validator.Validate {
-	if validatorInstance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-		if validatorInstance == nil {
-			validatorInstance = validator.New()
-		}
-	}
+	once.Do(func() {
+		validatorInstance = validator.New()
+	})
 	return validatorInstance
 }
 
