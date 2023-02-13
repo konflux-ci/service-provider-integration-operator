@@ -597,23 +597,27 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 // assureProperValuesInBinding updates the binding, replacing values which we are valid in multiple formats, but we would
 // like to work with some specific format in the rest of the codebase.
 // For example, we allow the repoUrl to be with or without scheme, but we need to parse out the host and for that we need the url to contain scheme.
-// Returns whether the binding was updated with any changes.
+// Returns whether the binding was updated with any changes, which means we stop current reconciliation.
 func (r *SPIAccessTokenBindingReconciler) assureProperValuesInBinding(ctx context.Context, binding *api.SPIAccessTokenBinding) bool {
 	repoUrl, err := assureProperRepoUrl(binding.RepoUrl())
+
 	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType,
 			fmt.Errorf("failed to parse host out of repoUrl: %w", err))
 		return true
 	}
-	if repoUrl == binding.RepoUrl() {
-		return false // no change of repoUrl no need to reconcile
+
+	if repoUrl != binding.RepoUrl() {
+		binding.Spec.RepoUrl = repoUrl
+		log.FromContext(ctx).Info("updating binding's spec with sanitized repoUrl", "value", repoUrl)
+		if err := r.Update(ctx, binding); err != nil {
+			log.FromContext(ctx).Error(err, "failed to update the binding's spec with new repoUrl")
+		}
+		return true
 	}
 
-	binding.Spec.RepoUrl = repoUrl
-	if err := r.Update(ctx, binding); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the binding's spec with new repoUrl")
-	}
-	return true
+	return false
 }
 
 // assureProperRepoUrl returns inputted url or this url prepended with https scheme if the host can be parsed from it, otherwise error.
