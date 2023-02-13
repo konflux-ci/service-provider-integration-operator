@@ -87,12 +87,12 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			return requestsForTokenInObjectNamespace(object, func() string {
+			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenBinding", func() string {
 				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			return requestsForTokenInObjectNamespace(object, func() string {
+			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenDataUpdate", func() string {
 				update, ok := object.(*api.SPIAccessTokenDataUpdate)
 				if !ok {
 					return ""
@@ -110,13 +110,13 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return err
 }
 
-func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor func() string) []reconcile.Request {
+func requestsForTokenInObjectNamespace(object client.Object, objectKind string, tokenNameExtractor func() string) []reconcile.Request {
 	tokenName := tokenNameExtractor()
 	if tokenName == "" {
 		return []reconcile.Request{}
 	}
 
-	return []reconcile.Request{
+	reqs := []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
 				Namespace: object.GetNamespace(),
@@ -124,6 +124,10 @@ func requestsForTokenInObjectNamespace(object client.Object, tokenNameExtractor 
 			},
 		},
 	}
+
+	logReconciliationRequests(reqs, "SPIAccessToken", object, objectKind)
+
+	return reqs
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

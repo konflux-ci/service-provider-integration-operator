@@ -17,15 +17,14 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/cli"
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
+	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -34,7 +33,6 @@ import (
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -48,7 +46,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	certutil "k8s.io/client-go/util/cert"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func main() {
@@ -60,62 +57,39 @@ func main() {
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
-	cfg, err := LoadOAuthServiceConfiguration(args)
+	cfg, err := loadOAuthServiceConfiguration(args)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the configuration")
-		os.Exit(1)
-	}
-
-	kubeConfig, err := kubernetesConfig(&args)
-	if err != nil {
-		setupLog.Error(err, "failed to create kubernetes configuration")
 		os.Exit(1)
 	}
 
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := mux.NewRouter()
 
-	// insecure mode only allowed when the trusted root certificate is not specified...
-	if args.KubeInsecureTLS && kubeConfig.TLSClientConfig.CAFile == "" {
-		kubeConfig.Insecure = true
-	}
+	clientFactoryConfig := createClientFactoryConfig(args)
+	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
+	if errUserAuthClient != nil {
 
-	// we can't use the default dynamic rest mapper, because we don't have a token that would enable us to connect
-	// to the cluster just yet. Therefore, we need to list all the resources that we are ever going to query using our
-	// client here thus making the mapper not reach out to the target cluster at all.
-	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
-	mapper.Add(authz.SchemeGroupVersion.WithKind("SelfSubjectAccessReview"), meta.RESTScopeRoot)
-	//	mapper.Add(auth.SchemeGroupVersion.WithKind("TokenReview"), meta.RESTScopeRoot)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
-	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
-
-	cl, err := oauth.CreateClient(kubeConfig, client.Options{
-		Mapper: mapper,
-	})
-
-	if err != nil {
-		setupLog.Error(err, "failed to create kubernetes client")
+		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
 		os.Exit(1)
 	}
 
-	vaultConfig := vaultstorage.VaultStorageConfigFromCliArgs(&args.VaultCliArgs)
-	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
-	if err != nil {
-		setupLog.Error(err, "failed to create token storage interface")
+	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&clientFactoryConfig)
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
 	}
 
-	if err := strg.Initialize(context.Background()); err != nil {
-		setupLog.Error(err, "failed to login to token storage")
+	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
 
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: cl,
+		K8sClient: userAuthClient,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       cl,
+			Client:       userAuthClient,
 			TokenStorage: strg,
 		},
 	}
@@ -127,7 +101,7 @@ func main() {
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
-	authenticator := oauth.NewAuthenticator(sessionManager, cl)
+	authenticator := oauth.NewAuthenticator(sessionManager, userAuthClient)
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
@@ -150,7 +124,8 @@ func main() {
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
-		K8sClient:                 cl,
+		UserAuthK8sClient:         userAuthClient,
+		InClusterK8sClient:        inClusterK8sClient,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
@@ -206,7 +181,7 @@ func main() {
 	os.Exit(0)
 }
 
-func LoadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthServiceConfiguration, error) {
+func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthServiceConfiguration, error) {
 	baseCfg, err := config.LoadFrom(args.ConfigFile, args.BaseUrl)
 	if err != nil {
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
@@ -215,47 +190,11 @@ func LoadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
 }
 
-func kubernetesConfig(args *cli.OAuthServiceCliArgs) (*rest.Config, error) {
-	if args.KubeConfig != "" {
-		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create rest configuration: %w", err)
-		}
-
-		return cfg, nil
-	} else if args.ApiServer != "" {
-		// here we're essentially replicating what is done in rest.InClusterConfig() but we're using our own
-		// configuration - this is to support going through an alternative API server to the one we're running with...
-		// Note that we're NOT adding the Token or the TokenFile to the configuration here. This is supposed to be
-		// handled on per-request basis...
-		cfg := rest.Config{}
-
-		apiServerUrl, err := url.Parse(args.ApiServer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
-		}
-
-		cfg.Host = "https://" + net.JoinHostPort(apiServerUrl.Hostname(), apiServerUrl.Port())
-
-		tlsConfig := rest.TLSClientConfig{}
-
-		if args.ApiServerCAPath != "" {
-			// rest.InClusterConfig is doing this most possibly only for early error handling so let's do the same
-			if _, err := certutil.NewPool(args.ApiServerCAPath); err != nil {
-				return nil, fmt.Errorf("expected to load root CA config from %s, but got err: %w", args.ApiServerCAPath, err)
-			} else {
-				tlsConfig.CAFile = args.ApiServerCAPath
-			}
-		}
-
-		cfg.TLSClientConfig = tlsConfig
-
-		return &cfg, nil
-	} else {
-		cfg, err := rest.InClusterConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize in-cluster config: %w", err)
-		}
-		return cfg, nil
+func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
+	return oauth.ClientFactoryConfig{
+		KubeConfig:      args.KubeConfig,
+		KubeInsecureTLS: args.KubeInsecureTLS,
+		ApiServer:       args.ApiServer,
+		ApiServerCAPath: args.ApiServerCAPath,
 	}
 }

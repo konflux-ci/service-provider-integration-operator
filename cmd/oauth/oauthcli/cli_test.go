@@ -11,7 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<<< HEAD:cmd/oauth/cli/cli_test.go
 package cli
+========
+package oauthcli
+>>>>>>>> fixMerge:cmd/oauth/oauthcli/cli_test.go
 
 import (
 	"fmt"

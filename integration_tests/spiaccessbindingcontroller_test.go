@@ -30,12 +30,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func checkTokenNameInStatus(g Gomega, binding *api.SPIAccessTokenBinding, linkMatcher OmegaMatcher) {
@@ -76,7 +78,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 		It("registering the finalizers", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				binding := testSetup.InCluster.Bindings[0]
-				g.Expect(binding.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-secrets"))
+				g.Expect(binding.ObjectMeta.Finalizers).To(ContainElement("spi.appstudio.redhat.com/linked-objects"))
 			})
 		})
 
@@ -765,6 +767,578 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					// Let's just check here that their number is not growing too much too quickly by this crude measure.
 					g.Expect(len(tokens.Items)).To(BeNumerically("<", 5))
 				}, "3s").Should(Succeed())
+			})
+		})
+	})
+
+	Describe("service account", func() {
+		deleteSAs := func(g Gomega) {
+			sas := &corev1.ServiceAccountList{}
+			g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
+
+			deleted := []client.ObjectKey{}
+
+			for _, sa := range sas.Items {
+				err := ITest.Client.Delete(ITest.Context, &sa)
+				if err != nil && !errors.IsNotFound(err) {
+					g.Expect(err).To(Succeed())
+				}
+				deleted = append(deleted, client.ObjectKeyFromObject(&sa))
+			}
+
+			g.Eventually(func(gg Gomega) {
+				sas := &corev1.ServiceAccountList{}
+				gg.Expect(ITest.Client.List(ITest.Context, sas, client.InNamespace("default"))).To(Succeed())
+				gg.Expect(sas.Items).To(BeEmpty())
+			}).Should(Succeed())
+
+			log.Log.Info("service accounts deleted", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
+		}
+
+		Context("syncing", func() {
+			testSetup := TestSetup{
+				ToCreate: TestObjects{
+					Bindings: []*api.SPIAccessTokenBinding{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-token-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
+									Type: corev1.SecretTypeServiceAccountToken,
+									Annotations: map[string]string{
+										corev1.ServiceAccountNameKey: "sa-token",
+									},
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Reference: corev1.LocalObjectReference{
+													Name: "sa-token",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-secret-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeOpaque,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-secret-sa-",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-image-pull-secret-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeDockerConfigJson,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-image-pull-secret-sa-",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Behavior: ITestBehavior{
+					AfterObjectsCreated: func(objects TestObjects) {
+						err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
+							AccessToken:  "access",
+							RefreshToken: "refresh",
+							TokenType:    "awesome",
+						})
+						Expect(err).NotTo(HaveOccurred())
+						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+							Username:             "alois",
+							UserId:               "42",
+							Scopes:               []string{},
+							ServiceProviderState: []byte("state"),
+						})
+						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				Expect(ITest.Client.Create(ITest.Context, &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sa-token",
+						Namespace: "default",
+					},
+				})).To(Succeed())
+
+				testSetup.BeforeEach(nil)
+			})
+
+			AfterEach(func() {
+				testSetup.AfterEach()
+				deleteSAs(Default)
+			})
+
+			It("should persist service account name in status", func() {
+				for _, binding := range testSetup.InCluster.Bindings {
+					Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+
+					sa := &corev1.ServiceAccount{}
+					Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+				}
+			})
+
+			It("should link the service account with service-account-token secret", func() {
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+				sa := &corev1.ServiceAccount{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(Equal(sa.Name))
+				Expect(sa.Secrets).NotTo(BeEmpty())
+				Expect(sa.ImagePullSecrets).To(BeEmpty())
+				Expect(sa.Secrets).To(ContainElement(corev1.ObjectReference{Name: secret.Name}))
+			})
+
+			It("should link the service account with docker-config-json secret as image pull secret", func() {
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-image-pull-secret-sync", Namespace: "default"})[0]
+				sa := &corev1.ServiceAccount{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(BeEmpty())
+				Expect(sa.Secrets).To(BeEmpty())
+				Expect(sa.ImagePullSecrets).NotTo(BeEmpty())
+				Expect(sa.ImagePullSecrets).To(ContainElement(corev1.LocalObjectReference{Name: secret.Name}))
+			})
+
+			It("is not deleted with the binding when unmanaged", func() {
+				for _, b := range testSetup.InCluster.Bindings {
+					Expect(ITest.Client.Delete(ITest.Context, b)).Should(Succeed())
+				}
+
+				Eventually(func(g Gomega) {
+					bs := &api.SPIAccessTokenBindingList{}
+					g.Expect(ITest.Client.List(ITest.Context, bs)).To(Succeed())
+					g.Expect(bs.Items).To(BeEmpty())
+
+					// TODO these are problematic, because we can leave dangling objects behind - see https://issues.redhat.com/browse/SVPI-210
+					//secs := &corev1.SecretList{}
+					//g.Expect(ITest.Client.List(ITest.Context, secs)).To(Succeed())
+					//g.Expect(secs.Items).To(BeEmpty())
+					//
+					//sas := &corev1.ServiceAccountList{}
+					//g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
+					//g.Expect(sas.Items).NotTo(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			It("should link the service account with an opaque secret", func() {
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-secret-sync", Namespace: "default"})[0]
+				sa := &corev1.ServiceAccount{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(BeEmpty())
+				Expect(sa.Secrets).To(HaveLen(1))
+				Expect(sa.Secrets[0].Name).To(Equal(secret.Name))
+			})
+
+			It("should not link the service account with an opaque secret as image pull secret", func() {
+				binding := &api.SPIAccessTokenBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:    "default",
+						GenerateName: "sa-invalid-sync-",
+					},
+					Spec: api.SPIAccessTokenBindingSpec{
+						RepoUrl: "test-provider:///",
+						Secret: api.SecretSpec{
+							Type: corev1.SecretTypeOpaque,
+							LinkedTo: []api.SecretLink{
+								{
+									ServiceAccount: api.ServiceAccountLink{
+										As: api.ServiceAccountLinkTypeImagePullSecret,
+										Managed: api.ManagedServiceAccountSpec{
+											GenerateName: "sa-secret-sa-",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				Expect(ITest.Client.Create(ITest.Context, binding)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					b := &api.SPIAccessTokenBinding{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(binding), b)).To(Succeed())
+
+					g.Expect(b.Status.ServiceAccountNames).To(BeEmpty())
+					g.Expect(b.Status.SyncedObjectRef.Name).To(BeEmpty())
+					g.Expect(b.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+					g.Expect(b.Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonInconsistentSpec))
+				}).Should(Succeed())
+			})
+
+			It("should let k8s API autofill service account secret data", func() {
+				// pretend the Kubernetes API and fill in the data that is otherwise auto-filled by the kubernetes
+				// control plane
+				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+				secret := &corev1.Secret{}
+				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+				secret.Data["ca.crt"] = []byte("certificate")
+				secret.Data["namespace"] = []byte("namespace")
+				secret.Data["token"] = []byte("token")
+
+				Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
+
+				// from that point on, we should not see the operator remove the auto-filled data
+				Consistently(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					secret := &corev1.Secret{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+
+					g.Expect(secret.Data).To(HaveKey("ca.crt"))
+					g.Expect(secret.Data).To(HaveKey("token"))
+					g.Expect(secret.Data).To(HaveKey("namespace"))
+					g.Expect(secret.Data).To(HaveKey("extra"))
+				}, "5s").Should(Succeed())
+			})
+		})
+
+		Context("with pre-existing SAs", func() {
+			var serviceAccount *corev1.ServiceAccount
+
+			testSetup := TestSetup{
+				ToCreate: TestObjects{
+					Bindings: []*api.SPIAccessTokenBinding{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-token-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeBasicAuth,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												Reference: corev1.LocalObjectReference{
+													Name: "test-service-account",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "sa-image-pull-secret-sync-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeDockerConfigJson,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Reference: corev1.LocalObjectReference{
+													Name: "test-service-account",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Behavior: ITestBehavior{
+					AfterObjectsCreated: func(objects TestObjects) {
+						err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
+							AccessToken:  "access",
+							RefreshToken: "refresh",
+							TokenType:    "awesome",
+						})
+						Expect(err).NotTo(HaveOccurred())
+						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+							Username:             "alois",
+							UserId:               "42",
+							Scopes:               []string{},
+							ServiceProviderState: []byte("state"),
+						})
+						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				serviceAccount = &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-service-account",
+						Namespace: "default",
+					},
+				}
+			})
+
+			Context("without linked secrets", func() {
+				BeforeEach(func() {
+					Eventually(func(g Gomega) {
+						g.Expect(ITest.Client.Create(ITest.Context, serviceAccount)).To(Succeed())
+					}).Should(Succeed())
+
+					testSetup.BeforeEach(func(g Gomega) {
+						g.Expect(testSetup.InCluster.Bindings).To(HaveLen(2))
+						g.Expect(testSetup.InCluster.Bindings[0].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseInjected))
+						g.Expect(testSetup.InCluster.Bindings[1].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseInjected))
+					})
+				})
+
+				AfterEach(func() {
+					testSetup.AfterEach()
+					deleteSAs(Default)
+				})
+
+				It("keeps the pre-existing links in SA secrets", func() {
+					Eventually(func(g Gomega) {
+						sa := &corev1.ServiceAccount{}
+						Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(serviceAccount), sa)).To(Succeed())
+						// TODO this can sometimes be 2 because of SVPI-210
+						//Expect(sa.Secrets).To(HaveLen(1))
+						Expect(sa.Secrets).NotTo(BeEmpty())
+					}).Should(Succeed())
+				})
+
+				It("keeps the pre-existing links in SA image pull secrets", func() {
+					Eventually(func(g Gomega) {
+						sa := &corev1.ServiceAccount{}
+						Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(serviceAccount), sa)).To(Succeed())
+						// TODO this can sometimes be 2 because of SVPI-210
+						//Expect(sa.ImagePullSecrets).To(HaveLen(1))
+						Expect(sa.ImagePullSecrets).NotTo(BeEmpty())
+					}).Should(Succeed())
+				})
+
+				It("is not deleted with the binding when unmanaged", func() {
+					for _, b := range testSetup.InCluster.Bindings {
+						Expect(ITest.Client.Delete(ITest.Context, b)).Should(Succeed())
+					}
+
+					Eventually(func(g Gomega) {
+						bs := &api.SPIAccessTokenBindingList{}
+						g.Expect(ITest.Client.List(ITest.Context, bs)).To(Succeed())
+						g.Expect(bs.Items).To(BeEmpty())
+
+						secs := &corev1.SecretList{}
+						g.Expect(ITest.Client.List(ITest.Context, secs)).To(Succeed())
+						g.Expect(secs.Items).To(BeEmpty())
+
+						sas := &corev1.ServiceAccountList{}
+						g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
+						g.Expect(sas.Items).NotTo(BeEmpty())
+					}).Should(Succeed())
+				})
+			})
+
+			Context("with linked secrets", func() {
+				var linkedTokenSecret *corev1.Secret
+				var linkedDockerConfigJsonSecret *corev1.Secret
+
+				BeforeEach(func() {
+					linkedTokenSecret = &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "linked-token-secret",
+							Namespace: "default",
+							Annotations: map[string]string{
+								corev1.ServiceAccountNameKey: "test-service-account",
+							},
+						},
+						Type: corev1.SecretTypeServiceAccountToken,
+						Data: map[string][]byte{
+							"extra": []byte("token"),
+						},
+					}
+
+					linkedDockerConfigJsonSecret = &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "linked-docker-config-json-secret",
+							Namespace: "default",
+						},
+						Type: corev1.SecretTypeDockerConfigJson,
+						Data: map[string][]byte{
+							".dockerconfigjson": []byte("{}"),
+						},
+					}
+
+					Eventually(func(g Gomega) {
+						g.Expect(ITest.Client.Create(ITest.Context, serviceAccount)).To(Succeed())
+					}).Should(Succeed())
+
+					Eventually(func(g Gomega) {
+						g.Expect(ITest.Client.Create(ITest.Context, linkedTokenSecret)).To(Succeed())
+						g.Expect(ITest.Client.Create(ITest.Context, linkedDockerConfigJsonSecret)).To(Succeed())
+					}).Should(Succeed())
+
+					serviceAccount.Secrets = append(serviceAccount.Secrets, corev1.ObjectReference{Name: linkedTokenSecret.Name})
+					serviceAccount.ImagePullSecrets = append(serviceAccount.ImagePullSecrets, corev1.LocalObjectReference{Name: linkedDockerConfigJsonSecret.Name})
+
+					Eventually(func(g Gomega) {
+						g.Expect(ITest.Client.Update(ITest.Context, serviceAccount)).To(Succeed())
+					}).Should(Succeed())
+
+					Eventually(func(g Gomega) {
+						sa := &corev1.ServiceAccount{}
+						g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(serviceAccount), sa)).To(Succeed())
+						g.Expect(sa.Secrets).To(HaveLen(1))
+						g.Expect(sa.ImagePullSecrets).To(HaveLen(1))
+					}).Should(Succeed())
+
+					testSetup.BeforeEach(func(g Gomega) {
+						g.Expect(testSetup.InCluster.Bindings).To(HaveLen(2))
+						g.Expect(testSetup.InCluster.Bindings[0].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseInjected))
+						g.Expect(testSetup.InCluster.Bindings[1].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseInjected))
+					})
+				})
+
+				AfterEach(func() {
+					testSetup.AfterEach()
+					Expect(ITest.Client.Delete(ITest.Context, linkedTokenSecret)).To(Succeed())
+					Expect(ITest.Client.Delete(ITest.Context, linkedDockerConfigJsonSecret)).To(Succeed())
+					deleteSAs(Default)
+				})
+
+				It("keeps the pre-existing links in SA secrets", func() {
+					Eventually(func(g Gomega) {
+						sa := &corev1.ServiceAccount{}
+						Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(serviceAccount), sa)).To(Succeed())
+						// TODO we can have more than 2 due to https://issues.redhat.com/browse/SVPI-210
+						//Expect(sa.Secrets).To(HaveLen(2))
+						Expect(sa.Secrets).NotTo(BeEmpty())
+					}).Should(Succeed())
+				})
+
+				It("keeps the pre-existing links in SA image pull secrets", func() {
+					Eventually(func(g Gomega) {
+						sa := &corev1.ServiceAccount{}
+						Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(serviceAccount), sa)).To(Succeed())
+						// TODO we can have more than 2 due to https://issues.redhat.com/browse/SVPI-210
+						//Expect(sa.ImagePullSecrets).To(HaveLen(2))
+						Expect(sa.ImagePullSecrets).NotTo(BeEmpty())
+					}).Should(Succeed())
+				})
+			})
+		})
+
+		When("managed", func() {
+			testSetup := TestSetup{
+				ToCreate: TestObjects{
+					Bindings: []*api.SPIAccessTokenBinding{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:    "default",
+								GenerateName: "binding-managed-sa-",
+							},
+							Spec: api.SPIAccessTokenBindingSpec{
+								RepoUrl: "test-provider:///",
+								Secret: api.SecretSpec{
+									Type: corev1.SecretTypeDockerConfigJson,
+									LinkedTo: []api.SecretLink{
+										{
+											ServiceAccount: api.ServiceAccountLink{
+												As: api.ServiceAccountLinkTypeImagePullSecret,
+												Managed: api.ManagedServiceAccountSpec{
+													GenerateName: "sa-managed-sa-",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Behavior: ITestBehavior{
+					AfterObjectsCreated: func(objects TestObjects) {
+						err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
+							AccessToken:  "access",
+							RefreshToken: "refresh",
+							TokenType:    "awesome",
+						})
+						Expect(err).NotTo(HaveOccurred())
+						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+							Username:             "alois",
+							UserId:               "42",
+							Scopes:               []string{},
+							ServiceProviderState: []byte("state"),
+						})
+						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				testSetup.BeforeEach(nil)
+			})
+
+			AfterEach(func() {
+				testSetup.AfterEach()
+				deleteSAs(Default)
+			})
+
+			It("is deleted with the binding", func() {
+				Expect(ITest.Client.Delete(ITest.Context, testSetup.InCluster.Bindings[0])).Should(Succeed())
+
+				Eventually(func(g Gomega) {
+					bs := &api.SPIAccessTokenBindingList{}
+					g.Expect(ITest.Client.List(ITest.Context, bs)).To(Succeed())
+					g.Expect(bs.Items).To(BeEmpty())
+				}).Should(Succeed())
+
+				Eventually(func(g Gomega) {
+					secs := &corev1.SecretList{}
+					g.Expect(ITest.Client.List(ITest.Context, secs)).To(Succeed())
+					g.Expect(secs.Items).To(BeEmpty())
+				}).Should(Succeed())
+
+				Eventually(func(g Gomega) {
+					sas := &corev1.ServiceAccountList{}
+					g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
+					g.Expect(sas.Items).To(BeEmpty())
+				}).Should(Succeed())
 			})
 		})
 	})

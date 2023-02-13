@@ -27,7 +27,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/cli"
+	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"

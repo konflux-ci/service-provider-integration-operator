@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<<< HEAD:pkg/spi-shared/tokenstorage/vaultstorage/vault_test.go
 package vaultstorage
+========
+package vaultcli
+>>>>>>>> fixMerge:pkg/spi-shared/tokenstorage/vaultstorage/vaultcli/cli_test.go
 
 import (
 	"testing"
