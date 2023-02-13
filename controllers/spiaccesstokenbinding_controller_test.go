@@ -18,6 +18,8 @@ import (
 	"context"
 	"testing"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +79,12 @@ func TestAssureProperValuesInBinding(t *testing.T) {
 
 	t.Run("url changed", func(t *testing.T) {
 		binding.Spec.RepoUrl = "url.without.scheme"
-		r.assureProperValuesInBinding(context.TODO(), &binding)
+		changed, result, err := r.assureProperValuesInBinding(context.TODO(), &binding)
+
+		assert.NoError(t, err)
+		assert.True(t, changed)
+		assert.Equal(t, ctrl.Result{Requeue: true}, result)
+
 		assert.Equal(t, "https://url.without.scheme", binding.Spec.RepoUrl)
 		assert.Empty(t, binding.Status.ErrorReason)
 		assert.Empty(t, binding.Status.ErrorMessage)
@@ -85,7 +92,12 @@ func TestAssureProperValuesInBinding(t *testing.T) {
 
 	t.Run("no change", func(t *testing.T) {
 		binding.Spec.RepoUrl = "http://url.with.scheme"
-		r.assureProperValuesInBinding(context.TODO(), &binding)
+		changed, result, err := r.assureProperValuesInBinding(context.TODO(), &binding)
+
+		assert.NoError(t, err)
+		assert.False(t, changed)
+		assert.Equal(t, ctrl.Result{}, result)
+
 		assert.Equal(t, "http://url.with.scheme", binding.Spec.RepoUrl)
 		assert.Empty(t, binding.Status.ErrorReason)
 		assert.Empty(t, binding.Status.ErrorMessage)
@@ -93,7 +105,12 @@ func TestAssureProperValuesInBinding(t *testing.T) {
 
 	t.Run("error", func(t *testing.T) {
 		binding.Spec.RepoUrl = ":://bad.url"
-		r.assureProperValuesInBinding(context.TODO(), &binding)
+		changed, result, err := r.assureProperValuesInBinding(context.TODO(), &binding)
+
+		assert.NoError(t, err)
+		assert.True(t, changed)
+		assert.Equal(t, ctrl.Result{}, result)
+
 		assert.NotEmpty(t, binding.Status.ErrorReason)
 		assert.NotEmpty(t, binding.Status.ErrorMessage)
 	})
