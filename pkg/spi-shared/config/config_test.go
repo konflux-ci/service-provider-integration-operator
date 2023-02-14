@@ -38,7 +38,7 @@ serviceProviders:
 		cfgFilePath := createFile(t, "config", configFileContent)
 		defer os.Remove(cfgFilePath)
 
-		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		cfg, err := LoadFrom(cfgFilePath, "blabol")
 		assert.NoError(t, err)
 
 		assert.Equal(t, "blabol", cfg.BaseUrl)
@@ -51,7 +51,7 @@ serviceProviders:
 		cfgFilePath := createFile(t, "config", configFileContent)
 		defer os.Remove(cfgFilePath)
 
-		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		cfg, err := LoadFrom(cfgFilePath, "blabol")
 		assert.NoError(t, err)
 
 		assert.Equal(t, "blabol", cfg.BaseUrl)
@@ -68,7 +68,7 @@ serviceProviders:
 		cfgFilePath := createFile(t, "config", configFileContent)
 		defer os.Remove(cfgFilePath)
 
-		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		cfg, err := LoadFrom(cfgFilePath, "blabol")
 		assert.Error(t, err)
 		assert.Empty(t, cfg.BaseUrl)
 		assert.Empty(t, cfg.ServiceProviders)
@@ -79,14 +79,14 @@ serviceProviders:
 		cfgFilePath := createFile(t, "config", configFileContent)
 		defer os.Remove(cfgFilePath)
 
-		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol"})
+		cfg, err := LoadFrom(cfgFilePath, "blabol")
 		assert.Error(t, err)
 		assert.Empty(t, cfg.BaseUrl)
 		assert.Empty(t, cfg.ServiceProviders)
 	})
 
 	t.Run("file not exist", func(t *testing.T) {
-		cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: "blbost", BaseUrl: "blabol"})
+		cfg, err := LoadFrom("blbost", "blabol")
 		assert.Error(t, err)
 		assert.Empty(t, cfg.BaseUrl)
 		assert.Empty(t, cfg.ServiceProviders)
@@ -116,7 +116,7 @@ serviceProviders:
 	cfgFilePath := createFile(t, "config", configFileContent)
 	defer os.Remove(cfgFilePath)
 
-	cfg, err := LoadFrom(&CommonCliArgs{ConfigFile: cfgFilePath, BaseUrl: "blabol/"})
+	cfg, err := LoadFrom(cfgFilePath, "blabol/")
 	assert.NoError(t, err)
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
