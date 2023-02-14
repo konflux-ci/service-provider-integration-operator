@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/cli"
+	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
