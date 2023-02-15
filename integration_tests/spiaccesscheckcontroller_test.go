@@ -16,6 +16,7 @@ package integrationtests
 
 import (
 	"context"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -52,6 +53,7 @@ var _ = Describe("SPIAccessCheck", func() {
 						ErrorMessage:    "",
 					}, nil
 				}
+				ITest.ValidationOptions = config.ValidationOptions{AllowInsecureURLs: true}
 			},
 		},
 	}
