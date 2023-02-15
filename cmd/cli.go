@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
 )
 
@@ -37,7 +37,7 @@ type CommonCliArgs struct {
 	BaseUrl      string           `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
 	TokenStorage TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws'"`
 	vaultcli.VaultCliArgs
-	awsstorage.AWSCliArgs
+	awscli.AWSCliArgs
 }
 
 type TokenStorageType string
