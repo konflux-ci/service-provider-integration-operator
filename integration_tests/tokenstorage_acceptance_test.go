@@ -19,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
-// Single testsuite that runs with multiple tokenstorage implementations.
+// Testsuite that runs same tests against multiple tokenstorage implementations.
 // Tests cares just about TokenStorage interface and makes sure that implementations behaves the same.
 // Runs against real storages, see comments on Test* functions for more details.
 
-// TestVault runs testsuite against Vault instance run in-memory
+// TestVault runs against local in-memory Vault. No external dependency or setup is needed, test runs everytime.
 func TestVault(t *testing.T) {
 	cluster, storage := vaultstorage.CreateTestVaultTokenStorage(t)
 	assert.NoError(t, storage.Initialize(context.Background()))
@@ -32,8 +32,8 @@ func TestVault(t *testing.T) {
 	testStorage(t, context.TODO(), storage)
 }
 
-// TestAws runs restsuite against real AWS secret manager.
-// AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE must be set and point to real files with real credentials for testsuite to properly run. Otherwise test is skipped
+// TestAws runs against real AWS secret manager.
+// AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE must be set and point to real files with real credentials for testsuite to properly run. Otherwise test is skipped.
 func TestAws(t *testing.T) {
 	ctx := context.TODO()
 
