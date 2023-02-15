@@ -81,7 +81,7 @@ func main() {
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
 	var err error
-	err = sharedconfig.SetupCustomValidations(sharedconfig.ValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = sharedconfig.SetupCustomValidations(sharedconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)

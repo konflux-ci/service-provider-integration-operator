@@ -85,7 +85,7 @@ type IntegrationTest struct {
 	// metrics are being collected.
 	MetricsRegistry *prometheus.Registry
 	// Custom validation options to register
-	ValidationOptions config.ValidationOptions
+	ValidationOptions config.CustomValidationOptions
 }
 
 // TestSetup is used to express the requirements on the state of the K8s Cluster before the tests. Once an instance with
@@ -220,7 +220,7 @@ type priorITestState struct {
 	serviceProvider   TestServiceProvider
 	hostCredsProvider TestServiceProvider
 	operatorConfig    opconfig.OperatorConfiguration // intentionally not a pointer
-	validationOptions config.ValidationOptions
+	validationOptions config.CustomValidationOptions
 
 	// we're missing the configuration of token storage here, because there's no way I know of to reconstruct it after
 	// ITestBehavior modifies it. We'd need to go the way of the TestServiceProvider so that we have a struct that we
@@ -343,7 +343,6 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		ts.Behavior.BeforeObjectsCreated()
 	}
 
-	log.Log.Info(fmt.Sprintf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ %t ", ITest.ValidationOptions.AllowInsecureURLs))
 	err := config.SetupCustomValidations(ITest.ValidationOptions)
 	Expect(err).NotTo(HaveOccurred())
 

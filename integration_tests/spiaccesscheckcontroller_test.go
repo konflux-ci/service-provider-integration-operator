@@ -52,7 +52,7 @@ var _ = Describe("SPIAccessCheck", func() {
 						ErrorMessage:    "",
 					}, nil
 				}
-				ITest.ValidationOptions = config.ValidationOptions{AllowInsecureURLs: true}
+				ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: true}
 			},
 		},
 	}

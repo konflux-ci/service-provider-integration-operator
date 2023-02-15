@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-type ValidationOptions struct {
+type CustomValidationOptions struct {
 	AllowInsecureURLs bool
 }
 
@@ -43,7 +43,7 @@ func ValidateStruct(s interface{}) error {
 	return getInstance().Struct(s)
 }
 
-func SetupCustomValidations(options ValidationOptions) error {
+func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
 	if options.AllowInsecureURLs {
 		err = registerValidation("https_only", alwaysTrue)
