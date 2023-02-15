@@ -16,6 +16,7 @@ package memorystorage
 
 import (
 	"context"
+	"sync"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -34,6 +35,8 @@ type MemoryTokenStorage struct {
 	ErrorOnGet error
 	// ErrorOnDelete if not nil, the error is thrown when the Delete method is called.
 	ErrorOnDelete error
+
+	lock sync.RWMutex
 }
 
 var _ tokenstorage.TokenStorage = (*MemoryTokenStorage)(nil)
@@ -43,6 +46,9 @@ func (m *MemoryTokenStorage) Initialize(_ context.Context) error {
 		return m.ErrorOnInitialize
 	}
 
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	m.Tokens = map[client.ObjectKey]api.Token{}
 	return nil
 }
@@ -51,6 +57,9 @@ func (m *MemoryTokenStorage) Store(_ context.Context, owner *api.SPIAccessToken,
 	if m.ErrorOnStore != nil {
 		return m.ErrorOnStore
 	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	m.ensureTokens()
 
@@ -62,6 +71,9 @@ func (m *MemoryTokenStorage) Get(_ context.Context, owner *api.SPIAccessToken) (
 	if m.ErrorOnGet != nil {
 		return nil, m.ErrorOnGet
 	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 
 	m.ensureTokens()
 
@@ -77,6 +89,9 @@ func (m *MemoryTokenStorage) Delete(_ context.Context, owner *api.SPIAccessToken
 	if m.ErrorOnDelete != nil {
 		return m.ErrorOnDelete
 	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	m.ensureTokens()
 
