@@ -61,6 +61,7 @@ var (
 	linkedTokenDoesntMatchError     = stderrors.New("linked token doesn't match the criteria")
 	invalidServiceProviderHostError = stderrors.New("the host of service provider url, determined from repoUrl, is not a valid DNS1123 subdomain")
 	minimalBindingLifetimeError     = stderrors.New("a specified binding lifetime is less than 60s, which cannot be accepted")
+	emptyUrlHostError               = stderrors.New("the host part, parsed from the whole repoUrl, is empty")
 	bindingConsistencyError         = stderrors.New("binding consistency error")
 )
 
@@ -177,6 +178,11 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
+	}
+
+	bindingChanged, result, err := r.assureProperValuesInBinding(ctx, &binding)
+	if bindingChanged {
+		return result, err
 	}
 
 	if err := r.migrateFinalizers(ctx, &binding); err != nil {
@@ -587,6 +593,58 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 	return nil
+}
+
+// assureProperValuesInBinding updates the binding, replacing values that are valid in multiple formats, but we would
+// like to work with some specific format in the rest of the codebase.
+// For example, we allow the repoUrl to be with or without a scheme, but we need to parse out the host, and for that, we need the URL to contain the scheme.
+// Returns boolean and a reconciliation result which is used to tell if we should continue in the current reconciliation or end it and (possibly)
+// requeue new one. It is set up this way to separate as much logic as possible from the main reconciliation function.
+func (r *SPIAccessTokenBindingReconciler) assureProperValuesInBinding(ctx context.Context, binding *api.SPIAccessTokenBinding) (bool, ctrl.Result, error) {
+	repoUrl, err := assureProperRepoUrl(binding.RepoUrl())
+
+	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType,
+			fmt.Errorf("failed to parse host out of repoUrl: %w", err))
+		return true, ctrl.Result{}, nil // binding is invalid because of bad repoUrl, we can't do anything until user changes repoUrl, we don't reconcile again
+	}
+
+	if repoUrl != binding.RepoUrl() {
+		binding.Spec.RepoUrl = repoUrl
+		log.FromContext(ctx).Info("updating binding's spec with sanitized repoUrl", "value", repoUrl)
+		if err := r.Update(ctx, binding); err != nil {
+			log.FromContext(ctx).Error(err, "failed to update the binding's spec with new repoUrl")
+		}
+		return true, ctrl.Result{Requeue: true}, err // binding's updated with new repoUrl, we end this reconciliation and requeue new one
+	}
+
+	return false, ctrl.Result{}, nil // binding is ok, we can continue in current reconciliation
+}
+
+// assureProperRepoUrl returns inputted url or this url prepended with https scheme if the host can be parsed from it, otherwise error.
+func assureProperRepoUrl(repoUrl string) (string, error) {
+	parsedUrl, err := url.Parse(repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse repoUrl: %w", err)
+	}
+	if parsedUrl.Host != "" {
+		return repoUrl, nil
+	}
+
+	// The url most likely does not have a scheme, so we assume that it's `https` and add it.
+	// Note that there might be different reasons for which we can't parse the host properly, but we try
+	// to fix just the case where user omitted the scheme.
+	parsedUrl, err = url.Parse("https://" + repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse repoUrl after prepending https scheme: %w", err)
+
+	}
+	if parsedUrl.Host != "" {
+		return "https://" + repoUrl, nil // by adding the scheme we can parse the host
+	}
+
+	return "", emptyUrlHostError // even after adding the scheme we cannot parse host
 }
 
 // toObjectRef creates a reference to a kubernetes object within the same namespace (i.e, a struct containing the name,
