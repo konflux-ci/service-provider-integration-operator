@@ -59,6 +59,7 @@ func main() {
 	router := mux.NewRouter()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
+
 	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
 	if errUserAuthClient != nil {
 		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
