@@ -61,7 +61,6 @@ func main() {
 	clientFactoryConfig := createClientFactoryConfig(args)
 	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
 	if errUserAuthClient != nil {
-
 		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
 		os.Exit(1)
 	}
