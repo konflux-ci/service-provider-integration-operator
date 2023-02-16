@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	errUnsupportedTokenStorage    = errors.New("unsupported token storage type")
-	errFailedToCreateTokenStorage = errors.New("failed to create the token storage")
+	errUnsupportedTokenStorage = errors.New("unsupported token storage type")
+	errNilTokenStorage         = errors.New("nil token storage")
 )
 
 func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.TokenStorage, error) {
@@ -44,7 +44,7 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	}
 
 	if tokenStorage == nil {
-		return nil, fmt.Errorf("%w '%s'", errFailedToCreateTokenStorage, args.TokenStorage)
+		return nil, fmt.Errorf("%w '%s'", errNilTokenStorage, args.TokenStorage)
 	}
 
 	if err := tokenStorage.Initialize(ctx); err != nil {
