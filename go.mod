@@ -72,9 +72,6 @@ require (
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/aws/aws-sdk-go v1.44.95 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.17.4 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.12 // indirect
-	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/axiomhq/hyperloglog v0.0.0-20220105174342-98591331716a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
