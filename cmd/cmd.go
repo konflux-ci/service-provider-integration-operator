@@ -44,7 +44,7 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	}
 
 	if tokenStorage == nil {
-		return nil, fmt.Errorf("%w '%s'", errNilTokenStorage, args.TokenStorage)
+		return nil, fmt.Errorf("%w: '%s'", errNilTokenStorage, args.TokenStorage)
 	}
 
 	if err := tokenStorage.Initialize(ctx); err != nil {
