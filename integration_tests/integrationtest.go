@@ -17,10 +17,11 @@ package integrationtests
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/go-test/deep"
 

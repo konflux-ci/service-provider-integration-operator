@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"

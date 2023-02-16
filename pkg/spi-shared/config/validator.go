@@ -16,9 +16,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"strings"
 	"sync"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type CustomValidationOptions struct {
