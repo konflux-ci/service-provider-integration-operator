@@ -38,7 +38,7 @@ type secretManagerTokenStorage struct {
 	client *secretsmanager.Client
 }
 
-const awsDataPathFormat = "%s/data/%s/%s"
+const awsDataPathFormat = "%s/%s"
 
 var _ tokenstorage.TokenStorage = (*secretManagerTokenStorage)(nil)
 
@@ -81,7 +81,7 @@ func (s *secretManagerTokenStorage) Initialize(ctx context.Context) error {
 func (s *secretManagerTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	log.FromContext(ctx).Info("AWS ==========> Store", "owner", owner, "token", token)
 
-	secretName := fmt.Sprintf(awsDataPathFormat, "spi", owner.Namespace, owner.Name)
+	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
 	tokenJson, err := json.Marshal(token)
 	if err != nil {
 		return fmt.Errorf("error marshalling the state: %w", err)
@@ -123,14 +123,14 @@ func (s *secretManagerTokenStorage) Get(ctx context.Context, owner *api.SPIAcces
 	lg := log.FromContext(ctx)
 	lg.Info("AWS ==========> Get")
 
-	secretName := fmt.Sprintf(awsDataPathFormat, "spi", owner.Namespace, owner.Name)
+	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
 	result, err := s.get(ctx, secretName)
 
 	if err != nil {
 		var awsError smithy.APIError
 		if errors.As(err, &awsError) {
 			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
-				lg.Info("token not found in aws storage, %s", notFoundErr.ErrorMessage())
+				lg.Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
 				return nil, nil
 			}
 
@@ -163,32 +163,10 @@ func (s *secretManagerTokenStorage) get(ctx context.Context, secretName string) 
 	return s.client.GetSecretValue(ctx, input)
 }
 
-type ResourceNotFoundExceptionn struct {
-	Message *string
-
-	ErrorCodeOverride *string
-}
-
-func (e *ResourceNotFoundExceptionn) Error() string {
-	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
-}
-func (e *ResourceNotFoundExceptionn) ErrorMessage() string {
-	if e.Message == nil {
-		return ""
-	}
-	return *e.Message
-}
-func (e *ResourceNotFoundExceptionn) ErrorCode() string {
-	if e.ErrorCodeOverride == nil {
-		return "ResourceNotFoundException"
-	}
-	return *e.ErrorCodeOverride
-}
-
 func (s *secretManagerTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	log.FromContext(ctx).Info("AWS ==========> Delete", "owner", owner)
 
-	secretName := fmt.Sprintf(awsDataPathFormat, "spi", owner.Namespace, owner.Name)
+	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
 
 	input := &secretsmanager.DeleteSecretInput{
 		SecretId:                   aws.String(secretName),
@@ -200,15 +178,3 @@ func (s *secretManagerTokenStorage) Delete(ctx context.Context, owner *api.SPIAc
 	}
 	return nil
 }
-
-// func (s *secretManagerTokenStorage) list(ctx context.Context, method string) {
-// 	secrets, err := s.client.ListSecrets(ctx, &secretsmanager.ListSecretsInput{IncludePlannedDeletion: aws.Bool(true)})
-// 	if err != nil {
-// 		fmt.Printf("failed to list secrets: %s", err.Error())
-// 	}
-// 	fmt.Printf("listed secrets [%s]: ", method)
-// 	for _, s := range secrets.SecretList {
-// 		fmt.Printf("%s ", *s.Name)
-// 	}
-// 	fmt.Printf("\n")
-// }
