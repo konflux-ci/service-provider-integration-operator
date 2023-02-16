@@ -2,17 +2,13 @@ package integrationtests
 
 import (
 	"context"
-	"errors"
 	"math/rand"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,42 +26,6 @@ func TestVault(t *testing.T) {
 	defer cluster.Cleanup()
 
 	testStorage(t, context.TODO(), storage)
-}
-
-// TestAws runs against real AWS secret manager.
-// AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE must be set and point to real files with real credentials for testsuite to properly run. Otherwise test is skipped.
-func TestAws(t *testing.T) {
-	ctx := context.TODO()
-
-	awsConfig, hasAwsConfig := os.LookupEnv("AWS_CONFIG_FILE")
-	awsCreds, hasAwsCreds := os.LookupEnv("AWS_CREDENTIALS_FILE")
-
-	if !hasAwsConfig || !hasAwsCreds {
-		t.Log("AWS storage tests dodn't run!. to test AWS storage, set AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE env vars")
-		return
-	}
-
-	if _, err := os.Stat(awsConfig); errors.Is(err, os.ErrNotExist) {
-		t.Logf("AWS storage tests dodn't run!. AWS_CONFIG_FILE is set, but file does not exists '%s'\n", awsConfig)
-		return
-	}
-
-	if _, err := os.Stat(awsCreds); errors.Is(err, os.ErrNotExist) {
-		t.Logf("AWS storage tests dodn't run!. AWS_CREDENTIALS_FILE is set, but file does not exists '%s'\n", awsCreds)
-		return
-	}
-
-	storage, error := awsstorage.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
-		ConfigFile:      awsConfig,
-		CredentialsFile: awsCreds,
-	})
-	assert.NoError(t, error)
-	assert.NotNil(t, storage)
-
-	err := storage.Initialize(ctx)
-	assert.NoError(t, err)
-
-	testStorage(t, ctx, storage)
 }
 
 func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenStorage) {

@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
 )
 
@@ -35,14 +34,12 @@ type CommonCliArgs struct {
 	ProbeAddr    string           `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
 	ConfigFile   string           `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
 	BaseUrl      string           `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
-	TokenStorage TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws'"`
+	TokenStorage TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault'"`
 	vaultcli.VaultCliArgs
-	awscli.AWSCliArgs
 }
 
 type TokenStorageType string
 
 const (
 	VaultTokenStorage TokenStorageType = "vault"
-	AWSTokenStorage   TokenStorageType = "aws"
 )
