@@ -43,8 +43,6 @@ const awsDataPathFormat = "%s/%s"
 
 var _ tokenstorage.TokenStorage = (*AwsTokenStorage)(nil)
 
-// NewAwsTokenStorage creates a new `TokenStorage` instance using ....
-
 func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
 	s.lg = log.FromContext(ctx, "tokenstorage", "AWS")
 	s.lg.Info("initializing AWS token storage")
