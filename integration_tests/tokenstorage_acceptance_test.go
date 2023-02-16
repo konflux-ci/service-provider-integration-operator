@@ -9,6 +9,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,13 +20,25 @@ import (
 // Tests cares just about TokenStorage interface and makes sure that implementations behaves the same.
 // Runs against real storages, see comments on Test* functions for more details.
 
-// TestVault runs against local in-memory Vault. No external dependency or setup is needed, test runs everytime.
-func TestVault(t *testing.T) {
+// TestVaultStorage runs against local in-memory Vault. No external dependency or setup is needed, test runs everytime.
+func TestVaultStorage(t *testing.T) {
 	cluster, storage := vaultstorage.CreateTestVaultTokenStorage(t)
-	assert.NoError(t, storage.Initialize(context.Background()))
+
+	ctx := context.TODO()
+	assert.NoError(t, storage.Initialize(ctx))
 	defer cluster.Cleanup()
 
-	testStorage(t, context.TODO(), storage)
+	testStorage(t, ctx, storage)
+}
+
+// TestInMemoryStorage runs against our testing in-memory implementation of the TokenStorage.
+func TestInMemoryStorage(t *testing.T) {
+	storage := &memorystorage.MemoryTokenStorage{}
+
+	ctx := context.TODO()
+	assert.NoError(t, storage.Initialize(ctx))
+
+	testStorage(t, ctx, storage)
 }
 
 func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenStorage) {
