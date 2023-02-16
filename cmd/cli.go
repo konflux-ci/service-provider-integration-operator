@@ -40,4 +40,6 @@ type CommonCliArgs struct {
 
 type TokenStorageType string
 
-const VaultTokenStorage TokenStorageType = "vault"
+const (
+	VaultTokenStorage TokenStorageType = "vault"
+)
