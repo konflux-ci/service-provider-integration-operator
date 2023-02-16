@@ -53,24 +53,6 @@ const (
 	MetricsSubsystem = "spi"
 )
 
-// LoggingCliArgs define the command line arguments for configuring the logging using Zap.
-type LoggingCliArgs struct {
-	ZapDevel           bool   `arg:"--zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
-	ZapEncoder         string `arg:"--zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
-	ZapLogLevel        string `arg:"--zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
-	ZapStackTraceLevel string `arg:"--zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
-	ZapTimeEncoding    string `arg:"--zap-time-encoding, env" default:"iso8601" help:"one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'"`
-}
-
-// CommonCliArgs are the command line arguments and environment variable definitions understood by the configuration
-// infrastructure shared between the operator and the oauth service.
-type CommonCliArgs struct {
-	MetricsAddr string `arg:"--metrics-bind-address, env" default:"127.0.0.1:8080" help:"The address the metric endpoint binds to."`
-	ProbeAddr   string `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
-	ConfigFile  string `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
-	BaseUrl     string `arg:"--base-url, env" help:"The externally accessible URL on which the OAuth service is listening. This is used to construct manual-upload and OAuth URLs"`
-}
-
 // persistedConfiguration is the on-disk format of the configuration that references other files for shared secret
 // and the used kube config. It can be Inflate-d into a SharedConfiguration that has these files loaded in memory for easier
 // consumption.
@@ -186,8 +168,8 @@ func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, e
 	return &conf, nil
 }
 
-func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
-	pcfg, err := loadFrom(args.ConfigFile)
+func LoadFrom(configFilePath, baseUrl string) (SharedConfiguration, error) {
+	pcfg, err := loadFrom(configFilePath)
 	if err != nil {
 		return SharedConfiguration{}, err
 	}
@@ -196,7 +178,7 @@ func LoadFrom(args *CommonCliArgs) (SharedConfiguration, error) {
 	if err != nil {
 		return SharedConfiguration{}, err
 	}
-	cfg.BaseUrl = strings.TrimSuffix(args.BaseUrl, "/")
+	cfg.BaseUrl = strings.TrimSuffix(baseUrl, "/")
 
 	return *cfg, nil
 }

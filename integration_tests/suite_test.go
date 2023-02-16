@@ -36,6 +36,7 @@ import (
 	config2 "github.com/onsi/ginkgo/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -197,7 +198,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	var strg tokenstorage.TokenStorage
-	ITest.VaultTestCluster, strg, _, _ = tokenstorage.CreateTestVaultTokenStorageWithAuthAndMetrics(GinkgoT(), ITest.MetricsRegistry)
+	ITest.VaultTestCluster, strg, _, _ = vaultstorage.CreateTestVaultTokenStorageWithAuthAndMetrics(GinkgoT(), ITest.MetricsRegistry)
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
 		Client:       cl,
