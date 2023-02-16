@@ -19,124 +19,119 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/smithy-go"
-	"github.com/aws/smithy-go/logging"
+	"github.com/go-logr/logr"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type secretManagerTokenStorage struct {
+type AwsTokenStorage struct {
+	Config *aws.Config
+
 	client *secretsmanager.Client
+	lg     logr.Logger
 }
 
 const awsDataPathFormat = "%s/%s"
 
-var _ tokenstorage.TokenStorage = (*secretManagerTokenStorage)(nil)
-
-func configFromCliArgs(ctx context.Context, args *awscli.AWSCliArgs) (*aws.Config, error) {
-	lg := log.FromContext(ctx)
-	lg.Info("creating aws config")
-
-	awsLogger := logging.NewStandardLogger(os.Stdout)
-
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigFiles([]string{args.ConfigFile}),
-		config.WithSharedCredentialsFiles([]string{args.CredentialsFile}),
-		config.WithLogConfigurationWarnings(true),
-		config.WithLogger(awsLogger))
-	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to create aws token storage")
-		return nil, err
-	}
-	return &cfg, nil
-}
+var _ tokenstorage.TokenStorage = (*AwsTokenStorage)(nil)
 
 // NewAwsTokenStorage creates a new `TokenStorage` instance using ....
-func NewAwsTokenStorage(ctx context.Context, args *awscli.AWSCliArgs) (tokenstorage.TokenStorage, error) {
-	lg := log.FromContext(ctx)
-	cfg, err := configFromCliArgs(ctx, args)
-	if err != nil {
-		return nil, err
-	}
 
-	lg.Info("creating aws client")
-	client := secretsmanager.NewFromConfig(*cfg)
-	return &secretManagerTokenStorage{client: client}, nil
-}
+func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
+	s.lg = log.FromContext(ctx, "tokenstorage", "AWS")
+	s.lg.Info("initializing AWS token storage")
 
-func (s *secretManagerTokenStorage) Initialize(ctx context.Context) error {
-	log.FromContext(ctx).Info("AWS storage has nothing to initialize")
+	//TODO: fail if something missing here
+	s.client = secretsmanager.NewFromConfig(*s.Config)
+
 	return nil
 }
 
-func (s *secretManagerTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
-	log.FromContext(ctx).Info("AWS ==========> Store", "owner", owner, "token", token)
+func (s *AwsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
+	s.lg.V(logs.DebugLevel).Info("storing the token", "SPIAccessToken", owner)
 
 	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
-	tokenJson, err := json.Marshal(token)
-	if err != nil {
-		return fmt.Errorf("error marshalling the state: %w", err)
+	tokenData, errMarshal := json.Marshal(token)
+	if errMarshal != nil {
+		return fmt.Errorf("error marshalling the state: %w", errMarshal)
 	}
 
-	input := &secretsmanager.CreateSecretInput{
-		Name:         aws.String(secretName),
-		SecretBinary: tokenJson,
+	errCreate := s.createOrUpdate(ctx, aws.String(secretName), tokenData)
+	if errCreate != nil {
+		return fmt.Errorf("failed to create the secret: %w", errCreate)
 	}
-	_, err = s.client.CreateSecret(ctx, input)
-	if err != nil {
+	return nil
+}
+
+func (s *AwsTokenStorage) createOrUpdate(ctx context.Context, name *string, data []byte) error {
+	s.lg.V(logs.DebugLevel).Info("creating the AWS secret", "secretname", name)
+
+	createInput := &secretsmanager.CreateSecretInput{
+		Name:         name,
+		SecretBinary: data,
+	}
+
+	_, errCreate := s.client.CreateSecret(ctx, createInput)
+	if errCreate != nil {
 		var awsError smithy.APIError
-		if errors.As(err, &awsError) {
+		if errors.As(errCreate, &awsError) {
+			// if secret with same name already exists in AWS, we try to update it
 			if errAlreadyExists, ok := awsError.(*types.ResourceExistsException); ok {
-				updateErr := s.update(ctx, input.Name, input.SecretBinary)
+				s.lg.V(logs.DebugLevel).Info("AWS secret already exists, trying to update", "secretname", name)
+				updateErr := s.update(ctx, createInput.Name, createInput.SecretBinary)
 				if updateErr != nil {
 					return fmt.Errorf("failed to update the secret: %w", errAlreadyExists)
 				}
 				return nil
 			}
 		}
-		return fmt.Errorf("error saving secret: %w", err)
+		return fmt.Errorf("error creating the secret: %w", errCreate)
 	}
+
 	return nil
 }
 
-func (s *secretManagerTokenStorage) update(ctx context.Context, name *string, data []byte) error {
-	awsSecret, err := s.get(ctx, *name)
-	if err != nil {
-		return err
+func (s *AwsTokenStorage) update(ctx context.Context, name *string, data []byte) error {
+	s.lg.V(logs.DebugLevel).Info("updating the AWS secret", "secretname", name)
+
+	awsSecret, errGet := s.getSecret(ctx, *name)
+	if errGet != nil {
+		return fmt.Errorf("failed to get the secret '%s' to update it in aws secretmanager: %w", *name, errGet)
 	}
 
 	updateInput := &secretsmanager.UpdateSecretInput{SecretId: awsSecret.ARN, SecretBinary: data}
 	_, errUpdate := s.client.UpdateSecret(ctx, updateInput)
-	return errUpdate
+	if errUpdate != nil {
+		return fmt.Errorf("failed to update the secret '%s' in aws secretmanager: %w", *name, errUpdate)
+	}
+	return nil
 }
 
-func (s *secretManagerTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	lg := log.FromContext(ctx)
-	lg.Info("AWS ==========> Get")
+func (s *AwsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	s.lg.V(logs.DebugLevel).Info("getting the token", "SPIAccessToken", owner)
 
 	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
-	result, err := s.get(ctx, secretName)
+	result, err := s.getSecret(ctx, secretName)
 
 	if err != nil {
 		var awsError smithy.APIError
 		if errors.As(err, &awsError) {
 			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
-				lg.Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
+				s.lg.V(logs.DebugLevel).Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
 				return nil, nil
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
 				if strings.Contains(invalidRequestErr.ErrorMessage(), "deletion") {
-					lg.Info("tried to get aws secret that is marked for deletion. This is not error on our side.")
+					s.lg.V(logs.DebugLevel).Info("tried to get aws secret that is marked for deletion. This is not error on our side.")
 					return nil, nil
 				} else {
 					return nil, fmt.Errorf("not able to get secret from the aws storage: [%s] %s", invalidRequestErr.ErrorCode(), invalidRequestErr.ErrorMessage())
@@ -155,23 +150,30 @@ func (s *secretManagerTokenStorage) Get(ctx context.Context, owner *api.SPIAcces
 	return &token, nil
 }
 
-func (s *secretManagerTokenStorage) get(ctx context.Context, secretName string) (*secretsmanager.GetSecretValueOutput, error) {
+func (s *AwsTokenStorage) getSecret(ctx context.Context, secretName string) (*secretsmanager.GetSecretValueOutput, error) {
+	s.lg.V(logs.DebugLevel).Info("getting AWS secret", "secretname", secretName)
+
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
 	}
 
-	return s.client.GetSecretValue(ctx, input)
+	awsSecret, err := s.client.GetSecretValue(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the secret '%s' from aws secretmanager: %w", secretName, err)
+	}
+	return awsSecret, nil
 }
 
-func (s *secretManagerTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	log.FromContext(ctx).Info("AWS ==========> Delete", "owner", owner)
+func (s *AwsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
+	s.lg.V(logs.DebugLevel).Info("deleting the token", "SPIAccessToken", owner)
 
 	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
-
 	input := &secretsmanager.DeleteSecretInput{
 		SecretId:                   aws.String(secretName),
 		ForceDeleteWithoutRecovery: aws.Bool(true),
 	}
+
+	//TODO: check delete result
 	_, err := s.client.DeleteSecret(ctx, input)
 	if err != nil {
 		return fmt.Errorf("error deleting secret: %w", err)

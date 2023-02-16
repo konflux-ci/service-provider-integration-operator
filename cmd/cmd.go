@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
 )
 
@@ -37,7 +37,7 @@ func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.To
 	case VaultTokenStorage:
 		tokenStorage, errTokenStorage = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
-		tokenStorage, errTokenStorage = awsstorage.NewAwsTokenStorage(ctx, &args.AWSCliArgs)
+		tokenStorage, errTokenStorage = awscli.NewAwsTokenStorage(ctx, &args.AWSCliArgs)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedTokenStorage, args.TokenStorage)
 	}
