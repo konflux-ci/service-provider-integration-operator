@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/go-playground/validator/v10"
 	"strings"
 	"sync"
@@ -58,5 +59,6 @@ func isHttpsUrl(fl validator.FieldLevel) bool {
 }
 
 func alwaysTrue(_ validator.FieldLevel) bool {
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	return true
 }
