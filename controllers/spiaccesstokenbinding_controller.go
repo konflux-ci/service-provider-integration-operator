@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"net/url"
 	"time"
 
@@ -474,9 +475,15 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spNam
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
-		return nil, fmt.Errorf("failed to find the service provider: %w", err)
+		if stderrors.Is(err, validator.ValidationErrors{}) {
+			log.Log.Error(err, "failed to validate service provider for SPIAccessCheck")
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, stderrors.Unwrap(err))
+			return nil, fmt.Errorf("failed to validate the service provider: %w", stderrors.Unwrap(err))
+		} else {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+			return nil, fmt.Errorf("failed to find the service provider: %w", err)
+		}
 	}
 
 	return serviceProvider, nil

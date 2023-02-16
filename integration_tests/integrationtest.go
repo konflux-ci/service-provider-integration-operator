@@ -344,8 +344,9 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		ts.Behavior.BeforeObjectsCreated()
 	}
 
+	log.Log.Info(fmt.Sprintf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ %t", ITest.ValidationOptions.AllowInsecureURLs))
 	err := config.SetupCustomValidations(ITest.ValidationOptions)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ShouldNot(HaveOccurred())
 
 	ts.InCluster = TestObjects{
 		Tokens:              createAll(ts.ToCreate.Tokens),

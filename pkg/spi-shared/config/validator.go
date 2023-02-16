@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"sync"
 
@@ -37,20 +38,18 @@ func getInstance() *validator.Validate {
 	return validatorInstance
 }
 
-func registerValidation(tag string, fn validator.Func) error {
-	return getInstance().RegisterValidation(tag, fn)
-}
-
 func ValidateStruct(s interface{}) error {
+	log.Log.Info(fmt.Sprintf("INSTANCE ON VALIDATE %p", getInstance()))
 	return getInstance().Struct(s)
 }
 
 func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
 	if options.AllowInsecureURLs {
-		err = registerValidation("https_only", alwaysTrue)
+		err = getInstance().RegisterValidation("https_only", alwaysTrue)
 	} else {
-		err = registerValidation("https_only", isHttpsUrl)
+		log.Log.Info(fmt.Sprintf("INSTANCE ON REGISTER %p", getInstance()))
+		err = getInstance().RegisterValidation("https_only", isHttpsUrl)
 	}
 	return err
 }
@@ -60,6 +59,5 @@ func isHttpsUrl(fl validator.FieldLevel) bool {
 }
 
 func alwaysTrue(_ validator.FieldLevel) bool {
-	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	return true
 }

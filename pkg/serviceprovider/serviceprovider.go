@@ -117,13 +117,6 @@ func (f *Factory) FromRepoUrl(ctx context.Context, repoUrl string, namespace str
 			spConfig = config.SpConfigFromGlobalConfig(&f.Configuration.SharedConfiguration, sp, config.GetBaseUrl(parsedRepoUrl))
 		}
 
-		if spConfig != nil {
-			err = config.ValidateStruct(spConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
-			}
-		}
-
 		// we try to initialize with what we have. if spConfig is nil, this function tries probe as last chance
 		if sp, err := f.initializeServiceProvider(ctx, sp, spConfig, config.GetBaseUrl(parsedRepoUrl)); err != nil {
 			return nil, err
@@ -142,7 +135,11 @@ func (f *Factory) createHostCredentialsProvider(repoUrl *url.URL) (ServiceProvid
 		return nil, fmt.Errorf("initializer for host credentials service provider not found: %w", errHostCredsInitializerFind)
 	}
 	hostCredentialsConstructor := hostCredentialsInitializer.Constructor
-	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, spConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl)))
+	cfg, err := spConfigWithBaseUrl(config.ServiceProviderTypeHostCredentials, config.GetBaseUrl(repoUrl))
+	if err != nil {
+		return nil, fmt.Errorf("failed to build service provider configuration from base URL: %w", err)
+	}
+	hostCredentialProvider, err := hostCredentialsConstructor.Construct(f, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct host credentials provider: %w", err)
 	}
@@ -171,6 +168,9 @@ func (f *Factory) initializeServiceProvider(_ context.Context, spType config.Ser
 	}
 
 	if spConfig != nil {
+		if err := config.ValidateStruct(spConfig); err != nil {
+			return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
+		}
 		sp, errConstructSp := ctor.Construct(f, spConfig)
 		if errConstructSp != nil {
 			return nil, fmt.Errorf("failed to construct service provider: %w", errConstructSp)
@@ -184,7 +184,11 @@ func (f *Factory) initializeServiceProvider(_ context.Context, spType config.Ser
 				return nil, nil //nolint:nilerr
 			}
 			if probeBaseUrl != "" {
-				sp, errConstructSp := ctor.Construct(f, spConfigWithBaseUrl(spType, probeBaseUrl))
+				cfg, err := spConfigWithBaseUrl(spType, probeBaseUrl)
+				if err != nil {
+					return nil, fmt.Errorf("failed to build service provider configuration from probe: %w", err)
+				}
+				sp, errConstructSp := ctor.Construct(f, cfg)
 				if errConstructSp != nil {
 					return nil, fmt.Errorf("failed to construct service provider after probing: %w", errConstructSp)
 				}
@@ -216,11 +220,17 @@ func AuthenticatingHttpClient(cl *http.Client) *http.Client {
 }
 
 // spConfigWithBaseUrl simple helper function that creates `config.ServiceProviderConfiguration` of given `ServiceProviderType` with base url set by given `baseUrl`
-func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) *config.ServiceProviderConfiguration {
-	return &config.ServiceProviderConfiguration{
+func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) (*config.ServiceProviderConfiguration, error) {
+	cfg := &config.ServiceProviderConfiguration{
 		ServiceProviderType:    spType,
 		ServiceProviderBaseUrl: baseUrl,
 	}
+	log.Log.Info(fmt.Sprintf("HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE %+v", *cfg))
+	if err := config.ValidateStruct(cfg); err != nil {
+		log.Log.Info("ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR" + baseUrl)
+		return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
+	}
+	return cfg, nil
 }
 
 type Validated interface {

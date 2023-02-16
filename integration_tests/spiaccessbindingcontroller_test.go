@@ -18,6 +18,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -1377,6 +1378,51 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.List(ITest.Context, sas)).To(Succeed())
 					g.Expect(sas.Items).To(BeEmpty())
 				}).Should(Succeed())
+			})
+		})
+	})
+
+	Describe("service provider url is non-https when it's required", func() {
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				Bindings: []*api.SPIAccessTokenBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "http-binding-",
+							Namespace:    "default",
+						},
+						Spec: api.SPIAccessTokenBindingSpec{
+							RepoUrl: "http://abc.foo/name/repo",
+						},
+					},
+				},
+			},
+			Behavior: ITestBehavior{
+				BeforeObjectsCreated: func() {
+					ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: false}
+					ITest.TestServiceProvider.GetBaseUrlImpl = func() string {
+						return "http://abc.foo"
+					}
+					ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
+						return "http://abc.foo", nil
+					})
+				},
+			},
+		}
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("should end in error phase and have an error message", func() {
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				g.Expect(testSetup.InCluster.Bindings[0].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
+				g.Expect(testSetup.InCluster.Bindings[0].Status.ErrorMessage).To(Not(BeEmpty()))
+				g.Expect(testSetup.InCluster.Bindings[0].Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+				g.Expect(testSetup.InCluster.Bindings[0].Status.LinkedAccessTokenName).To(BeEmpty())
 			})
 		})
 	})

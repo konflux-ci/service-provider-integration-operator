@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -84,9 +86,15 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", repoCheckErr)
 		}
 	} else {
-		lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
-		ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider
-		ac.Status.ErrorMessage = spErr.Error()
+		if stderrors.Is(spErr, validator.ValidationErrors{}) {
+			lg.Error(spErr, "failed to validate service provider for SPIAccessCheck")
+			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnsupportedServiceProviderConfiguration
+			ac.Status.ErrorMessage = spErr.Error()
+		} else {
+			lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
+			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider
+			ac.Status.ErrorMessage = spErr.Error()
+		}
 	}
 
 	if updateErr := r.Client.Status().Update(ctx, &ac); updateErr != nil {

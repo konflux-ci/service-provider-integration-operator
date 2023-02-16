@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"net/url"
 	"time"
 
@@ -195,7 +196,13 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl, req.Namespace)
 	if err != nil {
-		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, api.SPIAccessTokenErrorReasonUnknownServiceProvider, err); uerr != nil {
+		var reason api.SPIAccessTokenErrorReason
+		if stderrors.Is(err, validator.ValidationErrors{}) {
+			reason = api.SPIAccessTokenErrorUnsupportedServiceProviderConfiguration
+		} else {
+			reason = api.SPIAccessTokenErrorReasonUnknownServiceProvider
+		}
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseError, reason, err); uerr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed update the status: %w", uerr)
 		}
 		// we flipped the token to the invalid phase, which is valid phase to be in. All we can do is to wait for the
@@ -317,7 +324,11 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIAccessToken) (string, error) {
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl, at.Namespace)
 	if err != nil {
-		return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
+		if stderrors.Is(err, validator.ValidationErrors{}) {
+			return "", fmt.Errorf("failed to construct the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, stderrors.Unwrap(err))
+		} else {
+			return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
+		}
 	}
 	oauthCapability := sp.GetOAuthCapability()
 	if oauthCapability == nil {
