@@ -62,7 +62,10 @@ func SetupCustomValidations(options CustomValidationOptions) error {
 	} else {
 		err = getInstance().RegisterValidation("https_only", isHttpsUrl)
 	}
-	return fmt.Errorf("failed to register custom validation %w", err)
+	if err != nil {
+		return fmt.Errorf("failed to register custom validation %w", err)
+	}
+	return nil
 }
 
 func isHttpsUrl(fl validator.FieldLevel) bool {
