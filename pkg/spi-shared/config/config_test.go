@@ -15,6 +15,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -125,8 +126,9 @@ serviceProviders:
 }
 
 func TestBaseUrlIsValidated(t *testing.T) {
-	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: false})
+
 	t.Run("config is validated", func(t *testing.T) {
+		SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: false})
 		configFileContent := `
 serviceProviders:
 - type: GitHub
@@ -138,7 +140,7 @@ serviceProviders:
 
 		_, err := LoadFrom(cfgFilePath, "blabol/")
 		assert.Error(t, err)
-		//assert.NotNil(t, err.(validator.ValidationErrors).Error())
+		assert.NotNil(t, err.(validator.ValidationErrors).Error())
 	})
 }
 

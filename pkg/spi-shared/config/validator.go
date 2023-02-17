@@ -36,6 +36,7 @@ func ValidateStruct(s interface{}) error {
 
 func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
+	validatorInstance = validator.New() //if we change validation rules, we must re-create validator instance
 	if options.AllowInsecureURLs {
 		err = validatorInstance.RegisterValidation("https_only", alwaysTrue)
 	} else {
