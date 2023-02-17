@@ -47,29 +47,28 @@ func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
 	s.lg = log.FromContext(ctx, "tokenstorage", "AWS")
 	s.lg.Info("initializing AWS token storage")
 
-	//TODO: fail if something missing here
 	s.client = secretsmanager.NewFromConfig(*s.Config)
-
+	// TODO: try to do some request so we find out if configuration is correct
 	return nil
 }
 
 func (s *AwsTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
 	s.lg.V(logs.DebugLevel).Info("storing the token", "SPIAccessToken", owner)
 
-	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
+	secretName := generateAwsSecretName(owner)
 	tokenData, errMarshal := json.Marshal(token)
 	if errMarshal != nil {
 		return fmt.Errorf("error marshalling the state: %w", errMarshal)
 	}
 
-	errCreate := s.createOrUpdate(ctx, aws.String(secretName), tokenData)
+	errCreate := s.createOrUpdateAwsSecret(ctx, secretName, tokenData)
 	if errCreate != nil {
 		return fmt.Errorf("failed to create the secret: %w", errCreate)
 	}
 	return nil
 }
 
-func (s *AwsTokenStorage) createOrUpdate(ctx context.Context, name *string, data []byte) error {
+func (s *AwsTokenStorage) createOrUpdateAwsSecret(ctx context.Context, name *string, data []byte) error {
 	s.lg.V(logs.DebugLevel).Info("creating the AWS secret", "secretname", name)
 
 	createInput := &secretsmanager.CreateSecretInput{
@@ -84,7 +83,7 @@ func (s *AwsTokenStorage) createOrUpdate(ctx context.Context, name *string, data
 			// if secret with same name already exists in AWS, we try to update it
 			if errAlreadyExists, ok := awsError.(*types.ResourceExistsException); ok {
 				s.lg.V(logs.DebugLevel).Info("AWS secret already exists, trying to update", "secretname", name)
-				updateErr := s.update(ctx, createInput.Name, createInput.SecretBinary)
+				updateErr := s.updateAwsSecret(ctx, createInput.Name, createInput.SecretBinary)
 				if updateErr != nil {
 					return fmt.Errorf("failed to update the secret: %w", errAlreadyExists)
 				}
@@ -97,10 +96,10 @@ func (s *AwsTokenStorage) createOrUpdate(ctx context.Context, name *string, data
 	return nil
 }
 
-func (s *AwsTokenStorage) update(ctx context.Context, name *string, data []byte) error {
+func (s *AwsTokenStorage) updateAwsSecret(ctx context.Context, name *string, data []byte) error {
 	s.lg.V(logs.DebugLevel).Info("updating the AWS secret", "secretname", name)
 
-	awsSecret, errGet := s.getSecret(ctx, *name)
+	awsSecret, errGet := s.getAwsSecret(ctx, name)
 	if errGet != nil {
 		return fmt.Errorf("failed to get the secret '%s' to update it in aws secretmanager: %w", *name, errGet)
 	}
@@ -116,8 +115,8 @@ func (s *AwsTokenStorage) update(ctx context.Context, name *string, data []byte)
 func (s *AwsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 	s.lg.V(logs.DebugLevel).Info("getting the token", "SPIAccessToken", owner)
 
-	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
-	result, err := s.getSecret(ctx, secretName)
+	secretName := generateAwsSecretName(owner)
+	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
 		var awsError smithy.APIError
@@ -141,18 +140,18 @@ func (s *AwsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*
 	}
 
 	token := api.Token{}
-	if err := json.Unmarshal(result.SecretBinary, &token); err != nil {
+	if err := json.Unmarshal(getResult.SecretBinary, &token); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal token data: %w", err)
 	}
 
 	return &token, nil
 }
 
-func (s *AwsTokenStorage) getSecret(ctx context.Context, secretName string) (*secretsmanager.GetSecretValueOutput, error) {
+func (s *AwsTokenStorage) getAwsSecret(ctx context.Context, secretName *string) (*secretsmanager.GetSecretValueOutput, error) {
 	s.lg.V(logs.DebugLevel).Info("getting AWS secret", "secretname", secretName)
 
 	input := &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(secretName),
+		SecretId: secretName,
 	}
 
 	awsSecret, err := s.client.GetSecretValue(ctx, input)
@@ -165,9 +164,9 @@ func (s *AwsTokenStorage) getSecret(ctx context.Context, secretName string) (*se
 func (s *AwsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
 	s.lg.V(logs.DebugLevel).Info("deleting the token", "SPIAccessToken", owner)
 
-	secretName := fmt.Sprintf(awsDataPathFormat, owner.Namespace, owner.Name)
+	secretName := generateAwsSecretName(owner)
 	input := &secretsmanager.DeleteSecretInput{
-		SecretId:                   aws.String(secretName),
+		SecretId:                   secretName,
 		ForceDeleteWithoutRecovery: aws.Bool(true),
 	}
 
@@ -177,4 +176,8 @@ func (s *AwsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 		return fmt.Errorf("error deleting secret: %w", err)
 	}
 	return nil
+}
+
+func generateAwsSecretName(accessToken *api.SPIAccessToken) *string {
+	return aws.String(fmt.Sprintf(awsDataPathFormat, accessToken.Namespace, accessToken.Name))
 }

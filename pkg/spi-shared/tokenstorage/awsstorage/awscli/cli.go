@@ -16,12 +16,14 @@ package awscli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go/logging"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,6 +33,10 @@ type AWSCliArgs struct {
 	ConfigFile      string `arg:"--aws-config-filepath, env: AWS_CONFIG_FILE" default:"/etc/spi/aws/config" help:""`
 	CredentialsFile string `arg:"--aws-credentials-filepath, env: AWS_CREDENTIALS_FILE" default:"/etc/spi/aws/credentials" help:""`
 }
+
+var (
+	errInvalidCliArgs = errors.New("invalid cli args")
+)
 
 func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.TokenStorage, error) {
 	log.FromContext(ctx).Info("creating aws client")
@@ -43,11 +49,14 @@ func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.Tok
 }
 
 func configFromCliArgs(ctx context.Context, args *AWSCliArgs) (*aws.Config, error) {
-	log.FromContext(ctx).Info("creating aws config")
+	log.FromContext(ctx).V(logs.DebugLevel).Info("creating AWS config")
+
+	if !validateCliArgs(ctx, args) {
+		return nil, errInvalidCliArgs
+	}
 
 	awsLogger := logging.NewStandardLogger(os.Stdout)
 
-	// TODO: fail if something missing here?
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithSharedConfigFiles([]string{args.ConfigFile}),
 		config.WithSharedCredentialsFiles([]string{args.CredentialsFile}),
@@ -57,4 +66,27 @@ func configFromCliArgs(ctx context.Context, args *AWSCliArgs) (*aws.Config, erro
 		return nil, fmt.Errorf("failed to create aws tokenstorage configuration: %w", err)
 	}
 	return &cfg, nil
+}
+
+func validateCliArgs(ctx context.Context, args *AWSCliArgs) bool {
+	lg := log.FromContext(ctx)
+	ok := true
+
+	if args.ConfigFile == "" {
+		ok = false
+		lg.Info("aws config file config option missing")
+	} else if _, err := os.Stat(args.ConfigFile); errors.Is(err, os.ErrNotExist) {
+		ok = false
+		lg.Info("aws config file does not exist '%s'\n", args.ConfigFile)
+	}
+
+	if args.CredentialsFile == "" {
+		ok = false
+		lg.Info("aws credentials file config option missing")
+	} else if _, err := os.Stat(args.CredentialsFile); errors.Is(err, os.ErrNotExist) {
+		ok = false
+		lg.Info("aws credentials file does not exist '%s'\n", args.CredentialsFile)
+	}
+
+	return ok
 }
