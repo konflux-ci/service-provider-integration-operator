@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -23,6 +24,7 @@ import (
 
 var mutex sync.Mutex
 
+// CustomValidationOptions
 type CustomValidationOptions struct {
 	AllowInsecureURLs bool
 }
@@ -40,10 +42,16 @@ func getInstance() *validator.Validate {
 	return validatorInstance
 }
 
+// ValidateStruct validates struct on the preconfigured validator instance
 func ValidateStruct(s interface{}) error {
-	return getInstance().Struct(s)
+	err := getInstance().Struct(s)
+	if err != nil {
+		return fmt.Errorf("struct validation failed: %w", err)
+	}
+	return nil
 }
 
+// SetupCustomValidations creates new validator instance and configures it with requested validations
 func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
 	mutex.Lock()
@@ -54,7 +62,7 @@ func SetupCustomValidations(options CustomValidationOptions) error {
 	} else {
 		err = getInstance().RegisterValidation("https_only", isHttpsUrl)
 	}
-	return err
+	return fmt.Errorf("failed to register custom validation %w", err)
 }
 
 func isHttpsUrl(fl validator.FieldLevel) bool {
