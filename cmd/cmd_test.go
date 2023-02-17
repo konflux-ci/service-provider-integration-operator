@@ -16,8 +16,9 @@ package cmd
 
 import (
 	"context"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"testing"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	"github.com/stretchr/testify/assert"
 )
