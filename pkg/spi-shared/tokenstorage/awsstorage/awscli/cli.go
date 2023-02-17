@@ -77,7 +77,7 @@ func validateCliArgs(ctx context.Context, args *AWSCliArgs) bool {
 		lg.Info("aws config file config option missing")
 	} else if _, err := os.Stat(args.ConfigFile); errors.Is(err, os.ErrNotExist) {
 		ok = false
-		lg.Info("aws config file does not exist '%s'\n", args.ConfigFile)
+		lg.Info("aws config file does not exist", "configfile", args.ConfigFile)
 	}
 
 	if args.CredentialsFile == "" {
@@ -85,7 +85,7 @@ func validateCliArgs(ctx context.Context, args *AWSCliArgs) bool {
 		lg.Info("aws credentials file config option missing")
 	} else if _, err := os.Stat(args.CredentialsFile); errors.Is(err, os.ErrNotExist) {
 		ok = false
-		lg.Info("aws credentials file does not exist '%s'\n", args.CredentialsFile)
+		lg.Info("aws credentials file does not exist", "credentialsfile", args.CredentialsFile)
 	}
 
 	return ok
