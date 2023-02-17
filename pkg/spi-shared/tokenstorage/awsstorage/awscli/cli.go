@@ -19,13 +19,12 @@ type AWSCliArgs struct {
 }
 
 func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.TokenStorage, error) {
-	lg := log.FromContext(ctx, "tokenstorage", "AWS")
+	log.FromContext(ctx).Info("creating aws client")
 	cfg, err := configFromCliArgs(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS secretmanager configuration: %w", err)
 	}
 
-	lg.Info("creating aws client")
 	return &awsstorage.AwsTokenStorage{Config: cfg}, nil
 }
 
@@ -41,8 +40,7 @@ func configFromCliArgs(ctx context.Context, args *AWSCliArgs) (*aws.Config, erro
 		config.WithLogConfigurationWarnings(true),
 		config.WithLogger(awsLogger))
 	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to create aws token storage")
-		return nil, err
+		return nil, fmt.Errorf("failed to create aws tokenstorage configuration: %w", err)
 	}
 	return &cfg, nil
 }

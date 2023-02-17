@@ -132,7 +132,7 @@ func (s *AwsTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*
 					s.lg.V(logs.DebugLevel).Info("tried to get aws secret that is marked for deletion. This is not error on our side.")
 					return nil, nil
 				} else {
-					return nil, fmt.Errorf("not able to get secret from the aws storage: [%s] %s", invalidRequestErr.ErrorCode(), invalidRequestErr.ErrorMessage())
+					return nil, fmt.Errorf("not able to get secret from the aws storage: [%s] %w", invalidRequestErr.ErrorCode(), invalidRequestErr)
 				}
 			}
 		}
