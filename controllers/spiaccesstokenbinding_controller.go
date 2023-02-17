@@ -475,10 +475,12 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spNam
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
-		if stderrors.Is(err, validator.ValidationErrors{}) {
-			log.Log.Error(err, "failed to validate service provider for SPIAccessCheck")
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, stderrors.Unwrap(err))
-			return nil, fmt.Errorf("failed to validate the service provider: %w", stderrors.Unwrap(err))
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
+			log.Log.Error(err, "failed to validate service provider for SPIAccessTokenBinding")
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, validationErr)
+			return nil, fmt.Errorf("failed to validate the service provider: %w", validationErr)
 		} else {
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)

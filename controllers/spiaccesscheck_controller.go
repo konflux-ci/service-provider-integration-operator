@@ -86,10 +86,11 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, fmt.Errorf("failed to check repository access: %w", repoCheckErr)
 		}
 	} else {
-		if stderrors.Is(spErr, validator.ValidationErrors{}) {
+		var validationErr validator.ValidationErrors
+		if stderrors.As(spErr, &validationErr) {
 			lg.Error(spErr, "failed to validate service provider for SPIAccessCheck")
 			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnsupportedServiceProviderConfiguration
-			ac.Status.ErrorMessage = spErr.Error()
+			ac.Status.ErrorMessage = validationErr.Error()
 		} else {
 			lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
 			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider

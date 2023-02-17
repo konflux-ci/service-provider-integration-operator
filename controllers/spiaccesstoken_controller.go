@@ -197,8 +197,10 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl, req.Namespace)
 	if err != nil {
 		var reason api.SPIAccessTokenErrorReason
-		if stderrors.Is(err, validator.ValidationErrors{}) {
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
 			reason = api.SPIAccessTokenErrorUnsupportedServiceProviderConfiguration
+			err = validationErr
 		} else {
 			reason = api.SPIAccessTokenErrorReasonUnknownServiceProvider
 		}
@@ -324,8 +326,9 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIAccessToken) (string, error) {
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl, at.Namespace)
 	if err != nil {
-		if stderrors.Is(err, validator.ValidationErrors{}) {
-			return "", fmt.Errorf("failed to construct the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, stderrors.Unwrap(err))
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
+			return "", fmt.Errorf("failed to construct the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, validationErr)
 		} else {
 			return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 		}

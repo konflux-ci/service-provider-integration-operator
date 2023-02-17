@@ -15,40 +15,41 @@
 package config
 
 import (
-	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/go-playground/validator/v10"
 	"strings"
 	"sync"
-
-	"github.com/go-playground/validator/v10"
 )
+
+var mutex sync.Mutex
 
 type CustomValidationOptions struct {
 	AllowInsecureURLs bool
 }
 
-var once sync.Once
-
 var validatorInstance *validator.Validate
 
 func getInstance() *validator.Validate {
-	once.Do(func() {
-		validatorInstance = validator.New()
-	})
+	if validatorInstance == nil {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if validatorInstance == nil {
+			validatorInstance = validator.New()
+		}
+	}
 	return validatorInstance
 }
 
 func ValidateStruct(s interface{}) error {
-	log.Log.Info(fmt.Sprintf("INSTANCE ON VALIDATE %p", getInstance()))
 	return getInstance().Struct(s)
 }
 
 func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
 	if options.AllowInsecureURLs {
+		reset()
 		err = getInstance().RegisterValidation("https_only", alwaysTrue)
 	} else {
-		log.Log.Info(fmt.Sprintf("INSTANCE ON REGISTER %p", getInstance()))
+		reset()
 		err = getInstance().RegisterValidation("https_only", isHttpsUrl)
 	}
 	return err
@@ -60,4 +61,12 @@ func isHttpsUrl(fl validator.FieldLevel) bool {
 
 func alwaysTrue(_ validator.FieldLevel) bool {
 	return true
+}
+
+func reset() {
+	if validatorInstance != nil {
+		mutex.Lock()
+		defer mutex.Unlock()
+		validatorInstance = nil
+	}
 }

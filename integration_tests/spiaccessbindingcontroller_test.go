@@ -1415,13 +1415,14 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 		var _ = AfterEach(func() {
 			testSetup.AfterEach()
+
 		})
 
 		It("should end in error phase and have an error message", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				g.Expect(testSetup.InCluster.Bindings[0].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
 				g.Expect(testSetup.InCluster.Bindings[0].Status.ErrorMessage).To(Not(BeEmpty()))
-				g.Expect(testSetup.InCluster.Bindings[0].Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType))
+				g.Expect(testSetup.InCluster.Bindings[0].Status.ErrorReason).To(Equal(api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration))
 				g.Expect(testSetup.InCluster.Bindings[0].Status.LinkedAccessTokenName).To(BeEmpty())
 			})
 		})

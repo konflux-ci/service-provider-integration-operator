@@ -225,9 +225,7 @@ func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) (*co
 		ServiceProviderType:    spType,
 		ServiceProviderBaseUrl: baseUrl,
 	}
-	log.Log.Info(fmt.Sprintf("HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE %+v", *cfg))
 	if err := config.ValidateStruct(cfg); err != nil {
-		log.Log.Info("ERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR" + baseUrl)
 		return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
 	}
 	return cfg, nil

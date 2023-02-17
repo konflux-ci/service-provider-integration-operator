@@ -16,7 +16,9 @@ package serviceprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"net/http"
 	"net/url"
 	"os"
@@ -124,7 +126,7 @@ func TestFromRepoUrl(t *testing.T) {
 	mockSP := struct {
 		ServiceProvider
 	}{}
-
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
 	mockInit := Initializer{
 		Probe: struct {
 			ProbeFunc
@@ -447,10 +449,18 @@ func TestInitializeServiceProvider(t *testing.T) {
 }
 
 func TestSpConfigWithBaseUrl(t *testing.T) {
-	spConfig := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
-
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	spConfig, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
+	assert.Nil(t, err)
 	assert.Equal(t, config.ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
 	assert.Equal(t, "blabol", spConfig.ServiceProviderBaseUrl)
 	assert.Nil(t, spConfig.OAuth2Config)
 	assert.Empty(t, spConfig.Extra)
+}
+
+func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
+	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
+	assert.NotNil(t, err)
+	assert.True(t, errors.Is(err, &validator.ValidationErrors{}))
 }
