@@ -48,7 +48,13 @@ func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
 	s.lg.Info("initializing AWS token storage")
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
-	// TODO: try to do some request so we find out if configuration is correct
+
+	// let's try to do simple request to verify that credentials are correct or fail fast
+	_, err := s.client.ListSecrets(ctx, &secretsmanager.ListSecretsInput{MaxResults: aws.Int32(1)})
+	if err != nil {
+		return fmt.Errorf("failed to initialize AWS tokenstorage, wrong credentials: %w", err)
+	}
+
 	return nil
 }
 
@@ -170,10 +176,9 @@ func (s *AwsTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 		ForceDeleteWithoutRecovery: aws.Bool(true),
 	}
 
-	//TODO: check delete result
 	_, err := s.client.DeleteSecret(ctx, input)
 	if err != nil {
-		return fmt.Errorf("error deleting secret: %w", err)
+		return fmt.Errorf("error deleting AWS secret: %w", err)
 	}
 	return nil
 }

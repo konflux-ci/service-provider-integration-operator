@@ -67,17 +67,17 @@ func TestAws(t *testing.T) {
 	awsCreds, hasAwsCreds := os.LookupEnv("AWS_CREDENTIALS_FILE")
 
 	if !hasAwsConfig || !hasAwsCreds {
-		t.Log("AWS storage tests dodn't run!. to test AWS storage, set AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE env vars")
+		t.Log("AWS storage tests didn't run!. to test AWS storage, set AWS_CONFIG_FILE and AWS_CREDENTIALS_FILE env vars")
 		return
 	}
 
 	if _, err := os.Stat(awsConfig); errors.Is(err, os.ErrNotExist) {
-		t.Logf("AWS storage tests dodn't run!. AWS_CONFIG_FILE is set, but file does not exists '%s'\n", awsConfig)
+		t.Logf("AWS storage tests didn't run!. AWS_CONFIG_FILE is set, but file does not exists '%s'\n", awsConfig)
 		return
 	}
 
 	if _, err := os.Stat(awsCreds); errors.Is(err, os.ErrNotExist) {
-		t.Logf("AWS storage tests dodn't run!. AWS_CREDENTIALS_FILE is set, but file does not exists '%s'\n", awsCreds)
+		t.Logf("AWS storage tests didn't run!. AWS_CREDENTIALS_FILE is set, but file does not exists '%s'\n", awsCreds)
 		return
 	}
 
