@@ -18,11 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"net/http"
 	"net/url"
 	"os"
 	"testing"
+
+	"github.com/go-playground/validator/v10"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -462,5 +463,5 @@ func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
 	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
 	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
-	assert.True(t, errors.Is(err, &validator.ValidationErrors{}))
+	assert.NotNil(t, errors.Unwrap(err).(validator.ValidationErrors).Error())
 }

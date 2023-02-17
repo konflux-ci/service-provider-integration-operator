@@ -20,9 +20,10 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"net/url"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 
 	"github.com/go-logr/logr"
 

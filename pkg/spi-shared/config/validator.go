@@ -15,9 +15,10 @@
 package config
 
 import (
-	"github.com/go-playground/validator/v10"
 	"strings"
 	"sync"
+
+	"github.com/go-playground/validator/v10"
 )
 
 var mutex sync.Mutex
@@ -45,11 +46,12 @@ func ValidateStruct(s interface{}) error {
 
 func SetupCustomValidations(options CustomValidationOptions) error {
 	var err error
+	mutex.Lock()
+	defer mutex.Unlock()
+	validatorInstance = validator.New() //if we change validation rules, we must re-create validator instance
 	if options.AllowInsecureURLs {
-		reset()
 		err = getInstance().RegisterValidation("https_only", alwaysTrue)
 	} else {
-		reset()
 		err = getInstance().RegisterValidation("https_only", isHttpsUrl)
 	}
 	return err
@@ -61,12 +63,4 @@ func isHttpsUrl(fl validator.FieldLevel) bool {
 
 func alwaysTrue(_ validator.FieldLevel) bool {
 	return true
-}
-
-func reset() {
-	if validatorInstance != nil {
-		mutex.Lock()
-		defer mutex.Unlock()
-		validatorInstance = nil
-	}
 }
