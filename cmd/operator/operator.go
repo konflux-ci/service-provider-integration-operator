@@ -80,6 +80,13 @@ func main() {
 	arg.MustParse(&args)
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
+	var err error
+	err = sharedconfig.SetupCustomValidations(sharedconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the validators")
+		os.Exit(1)
+	}
+
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()

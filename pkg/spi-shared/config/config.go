@@ -58,7 +58,7 @@ const (
 // consumption.
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []persistedServiceProviderConfiguration `yaml:"serviceProviders"`
+	ServiceProviders []persistedServiceProviderConfiguration `yaml:"serviceProviders" validate:"omitempty,dive"`
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -75,7 +75,7 @@ type persistedServiceProviderConfiguration struct {
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
 	// types, like GitHub that only can have 1 well-known base URL.
-	ServiceProviderBaseUrl string `yaml:"baseUrl,omitempty"`
+	ServiceProviderBaseUrl string `yaml:"baseUrl,omitempty" validate:"omitempty,https_only"`
 
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string `yaml:"extra,omitempty"`
@@ -85,11 +85,11 @@ type persistedServiceProviderConfiguration struct {
 // between the SPI OAuth service and the SPI operator
 type SharedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
-	ServiceProviders []ServiceProviderConfiguration
+	ServiceProviders []ServiceProviderConfiguration `validate:"omitempty,dive"`
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
-	BaseUrl string
+	BaseUrl string `validate:"required,https_only"`
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -100,7 +100,7 @@ type ServiceProviderConfiguration struct {
 
 	// ServiceProviderBaseUrl is the base URL of the service provider. This can be omitted for certain service provider
 	// types, like GitHub that only can have 1 well-known base URL.
-	ServiceProviderBaseUrl string
+	ServiceProviderBaseUrl string `validate:"omitempty,https_only"`
 
 	// Extra is the extra configuration required for some service providers to be able to uniquely identify them.
 	Extra map[string]string
@@ -179,6 +179,10 @@ func LoadFrom(configFilePath, baseUrl string) (SharedConfiguration, error) {
 		return SharedConfiguration{}, err
 	}
 	cfg.BaseUrl = strings.TrimSuffix(baseUrl, "/")
+	err = ValidateStruct(cfg)
+	if err != nil {
+		return SharedConfiguration{}, err
+	}
 
 	return *cfg, nil
 }
