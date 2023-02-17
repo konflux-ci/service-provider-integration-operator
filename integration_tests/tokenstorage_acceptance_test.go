@@ -25,7 +25,6 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
@@ -82,7 +81,7 @@ func TestAws(t *testing.T) {
 		return
 	}
 
-	storage, error := awsstorage.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
+	storage, error := awscli.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
 		ConfigFile:      awsConfig,
 		CredentialsFile: awsCreds,
 	})
