@@ -91,7 +91,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if stderrors.As(spErr, &validationErr) {
 			lg.Error(spErr, "failed to validate service provider for SPIAccessCheck")
 			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnsupportedServiceProviderConfiguration
-			ac.Status.ErrorMessage = validationErr.Error()
+			ac.Status.ErrorMessage = spErr.Error()
 		} else {
 			lg.Error(spErr, "failed to determine service provider for SPIAccessCheck")
 			ac.Status.ErrorReason = api.SPIAccessCheckErrorUnknownServiceProvider

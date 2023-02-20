@@ -480,7 +480,7 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 		if stderrors.As(err, &validationErr) {
 			log.Log.Error(err, "failed to validate service provider for SPIAccessTokenBinding")
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, validationErr)
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, err)
 			return nil, fmt.Errorf("failed to validate the service provider: %w", validationErr)
 		} else {
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError

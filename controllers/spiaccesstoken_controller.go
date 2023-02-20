@@ -201,7 +201,6 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		var validationErr validator.ValidationErrors
 		if stderrors.As(err, &validationErr) {
 			reason = api.SPIAccessTokenErrorUnsupportedServiceProviderConfiguration
-			err = validationErr
 		} else {
 			reason = api.SPIAccessTokenErrorReasonUnknownServiceProvider
 		}

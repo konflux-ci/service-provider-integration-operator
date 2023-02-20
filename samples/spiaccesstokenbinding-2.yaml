@@ -1,13 +1,13 @@
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIAccessTokenBinding
 metadata:
-  name: test-access-token-binding-2
+  name: test-access-token-binding-3
   namespace: default
 spec:
   permissions:
     required:
       - type: rw
         area: registry
-  repoUrl: https://quay.io/repository/redhat_emp1/spi-test
+  repoUrl: http://dummy-gitlab.com
   secret:
     type: kubernetes.io/basic-auth

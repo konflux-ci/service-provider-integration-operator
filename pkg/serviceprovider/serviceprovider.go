@@ -169,7 +169,7 @@ func (f *Factory) initializeServiceProvider(_ context.Context, spType config.Ser
 
 	if spConfig != nil {
 		if err := config.ValidateStruct(spConfig); err != nil {
-			return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
+			return nil, fmt.Errorf("failed to validate service provider %s configuration: %w", spType.Name, err)
 		}
 		sp, errConstructSp := ctor.Construct(f, spConfig)
 		if errConstructSp != nil {
