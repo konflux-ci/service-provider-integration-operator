@@ -463,5 +463,7 @@ func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
 	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
 	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
-	assert.NotNil(t, errors.Unwrap(err).(validator.ValidationErrors).Error())
+	var validationErr validator.ValidationErrors
+	errors.As(err, &validationErr)
+	assert.NotNil(t, validationErr.Error())
 }
