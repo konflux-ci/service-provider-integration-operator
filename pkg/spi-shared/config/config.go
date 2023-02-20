@@ -179,7 +179,7 @@ func LoadFrom(configFilePath, baseUrl string) (SharedConfiguration, error) {
 	cfg.BaseUrl = strings.TrimSuffix(baseUrl, "/")
 	err = ValidateStruct(cfg)
 	if err != nil {
-		return SharedConfiguration{}, fmt.Errorf("configuration validation failed: %w", err)
+		return SharedConfiguration{}, fmt.Errorf("service configuration validation failed: %w", err)
 	}
 	return *cfg, nil
 }
