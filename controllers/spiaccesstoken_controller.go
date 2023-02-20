@@ -328,7 +328,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	if err != nil {
 		var validationErr validator.ValidationErrors
 		if stderrors.As(err, &validationErr) {
-			return "", fmt.Errorf("failed to construct the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, validationErr)
+			return "", fmt.Errorf("failed to validate the service provider for URL %s: %w", at.Spec.ServiceProviderUrl, validationErr)
 		} else {
 			return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
 		}

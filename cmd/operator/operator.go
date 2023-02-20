@@ -150,9 +150,6 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
 	ret.EnableTokenUpload = args.EnableTokenUpload
 
-	if err := sharedconfig.ValidateStruct(ret); err != nil {
-		return opconfig.OperatorConfiguration{}, fmt.Errorf("error validating operator config: %w", err)
-	}
 	return ret, nil
 }
 
