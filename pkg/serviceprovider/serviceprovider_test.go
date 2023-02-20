@@ -464,6 +464,6 @@ func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
 	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
 	var validationErr validator.ValidationErrors
-	errors.As(err, &validationErr)
+	assert.True(t, errors.As(err, &validationErr))
 	assert.NotNil(t, validationErr.Error())
 }

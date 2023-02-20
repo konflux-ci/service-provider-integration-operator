@@ -14,6 +14,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -140,8 +141,9 @@ serviceProviders:
 		defer os.Remove(cfgFilePath)
 
 		_, err := LoadFrom(cfgFilePath, "blabol/")
-		assert.Error(t, err)
-		assert.NotNil(t, err.(validator.ValidationErrors).Error())
+		var validationErr validator.ValidationErrors
+		assert.True(t, errors.As(err, &validationErr))
+		assert.NotNil(t, validationErr.Error())
 	})
 }
 
