@@ -16,6 +16,7 @@ package oauth
 import (
 	"fmt"
 	"html/template"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"net/http"
 	"strings"
 
@@ -95,6 +96,18 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 
 		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {
 			LogDebugAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "Incorrect service deployment. Token name and namespace can't be omitted or empty.")
+			return
+		}
+
+		errs := validation.IsDNS1123Label(tokenObjectName)
+		if len(errs) > 0 {
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply RFC1123 label format. Details: "+strings.Join(errs, ";"))
+			return
+		}
+
+		errs = validation.IsDNS1123Label(tokenObjectNamespace)
+		if len(errs) > 0 {
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token namespace parameter. Must comply RFC1123 label format. Details: "+strings.Join(errs, ";"))
 			return
 		}
 

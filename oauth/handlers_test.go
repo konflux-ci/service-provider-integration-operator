@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -328,6 +329,82 @@ func TestUploader_FailJsonParse(t *testing.T) {
 		t.Fatal(err)
 	}
 	var expected = "failed to decode request body as token JSON: invalid character 'h' in literal true (expecting 'r')"
+	if string(data) != expected {
+		t.Errorf("expected '"+expected+"' got '%v'", string(data))
+	}
+}
+
+func TestUploader_FailNamespaceParamValidation(t *testing.T) {
+	uploader := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
+		assert.Fail(t, "This line should not be reached")
+		return nil
+	})
+
+	req, err := http.NewRequest("POST", "/token/jdoe:baudot/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer kachny")
+
+	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	rr := httptest.NewRecorder()
+	var router = mux.NewRouter()
+	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	router.ServeHTTP(rr, req)
+	res := rr.Result()
+	defer res.Body.Close()
+	// Check the status code is what we expect.
+
+	if status := res.StatusCode; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expected = "Incorrect token namespace parameter. Must comply RFC1123 label format. Details: a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
+	if string(data) != expected {
+		t.Errorf("expected '"+expected+"' got '%v'", string(data))
+	}
+}
+
+func TestUploader_FailTokenNameParamValidation(t *testing.T) {
+	uploader := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
+		assert.Fail(t, "This line should not be reached")
+		return nil
+	})
+
+	req, err := http.NewRequest("POST", "/token/jdoe/umbrella:bad", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer kachny")
+
+	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	rr := httptest.NewRecorder()
+	var router = mux.NewRouter()
+	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	router.ServeHTTP(rr, req)
+	res := rr.Result()
+	defer res.Body.Close()
+	// Check the status code is what we expect.
+
+	if status := res.StatusCode; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expected = "Incorrect token name parameter. Must comply RFC1123 label format. Details: a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
