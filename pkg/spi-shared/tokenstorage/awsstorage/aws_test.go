@@ -15,17 +15,124 @@
 package awsstorage
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var testToken = &v1beta1.Token{
+	Username:     "testUsername",
+	AccessToken:  "testAccessToken",
+	TokenType:    "testTokenType",
+	RefreshToken: "testRefreshToken",
+	Expiry:       123,
+}
+
+var testSpiAccessToken = &v1beta1.SPIAccessToken{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "testSpiAccessToken",
+		Namespace: "testNamespace",
+	},
+}
+
 func TestGenerateSecretName(t *testing.T) {
-	secretName := generateAwsSecretName(&v1beta1.SPIAccessToken{ObjectMeta: v1.ObjectMeta{Namespace: "tokennamespace", Name: "tokenname"}})
+	secretName := generateAwsSecretName(&v1beta1.SPIAccessToken{ObjectMeta: metav1.ObjectMeta{Namespace: "tokennamespace", Name: "tokenname"}})
 
 	assert.NotNil(t, secretName)
 	assert.Contains(t, *secretName, "tokennamespace")
 	assert.Contains(t, *secretName, "tokenname")
+}
+
+func TestCheckCredentials(t *testing.T) {
+	ctx := context.TODO()
+	t.Run("ok check", func(t *testing.T) {
+		cl := &mockAwsClient{
+			listFn: func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
+				return nil, nil
+			},
+		}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     log.FromContext(ctx),
+		}
+		assert.NoError(t, strg.checkCredentials(ctx))
+	})
+
+	t.Run("failed check", func(t *testing.T) {
+		ctx := context.TODO()
+		cl := &mockAwsClient{
+			listFn: func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
+				return nil, fmt.Errorf("fail")
+			},
+		}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     log.FromContext(ctx),
+		}
+		assert.Error(t, strg.checkCredentials(ctx))
+		assert.True(t, cl.listCalled)
+	})
+}
+
+func TestStore(t *testing.T) {
+	ctx := context.TODO()
+	cl := &mockAwsClient{
+		createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+			return nil, nil
+		},
+	}
+
+	strg := AwsTokenStorage{
+		client: cl,
+		lg:     log.FromContext(ctx),
+	}
+
+	errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.createCalled)
+	assert.False(t, cl.updateCalled)
+}
+
+type mockAwsClient struct {
+	createFn     func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+	createCalled bool
+
+	getFn     func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+	getCalled bool
+
+	listFn     func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error)
+	listCalled bool
+
+	updateFn     func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error)
+	updateCalled bool
+
+	deleteFn     func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error)
+	deleteCalled bool
+}
+
+func (c *mockAwsClient) CreateSecret(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+	c.createCalled = true
+	return c.createFn(ctx, params, optFns...)
+}
+func (c *mockAwsClient) GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+	c.getCalled = true
+	return c.getFn(ctx, params, optFns...)
+}
+func (c *mockAwsClient) ListSecrets(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
+	c.listCalled = true
+	return c.listFn(ctx, params, optFns...)
+}
+func (c *mockAwsClient) UpdateSecret(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
+	c.updateCalled = true
+	return c.updateFn(ctx, params, optFns...)
+}
+func (c *mockAwsClient) DeleteSecret(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
+	c.deleteCalled = true
+	return c.deleteFn(ctx, params, optFns...)
 }

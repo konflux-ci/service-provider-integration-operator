@@ -35,8 +35,19 @@ import (
 type AwsTokenStorage struct {
 	Config *aws.Config
 
-	client *secretsmanager.Client
+	client awsClient
 	lg     logr.Logger
+}
+
+// awsClient is an interface grouping methods from aws secretsmanager.Client that we need for implementation of our aws tokenstorage
+// This is not complete list of secretsmanager.Client methods
+// This is mostly done for testing purpose so we can easily mock the aws client
+type awsClient interface {
+	CreateSecret(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+	GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+	ListSecrets(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error)
+	UpdateSecret(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error)
+	DeleteSecret(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error)
 }
 
 const awsDataPathFormat = "%s/%s"
@@ -49,12 +60,19 @@ func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
 
+	if errCheck := s.checkCredentials(ctx); errCheck != nil {
+		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
+	}
+
+	return nil
+}
+
+func (s *AwsTokenStorage) checkCredentials(ctx context.Context) error {
 	// let's try to do simple request to verify that credentials are correct or fail fast
 	_, err := s.client.ListSecrets(ctx, &secretsmanager.ListSecretsInput{MaxResults: aws.Int32(1)})
 	if err != nil {
-		return fmt.Errorf("failed to initialize AWS tokenstorage, wrong credentials: %w", err)
+		return fmt.Errorf("failed to list the secrets to check the AWS client is properly configured: %w", err)
 	}
-
 	return nil
 }
 
