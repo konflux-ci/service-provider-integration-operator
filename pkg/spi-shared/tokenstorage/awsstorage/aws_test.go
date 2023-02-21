@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -42,6 +43,22 @@ var testSpiAccessToken = &v1beta1.SPIAccessToken{
 		Name:      "testSpiAccessToken",
 		Namespace: "testNamespace",
 	},
+}
+
+func TestInitialize(t *testing.T) {
+	ctx := context.TODO()
+	awsConfig, _ := config.LoadDefaultConfig(ctx,
+		config.WithSharedConfigFiles([]string{"nothing"}),
+		config.WithSharedCredentialsFiles([]string{"nothing"}))
+	strg := AwsTokenStorage{
+		Config: &awsConfig,
+
+		lg: log.FromContext(ctx),
+	}
+
+	errInit := strg.Initialize(ctx)
+
+	assert.Error(t, errInit)
 }
 
 func TestGenerateSecretName(t *testing.T) {
