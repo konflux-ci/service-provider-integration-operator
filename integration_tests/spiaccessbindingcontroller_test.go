@@ -909,7 +909,18 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					},
 				},
 				Behavior: ITestBehavior{
+					BeforeObjectsCreated: func() {
+						// wait until we can actually see the service account in the cluster
+						Eventually(func(g Gomega) {
+							g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+						}).Should(Succeed())
+					},
 					AfterObjectsCreated: func(objects TestObjects) {
+						// wait until we can actually see the service account in the cluster
+						Eventually(func(g Gomega) {
+							g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+						}).Should(Succeed())
+
 						err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
 							AccessToken:  "access",
 							RefreshToken: "refresh",
@@ -935,6 +946,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					},
 				})).To(Succeed())
 
+				// wait until we can actually see the service account in the cluster
+				Eventually(func(g Gomega) {
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+				}).Should(Succeed())
+
 				testSetup.BeforeEach(nil)
 
 			})
@@ -945,15 +961,21 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("should persist service account name in status", func() {
-				for _, binding := range testSetup.InCluster.Bindings {
-					Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					for _, binding := range testSetup.InCluster.Bindings {
+						g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
 
-					sa := &corev1.ServiceAccount{}
-					Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
-				}
+						sa := &corev1.ServiceAccount{}
+						g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+					}
+				})
 			})
 
 			It("should link the service account with service-account-token secret", func() {
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				})
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
@@ -967,6 +989,10 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("should link the service account with docker-config-json secret as image pull secret", func() {
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				})
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-image-pull-secret-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
