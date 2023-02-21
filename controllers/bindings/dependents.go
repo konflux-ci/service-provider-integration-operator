@@ -89,10 +89,9 @@ func (d *DependentsHandler) detectLinks(ctx context.Context, secretName string, 
 	link := serviceAccountLink{}
 
 	sa := &corev1.ServiceAccount{}
-	key := client.ObjectKey{Name: saName, Namespace: d.Binding.Namespace}
-	if err := d.Client.Get(ctx, key, sa); err != nil {
-		return link, fmt.Errorf("failed to get the referenced service account %s: %w", key, err)
-	}
+	// we can ignore the error here, because this is essentially the same as the SA having no links. Sync will create it, if needed,
+	// and RevertTo will ignore it, because it doesn't exist (it only works with the SAs actually present in the cluster).
+	_ = d.Client.Get(ctx, client.ObjectKey{Name: saName, Namespace: d.Binding.Namespace}, sa)
 
 	for _, s := range sa.Secrets {
 		if s.Name == secretName {

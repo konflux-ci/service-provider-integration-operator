@@ -354,6 +354,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	// remember the state that we need to revert to if updates to the binding fail after we've made changes to the cluster
 	depCheckpoint, err := dependentsHandler.CheckPoint(ctx)
 	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate, err)
 		return ctrl.Result{}, fmt.Errorf("failed to prepare a checkpoint to revert to prior to changing the cluster state: %w", err)
 	}
@@ -361,6 +362,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
 		deps, errorReason, err := dependentsHandler.Sync(ctx, token, sp)
 		if err != nil {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, &binding, errorReason, err)
 			if rerr := dependentsHandler.RevertTo(ctx, depCheckpoint); rerr != nil {
 				lg.Error(rerr, "failed to revert dependent objects changes")
