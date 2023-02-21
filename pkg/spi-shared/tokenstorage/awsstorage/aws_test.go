@@ -52,8 +52,6 @@ func TestInitialize(t *testing.T) {
 		config.WithSharedCredentialsFiles([]string{"nothing"}))
 	strg := AwsTokenStorage{
 		Config: &awsConfig,
-
-		lg: log.FromContext(ctx),
 	}
 
 	errInit := strg.Initialize(ctx)
@@ -101,92 +99,318 @@ func TestCheckCredentials(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	ctx := context.TODO()
-	cl := &mockAwsClient{
-		createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-			return nil, nil
-		},
-	}
+	t.Run("ok", func(t *testing.T) {
+		ctx := context.TODO()
+		cl := &mockAwsClient{
+			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, nil
+			},
+		}
 
-	strg := AwsTokenStorage{
-		client: cl,
-		lg:     log.FromContext(ctx),
-	}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     log.FromContext(ctx),
+		}
 
-	errStore := strg.Store(ctx, testSpiAccessToken, testToken)
-	assert.NoError(t, errStore)
-	assert.True(t, cl.createCalled)
-	assert.False(t, cl.updateCalled)
+		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		assert.NoError(t, errStore)
+		assert.True(t, cl.createCalled)
+		assert.False(t, cl.updateCalled)
+	})
+
+	t.Run("fail create", func(t *testing.T) {
+		ctx := context.TODO()
+		cl := &mockAwsClient{
+			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, fmt.Errorf("failed to create")
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     log.FromContext(ctx),
+		}
+
+		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.createCalled)
+		assert.False(t, cl.updateCalled)
+	})
 }
 
 func TestUpdate(t *testing.T) {
-	ctx := context.TODO()
-	lg := log.FromContext(ctx)
+	t.Run("ok", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
 
-	cl := &mockAwsClient{
-		createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-			return nil, &types.ResourceExistsException{}
-		},
-		updateFn: func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
-			return nil, nil
-		},
-		getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-			return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
-		},
-	}
+		cl := &mockAwsClient{
+			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, &types.ResourceExistsException{}
+			},
+			updateFn: func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
+				return nil, nil
+			},
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
+			},
+		}
 
-	strg := AwsTokenStorage{
-		client: cl,
-		lg:     lg,
-	}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
 
-	errStore := strg.Store(ctx, testSpiAccessToken, testToken)
-	assert.NoError(t, errStore)
-	assert.True(t, cl.createCalled)
-	assert.True(t, cl.updateCalled)
-	assert.True(t, cl.getCalled)
+		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		assert.NoError(t, errStore)
+		assert.True(t, cl.createCalled)
+		assert.True(t, cl.updateCalled)
+		assert.True(t, cl.getCalled)
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, &types.ResourceExistsException{}
+			},
+			updateFn: func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
+				return nil, fmt.Errorf("update failed")
+			},
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.createCalled)
+		assert.True(t, cl.updateCalled)
+		assert.True(t, cl.getCalled)
+	})
+
+	t.Run("fail get to update", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, &types.ResourceExistsException{}
+			},
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, fmt.Errorf("fail to get")
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.createCalled)
+		assert.False(t, cl.updateCalled)
+		assert.True(t, cl.getCalled)
+	})
 }
 
 func TestGet(t *testing.T) {
-	ctx := context.TODO()
-	lg := log.FromContext(ctx)
+	t.Run("ok", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
 
-	cl := &mockAwsClient{
-		getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-			tokenData, _ := json.Marshal(testToken)
-			return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: tokenData}, nil
-		},
-	}
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				tokenData, _ := json.Marshal(testToken)
+				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: tokenData}, nil
+			},
+		}
 
-	strg := AwsTokenStorage{
-		client: cl,
-		lg:     lg,
-	}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
 
-	token, errStore := strg.Get(ctx, testSpiAccessToken)
-	assert.NoError(t, errStore)
-	assert.True(t, cl.getCalled)
-	assert.Equal(t, testToken, token)
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.NoError(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Equal(t, testToken, token)
+	})
+
+	t.Run("corrupted data", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: []byte("blabol")}, nil
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
+
+	t.Run("got nil secret", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, nil
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
+
+	t.Run("fail to get", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, fmt.Errorf("fail to get")
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
+
+	t.Run("token not found", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, &types.ResourceNotFoundException{}
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.NoError(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
+
+	t.Run("secret is deleting", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, &types.InvalidRequestException{Message: aws.String("token is scheduled for deletion")}
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.NoError(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
+
+	t.Run("fail invalid request", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, &types.InvalidRequestException{Message: aws.String("some failure")}
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		token, errStore := strg.Get(ctx, testSpiAccessToken)
+		assert.Error(t, errStore)
+		assert.True(t, cl.getCalled)
+		assert.Nil(t, token)
+	})
 }
 
 func TestDelete(t *testing.T) {
-	ctx := context.TODO()
-	lg := log.FromContext(ctx)
+	t.Run("ok", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
 
-	cl := &mockAwsClient{
-		deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
-			return nil, nil
-		},
-	}
+		cl := &mockAwsClient{
+			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
+				return nil, nil
+			},
+		}
 
-	strg := AwsTokenStorage{
-		client: cl,
-		lg:     lg,
-	}
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
 
-	errDelete := strg.Delete(ctx, testSpiAccessToken)
-	assert.NoError(t, errDelete)
-	assert.True(t, cl.deleteCalled)
+		errDelete := strg.Delete(ctx, testSpiAccessToken)
+		assert.NoError(t, errDelete)
+		assert.True(t, cl.deleteCalled)
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		ctx := context.TODO()
+		lg := log.FromContext(ctx)
+
+		cl := &mockAwsClient{
+			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
+				return nil, fmt.Errorf("failed to delete")
+			},
+		}
+
+		strg := AwsTokenStorage{
+			client: cl,
+			lg:     lg,
+		}
+
+		errDelete := strg.Delete(ctx, testSpiAccessToken)
+		assert.Error(t, errDelete)
+		assert.True(t, cl.deleteCalled)
+	})
 }
 
 type mockAwsClient struct {
