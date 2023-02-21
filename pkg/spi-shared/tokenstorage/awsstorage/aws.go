@@ -54,6 +54,10 @@ const awsDataPathFormat = "%s/%s"
 
 var _ tokenstorage.TokenStorage = (*AwsTokenStorage)(nil)
 
+var (
+	errGotNilSecret = errors.New("got nil secret from aws secretmanager")
+)
+
 func (s *AwsTokenStorage) Initialize(ctx context.Context) error {
 	s.lg = log.FromContext(ctx, "tokenstorage", "AWS")
 	s.lg.Info("initializing AWS token storage")
@@ -183,7 +187,7 @@ func (s *AwsTokenStorage) getAwsSecret(ctx context.Context, secretName *string) 
 		return nil, fmt.Errorf("failed to get the secret '%s' from aws secretmanager: %w", *secretName, err)
 	}
 	if awsSecret == nil {
-		return nil, fmt.Errorf("got nil secret '%s' from aws secretmanager", *secretName)
+		return nil, fmt.Errorf("%w: secretname=%s", errGotNilSecret, *secretName)
 	}
 	return awsSecret, nil
 }
