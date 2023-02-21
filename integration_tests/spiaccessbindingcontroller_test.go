@@ -59,9 +59,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
-						return TestCapability{}
+						return &ITest.Capabilities
 					}
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -141,7 +141,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -281,7 +281,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
 
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
 
 					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
 						AccessToken: "token",
@@ -289,7 +289,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					// now that the token is stored, we can simulate parsing its metadata from the SP
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "alois",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -363,7 +363,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -395,7 +395,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username: "test",
 					UserId:   "42",
 				})
@@ -424,7 +424,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username: "test",
 					UserId:   "42",
 				})
@@ -476,7 +476,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -498,7 +498,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				// We have the token in the ready state... let's not look it up during token matching
 				ITest.TestServiceProvider.LookupTokenImpl = nil
 
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
 					UserId:               "42",
 					Scopes:               []string{},
@@ -562,7 +562,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				}
 
 				Expect(ITest.Client.Create(ITest.Context, betterToken)).To(Succeed())
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
 					UserId:               "42",
 					Scopes:               []string{},
@@ -577,7 +577,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				// we're trying to use the token defined by the outer layer first.
 				// This token is not ready, so we should be in a situation that should
 				// still enable swapping the token for a better fitting one.
-				ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&createdToken)
+				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&createdToken)
 
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
 			})
@@ -590,7 +590,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 
 				// now start returning the better token from the lookup
-				ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&betterToken)
+				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&betterToken)
 
 				// and check that the binding switches to the better token
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -609,7 +609,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
 					UserId:               "42",
 					Scopes:               []string{},
@@ -625,7 +625,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("deletes the secret and flips back to awaiting phase", func() {
-				ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
 				Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -780,6 +780,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 			for _, sa := range sas.Items {
 				err := ITest.Client.Delete(ITest.Context, &sa)
+
 				if err != nil && !errors.IsNotFound(err) {
 					g.Expect(err).To(Succeed())
 				}
@@ -877,13 +878,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							TokenType:    "awesome",
 						})
 						Expect(err).NotTo(HaveOccurred())
-						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+						ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 							Username:             "alois",
 							UserId:               "42",
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -897,6 +898,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})).To(Succeed())
 
 				testSetup.BeforeEach(nil)
+
 			})
 
 			AfterEach(func() {
@@ -1095,13 +1097,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							TokenType:    "awesome",
 						})
 						Expect(err).NotTo(HaveOccurred())
-						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+						ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 							Username:             "alois",
 							UserId:               "42",
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1299,13 +1301,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							TokenType:    "awesome",
 						})
 						Expect(err).NotTo(HaveOccurred())
-						ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+						ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 							Username:             "alois",
 							UserId:               "42",
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}

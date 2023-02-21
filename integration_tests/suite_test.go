@@ -18,6 +18,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"golang.org/x/oauth2"
 
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"context"
@@ -32,6 +33,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/client-go/rest"
 
 	config2 "github.com/onsi/ginkgo/config"
 
@@ -41,6 +43,7 @@ import (
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -131,16 +134,34 @@ var _ = BeforeSuite(func() {
 	cl, err := client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cl).NotTo(BeNil())
-	ITest.Client = cl
+
+	// Let's configure the logging client as a pass-through, not outputting anything to not clobber up the logs too much.
+	// Configure it in case you're having trouble understanding when and where the interactions with K8s API are happening.
+	logK8sReads := false
+	logK8sWrites := false
+	includeStacktracesInK8sWrites := false
+	lgCl := &controllers.LoggingKubernetesClient{
+		Client:             cl,
+		LogReads:           logK8sReads,
+		LogWrites:          logK8sWrites,
+		IncludeStacktraces: includeStacktracesInK8sWrites,
+	}
+
+	ITest.Client = lgCl
 
 	noPrivsClient, err := client.New(noPrivsUser.Config(), client.Options{
 		Scheme: scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(noPrivsClient).NotTo(BeNil())
-	ITest.NoPrivsClient = noPrivsClient
+	ITest.NoPrivsClient = &controllers.LoggingKubernetesClient{
+		Client:             noPrivsClient,
+		LogReads:           logK8sReads,
+		LogWrites:          logK8sWrites,
+		IncludeStacktraces: logK8sWrites,
+	}
 
-	ITest.TestServiceProvider = TestServiceProvider{}
+	ITest.TestServiceProvider = serviceprovider.TestServiceProvider{}
 	ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
 		if strings.HasPrefix(baseUrl, "test-provider://") {
 			return "test-provider://baseurl", nil
@@ -150,8 +171,22 @@ var _ = BeforeSuite(func() {
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
 
-	ITest.HostCredsServiceProvider = TestServiceProvider{}
-	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *TestServiceProvider) {
+	ITest.Capabilities = serviceprovider.TestCapabilities{}
+
+	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, _ string, _ string, _ string, _ *api.SPIAccessToken, i int) (string, error) {
+		return "abcdefg", nil
+	}
+
+	ITest.Capabilities.GetOAuthEndpointImpl = func() string {
+		return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+	}
+
+	ITest.Capabilities.OAuthScopesForImpl = func(_ *api.Permissions) []string {
+		return []string{}
+	}
+
+	ITest.HostCredsServiceProvider = serviceprovider.TestServiceProvider{}
+	ITest.HostCredsServiceProvider.CustomizeReset = func(provider *serviceprovider.TestServiceProvider) {
 		provider.GetTypeImpl = func() config.ServiceProviderType {
 			return config.ServiceProviderTypeHostCredentials
 		}
@@ -194,6 +229,19 @@ var _ = BeforeSuite(func() {
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
 		LeaderElection:     false,
 		MetricsBindAddress: "0",
+		NewClient: func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+			cl, err := cluster.DefaultNewClient(cache, config, options, uncachedObjects...)
+			if err != nil {
+				return nil, err
+			}
+
+			return &controllers.LoggingKubernetesClient{
+				Client:             cl,
+				LogReads:           logK8sReads,
+				LogWrites:          logK8sWrites,
+				IncludeStacktraces: includeStacktracesInK8sWrites,
+			}, nil
+		},
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -201,7 +249,7 @@ var _ = BeforeSuite(func() {
 	ITest.VaultTestCluster, strg, _, _ = vaultstorage.CreateTestVaultTokenStorageWithAuthAndMetrics(GinkgoT(), ITest.MetricsRegistry)
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
-		Client:       cl,
+		Client:       ITest.Client,
 		TokenStorage: strg,
 	}
 
