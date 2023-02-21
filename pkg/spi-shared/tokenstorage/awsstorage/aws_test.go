@@ -16,10 +16,13 @@ package awsstorage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,6 +100,76 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, errStore)
 	assert.True(t, cl.createCalled)
 	assert.False(t, cl.updateCalled)
+}
+
+func TestUpdate(t *testing.T) {
+	ctx := context.TODO()
+	lg := log.FromContext(ctx)
+
+	cl := &mockAwsClient{
+		createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+			return nil, &types.ResourceExistsException{}
+		},
+		updateFn: func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
+			return nil, nil
+		},
+		getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+			return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
+		},
+	}
+
+	strg := AwsTokenStorage{
+		client: cl,
+		lg:     lg,
+	}
+
+	errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.createCalled)
+	assert.True(t, cl.updateCalled)
+	assert.True(t, cl.getCalled)
+}
+
+func TestGet(t *testing.T) {
+	ctx := context.TODO()
+	lg := log.FromContext(ctx)
+
+	cl := &mockAwsClient{
+		getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+			tokenData, _ := json.Marshal(testToken)
+			return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: tokenData}, nil
+		},
+	}
+
+	strg := AwsTokenStorage{
+		client: cl,
+		lg:     lg,
+	}
+
+	token, errStore := strg.Get(ctx, testSpiAccessToken)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.getCalled)
+	assert.Equal(t, testToken, token)
+}
+
+func TestDelete(t *testing.T) {
+	ctx := context.TODO()
+	lg := log.FromContext(ctx)
+
+	cl := &mockAwsClient{
+		deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
+			return nil, nil
+		},
+	}
+
+	strg := AwsTokenStorage{
+		client: cl,
+		lg:     lg,
+	}
+
+	errDelete := strg.Delete(ctx, testSpiAccessToken)
+	assert.NoError(t, errDelete)
+	assert.True(t, cl.deleteCalled)
 }
 
 type mockAwsClient struct {

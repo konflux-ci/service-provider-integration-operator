@@ -182,6 +182,9 @@ func (s *AwsTokenStorage) getAwsSecret(ctx context.Context, secretName *string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the secret '%s' from aws secretmanager: %w", *secretName, err)
 	}
+	if awsSecret == nil {
+		return nil, fmt.Errorf("got nil secret '%s' from aws secretmanager", *secretName)
+	}
 	return awsSecret, nil
 }
 
