@@ -102,13 +102,13 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 
 		errs := validation.IsDNS1123Label(tokenObjectName)
 		if len(errs) > 0 {
-			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply RFC1123 label format. Details: "+strings.Join(errs, ";"))
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply RFC 1123 label format. Details: "+strings.Join(errs, ";"))
 			return
 		}
 
 		errs = validation.IsDNS1123Label(tokenObjectNamespace)
 		if len(errs) > 0 {
-			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token namespace parameter. Must comply RFC1123 label format. Details: "+strings.Join(errs, ";"))
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token namespace parameter. Must comply RFC 1123 label format. Details: "+strings.Join(errs, ";"))
 			return
 		}
 
