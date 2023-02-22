@@ -100,15 +100,15 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		// We want to check that namespace and token names are satisfying the RFC 1123 label format,
-		// since it is a general requirement for namespace names, and the SPI access token names are used as a
-		// label values in the linked objects, so they need to comply that format as well.
-		errs := validation.IsDNS1123Label(tokenObjectName)
+		// We want to check token names are satisfying the general label value format,
+		// since the SPI access token names are used as a label values in the linked objects.
+		errs := validation.IsValidLabelValue(tokenObjectName)
 		if len(errs) > 0 {
-			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply RFC 1123 label format. Details: "+strings.Join(errs, ";"))
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply common label value format. Details: "+strings.Join(errs, ";"))
 			return
 		}
 
+		// Namespaces are required to be a valid RFC 1123 DNS labels
 		errs = validation.IsDNS1123Label(tokenObjectNamespace)
 		if len(errs) > 0 {
 			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token namespace parameter. Must comply RFC 1123 label format. Details: "+strings.Join(errs, ";"))
