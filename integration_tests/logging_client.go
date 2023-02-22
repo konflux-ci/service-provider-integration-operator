@@ -14,7 +14,7 @@
 
 //go:build !release
 
-package controllers
+package integrationtests
 
 import (
 	"context"
