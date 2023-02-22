@@ -366,7 +366,7 @@ func TestUploader_FailNamespaceParamValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "Incorrect token namespace parameter. Must comply RFC 1123 label format. Details: a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
+	var expected = "Incorrect token namespace parameter. Must comply with RFC 1123 label format. Details: a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
@@ -404,7 +404,7 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "Incorrect token name parameter. Must comply common label value format. Details: a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"
+	var expected = "Incorrect token name parameter. Must comply with common label value format. Details: a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
