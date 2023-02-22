@@ -140,7 +140,7 @@ var _ = BeforeSuite(func() {
 	logK8sReads := false
 	logK8sWrites := false
 	includeStacktracesInK8sWrites := false
-	lgCl := &controllers.LoggingKubernetesClient{
+	lgCl := &LoggingKubernetesClient{
 		Client:             cl,
 		LogReads:           logK8sReads,
 		LogWrites:          logK8sWrites,
@@ -154,7 +154,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(noPrivsClient).NotTo(BeNil())
-	ITest.NoPrivsClient = &controllers.LoggingKubernetesClient{
+	ITest.NoPrivsClient = &LoggingKubernetesClient{
 		Client:             noPrivsClient,
 		LogReads:           logK8sReads,
 		LogWrites:          logK8sWrites,
@@ -235,7 +235,7 @@ var _ = BeforeSuite(func() {
 				return nil, err
 			}
 
-			return &controllers.LoggingKubernetesClient{
+			return &LoggingKubernetesClient{
 				Client:             cl,
 				LogReads:           logK8sReads,
 				LogWrites:          logK8sWrites,
