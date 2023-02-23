@@ -37,8 +37,8 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
-					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return TestCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return &ITest.Capabilities }
 				},
 			},
 		}
@@ -72,10 +72,10 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "alois",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -116,7 +116,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
 				},
 			},
 		}
@@ -165,12 +165,12 @@ var _ = Describe("SPIFileContentRequest", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return TestCapability{} }
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready", Namespace: "default"})[0]
 
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "alois",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -180,7 +180,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 						AccessToken: "token",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -212,7 +212,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready-no-download", Namespace: "default"})[0]
 
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "alois",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -222,7 +222,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 						AccessToken: "token",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokenImpl = LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}

@@ -73,9 +73,15 @@ type IntegrationTest struct {
 	TestServiceProviderProbe serviceprovider.Probe
 	// TestServiceProvider is the service provider that the controllers are set up to use. You can modify its behavior
 	// in the before-each of the tests.
-	TestServiceProvider TestServiceProvider
+	TestServiceProvider serviceprovider.TestServiceProvider
+	// Capabilities is a pluggable implementation of the capabilities that can implemented by the service providers.
+	// Note that by default the TestServiceProvider is NOT set up to return this instance (i.e. by default, the test
+	// service provider doesn't support any additional capabilities).
+	// This instance is set up with the default implementations of the methods so that the callers don't have to set
+	// them up if they don't need to.
+	Capabilities serviceprovider.TestCapabilities
 	// HostCredsServiceProvider is the fallback provider used when no other service provider is detected for given URL.
-	HostCredsServiceProvider TestServiceProvider
+	HostCredsServiceProvider serviceprovider.TestServiceProvider
 	// VaultTestCluster is Vault's in-memory test cluster instance.
 	VaultTestCluster *vault.TestCluster
 	// OperatorConfiguration is the "live" configuration used by the controllers. Changing the values here has direct
@@ -218,8 +224,8 @@ func matchByNamePrefix[T client.Object](key client.ObjectKey, list []T) []T {
 // restored to this state in TestSetup.AfterEach. These are essentially just copies of the ITest objects.
 type priorITestState struct {
 	probe             serviceprovider.Probe
-	serviceProvider   TestServiceProvider
-	hostCredsProvider TestServiceProvider
+	serviceProvider   serviceprovider.TestServiceProvider
+	hostCredsProvider serviceprovider.TestServiceProvider
 	operatorConfig    opconfig.OperatorConfiguration // intentionally not a pointer
 	validationOptions config.CustomValidationOptions
 
