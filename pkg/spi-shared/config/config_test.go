@@ -14,6 +14,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -21,10 +22,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRead(t *testing.T) {
+	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: true})
 	t.Run("all supported service providers are set", func(t *testing.T) {
 		configFileContent := `
 serviceProviders:
@@ -107,6 +111,7 @@ func (r *r) Read(p []byte) (n int, err error) {
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
+	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: true})
 	configFileContent := `
 serviceProviders:
 - type: GitHub
@@ -120,6 +125,26 @@ serviceProviders:
 	assert.NoError(t, err)
 
 	assert.Equal(t, "blabol", cfg.BaseUrl)
+}
+
+func TestBaseUrlIsValidated(t *testing.T) {
+	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: false})
+	t.Run("config is validated", func(t *testing.T) {
+
+		configFileContent := `
+serviceProviders:
+- type: GitHub
+  clientId: "123"
+  clientSecret: "42"
+`
+		cfgFilePath := createFile(t, "config", configFileContent)
+		defer os.Remove(cfgFilePath)
+
+		_, err := LoadFrom(cfgFilePath, "blabol/")
+		var validationErr validator.ValidationErrors
+		assert.True(t, errors.As(err, &validationErr))
+		assert.NotNil(t, validationErr.Error())
+	})
 }
 
 func createFile(t *testing.T, path string, content string) string {

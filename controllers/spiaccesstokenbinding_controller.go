@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/go-logr/logr"
 
 	kubevalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -474,9 +476,17 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spNam
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
 	serviceProvider, err := r.ServiceProviderFactory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
 	if err != nil {
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
-		return nil, fmt.Errorf("failed to find the service provider: %w", err)
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
+			log.Log.Error(err, "failed to validate service provider for SPIAccessTokenBinding")
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration, err)
+			return nil, fmt.Errorf("failed to validate the service provider: %w", validationErr)
+		} else {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+			return nil, fmt.Errorf("failed to find the service provider: %w", err)
+		}
 	}
 
 	return serviceProvider, nil

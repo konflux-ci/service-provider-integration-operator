@@ -170,6 +170,7 @@ var _ = BeforeSuite(func() {
 		return "", nil
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
+	ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: true}
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 
