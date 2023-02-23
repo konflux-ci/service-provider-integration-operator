@@ -13,7 +13,6 @@
 // limitations under the License.
 
 //go:build !release
-// +build !release
 
 package vaultstorage
 
