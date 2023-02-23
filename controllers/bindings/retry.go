@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +54,7 @@ func updateWithRetries(retries uint64, ctx context.Context, cl client.Client, ob
 			}
 
 			// permanent error interrupts the Retry even if there are still some attempts left.
-			return backoff.Permanent(fmt.Errorf("%s: %w", nonConflictErrorMessage, err))
+			return backoff.Permanent(fmt.Errorf("%s: %w", nonConflictErrorMessage, err)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 		}
 
 		return nil
