@@ -32,6 +32,13 @@ var (
 	managedServiceAccountAlreadyExists = stderrors.New("a service account with same name as the managed one already exists")
 )
 
+const (
+	// serviceAccountUpdateRetryCount is the number of times we retry update operations on a service account. This a completely arbitrary number that is bigger
+	// than 2. We need this because OpenShift automagically updates service accounts with dockerconfig secrets, etc, and so the service account change change
+	// underneath our hands basically immediatelly after creation.
+	serviceAccountUpdateRetryCount = 10
+)
+
 type serviceAccountHandler struct {
 	Binding *api.SPIAccessTokenBinding
 	Client  client.Client
@@ -76,7 +83,7 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 			return nil, nil
 		}
 
-		err := updateWithRetries(10, ctx, h.Client, attempt, "retrying SA secret linking update due to conflict",
+		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Client, attempt, "retrying SA secret linking update due to conflict",
 			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s'", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding)))
 
 		if err != nil {

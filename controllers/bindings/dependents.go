@@ -254,7 +254,7 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 			return nil, nil
 		}
 
-		err = updateWithRetries(10, ctx, d.Client, attempt, "retry to update the SA while reverting to previous state of secret links", "failed to update the service account")
+		err = updateWithRetries(serviceAccountUpdateRetryCount, ctx, d.Client, attempt, "retry to update the SA while reverting to previous state of secret links", "failed to update the service account")
 
 		if err != nil {
 			return fmt.Errorf("failed to update the service account %s to revert it to prior state while recovering from failed binding reconciliation: %w", sa.Name, err)
