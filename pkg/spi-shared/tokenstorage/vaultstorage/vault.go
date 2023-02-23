@@ -91,7 +91,7 @@ const (
 )
 
 type VaultStorageConfig struct {
-	Host     string
+	Host     string `validate:"required,https_only"`
 	AuthType VaultAuthMethod
 	Insecure bool
 
@@ -108,6 +108,9 @@ type VaultStorageConfig struct {
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
 func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (tokenstorage.TokenStorage, error) {
+	if err := config.ValidateStruct(vaultTokenStorageConfig); err != nil {
+		return nil, fmt.Errorf("error validating storage config: %w", err)
+	}
 	config := vault.DefaultConfig()
 	config.Address = vaultTokenStorageConfig.Host
 	config.Logger = hclog.Default()

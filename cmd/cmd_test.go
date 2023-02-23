@@ -18,10 +18,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateTokenStorage(t *testing.T) {
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
 	t.Run("unsupported type", func(t *testing.T) {
 		var blabol TokenStorageType = "eh"
 
