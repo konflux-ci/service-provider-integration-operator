@@ -39,4 +39,12 @@ func TestCreateTokenStorage(t *testing.T) {
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "vault")
 	})
+
+	t.Run("fail AWS new", func(t *testing.T) {
+		strg, err := InitTokenStorage(context.TODO(), &CommonCliArgs{TokenStorage: AWSTokenStorage})
+
+		assert.Nil(t, strg)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "AWS")
+	})
 }
