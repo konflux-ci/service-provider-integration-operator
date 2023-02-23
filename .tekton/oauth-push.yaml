@@ -15,13 +15,11 @@ spec:
       value: "{{revision}}"
     - name: output-image
       value: 'quay.io/redhat-appstudio/service-provider-integration-oauth:{{revision}}'
-    - name: path-context
-      value: .
     - name: dockerfile
       value: oauth.Dockerfile
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
+    bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
   workspaces:
     - name: workspace
       volumeClaimTemplate:
