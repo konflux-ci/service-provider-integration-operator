@@ -15,9 +15,15 @@ package oauth
 
 import (
 	"fmt"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapio"
 	"html/template"
 	"net/http"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -29,11 +35,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-jose/go-jose/v3/json"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapio"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -157,23 +160,34 @@ func BypassHandler(mainHandler http.Handler, bypassPathPrefixes []string, bypass
 	})
 }
 
+func NewLoggerHandler() gin.HandlerFunc {
+	return gin.LoggerWithWriter(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel}, "/health", "/ready")
+}
+
+func NewCorsHandler(allowedOrigins []string) gin.HandlerFunc {
+	return cors.New(cors.Config{
+		AllowOrigins: allowedOrigins,
+		AllowMethods: []string{"GET", "POST", "HEAD", "OPTIONS"},
+		AllowHeaders: []string{
+			"Accept",
+			"Accept-Language",
+			"Content-Language",
+			"Content-Length",
+			"Content-Type",
+			"Origin",
+			"Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           8 * time.Hour,
+	})
+}
+
 // MiddlewareHandler is a Handler that composed couple of different responsibilities.
 // Like:
 // - Service metrics
 // - Request logging
 // - CORS processing
-func MiddlewareHandler(reg prometheus.Registerer, allowedOrigins []string, h http.Handler) http.Handler {
-
-	middlewareHandler := HttpServiceInstrumentMetricHandler(reg,
-		handlers.LoggingHandler(&zapio.Writer{Log: zap.L(), Level: zap.DebugLevel},
-			handlers.CORS(handlers.AllowedOrigins(allowedOrigins),
-				handlers.AllowCredentials(),
-				handlers.AllowedHeaders([]string{
-					"Accept",
-					"Accept-Language",
-					"Content-Language",
-					"Origin",
-					"Authorization"}))(h)))
-
+func MiddlewareHandler(reg prometheus.Registerer, h http.Handler) http.Handler {
+	middlewareHandler := HttpServiceInstrumentMetricHandler(reg, h)
 	return BypassHandler(middlewareHandler, []string{"/health", "/ready"}, h)
 }

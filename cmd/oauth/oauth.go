@@ -32,7 +32,7 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -56,7 +56,7 @@ func main() {
 	}
 
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
-	router := mux.NewRouter()
+	router := gin.Default()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
 
@@ -97,14 +97,14 @@ func main() {
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
-	router.HandleFunc("/health", oauth.OkHandler).Methods("GET")
-	router.HandleFunc("/ready", oauth.OkHandler).Methods("GET")
+	router.GET("/health", gin.WrapF(oauth.OkHandler))
+	router.GET("/ready", gin.WrapF(oauth.OkHandler))
 
 	// auth
-	router.HandleFunc("/login", authenticator.Login).Methods("POST")
+	router.POST("/login", gin.WrapF(authenticator.Login))
 
 	// token upload
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
+	router.POST("/token/:namespace/:name", gin.WrapF(oauth.HandleUpload(&tokenUploader)))
 
 	// oauth
 	redirectTpl, templateErr := template.ParseFiles("static/redirect_notice.html")
@@ -127,10 +127,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
-	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
-	router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
-	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
+	router.GET("/callback_success", gin.WrapF(oauth.CallbackSuccessHandler))
+	//router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.GET(oauth2.CallBackRoutePath, gin.WrapH(oauthRouter.Callback()))
+	router.GET(oauth2.AuthenticateRoutePath, gin.WrapH(oauthRouter.Authenticate()))
+	router.Use(oauth.NewLoggerHandler(), oauth.NewCorsHandler(strings.Split(args.AllowedOrigins, ",")))
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
@@ -140,7 +141,7 @@ func main() {
 		ReadTimeout:       time.Second * 15,
 		ReadHeaderTimeout: time.Second * 15,
 		IdleTimeout:       time.Second * 60,
-		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, strings.Split(args.AllowedOrigins, ","), router)),
+		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, router)),
 	}
 
 	// Run our server in a goroutine so that it doesn't block.

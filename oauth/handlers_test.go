@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gorilla/mux"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
@@ -153,8 +153,8 @@ func TestUploaderOk(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -181,8 +181,8 @@ func TestUploader_FailWithEmptyToken(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -237,8 +237,9 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer macky")
 
 		w := httptest.NewRecorder()
-		var router = mux.NewRouter()
-		router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+
+		var router = gin.Default()
+		router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 		router.ServeHTTP(w, req)
 		res := w.Result()
@@ -272,8 +273,8 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -310,8 +311,8 @@ func TestUploader_FailJsonParse(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -348,8 +349,8 @@ func TestUploader_FailNamespaceParamValidation(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -386,8 +387,8 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -425,8 +426,8 @@ func TestUploader_FailUploaderError(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -464,8 +465,8 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = mux.NewRouter()
-	router.NewRoute().Path("/token").HandlerFunc(HandleUpload(uploader)).Methods("POST")
+	var router = gin.Default()
+	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -499,7 +500,7 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler(prometheus.NewRegistry(), []string{"https://console.dev.redhat.com", "https://prod.foo.redhat.com"}, http.HandlerFunc(OkHandler))
+	handler := MiddlewareHandler(prometheus.NewRegistry(), http.HandlerFunc(OkHandler))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -520,6 +521,7 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 }
 
 func TestMiddlewareHandlerCors(t *testing.T) {
+	router := gin.Default()
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
 	req, err := http.NewRequest("OPTIONS", oauth.AuthenticateRoutePath+"?state=eyJhbGciO", nil)
@@ -542,16 +544,17 @@ func TestMiddlewareHandlerCors(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler(prometheus.NewRegistry(), []string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "http:://acme.com"}, http.HandlerFunc(OkHandler))
+	handler := NewCorsHandler([]string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "https://acme.com"})
+	router.Use(handler)
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
-	if status := rr.Code; status != http.StatusOK {
+	if status := rr.Code; status != http.StatusNoContent {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+			status, http.StatusNoContent)
 	}
 
 	// Check the status code is what we expect.
