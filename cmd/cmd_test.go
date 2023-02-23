@@ -18,10 +18,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateTokenStorage(t *testing.T) {
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
 	t.Run("unsupported type", func(t *testing.T) {
 		var blabol TokenStorageType = "eh"
 
@@ -38,5 +41,13 @@ func TestCreateTokenStorage(t *testing.T) {
 		assert.Nil(t, strg)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "vault")
+	})
+
+	t.Run("fail AWS new", func(t *testing.T) {
+		strg, err := InitTokenStorage(context.TODO(), &CommonCliArgs{TokenStorage: AWSTokenStorage})
+
+		assert.Nil(t, strg)
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "AWS")
 	})
 }

@@ -152,9 +152,10 @@ const (
 type SPIAccessTokenErrorReason string
 
 const (
-	SPIAccessTokenErrorReasonUnknownServiceProvider SPIAccessTokenErrorReason = "UnknownServiceProvider"
-	SPIAccessTokenErrorReasonMetadataFailure        SPIAccessTokenErrorReason = "MetadataFailure"
-	SPIAccessTokenErrorReasonUnsupportedPermissions SPIAccessTokenErrorReason = "UnsupportedPermissions"
+	SPIAccessTokenErrorReasonUnknownServiceProvider            SPIAccessTokenErrorReason = "UnknownServiceProvider"
+	SPIAccessTokenErrorUnsupportedServiceProviderConfiguration SPIAccessTokenErrorReason = "UnsupportedServiceProviderConfiguration"
+	SPIAccessTokenErrorReasonMetadataFailure                   SPIAccessTokenErrorReason = "MetadataFailure"
+	SPIAccessTokenErrorReasonUnsupportedPermissions            SPIAccessTokenErrorReason = "UnsupportedPermissions"
 )
 
 //+kubebuilder:object:root=true
