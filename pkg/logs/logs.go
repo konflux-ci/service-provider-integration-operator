@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"strconv"
 	"time"
 
@@ -64,6 +65,9 @@ func InitLoggers(development bool, encoder string, logLevel string, stackTraceLe
 	ctrl.SetLogger(lg)
 	klog.SetLoggerWithOptions(lg, klog.ContextualLogger(true))
 	hclog.SetDefault(NewHCLogAdapter(logger.WithOptions(zap.AddCallerSkip(1))))
+	if development {
+		gin.SetMode(gin.DebugMode)
+	}
 }
 
 func setFlagIfNotEmptyOrPanic(fs *flag.FlagSet, name, value string) {

@@ -57,7 +57,6 @@ func main() {
 
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
 	router := gin.New()
-
 	clientFactoryConfig := createClientFactoryConfig(args)
 
 	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
