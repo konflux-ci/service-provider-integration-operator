@@ -154,7 +154,7 @@ func TestUploaderOk(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -182,7 +182,7 @@ func TestUploader_FailWithEmptyToken(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -239,7 +239,7 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		var router = gin.Default()
-		router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+		router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 		router.ServeHTTP(w, req)
 		res := w.Result()
@@ -274,7 +274,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -312,7 +312,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -350,7 +350,7 @@ func TestUploader_FailNamespaceParamValidation(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -388,7 +388,7 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -427,7 +427,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -466,7 +466,7 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 	var router = gin.Default()
-	router.POST("/token/:namespace/:name", gin.WrapF(HandleUpload(uploader)))
+	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.

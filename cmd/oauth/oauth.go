@@ -104,7 +104,7 @@ func main() {
 	router.POST("/login", gin.WrapF(authenticator.Login))
 
 	// token upload
-	router.POST("/token/:namespace/:name", gin.WrapF(oauth.HandleUpload(&tokenUploader)))
+	router.POST("/token/:namespace/:name", oauth.HandleUpload(&tokenUploader))
 
 	// oauth
 	redirectTpl, templateErr := template.ParseFiles("static/redirect_notice.html")

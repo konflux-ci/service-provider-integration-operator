@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"html/template"
@@ -86,17 +85,18 @@ func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpload returns Handler implementation that is relied on provided TokenUploader to persist provided credentials
 // for some concrete SPIAccessToken.
-func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
+func HandleUpload(uploader TokenUploader) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		r := c.Request
+		w := c.Writer
 		ctx, err := WithAuthFromRequestIntoContext(r, r.Context())
 		if err != nil {
 			LogErrorAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "failed extract authorization information from headers", err)
 			return
 		}
 
-		vars := mux.Vars(r)
-		tokenObjectName := vars["name"]
-		tokenObjectNamespace := vars["namespace"]
+		tokenObjectName := c.Query("name")
+		tokenObjectNamespace := c.Query("namespace")
 
 		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {
 			LogDebugAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "Incorrect service deployment. Token name and namespace can't be omitted or empty.")

@@ -18,7 +18,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v45 v45.2.0
-	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/vault v1.12.2
@@ -142,6 +141,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.0.0-20220520183353-fd19c99a87aa // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/gophercloud/gophercloud v0.1.0 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/consul/sdk v0.11.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
