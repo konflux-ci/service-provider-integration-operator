@@ -19,8 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 

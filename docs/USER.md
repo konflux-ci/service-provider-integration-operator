@@ -157,6 +157,7 @@ metadata:
     spi.appstudio.redhat.com/token-name: $TOKEN_NAME
 type: Opaque
 stringData:
+  
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
