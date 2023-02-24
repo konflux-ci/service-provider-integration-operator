@@ -95,13 +95,8 @@ func HandleUpload(uploader TokenUploader) gin.HandlerFunc {
 			return
 		}
 
-		tokenObjectName := c.Query("name")
-		tokenObjectNamespace := c.Query("namespace")
-
-		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {
-			LogDebugAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "Incorrect service deployment. Token name and namespace can't be omitted or empty.")
-			return
-		}
+		tokenObjectName := c.Param("name")
+		tokenObjectNamespace := c.Param("namespace")
 
 		// We want to check token names are satisfying the general label value format,
 		// since the SPI access token names are used as a label values in the linked objects.

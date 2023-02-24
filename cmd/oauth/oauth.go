@@ -56,7 +56,7 @@ func main() {
 	}
 
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
-	router := gin.Default()
+	router := gin.New()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
 

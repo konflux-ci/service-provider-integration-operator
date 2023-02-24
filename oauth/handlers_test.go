@@ -29,8 +29,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -153,7 +151,7 @@ func TestUploaderOk(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -181,7 +179,7 @@ func TestUploader_FailWithEmptyToken(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -238,7 +236,7 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 
 		w := httptest.NewRecorder()
 
-		var router = gin.Default()
+		var router = gin.New()
 		router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 		router.ServeHTTP(w, req)
@@ -273,7 +271,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	w := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -311,7 +309,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -349,7 +347,7 @@ func TestUploader_FailNamespaceParamValidation(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -387,7 +385,7 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -426,7 +424,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	var router = gin.Default()
+	var router = gin.New()
 	router.POST("/token/:namespace/:name", HandleUpload(uploader))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
@@ -450,46 +448,9 @@ func TestUploader_FailUploaderError(t *testing.T) {
 	}
 }
 
-func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
-	uploader := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
+func TestCorsGet(t *testing.T) {
+	router := gin.New()
 
-		return fmt.Errorf("failed to store the token data into storage")
-	})
-
-	req, err := http.NewRequest("POST", "/token", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Authorization", "Bearer kachny")
-
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-	rr := httptest.NewRecorder()
-	var router = gin.Default()
-	router.POST("/token/:namespace/:name", HandleUpload(uploader))
-
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	router.ServeHTTP(rr, req)
-	res := rr.Result()
-	defer res.Body.Close()
-	// Check the status code is what we expect.
-
-	if status := res.StatusCode; status != http.StatusInternalServerError {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusInternalServerError)
-	}
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var expected = "Incorrect service deployment. Token name and namespace can't be omitted or empty."
-	if string(data) != expected {
-		t.Errorf("expected '"+expected+"' got '%v'", string(data))
-	}
-}
-
-func TestMiddlewareHandlerCorsPart(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
 	req, err := http.NewRequest("GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
@@ -500,11 +461,10 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := MiddlewareHandler(prometheus.NewRegistry(), http.HandlerFunc(OkHandler))
-
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
+	handler := NewCorsHandler([]string{"https://console.dev.redhat.com", "https://prod.foo.redhat.com"})
+	router.Use(handler)
+	router.GET(oauth.CallBackRoutePath, gin.WrapF(OkHandler))
+	router.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if status := rr.Code; status != http.StatusOK {
@@ -520,8 +480,8 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 
 }
 
-func TestMiddlewareHandlerCors(t *testing.T) {
-	router := gin.Default()
+func TestCorsOptions(t *testing.T) {
+	router := gin.New()
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
 	req, err := http.NewRequest("OPTIONS", oauth.AuthenticateRoutePath+"?state=eyJhbGciO", nil)
@@ -546,6 +506,7 @@ func TestMiddlewareHandlerCors(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler := NewCorsHandler([]string{"https://file-retriever-server-service-spi-system.apps.cluster-flmv6.flmv6.sandbox1324.opentlc.com", "https://acme.com"})
 	router.Use(handler)
+	router.GET(oauth.AuthenticateRoutePath, gin.WrapF(OkHandler))
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
