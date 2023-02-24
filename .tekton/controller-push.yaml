@@ -15,10 +15,6 @@ spec:
       value: "{{revision}}"
     - name: output-image
       value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{revision}}'
-    - name: path-context
-      value: .
-    - name: dockerfile
-      value: Dockerfile
     - name: infra-deployment-update-script
       value: |
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/openshift?ref=\)\(.*\)|\1{{ revision }}|' components/spi/base/kustomization.yaml;
@@ -28,7 +24,7 @@ spec:
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/monitoring/base?ref=\)\(.*\)|\1{{ revision }}|' components/monitoring/grafana/base/spi/kustomization.yaml
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
+    bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
   workspaces:
     - name: workspace
       volumeClaimTemplate:

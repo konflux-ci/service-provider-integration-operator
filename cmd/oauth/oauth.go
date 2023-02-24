@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
-	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
 	"github.com/gin-gonic/gin"
@@ -48,6 +48,13 @@ func main() {
 
 	setupLog := ctrl.Log.WithName("setup")
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
+
+	var err error
+	err = config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	if err != nil {
+		setupLog.Error(err, "failed to initialize the validators")
+		os.Exit(1)
+	}
 
 	cfg, err := loadOAuthServiceConfiguration(args)
 	if err != nil {
