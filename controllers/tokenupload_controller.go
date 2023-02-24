@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
@@ -48,6 +48,10 @@ const (
 	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
 	spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"    //#nosec G101 -- false positive, this is not a token
 	providerUrlField  = "providerUrl"
+)
+
+var (
+	noProviderUrlErr = fmt.Errorf("can not create SPIAccessToken w/o providerURL field")
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
@@ -199,12 +203,12 @@ func findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *Toke
 	err := r.Get(ctx, types.NamespacedName{Name: spiTokenName, Namespace: uploadSecret.Namespace}, &accessToken)
 
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kuberrors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("SPI Access Token NOT found, will try to create  ", "SPIAccessToken.name", accessToken.Name)
 			return nil, nil
 		} else {
 			logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), r, lg)
-			return nil, err
+			return nil, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err)
 		}
 	} else {
 		lg.V(logs.DebugLevel).Info("SPI Access Token found : ", "SPIAccessToken.name", accessToken.Name)
@@ -215,8 +219,8 @@ func findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *Toke
 func createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *TokenUploadReconciler, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	providerUrl := string(uploadSecret.Data[providerUrlField])
 	if providerUrl == "" {
-		logError(ctx, uploadSecret, fmt.Errorf("can not create SPIAccessToken w/o providerURL field"), r, lg)
-		return nil, fmt.Errorf("can not create SPIAccessToken w/o providerURL field")
+		logError(ctx, uploadSecret, noProviderUrlErr, r, lg)
+		return nil, noProviderUrlErr
 	}
 
 	accessToken := spi.SPIAccessToken{
