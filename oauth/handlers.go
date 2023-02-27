@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -95,6 +97,21 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 
 		if len(tokenObjectName) < 1 || len(tokenObjectNamespace) < 1 {
 			LogDebugAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "Incorrect service deployment. Token name and namespace can't be omitted or empty.")
+			return
+		}
+
+		// We want to check token names are satisfying the general label value format,
+		// since the SPI access token names are used as a label values in the linked objects.
+		errs := validation.IsValidLabelValue(tokenObjectName)
+		if len(errs) > 0 {
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token name parameter. Must comply with common label value format. Details: "+strings.Join(errs, ";"))
+			return
+		}
+
+		// Namespaces are required to be a valid RFC 1123 DNS labels
+		errs = validation.IsDNS1123Label(tokenObjectNamespace)
+		if len(errs) > 0 {
+			LogDebugAndWriteResponse(r.Context(), w, http.StatusBadRequest, "Incorrect token namespace parameter. Must comply with RFC 1123 label format. Details: "+strings.Join(errs, ";"))
 			return
 		}
 

@@ -11,12 +11,13 @@ spec:
   params:
     - name: git-url
       value: "{{repo_url}}"
+    - name: revision
+      value: "{{revision}}"
     - name: output-image
       value: "quay.io/redhat-appstudio/pull-request-builds:spi-controller-{{pull_request_number}}"
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
-  serviceAccountName: pipeline
+    bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
   workspaces:
     - name: workspace
       volumeClaimTemplate:
