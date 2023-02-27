@@ -55,16 +55,6 @@ type CheckPoint struct {
 	serviceAccountNames serviceAccountNamesAndLinkTypes
 }
 
-func (s serviceAccountNamesAndLinkTypes) containsName(name string) bool {
-	for k := range s {
-		if k == name {
-			return true
-		}
-	}
-
-	return false
-}
-
 // CheckPoint creates an instance of CheckPoint struct that captures the secret name and the list of known service account
 // names from the Binding associated with the DependentsHandler. This can later be used to revert back to that state again.
 // See RevertTo for more details.
@@ -211,7 +201,7 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 		attempt := func() (client.Object, error) {
 			needsUpdate := false
 
-			if checkPoint.serviceAccountNames.containsName(sa.Name) {
+			if _, containsSA := checkPoint.serviceAccountNames[sa.Name]; containsSA {
 				// ok, the SA is in the list of the service accounts to revert to. The only thing we need to make sure is that
 				// it links to the "old" secret name and doesn't link to the new secret name.
 				// We also re-label it if needed.
