@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -232,7 +232,7 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 
 				if sa.Labels[ManagedByLabel] == d.Binding.Name {
 					if err := d.Client.Delete(ctx, sa); err != nil {
-						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s: %w", sa.Name, err))
+						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s: %w", sa.Name, err)) //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
 					}
 					// we don't need to do anything more on the SA because we just deleted it :)
 					return nil, nil
