@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -58,15 +56,18 @@ type Quay struct {
 	httpClient       rest.HTTPClient
 	tokenStorage     tokenstorage.TokenStorage
 	BaseUrl          string
+	OAuthCapability  serviceprovider.OAuthCapability
+}
+type quayOAuthCapability struct {
+	serviceprovider.DefaultOAuthCapability
 }
 
 var Initializer = serviceprovider.Initializer{
-	Probe:                        quayProbe{},
-	Constructor:                  serviceprovider.ConstructorFunc(newQuay),
-	SupportsManualUploadOnlyMode: true,
+	Probe:       quayProbe{},
+	Constructor: serviceprovider.ConstructorFunc(newQuay),
 }
 
-func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.ServiceProvider, error) {
+func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	// in Quay, we invalidate the individual cached repository records, because we're filling up the cache repo-by-repo
 	// therefore the metadata as a whole never gets refreshed.
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
@@ -76,6 +77,16 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		kubernetesClient: factory.KubernetesClient,
 		ttl:              factory.Configuration.TokenLookupCacheTtl,
 	}
+
+	var oauthCapability serviceprovider.OAuthCapability
+	if spConfig != nil && spConfig.OAuth2Config != nil {
+		oauthCapability = &quayOAuthCapability{
+			DefaultOAuthCapability: serviceprovider.DefaultOAuthCapability{
+				BaseUrl: factory.Configuration.BaseUrl,
+			},
+		}
+	}
+
 	return &Quay{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
@@ -88,28 +99,33 @@ func newQuay(factory *serviceprovider.Factory, _ string) (serviceprovider.Servic
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
+		OAuthCapability:  oauthCapability,
 	}, nil
 }
 
 var _ serviceprovider.ConstructorFunc = newQuay
 
-func (q *Quay) GetOAuthEndpoint() string {
-	return q.Configuration.BaseUrl + oauth.AuthenticateRoutePath
-}
-
 func (q *Quay) GetBaseUrl() string {
 	return config.ServiceProviderTypeQuay.DefaultBaseUrl
 }
 
-func (q *Quay) GetType() api.ServiceProviderType {
-	return api.ServiceProviderTypeQuay
+func (q *Quay) GetType() config.ServiceProviderType {
+	return config.ServiceProviderTypeQuay
 }
 
 func (q *Quay) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
 	return nil
 }
 
-func (q *Quay) OAuthScopesFor(ps *api.Permissions) []string {
+func (q *Quay) GetRefreshTokenCapability() serviceprovider.RefreshTokenCapability {
+	return nil
+}
+
+func (q *Quay) GetOAuthCapability() serviceprovider.OAuthCapability {
+	return q.OAuthCapability
+}
+
+func (q *quayOAuthCapability) OAuthScopesFor(ps *api.Permissions) []string {
 	// This method is called when constructing the OAuth URL.
 	// We basically disregard any request for specific permissions and always require the max usable set of permissions
 	// because we cannot change that set later due to a bug in Quay OAuth impl:
@@ -265,18 +281,28 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 }
 
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
-	lg := log.FromContext(ctx)
-
 	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiBaseUrl, owner, repository)
-	if resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, ""); err != nil {
-		lg.Error(err, "failed to request quay.io api for repository info", "url", requestUrl)
+	lg := log.FromContext(ctx, "repository", repository, "url", requestUrl)
+
+	resp, err := doQuayRequest(ctx, q.httpClient, requestUrl, token, "GET", nil, "")
+	if err != nil {
+		lg.Error(err, "failed to request quay.io api for repository info")
 		code := 0
 		if resp != nil {
 			code = resp.StatusCode
 		}
 		return code, nil, fmt.Errorf("failed to request quay on %s: %w", requestUrl, err)
-	} else if resp != nil && resp.StatusCode == http.StatusOK {
-		jsonResponse, jsonErr := readResponseBodyToJsonMap(resp)
+	}
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				lg.Error(err, "failed to close response body")
+			}
+		}()
+	}
+
+	if resp != nil && resp.StatusCode == http.StatusOK {
+		jsonResponse, jsonErr := readResponseBodyToJsonMap(ctx, resp)
 		if jsonErr != nil {
 			return resp.StatusCode, nil, jsonErr
 		}

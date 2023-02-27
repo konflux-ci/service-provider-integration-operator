@@ -27,6 +27,7 @@ import (
 	"time"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"golang.org/x/oauth2"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -34,7 +35,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -91,7 +92,7 @@ func TestMapToken(t *testing.T) {
 		KubernetesClient: k8sClient,
 		HttpClient:       httpClient,
 		Initializers:     initializers,
-		TokenStorage: tokenstorage.TestTokenStorage{
+		TokenStorage: vaultstorage.TestTokenStorage{
 			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{
 					AccessToken: "accessToken",
@@ -100,7 +101,7 @@ func TestMapToken(t *testing.T) {
 		},
 	}
 
-	quay, err := newQuay(fac, "")
+	quay, err := newQuay(fac, &config.ServiceProviderConfiguration{})
 	assert.NoError(t, err)
 
 	now := time.Now().Unix()
@@ -187,12 +188,14 @@ func TestValidate(t *testing.T) {
 
 func TestQuay_OAuthScopesFor(t *testing.T) {
 
-	q := &Quay{}
+	q := &Quay{
+		OAuthCapability: &quayOAuthCapability{},
+	}
 	fullScopes := []string{"repo:read", "repo:write", "repo:create", "repo:admin"}
 
 	hasScopes := func(expectedScopes []string, ps api.Permissions) func(t *testing.T) {
 		return func(t *testing.T) {
-			actualScopes := q.OAuthScopesFor(&ps)
+			actualScopes := q.GetOAuthCapability().OAuthScopesFor(&ps)
 			assert.Equal(t, len(expectedScopes), len(actualScopes))
 			for _, s := range expectedScopes {
 				assert.Contains(t, actualScopes, s)
@@ -365,7 +368,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			},
 		},
 	}
-	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	ts := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
@@ -580,7 +583,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -603,7 +606,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -626,7 +629,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
 			}},
 		}
@@ -641,6 +644,34 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
+	})
+}
+
+func TestNewQuay(t *testing.T) {
+	factory := &serviceprovider.Factory{
+		Configuration: &opconfig.OperatorConfiguration{
+			TokenMatchPolicy: opconfig.AnyTokenPolicy,
+			SharedConfiguration: config.SharedConfiguration{
+				BaseUrl: "bejsjuarel",
+			},
+		},
+	}
+
+	t.Run("no oauth info => nil oauth capability", func(t *testing.T) {
+		sp, err := newQuay(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://yauq.oi"})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.Nil(t, sp.GetOAuthCapability())
+	})
+
+	t.Run("oauth info => oauth capability", func(t *testing.T) {
+		sp, err := newQuay(factory, &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: "https://baltig.moc", OAuth2Config: &oauth2.Config{ClientID: "123", ClientSecret: "456"}})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sp)
+		assert.NotNil(t, sp.GetOAuthCapability())
+		assert.Contains(t, sp.GetOAuthCapability().GetOAuthEndpoint(), "bejsjuarel")
 	})
 }
 

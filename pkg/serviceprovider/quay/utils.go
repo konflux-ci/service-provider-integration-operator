@@ -30,11 +30,16 @@ import (
 
 var emptyBodyError = errors.New("response body is empty")
 
-func readResponseBodyToJsonMap(resp *http.Response) (map[string]interface{}, error) {
+func readResponseBodyToJsonMap(ctx context.Context, resp *http.Response) (map[string]interface{}, error) {
+	lg := log.FromContext(ctx)
 	if resp.Body == nil {
 		return nil, emptyBodyError
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "failed to close response body")
+		}
+	}()
 
 	var jsonMap map[string]interface{}
 	err := json.NewDecoder(resp.Body).Decode(&jsonMap)
@@ -72,6 +77,7 @@ func doQuayRequest(ctx context.Context, cl rest.HTTPClient, url string, token st
 }
 
 func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token string) (bool, error) {
+	lg := log.FromContext(ctx, "url", url)
 	resp, err := doQuayRequest(ctx, cl, url, token, "GET", nil, "")
 	if err != nil {
 		return false, err
@@ -79,7 +85,13 @@ func isSuccessfulRequest(ctx context.Context, cl *http.Client, url string, token
 	if resp == nil {
 		return false, nil
 	}
-	defer resp.Body.Close()
+	if resp.Body != nil {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				lg.Error(err, "failed to close response body")
+			}
+		}()
+	}
 
 	return resp.StatusCode == 200, nil
 }

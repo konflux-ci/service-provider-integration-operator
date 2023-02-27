@@ -1,0 +1,20 @@
+# Documentation:  https://docs.codecov.io/docs/codecov-yaml
+ignore:
+  - "api/v1beta1/zz_generated.deepcopy.go" # generated file
+  - "integration_tests"                     # integration tests
+  - "test_util.go"                          # test util
+  - "testtokenstorage.go"                   # test util
+
+coverage:
+  status:
+    # Allows coverage to drop by a 1% when compared against the base commit.
+    project:
+      default:
+        target: 65%
+        # this allows a 1% drop from the previous base commit coverage
+        threshold: 1%
+    # Sets the expected status for `codecov/patch` check.
+    # We set this to be only informational hence it does not cause the check to fail.
+    patch:
+      default:
+        informational: true

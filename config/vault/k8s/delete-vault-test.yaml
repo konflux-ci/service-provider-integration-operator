@@ -1,0 +1,6 @@
+$patch: delete
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vault-server-test
+  namespace: spi-vault

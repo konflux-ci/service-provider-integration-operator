@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -406,7 +406,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -460,7 +460,7 @@ func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -506,7 +506,7 @@ func TestMetadataProvider_FetchAll_fail(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -554,7 +554,7 @@ func TestMetadataProvider_Fetch_state_handling(t *testing.T) {
 		}),
 	}
 
-	ts := tokenstorage.TestTokenStorage{
+	ts := vaultstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",

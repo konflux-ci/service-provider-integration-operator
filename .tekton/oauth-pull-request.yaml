@@ -14,11 +14,12 @@ spec:
     - name: revision
       value: "{{revision}}"
     - name: output-image
-      value: "quay.io/redhat-appstudio/pull-request-builds:spi-oauth-{{revision}}"
+      value: "quay.io/redhat-appstudio/pull-request-builds:spi-oauth-{{pull_request_number}}"
+    - name: dockerfile
+      value: oauth.Dockerfile
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
-  serviceAccountName: pipeline
+    bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
   workspaces:
     - name: workspace
       volumeClaimTemplate:

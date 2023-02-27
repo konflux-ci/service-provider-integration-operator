@@ -20,160 +20,49 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
-	corev1 "k8s.io/api/core/v1"
-	kuberrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	oauthCfgSecretFieldClientId     = "clientId"
-	oauthCfgSecretFieldClientSecret = "clientSecret"
-	oauthCfgSecretFieldAuthUrl      = "authUrl"
-	oauthCfgSecretFieldTokenUrl     = "tokenUrl"
 )
 
 var (
-	errMissingField            = errors.New("missing mandatory field in oauth configuration")
-	errMultipleMatchingSecrets = errors.New("found multiple matching oauth config secrets")
-	errUnknownServiceProvider  = errors.New("haven't found oauth configuration for service provider")
+	errNoOAuthConfiguration = errors.New("no OAuth configuration found for the service provider")
+	errConfigNoOAuth        = errors.New("found sp configuration has no OAuth information. This should never happen, because Operator should find same configuration and thus not generate OAuth URL and we should not get to the OAuth service at all")
 )
 
 // obtainOauthConfig is responsible for getting oauth configuration of service provider.
 // Currently, this can be configured with labeled secret living in namespace together with SPIAccessToken.
 // If no such secret is found, global configuration of oauth service is used.
 func (c *commonController) obtainOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
-	lg := log.FromContext(ctx).WithValues("oauthInfo", info)
-
 	spUrl, urlParseErr := url.Parse(info.ServiceProviderUrl)
 	if urlParseErr != nil {
 		return nil, fmt.Errorf("failed to parse serviceprovider url: %w", urlParseErr)
 	}
 
-	defaultOauthConfig, foundDefaultOauthConfig := c.ServiceProviderInstance[spUrl.Host]
-
-	oauthCfg := &oauth2.Config{
-		RedirectURL: c.redirectUrl(),
-	}
-	if foundDefaultOauthConfig {
-		oauthCfg.Endpoint = defaultOauthConfig.Endpoint
-	} else {
-		// guess oauth endpoint urls now. It will be overwritten later if user oauth config secret has the values
-		oauthCfg.Endpoint = createDefaultEndpoint(info.ServiceProviderUrl)
+	// first try to find configuration in user's secret
+	spConfig, errSpConfig := config.SpConfigFromUserSecret(ctx, c.InClusterK8sClient, info.TokenNamespace, c.ServiceProviderType, spUrl)
+	if errSpConfig != nil {
+		return nil, fmt.Errorf("failed to create service provider config from user config secret: %w", errSpConfig)
 	}
 
-	noAuthCtx := WithAuthIntoContext("", ctx) // we want to use ServiceAccount to find the secret, so we need to use context without user's token
-	found, oauthCfgSecret, findErr := c.findOauthConfigSecret(noAuthCtx, info.TokenNamespace, spUrl.Host)
-	if findErr != nil {
-		return nil, findErr
-	}
-
-	if found {
-		if createOauthCfgErr := initializeConfigFromSecret(oauthCfgSecret, oauthCfg); createOauthCfgErr == nil {
-			lg.V(logs.DebugLevel).Info("using custom user oauth config")
-			return oauthCfg, nil
-		} else {
-			return nil, fmt.Errorf("failed to create oauth config from the secret: %w", createOauthCfgErr)
+	if spConfig != nil {
+		if spConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("user config error: %w", errConfigNoOAuth)
 		}
+		oauthConfig := spConfig.OAuth2Config
+		oauthConfig.RedirectURL = c.redirectUrl()
+		return oauthConfig, nil
 	}
 
-	if foundDefaultOauthConfig {
-		lg.V(logs.DebugLevel).Info("using default oauth config")
-		oauthCfg.ClientID = defaultOauthConfig.Config.ClientId
-		oauthCfg.ClientSecret = defaultOauthConfig.Config.ClientSecret
-		return oauthCfg, nil
-	}
-
-	return nil, fmt.Errorf("%w '%s' url: '%s'", errUnknownServiceProvider, info.ServiceProviderName, info.ServiceProviderUrl)
-}
-
-func (c *commonController) findOauthConfigSecret(ctx context.Context, tokenNamespace string, spHost string) (bool, *corev1.Secret, error) {
-	lg := log.FromContext(ctx).WithValues("spHost", spHost)
-
-	secrets := &corev1.SecretList{}
-	if listErr := c.K8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(c.ServiceProviderType.Name),
-	}); listErr != nil {
-		if kuberrors.IsForbidden(listErr) {
-			lg.Info("not enough permissions to list the secrets")
-			return false, nil, nil
-		} else if kuberrors.IsUnauthorized(listErr) {
-			lg.Info("request is not authorized to list the secrets in user's namespace")
-			return false, nil, nil
-		} else {
-			return false, nil, fmt.Errorf("failed to list oauth config secrets: %w", listErr)
+	// if we don't have user's config, we
+	if globalSpConfig := config.SpConfigFromGlobalConfig(&c.SharedConfiguration, c.ServiceProviderType, config.GetBaseUrl(spUrl)); globalSpConfig != nil {
+		if globalSpConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("global config error: %w", errConfigNoOAuth)
 		}
+		oauthConfig := globalSpConfig.OAuth2Config
+		oauthConfig.RedirectURL = c.redirectUrl()
+		return oauthConfig, nil
 	}
 
-	lg.V(logs.DebugLevel).Info("found secrets with oauth configuration", "count", len(secrets.Items))
-
-	if len(secrets.Items) < 1 {
-		return false, nil, nil
-	}
-
-	var oauthSecretWithoutHost *corev1.Secret
-	var oauthSecretWithHost *corev1.Secret
-
-	// go through all found oauth secret configs
-	for _, oauthSecret := range secrets.Items {
-		// if we find one labeled for sp host, we take it
-		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
-			if labelSpHost == spHost {
-				if oauthSecretWithHost != nil { // if we found one before, return error because we can't tell which one to use
-					return false, nil, errMultipleMatchingSecrets
-				}
-				oauthSecretWithHost = oauthSecret.DeepCopy()
-			}
-		} else { // if we found one without host label, we save it for later
-			if oauthSecretWithoutHost != nil { // if we found one before, return error because we can't tell which one to use
-				return false, nil, errMultipleMatchingSecrets
-			}
-			oauthSecretWithoutHost = oauthSecret.DeepCopy()
-		}
-	}
-
-	if oauthSecretWithHost != nil {
-		return true, oauthSecretWithHost, nil
-	} else if oauthSecretWithoutHost != nil {
-		return true, oauthSecretWithoutHost, nil
-	} else {
-		return false, nil, nil
-	}
-
-}
-
-func initializeConfigFromSecret(secret *corev1.Secret, oauthCfg *oauth2.Config) error {
-	if clientId, has := secret.Data[oauthCfgSecretFieldClientId]; has {
-		oauthCfg.ClientID = string(clientId)
-	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientId': %w", secret.Namespace, secret.Name, errMissingField)
-	}
-
-	if clientSecret, has := secret.Data[oauthCfgSecretFieldClientSecret]; has {
-		oauthCfg.ClientSecret = string(clientSecret)
-	} else {
-		return fmt.Errorf("failed to create oauth config from the secret '%s/%s', missing 'clientSecret': %w", secret.Namespace, secret.Name, errMissingField)
-	}
-
-	if authUrl, has := secret.Data[oauthCfgSecretFieldAuthUrl]; has && len(authUrl) > 0 {
-		oauthCfg.Endpoint.AuthURL = string(authUrl)
-	}
-
-	if tokenUrl, has := secret.Data[oauthCfgSecretFieldTokenUrl]; has && len(tokenUrl) > 0 {
-		oauthCfg.Endpoint.TokenURL = string(tokenUrl)
-	}
-
-	return nil
-}
-
-func createDefaultEndpoint(spBaseUrl string) oauth2.Endpoint {
-	return oauth2.Endpoint{
-		AuthURL:  spBaseUrl + "/oauth/authorize",
-		TokenURL: spBaseUrl + "/oauth/token",
-	}
+	return nil, fmt.Errorf("%w '%s' url: '%s'", errNoOAuthConfiguration, info.ServiceProviderName, info.ServiceProviderUrl)
 }

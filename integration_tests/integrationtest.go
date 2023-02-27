@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+
 	"github.com/go-test/deep"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -71,9 +73,15 @@ type IntegrationTest struct {
 	TestServiceProviderProbe serviceprovider.Probe
 	// TestServiceProvider is the service provider that the controllers are set up to use. You can modify its behavior
 	// in the before-each of the tests.
-	TestServiceProvider TestServiceProvider
+	TestServiceProvider serviceprovider.TestServiceProvider
+	// Capabilities is a pluggable implementation of the capabilities that can implemented by the service providers.
+	// Note that by default the TestServiceProvider is NOT set up to return this instance (i.e. by default, the test
+	// service provider doesn't support any additional capabilities).
+	// This instance is set up with the default implementations of the methods so that the callers don't have to set
+	// them up if they don't need to.
+	Capabilities serviceprovider.TestCapabilities
 	// HostCredsServiceProvider is the fallback provider used when no other service provider is detected for given URL.
-	HostCredsServiceProvider TestServiceProvider
+	HostCredsServiceProvider serviceprovider.TestServiceProvider
 	// VaultTestCluster is Vault's in-memory test cluster instance.
 	VaultTestCluster *vault.TestCluster
 	// OperatorConfiguration is the "live" configuration used by the controllers. Changing the values here has direct
@@ -83,6 +91,8 @@ type IntegrationTest struct {
 	// MetricsRegistry is the metrics registry the controllers are configured with. This can be used to check that the
 	// metrics are being collected.
 	MetricsRegistry *prometheus.Registry
+	// Custom validation options to register
+	ValidationOptions config.CustomValidationOptions
 }
 
 // TestSetup is used to express the requirements on the state of the K8s Cluster before the tests. Once an instance with
@@ -214,9 +224,10 @@ func matchByNamePrefix[T client.Object](key client.ObjectKey, list []T) []T {
 // restored to this state in TestSetup.AfterEach. These are essentially just copies of the ITest objects.
 type priorITestState struct {
 	probe             serviceprovider.Probe
-	serviceProvider   TestServiceProvider
-	hostCredsProvider TestServiceProvider
+	serviceProvider   serviceprovider.TestServiceProvider
+	hostCredsProvider serviceprovider.TestServiceProvider
 	operatorConfig    opconfig.OperatorConfiguration // intentionally not a pointer
+	validationOptions config.CustomValidationOptions
 
 	// we're missing the configuration of token storage here, because there's no way I know of to reconstruct it after
 	// ITestBehavior modifies it. We'd need to go the way of the TestServiceProvider so that we have a struct that we
@@ -324,6 +335,7 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		serviceProvider:   ITest.TestServiceProvider,
 		hostCredsProvider: ITest.HostCredsServiceProvider,
 		operatorConfig:    *ITest.OperatorConfiguration,
+		validationOptions: ITest.ValidationOptions,
 	}
 
 	ITest.TestServiceProvider.Reset()
@@ -337,6 +349,9 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 	if ts.Behavior.BeforeObjectsCreated != nil {
 		ts.Behavior.BeforeObjectsCreated()
 	}
+
+	err := config.SetupCustomValidations(ITest.ValidationOptions)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	ts.InCluster = TestObjects{
 		Tokens:              createAll(ts.ToCreate.Tokens),
@@ -389,6 +404,7 @@ func (ts *TestSetup) AfterEach() {
 	ITest.TestServiceProviderProbe = ts.priorState.probe
 	ITest.TestServiceProvider = ts.priorState.serviceProvider
 	ITest.HostCredsServiceProvider = ts.priorState.hostCredsProvider
+	ITest.ValidationOptions = ts.priorState.validationOptions
 	// we must keep the address of the operator configuration because that's the pointer the controllers are set up with
 	// we're just changing the contents of the objects that the pointer is pointing to...
 	*ITest.OperatorConfiguration = ts.priorState.operatorConfig
@@ -765,7 +781,7 @@ func diff[T client.Object](a T, b T) string {
 
 func toPointerArray[T any](arr []T) []*T {
 	ret := make([]*T, 0, len(arr))
-	for i, _ := range arr {
+	for i := range arr {
 		// we cannot use the second var from the range assignment here, because that is a single memory location for all
 		// elements. We'd therefore end up with an array of pointers to a single memory location.
 		ret = append(ret, &arr[i])

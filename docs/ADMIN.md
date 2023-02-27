@@ -58,6 +58,7 @@ and oauth service to have the same value for them):
 | --config-file                                         | CONFIGFILE                     | /etc/spi/config.yaml  | The location of the configuration file.                                                                                                                                                                                            |
 | --metrics-bind-address                                | METRICSADDR                    | 127.0.0.1:8080        | The address the metric endpoint binds to. Note: While this is the default from the operator binary point of view, the metrics are still available externally through the authorized endpoint provided by kube-rbac-proxy           |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                 | The address the probe endpoint binds to.                                                                                                                                                                                           |
+| --tokenstorage                                        | TOKENSTORAGE                   | vault                 | The type of the token storage. Supported types: 'vault', 'aws' (experimental) |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200 | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                 | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
 | --vault-auth-method                                   | VAULTAUTHMETHOD                | approle               | Authentication method to Vault token storage. Options: 'kubernetes', 'approle'.                                                                                                                                                    |
@@ -65,6 +66,9 @@ and oauth service to have the same value for them):
 | --vault-secretid-filepath                             | VAULTAPPROLESECRETIDFILEPATH   | /etc/spi/secret_id    | Used with Vault approle authentication. Filepath with secret_id.                                                                                                                                                                   |
 | --vault-k8s-sa-token-filepath                         | VAULTKUBERNETESSATOKENFILEPATH |                       | Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development. |
 | --vault-k8s-role                                      | VAULTKUBERNETESROLE            |                       | Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount.                                                                                                                                   |
+| --vault-data-path-prefix                              | VAULTDATAPATHPREFIX            | spi                   | Path prefix in Vault token storage under which all SPI data will be stored. No leading or trailing '/' should be used, it will be trimmed.                                                                                         |
+| --aws-config-filepath                                 | AWS_CONFIG_FILE                | /etc/spi/aws/config   | Filepath to AWS configuration file |
+| --aws-credentials-filepath                            | AWS_CREDENTIALS_FILE           | /etc/spi/aws/credentials | Filepath to AWS credentials file |
 | --zap-devel                                           | ZAPDEVEL                       | false                 | Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)                                                            |
 | --zap-encoder                                         | ZAPENCODER                     |                       | Zap log encoding (‘json’ or ‘console’)                                                                                                                                                                                             |
 | --zap-log-level                                       | ZAPLOGLEVEL                    |                       | Zap Level to configure the verbosity of logging.                                                                                                                                                                                   |
@@ -94,14 +98,14 @@ This table only contains the configuration parameters specific to the oauth serv
 are also applicable to the oauth service. The configmap for oauth-service-specific configuration is called
 `spi-oauth-service-environment-config`.
 
-| Command argument    | Environment variable | Default                                                          | Description                                                                         |
-|---------------------|----------------------|------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| --service-addr      | SERVICEADDR          | 0.0.0.0:8000                                                     | Service address to listen on.                                                       |
-| --allowed-origins   | ALLOWEDORIGINS       | https://console.dev.redhat.com, https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                  |
-| --kubeconfig        | KUBECONFIG           |                                                                  | KUBE-CONFIG.                                                                        |
-| --kube-insecure-tls | KUBEINSECURETLS      | false                                                            | Whether is allowed or not insecure kubernetes tls connection.                       |
-| --api-server        | API_SERVER           |                                                                  | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
-| --ca-path           | API_SERVER_CA_PATH   |                                                                  | The path to the CA certificate to use when connecting to the Kubernetes API server. |
+| Command argument    | Environment variable | Default                                                                                                                     | Description                                                                         |
+|---------------------|----------------------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| --service-addr      | SERVICEADDR          | 0.0.0.0:8000                                                                                                                | Service address to listen on.                                                       |
+| --allowed-origins   | ALLOWEDORIGINS       | https://console.redhat.com,https://console.stage.redhat.com,https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                  |
+| --kubeconfig        | KUBECONFIG           |                                                                                                                             | KUBE-CONFIG.                                                                        |
+| --kube-insecure-tls | KUBEINSECURETLS      | false                                                                                                                       | Whether is allowed or not insecure kubernetes tls connection.                       |
+| --api-server        | API_SERVER           |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
+| --ca-path           | API_SERVER_CA_PATH   |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server. |
 
 ## [Configuring Service Providers](#configuring-service-providers)
 
@@ -109,21 +113,44 @@ OAuth requires to create OAuth Application on Service Provider side. Service pro
  - __application homepage URL__: URL of the root of main Route/Ingress to SPI OAuth Service. For minikube: `https://spi.<minikube_ip>.nip.io`, for openshift: `https://<name>-<namespace>.<cluster_host>`. Example for minikube: `https://spi.192.168.64.166.nip.io`.
  - __application callback URL__: homepage URL + `/oauth/callback`. Example for minikube: `https://spi.192.168.64.166.nip.io/oauth/callback`.
 
-_To create OAuth application at:_
- - __GitHub__, follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app)
- - __GitLab__, follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
+### GitHub
+To create OAuth application follow [GitHub - Creating an OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app).
 
-## Vault
+### GitLab
+To create OAuth application follow [Configure GitLab as an OAuth 2.0 authentication identity provider](https://docs.gitlab.com/ee/integration/oauth_provider.html).
 
-Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically.
+When creating the OAuth application on GitLab, it is required to choose a set of scopes that the application __can ask for__. SPIAccessTokenBindings ask for different
+scopes depending on the `spec.permissions.required` and `spec.permissions.additionalScopes`. For additional information about permissions format, see [SPIAccessTokenBinding](docs/USER.md).
+
+The table below defines what GitLab scopes are required based on permissions of an SPIAccessTokenBinding.
+All described scopes should be permitted to avoid integration issues with SPI.
+
+| Scope            | Permissions Area | Permission Types | Description                                                         |
+|------------------|------------------|------------------|---------------------------------------------------------------------|
+| read_user        | every area       | every type       | Every SPIAccessTokenBinding needs this scope to read user metadata. |
+| read_repository  | "repository"     | "r"              | Grants read-only access to repositories on private projects.        |
+| write_repository | "repository"     | "w", "rw"        | Grants read-write access to repositories on private projects        |
+
+## Token Storage
+### Vault
+
+Vault is default token storage. Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically.
 For other deployments, like [infra-deployments](https://github.com/redhat-appstudio/infra-deployments) run `./hack/vault-init.sh` manually.
 
 There are couple of support scripts to work with Vault
-- `./hack/vault-init.sh` - Initialize and configure Vault instance
+- `./hack/vault-init.sh` - Initialize and configure Vault instance.
+  - To change path prefix for the SPI data (default is `spi`), set `SPI_DATA_PATH_PREFIX` environment variable. Value must be without leading and trailing slashes (e.g.: `SPI_DATA_PATH_PREFIX=all/spi/tokens/here`). To configure Vault path prefix in SPI see `--vault-data-path-prefix` SPI property.
 - `./hack/vault-generate-template.sh` - generates deployment yamls from [vault-helm](https://github.com/hashicorp/vault-helm). These should be commited in this repository.
 - injected in vault pod `/vault/userconfig/scripts/poststart.sh` - unseal vault storage. Runs automatically after pod startup.
 - injected in vault pod `/vault/userconfig/scripts/root.sh` - vault login as root with generated root token. Can be used for manual configuration.
 
+### AWS Secrets Manager (experimental)
+
+_Warning: AWS Secrets Manager as SPI Token storage is currently in experimental phase of implementation. Usage is not recommended for production use, implementation can change with backward breaking changes anytime without any further notice._
+
+To enable AWS Secrets Manager as SPI token storage, set `--tokenstorage=aws`. SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
+
+_Note: If you've used AWS cli before, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`._
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 

@@ -48,7 +48,10 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokensImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return &ITest.Capabilities
+					}
 				},
 			},
 		}
@@ -76,6 +79,40 @@ var _ = Describe("SPIAccessToken", func() {
 		It("have the upload URL set", func() {
 			Expect(strings.HasSuffix(createdToken.Status.UploadUrl, "/token/"+createdToken.Namespace+"/"+createdToken.Name)).To(BeTrue())
 		})
+
+		It("have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("No OAuth Capability service provider", func() {
+		var createdToken *api.SPIAccessToken
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				Tokens: []*api.SPIAccessToken{
+					StandardTestToken("create-test"),
+				},
+			},
+			Behavior: ITestBehavior{
+				AfterObjectsCreated: func(objects TestObjects) {
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+			createdToken = testSetup.InCluster.Tokens[0]
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("does not have the oauth URL set", func() {
+			Expect(createdToken.Status.OAuthUrl).To(BeEmpty())
+		})
 	})
 
 	Describe("Status", func() {
@@ -91,8 +128,8 @@ var _ = Describe("SPIAccessToken", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.OperatorConfiguration.BaseUrl = "https://initial.base.url"
-					ITest.TestServiceProvider.GetOauthEndpointImpl = func() string {
-						return ITest.OperatorConfiguration.BaseUrl + "/test/oauth"
+					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
+						return &ITest.Capabilities
 					}
 				},
 			},
@@ -157,7 +194,7 @@ var _ = Describe("SPIAccessToken", func() {
 					Expect(ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
 						AccessToken: "access",
 					})).To(Succeed())
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "alois",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -179,7 +216,7 @@ var _ = Describe("SPIAccessToken", func() {
 		})
 
 		It("flips token back to awaiting phase when data disappears", func() {
-			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+			ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
 			Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 			testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -200,7 +237,7 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokensImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -267,7 +304,7 @@ var _ = Describe("SPIAccessToken", func() {
 				return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > 1
 			}).Should(BeTrue())
 			//flip back to awaiting
-			ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(nil)
+			ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
 			testSetup.ReconcileWithCluster(nil)
 
 			//delete binding
@@ -300,7 +337,7 @@ var _ = Describe("SPIAccessToken", func() {
 			testSetup := TestSetup{
 				ToCreate: TestObjects{Tokens: []*api.SPIAccessToken{StandardTestToken("phase-test")}},
 				Behavior: ITestBehavior{AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokensImpl = LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				}},
 			}
 			BeforeEach(func() {
@@ -320,7 +357,7 @@ var _ = Describe("SPIAccessToken", func() {
 
 			When("metadata is persisted", func() {
 				It("flips to ready", func() {
-					ITest.TestServiceProvider.PersistMetadataImpl = PersistConcreteMetadata(&api.TokenMetadata{
+					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 						Username:             "user",
 						UserId:               "42",
 						Scopes:               []string{},
@@ -410,7 +447,7 @@ var _ = Describe("SPIAccessToken", func() {
 					g.Expect(createdToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(createdToken.Status.ErrorReason).To(BeEmpty())
 					g.Expect(createdToken.Status.ErrorMessage).To(BeEmpty())
-					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal("HostCredsServiceProvider"))
+					g.Expect(createdToken.Labels[api.ServiceProviderTypeLabel]).To(Equal(string(ITest.HostCredsServiceProvider.GetTypeImpl().Name)))
 				}).Should(Succeed())
 			})
 		})

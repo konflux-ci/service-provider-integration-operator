@@ -182,6 +182,10 @@ spec:
           secret:
             optional: true
             secretName: spi-vault-keys
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+          name: tmp
         - name: home
           emptyDir: {}
       containers:
@@ -212,6 +216,13 @@ spec:
    
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: HOST_IP
               valueFrom:
@@ -266,6 +277,8 @@ spec:
               name: poststart
             - mountPath: /vault/userconfig/keys
               name: keys
+            - mountPath: /tmp
+              name: tmp
             - name: home
               mountPath: /home/vault
           ports:
@@ -392,6 +405,8 @@ spec:
           name: poststart
         - mountPath: /vault/userconfig/keys
           name: keys
+        - mountPath: /tmp
+          name: tmp
   volumes:
     - configMap:
         defaultMode: 356
@@ -401,4 +416,8 @@ spec:
       secret:
         optional: true
         secretName: spi-vault-keys
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 64Mi
+      name: tmp
   restartPolicy: Never

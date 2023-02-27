@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package integrationtests
+//go:build !release
+
+package serviceprovider
 
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"golang.org/x/oauth2"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,17 +33,17 @@ type TestServiceProvider struct {
 	LookupTokensImpl          func(context.Context, client.Client, *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
-	OAuthScopesForImpl        func(permissions *api.Permissions) []string
-	GetTypeImpl               func() api.ServiceProviderType
-	GetOauthEndpointImpl      func() string
+	GetTypeImpl               func() config.ServiceProviderType
 	CheckRepositoryAccessImpl func(context.Context, client.Client, *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error)
-	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (serviceprovider.AccessTokenMapper, error)
-	ValidateImpl              func(context.Context, serviceprovider.Validated) (serviceprovider.ValidationResult, error)
+	MapTokenImpl              func(context.Context, *api.SPIAccessTokenBinding, *api.SPIAccessToken, *api.Token) (AccessTokenMapper, error)
+	ValidateImpl              func(context.Context, Validated) (ValidationResult, error)
 	CustomizeReset            func(provider *TestServiceProvider)
-	DownloadFileCapability    func() serviceprovider.DownloadFileCapability
+	DownloadFileCapability    func() DownloadFileCapability
+	RefreshTokenCapability    func() RefreshTokenCapability
+	OAuthCapability           func() OAuthCapability
 }
 
-var _ serviceprovider.ServiceProvider = (*TestServiceProvider)(nil)
+var _ ServiceProvider = (*TestServiceProvider)(nil)
 
 func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	if t.CheckRepositoryAccessImpl == nil {
@@ -71,45 +74,45 @@ func (t TestServiceProvider) GetBaseUrl() string {
 	return t.GetBaseUrlImpl()
 }
 
-func (t TestServiceProvider) OAuthScopesFor(permissions *api.Permissions) []string {
-	if t.OAuthScopesForImpl == nil {
-		return []string{}
-	}
-	return t.OAuthScopesForImpl(permissions)
-}
-
-func (t TestServiceProvider) GetType() api.ServiceProviderType {
+func (t TestServiceProvider) GetType() config.ServiceProviderType {
 	if t.GetTypeImpl == nil {
-		return "TestServiceProvider"
+		return config.ServiceProviderType{Name: "TestServiceProvider", DefaultBaseUrl: "test-provider://acme"}
 	}
 	return t.GetTypeImpl()
 }
 
-func (t TestServiceProvider) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {
+func (t TestServiceProvider) GetDownloadFileCapability() DownloadFileCapability {
 	if t.DownloadFileCapability == nil {
 		return nil
 	}
 	return t.DownloadFileCapability()
 }
 
-func (t TestServiceProvider) GetOAuthEndpoint() string {
-	if t.GetOauthEndpointImpl == nil {
-		return ""
+func (t TestServiceProvider) GetRefreshTokenCapability() RefreshTokenCapability {
+	if t.RefreshTokenCapability == nil {
+		return nil
 	}
-	return t.GetOauthEndpointImpl()
+	return t.RefreshTokenCapability()
 }
 
-func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
+func (t TestServiceProvider) GetOAuthCapability() OAuthCapability {
+	if t.OAuthCapability == nil {
+		return nil
+	}
+	return t.OAuthCapability()
+}
+
+func (t TestServiceProvider) MapToken(ctx context.Context, binding *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (AccessTokenMapper, error) {
 	if t.MapTokenImpl == nil {
-		return serviceprovider.AccessTokenMapper{}, nil
+		return AccessTokenMapper{}, nil
 	}
 
 	return t.MapTokenImpl(ctx, binding, token, tokenData)
 }
 
-func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+func (t TestServiceProvider) Validate(ctx context.Context, validated Validated) (ValidationResult, error) {
 	if t.ValidateImpl == nil {
-		return serviceprovider.ValidationResult{}, nil
+		return ValidationResult{}, nil
 	}
 
 	return t.ValidateImpl(ctx, validated)
@@ -118,17 +121,61 @@ func (t TestServiceProvider) Validate(ctx context.Context, validated serviceprov
 func (t *TestServiceProvider) Reset() {
 	t.LookupTokensImpl = nil
 	t.GetBaseUrlImpl = nil
-	t.OAuthScopesForImpl = nil
 	t.GetTypeImpl = nil
-	t.GetOauthEndpointImpl = nil
 	t.PersistMetadataImpl = nil
 	t.CheckRepositoryAccessImpl = nil
 	t.MapTokenImpl = nil
 	t.ValidateImpl = nil
 	t.DownloadFileCapability = nil
+	t.RefreshTokenCapability = nil
+	t.OAuthCapability = nil
 	if t.CustomizeReset != nil {
 		t.CustomizeReset(t)
 	}
+}
+
+// TestCapabilities is a test implementation for capabilities that Service Provider can have.
+// Currently, it aggregates DownloadFileCapability and OAuthCapability. All of these have valid results (i.e. do not result in any errors).
+type TestCapabilities struct {
+	DownloadFileImpl     func(context.Context, string, string, string, *api.SPIAccessToken, int) (string, error)
+	GetOAuthEndpointImpl func() string
+	OAuthScopesForImpl   func(permission *api.Permissions) []string
+	RefreshTokenImpl     func(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error)
+}
+
+var _ DownloadFileCapability = (*TestCapabilities)(nil)
+var _ OAuthCapability = (*TestCapabilities)(nil)
+var _ RefreshTokenCapability = (*TestCapabilities)(nil)
+
+func (t *TestCapabilities) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
+	if t.DownloadFileImpl != nil {
+		return t.DownloadFileImpl(ctx, repoUrl, filepath, ref, token, maxFileSizeLimit)
+	}
+
+	return "", nil
+}
+
+func (t *TestCapabilities) GetOAuthEndpoint() string {
+	if t.GetOAuthEndpointImpl != nil {
+		return t.GetOAuthEndpointImpl()
+	}
+
+	return ""
+}
+
+func (t *TestCapabilities) OAuthScopesFor(permissions *api.Permissions) []string {
+	if t.OAuthScopesForImpl != nil {
+		return t.OAuthScopesForImpl(permissions)
+	}
+
+	return []string{}
+}
+
+func (t *TestCapabilities) RefreshToken(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error) {
+	if t.RefreshTokenImpl != nil {
+		return t.RefreshTokenImpl(ctx, token, config)
+	}
+	return nil, nil
 }
 
 // LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns

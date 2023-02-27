@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"net/url"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -154,9 +152,10 @@ const (
 type SPIAccessTokenErrorReason string
 
 const (
-	SPIAccessTokenErrorReasonUnknownServiceProvider SPIAccessTokenErrorReason = "UnknownServiceProvider"
-	SPIAccessTokenErrorReasonMetadataFailure        SPIAccessTokenErrorReason = "MetadataFailure"
-	SPIAccessTokenErrorReasonUnsupportedPermissions SPIAccessTokenErrorReason = "UnsupportedPermissions"
+	SPIAccessTokenErrorReasonUnknownServiceProvider            SPIAccessTokenErrorReason = "UnknownServiceProvider"
+	SPIAccessTokenErrorUnsupportedServiceProviderConfiguration SPIAccessTokenErrorReason = "UnsupportedServiceProviderConfiguration"
+	SPIAccessTokenErrorReasonMetadataFailure                   SPIAccessTokenErrorReason = "MetadataFailure"
+	SPIAccessTokenErrorReasonUnsupportedPermissions            SPIAccessTokenErrorReason = "UnsupportedPermissions"
 )
 
 //+kubebuilder:object:root=true
@@ -178,32 +177,6 @@ type SPIAccessTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SPIAccessToken `json:"items"`
-}
-
-// EnsureLabels makes sure that the object has labels set according to its spec. The labels are used for faster lookup during
-// token matching with bindings. Returns `true` if the labels were changed, `false` otherwise.
-func (t *SPIAccessToken) EnsureLabels(detectedType ServiceProviderType) (changed bool) {
-	if t.Labels == nil {
-		t.Labels = map[string]string{}
-	}
-
-	if t.Labels[ServiceProviderTypeLabel] != string(detectedType) {
-		t.Labels[ServiceProviderTypeLabel] = string(detectedType)
-		changed = true
-	}
-
-	if len(t.Spec.ServiceProviderUrl) > 0 {
-		// we can't use the full service provider URL as a label value, because K8s doesn't allow :// in label values.
-		spUrl, err := url.Parse(t.Spec.ServiceProviderUrl)
-		if err == nil {
-			if t.Labels[ServiceProviderHostLabel] != spUrl.Host {
-				t.Labels[ServiceProviderHostLabel] = spUrl.Host
-				changed = true
-			}
-		}
-	}
-
-	return
 }
 
 func init() {

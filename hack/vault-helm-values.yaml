@@ -11,6 +11,17 @@ server:
 
   logLevel: "info"
 
+  statefulSet:
+    securityContext:
+      container:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+              drop:
+                - ALL
   resources:
     requests:
       memory: 100Mi
@@ -72,9 +83,16 @@ server:
       secret:
         secretName: spi-vault-keys
         optional: true
+    - name: tmp
+      emptyDir:
+        medium: Memory
+        sizeLimit: "64Mi"
+
 
   volumeMounts:
     - mountPath: /vault/userconfig/scripts
       name: poststart
     - mountPath: /vault/userconfig/keys
       name: keys
+    - mountPath: /tmp
+      name: tmp

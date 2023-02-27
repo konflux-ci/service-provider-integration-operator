@@ -89,7 +89,7 @@ func TestSplitQuayUrl(t *testing.T) {
 func TestReadResponseBodyToJsonMap(t *testing.T) {
 	test := func(name string, resp *http.Response, expected map[string]interface{}, expectedError bool) {
 		t.Run(name, func(t *testing.T) {
-			json, err := readResponseBodyToJsonMap(resp)
+			json, err := readResponseBodyToJsonMap(context.TODO(), resp)
 			assert.Equal(t, expected, json)
 			if expectedError {
 				assert.Error(t, err)

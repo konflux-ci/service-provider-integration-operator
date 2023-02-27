@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenstorage
+package vaultstorage
 
 import (
 	"context"
@@ -48,28 +48,6 @@ var testSpiAccessToken = &v1beta1.SPIAccessToken{
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
 	os.Exit(m.Run())
-}
-
-func TestStorage(t *testing.T) {
-	cluster, storage := CreateTestVaultTokenStorage(t)
-	assert.NoError(t, storage.Initialize(context.Background()))
-	defer cluster.Cleanup()
-
-	ctx := context.TODO()
-	err := storage.Store(ctx, testSpiAccessToken, testToken)
-	assert.NoError(t, err)
-
-	gettedToken, err := storage.Get(ctx, testSpiAccessToken)
-	assert.NoError(t, err)
-	assert.NotNil(t, gettedToken)
-	assert.EqualValues(t, testToken, gettedToken)
-
-	err = storage.Delete(ctx, testSpiAccessToken)
-	assert.NoError(t, err)
-
-	gettedToken, err = storage.Get(ctx, testSpiAccessToken)
-	assert.NoError(t, err)
-	assert.Nil(t, gettedToken)
 }
 
 func TestParseToken(t *testing.T) {

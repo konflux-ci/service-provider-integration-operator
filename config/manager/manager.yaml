@@ -29,6 +29,12 @@ spec:
               name: controller-manager-environment-config
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+              - ALL
         livenessProbe:
           httpGet:
             path: /healthz
@@ -44,10 +50,10 @@ spec:
         resources:
           limits:
             cpu: 200m
-            memory: 800Mi
+            memory: 600Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 50Mi
         volumeMounts:
           - mountPath: /etc/spi/config.yaml
             name: config-file
@@ -72,6 +78,21 @@ spec:
           - containerPort: 8443
             protocol: TCP
             name: https
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+             drop:
+               - ALL
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 20m
+            memory: 10Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
