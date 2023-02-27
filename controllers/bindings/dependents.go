@@ -201,7 +201,7 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 		attempt := func() (client.Object, error) {
 			needsUpdate := false
 
-			if _, containsSA := checkPoint.serviceAccountNames[sa.Name]; containsSA {
+			if saLink, ok := checkPoint.serviceAccountNames[sa.Name]; ok {
 				// ok, the SA is in the list of the service accounts to revert to. The only thing we need to make sure is that
 				// it links to the "old" secret name and doesn't link to the new secret name.
 				// We also re-label it if needed.
@@ -209,11 +209,11 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 					needsUpdate = serviceAccountHandler.unlinkSecretByName(d.Binding.Status.SyncedObjectRef.Name, sa)
 				}
 
-				if checkPoint.serviceAccountNames[sa.Name].secret {
+				if saLink.secret {
 					needsUpdate = serviceAccountHandler.linkSecretByName(sa, checkPoint.secretName, api.ServiceAccountLinkTypeSecret) || needsUpdate
 				}
 
-				if checkPoint.serviceAccountNames[sa.Name].imagePullSecret {
+				if saLink.imagePullSecret {
 					needsUpdate = serviceAccountHandler.linkSecretByName(sa, checkPoint.secretName, api.ServiceAccountLinkTypeImagePullSecret) || needsUpdate
 				}
 			} else {
