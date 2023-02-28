@@ -70,18 +70,19 @@ const (
 type SPIAccessTokenBindingErrorReason string
 
 const (
-	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType SPIAccessTokenBindingErrorReason = "UnknownServiceProviderType"
-	SPIAccessTokenBindingErrorReasonInvalidLifetime            SPIAccessTokenBindingErrorReason = "InvalidLifetime"
-	SPIAccessTokenBindingErrorReasonTokenLookup                SPIAccessTokenBindingErrorReason = "TokenLookup"
-	SPIAccessTokenBindingErrorReasonLinkedToken                SPIAccessTokenBindingErrorReason = "LinkedToken"
-	SPIAccessTokenBindingErrorReasonTokenRetrieval             SPIAccessTokenBindingErrorReason = "TokenRetrieval"
-	SPIAccessTokenBindingErrorReasonTokenSync                  SPIAccessTokenBindingErrorReason = "TokenSync"
-	SPIAccessTokenBindingErrorReasonTokenAnalysis              SPIAccessTokenBindingErrorReason = "TokenAnalysis"
-	SPIAccessTokenBindingErrorReasonUnsupportedPermissions     SPIAccessTokenBindingErrorReason = "UnsupportedPermissions"
-	SPIAccessTokenBindingErrorReasonInconsistentSpec           SPIAccessTokenBindingErrorReason = "InconsistentSpec"
-	SPIAccessTokenBindingErrorReasonServiceAccountUnavailable  SPIAccessTokenBindingErrorReason = "ServiceAccountUnavailable"
-	SPIAccessTokenBindingErrorReasonServiceAccountUpdate       SPIAccessTokenBindingErrorReason = "ServiceAccountUpdate"
-	SPIAccessTokenBindingErrorReasonNoError                    SPIAccessTokenBindingErrorReason = ""
+	SPIAccessTokenBindingErrorReasonUnknownServiceProviderType        SPIAccessTokenBindingErrorReason = "UnknownServiceProviderType"
+	SPIAccessTokenBindingErrorUnsupportedServiceProviderConfiguration SPIAccessTokenBindingErrorReason = "UnsupportedServiceProviderConfiguration"
+	SPIAccessTokenBindingErrorReasonInvalidLifetime                   SPIAccessTokenBindingErrorReason = "InvalidLifetime"
+	SPIAccessTokenBindingErrorReasonTokenLookup                       SPIAccessTokenBindingErrorReason = "TokenLookup"
+	SPIAccessTokenBindingErrorReasonLinkedToken                       SPIAccessTokenBindingErrorReason = "LinkedToken"
+	SPIAccessTokenBindingErrorReasonTokenRetrieval                    SPIAccessTokenBindingErrorReason = "TokenRetrieval"
+	SPIAccessTokenBindingErrorReasonTokenSync                         SPIAccessTokenBindingErrorReason = "TokenSync"
+	SPIAccessTokenBindingErrorReasonTokenAnalysis                     SPIAccessTokenBindingErrorReason = "TokenAnalysis"
+	SPIAccessTokenBindingErrorReasonUnsupportedPermissions            SPIAccessTokenBindingErrorReason = "UnsupportedPermissions"
+	SPIAccessTokenBindingErrorReasonInconsistentSpec                  SPIAccessTokenBindingErrorReason = "InconsistentSpec"
+	SPIAccessTokenBindingErrorReasonServiceAccountUnavailable         SPIAccessTokenBindingErrorReason = "ServiceAccountUnavailable"
+	SPIAccessTokenBindingErrorReasonServiceAccountUpdate              SPIAccessTokenBindingErrorReason = "ServiceAccountUpdate"
+	SPIAccessTokenBindingErrorReasonNoError                           SPIAccessTokenBindingErrorReason = ""
 )
 
 //+kubebuilder:object:root=true

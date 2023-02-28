@@ -18,5 +18,5 @@ import (
 )
 
 type OAuthServiceConfiguration struct {
-	config.SharedConfiguration
+	config.SharedConfiguration `validate:"required"`
 }

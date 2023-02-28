@@ -58,6 +58,7 @@ and oauth service to have the same value for them):
 | --config-file                                         | CONFIGFILE                     | /etc/spi/config.yaml  | The location of the configuration file.                                                                                                                                                                                            |
 | --metrics-bind-address                                | METRICSADDR                    | 127.0.0.1:8080        | The address the metric endpoint binds to. Note: While this is the default from the operator binary point of view, the metrics are still available externally through the authorized endpoint provided by kube-rbac-proxy           |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                 | The address the probe endpoint binds to.                                                                                                                                                                                           |
+| --tokenstorage                                        | TOKENSTORAGE                   | vault                 | The type of the token storage. Supported types: 'vault', 'aws' (experimental) |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200 | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                 | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
 | --vault-auth-method                                   | VAULTAUTHMETHOD                | approle               | Authentication method to Vault token storage. Options: 'kubernetes', 'approle'.                                                                                                                                                    |
@@ -66,6 +67,8 @@ and oauth service to have the same value for them):
 | --vault-k8s-sa-token-filepath                         | VAULTKUBERNETESSATOKENFILEPATH |                       | Used with Vault kubernetes authentication. Filepath to kubernetes ServiceAccount token. When empty, Vault configuration uses default k8s path. No need to set when running in k8s deployment, useful mostly for local development. |
 | --vault-k8s-role                                      | VAULTKUBERNETESROLE            |                       | Used with Vault kubernetes authentication. Vault authentication role set for k8s ServiceAccount.                                                                                                                                   |
 | --vault-data-path-prefix                              | VAULTDATAPATHPREFIX            | spi                   | Path prefix in Vault token storage under which all SPI data will be stored. No leading or trailing '/' should be used, it will be trimmed.                                                                                         |
+| --aws-config-filepath                                 | AWS_CONFIG_FILE                | /etc/spi/aws/config   | Filepath to AWS configuration file |
+| --aws-credentials-filepath                            | AWS_CREDENTIALS_FILE           | /etc/spi/aws/credentials | Filepath to AWS credentials file |
 | --zap-devel                                           | ZAPDEVEL                       | false                 | Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)                                                            |
 | --zap-encoder                                         | ZAPENCODER                     |                       | Zap log encoding (‘json’ or ‘console’)                                                                                                                                                                                             |
 | --zap-log-level                                       | ZAPLOGLEVEL                    |                       | Zap Level to configure the verbosity of logging.                                                                                                                                                                                   |
@@ -128,9 +131,10 @@ All described scopes should be permitted to avoid integration issues with SPI.
 | read_repository  | "repository"     | "r"              | Grants read-only access to repositories on private projects.        |
 | write_repository | "repository"     | "w", "rw"        | Grants read-write access to repositories on private projects        |
 
-## Vault
+## Token Storage
+### Vault
 
-Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically.
+Vault is default token storage. Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically.
 For other deployments, like [infra-deployments](https://github.com/redhat-appstudio/infra-deployments) run `./hack/vault-init.sh` manually.
 
 There are couple of support scripts to work with Vault
@@ -140,6 +144,13 @@ There are couple of support scripts to work with Vault
 - injected in vault pod `/vault/userconfig/scripts/poststart.sh` - unseal vault storage. Runs automatically after pod startup.
 - injected in vault pod `/vault/userconfig/scripts/root.sh` - vault login as root with generated root token. Can be used for manual configuration.
 
+### AWS Secrets Manager (experimental)
+
+_Warning: AWS Secrets Manager as SPI Token storage is currently in experimental phase of implementation. Usage is not recommended for production use, implementation can change with backward breaking changes anytime without any further notice._
+
+To enable AWS Secrets Manager as SPI token storage, set `--tokenstorage=aws`. SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
+
+_Note: If you've used AWS cli before, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`._
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 
