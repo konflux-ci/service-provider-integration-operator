@@ -96,7 +96,7 @@ func main() {
 	// the session has 15 minutes timeout and stale sessions are cleaned every 5 minutes
 	sessionManager := scs.New()
 	sessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
-	sessionManager.IdleTimeout = 5 * time.Minute
+	sessionManager.IdleTimeout = 15 * time.Minute
 	sessionManager.Lifetime = time.Hour
 	sessionManager.Cookie.Persist = false
 	sessionManager.Cookie.Name = "appstudio_spi_session"
