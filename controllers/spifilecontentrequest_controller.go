@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator/v10"
+
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -53,12 +55,13 @@ const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-li
 const LinkedFileRequestLabel = "spi.appstudio.redhat.com/file-content-request-name"
 
 var (
-	linkedBindingErrorStateError   = stderrors.New("linked binding is in error state")
-	multipleLinkedBindingsError    = stderrors.New("multiple bindings found for the same file content request")
-	noSuitableServiceProviderFound = stderrors.New("unable to find a matching service provider for the given URL")
-	unableToFetchBindingsError     = stderrors.New("unable to fetch the SPI Access token bindings list")
-	unableToFetchTokenError        = stderrors.New("unable to fetch the SPI Access token")
-	labelSelectorPredicate         predicate.Predicate
+	linkedBindingErrorStateError    = stderrors.New("linked binding is in error state")
+	multipleLinkedBindingsError     = stderrors.New("multiple bindings found for the same file content request")
+	noSuitableServiceProviderFound  = stderrors.New("unable to find a matching service provider for the given URL")
+	unableToFetchBindingsError      = stderrors.New("unable to fetch the SPI Access token bindings list")
+	unableToFetchTokenError         = stderrors.New("unable to fetch the SPI Access token")
+	unableToValidateServiceProvider = stderrors.New("unable to validate service provider for the given URL")
+	labelSelectorPredicate          predicate.Predicate
 )
 
 type SPIFileContentRequestReconciler struct {
@@ -188,10 +191,16 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		// check if the URL is processable and create binding, otherwise fail fast
 		sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
 		if err != nil {
-			lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
-			// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-			// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-			r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			var validationErr validator.ValidationErrors
+			if stderrors.As(err, &validationErr) {
+				lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
+				r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
+			} else {
+				lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
+				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			}
 			return ctrl.Result{}, nil
 		}
 		if sp.GetDownloadFileCapability() == nil {
@@ -225,10 +234,16 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	} else if associatedBinding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
 		sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
 		if err != nil {
-			lg.Error(err, "unable to get the service provider")
-			// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-			// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-			r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			var validationErr validator.ValidationErrors
+			if stderrors.As(err, &validationErr) {
+				lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
+				r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
+			} else {
+				lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
+				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			}
 			return ctrl.Result{}, nil
 		}
 		if sp.GetDownloadFileCapability() == nil {

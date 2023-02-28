@@ -49,12 +49,13 @@ const (
 type SPIAccessCheckErrorReason string
 
 const (
-	SPIAccessCheckErrorUnknownError           SPIAccessCheckErrorReason = "UnknownError"
-	SPIAccessCheckErrorUnknownServiceProvider SPIAccessCheckErrorReason = "UnknownServiceProviderType"
-	SPIAccessCheckErrorRepoNotFound           SPIAccessCheckErrorReason = "RepositoryNotFound"
-	SPIAccessCheckErrorBadURL                 SPIAccessCheckErrorReason = "BadURL"
-	SPIAccessCheckErrorNotImplemented         SPIAccessCheckErrorReason = "NotImplemented"
-	SPIAccessCheckErrorTokenLookupFailed      SPIAccessCheckErrorReason = "TokenLookupFailure"
+	SPIAccessCheckErrorUnknownError                            SPIAccessCheckErrorReason = "UnknownError"
+	SPIAccessCheckErrorUnknownServiceProvider                  SPIAccessCheckErrorReason = "UnknownServiceProviderType"
+	SPIAccessCheckErrorUnsupportedServiceProviderConfiguration SPIAccessCheckErrorReason = "UnsupportedServiceProviderConfiguration"
+	SPIAccessCheckErrorRepoNotFound                            SPIAccessCheckErrorReason = "RepositoryNotFound"
+	SPIAccessCheckErrorBadURL                                  SPIAccessCheckErrorReason = "BadURL"
+	SPIAccessCheckErrorNotImplemented                          SPIAccessCheckErrorReason = "NotImplemented"
+	SPIAccessCheckErrorTokenLookupFailed                       SPIAccessCheckErrorReason = "TokenLookupFailure"
 )
 
 type SPIAccessCheckAccessibility string
