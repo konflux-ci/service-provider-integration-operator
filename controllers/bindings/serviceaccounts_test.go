@@ -300,74 +300,110 @@ func TestLinkSecretToServiceAccount(t *testing.T) {
 }
 
 func TestUnlinkSecretFromServiceAccount(t *testing.T) {
-	// secret := &corev1.Secret{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      "secret",
-	// 		Namespace: "default",
-	// 	},
-	// }
-	//
-	// t.Run("removes only referenced secrets", func(t *testing.T) {
-	// 	sa := &corev1.ServiceAccount{
-	// 		Secrets: []corev1.ObjectReference{
-	// 			{
-	// 				Name: "another",
-	// 			},
-	// 			{
-	// 				Name: "secret",
-	// 			},
-	// 		},
-	// 		ImagePullSecrets: []corev1.LocalObjectReference{
-	// 			{
-	// 				Name: "another",
-	// 			},
-	// 			{
-	// 				Name: "secret",
-	// 			},
-	// 		},
-	// 	}
-	//
-	// 	changed := unlinkSecretFromServiceAccount(secret, sa)
-	//
-	// 	assert.True(t, changed)
-	// 	assert.Len(t, sa.Secrets, 1)
-	// 	assert.Len(t, sa.ImagePullSecrets, 1)
-	//
-	// 	assert.Equal(t, sa.Secrets[0].Name, "another")
-	// 	assert.Equal(t, sa.ImagePullSecrets[0].Name, "another")
-	// })
-	//
-	// t.Run("doesn't fail if not referenced", func(t *testing.T) {
-	// 	sa := &corev1.ServiceAccount{
-	// 		Secrets: []corev1.ObjectReference{
-	// 			{
-	// 				Name: "another",
-	// 			},
-	// 		},
-	// 		ImagePullSecrets: []corev1.LocalObjectReference{
-	// 			{
-	// 				Name: "another",
-	// 			},
-	// 		},
-	// 	}
-	//
-	// 	changed := unlinkSecretFromServiceAccount(secret, sa)
-	//
-	// 	assert.False(t, changed)
-	// 	assert.Len(t, sa.Secrets, 1)
-	// 	assert.Len(t, sa.ImagePullSecrets, 1)
-	//
-	// 	assert.Equal(t, sa.Secrets[0].Name, "another")
-	// 	assert.Equal(t, sa.ImagePullSecrets[0].Name, "another")
-	// })
-	//
-	// t.Run("doesn't fail on empty", func(t *testing.T) {
-	// 	sa := &corev1.ServiceAccount{}
-	//
-	// 	changed := unlinkSecretFromServiceAccount(secret, sa)
-	//
-	// 	assert.False(t, changed)
-	// 	assert.Len(t, sa.Secrets, 0)
-	// 	assert.Len(t, sa.ImagePullSecrets, 0)
-	// })
+	scheme := runtime.NewScheme()
+	assert.NoError(t, corev1.AddToScheme(scheme))
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret",
+			Namespace: "default",
+		},
+	}
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa",
+			Namespace: "default",
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret, sa).
+		Build()
+
+	binding := &api.SPIAccessTokenBinding{
+		Spec: api.SPIAccessTokenBindingSpec{
+			Secret: api.SecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Reference: corev1.LocalObjectReference{
+								Name: "sa",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	r := serviceAccountHandler{
+		Client:  cl,
+		Binding: binding,
+	}
+
+	t.Run("removes only referenced secrets", func(t *testing.T) {
+		sa := &corev1.ServiceAccount{
+			Secrets: []corev1.ObjectReference{
+				{
+					Name: "another",
+				},
+				{
+					Name: "secret",
+				},
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: "another",
+				},
+				{
+					Name: "secret",
+				},
+			},
+		}
+
+		changed := r.Unlink(secret, sa)
+
+		assert.True(t, changed)
+		assert.Len(t, sa.Secrets, 1)
+		assert.Len(t, sa.ImagePullSecrets, 1)
+
+		assert.Equal(t, sa.Secrets[0].Name, "another")
+		assert.Equal(t, sa.ImagePullSecrets[0].Name, "another")
+	})
+
+	t.Run("doesn't fail if not referenced", func(t *testing.T) {
+		sa := &corev1.ServiceAccount{
+			Secrets: []corev1.ObjectReference{
+				{
+					Name: "another",
+				},
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: "another",
+				},
+			},
+		}
+
+		changed := r.Unlink(secret, sa)
+
+		assert.False(t, changed)
+		assert.Len(t, sa.Secrets, 1)
+		assert.Len(t, sa.ImagePullSecrets, 1)
+
+		assert.Equal(t, sa.Secrets[0].Name, "another")
+		assert.Equal(t, sa.ImagePullSecrets[0].Name, "another")
+	})
+
+	t.Run("doesn't fail on empty", func(t *testing.T) {
+		sa := &corev1.ServiceAccount{}
+
+		changed := r.Unlink(secret, sa)
+
+		assert.False(t, changed)
+		assert.Len(t, sa.Secrets, 0)
+		assert.Len(t, sa.ImagePullSecrets, 0)
+	})
 }
