@@ -19,6 +19,6 @@
  -->
 
 ```
-quay.io/redhat-appstudio/pull-request-builds:spi-operator-#
+quay.io/redhat-appstudio/pull-request-builds:spi-controller-#
 quay.io/redhat-appstudio/pull-request-builds:spi-oauth-#
 ```
