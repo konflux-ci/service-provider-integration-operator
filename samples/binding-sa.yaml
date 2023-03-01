@@ -11,7 +11,7 @@ spec:
   secret:
     name: token-sa
     type: kubernetes.io/basic-auth
-  serviceAccount:
-    managed: true
-    generateName: token-sa-
-
+    linkedTo:
+    - serviceAccount:
+        managed:
+          generateName: token-sa-
