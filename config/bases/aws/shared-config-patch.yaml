@@ -4,4 +4,4 @@ metadata:
   name: shared-environment-config
   namespace: system
 data:
-  BASEURL: https://${OAUTH_HOST}
+  TOKENSTORAGE: aws

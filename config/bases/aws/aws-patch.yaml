@@ -1,0 +1,15 @@
+# add-label.patch.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spi-oauth-service
+  namespace: spi-system
+spec:
+  template:
+    volumes:
+    - name: aws
+      secret:
+        secretName: bla
+        items:
+          - key: bol.yaml
+            path: aws.yaml
