@@ -1,10 +1,9 @@
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIAccessToken
 metadata:
-  name: test-access-token
+  name: test-access-token-gtmzgjl0d02os2lz7uvia-2mowcvprrso9deerstxwpmshw8-yuewjcivn4poporrrug-cr1pxyotwrn4cx0xvhzd-jnfbweab6aziwh9hv2tde5-05d5ynakhkokppy3l-mllvksrgcipdadsai6ssxe-158vwupyou3mq
   namespace: default
 spec:
-  serviceProviderType: Github
   permissions:
     required:
       - type: r

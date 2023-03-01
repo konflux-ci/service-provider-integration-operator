@@ -112,6 +112,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		Url: oauthCfg.AuthCodeURL(newStateString),
 	}
 	lg.V(logs.DebugLevel).Info("Redirecting ", "url", templateData.Url)
+	writeCSPHeaders(w)
 	err = c.RedirectTemplate.Execute(w, templateData)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to return redirect notice HTML page", err)
@@ -234,4 +235,9 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 
 	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review result", "review", &review)
 	return review.Status.Allowed, nil
+}
+
+// Write an CSP header allowing inline styles, images from redhat domain, and denying everything else, including framing
+func writeCSPHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
 }

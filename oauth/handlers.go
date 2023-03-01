@@ -47,6 +47,7 @@ func OkHandler(w http.ResponseWriter, _ *http.Request) {
 // This page is a landing page after successfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
 func CallbackSuccessHandler(w http.ResponseWriter, r *http.Request) {
+	writeCSPHeaders(w)
 	http.ServeFile(w, r, "../static/callback_success.html")
 }
 
@@ -73,6 +74,7 @@ func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
 	err := tmpl.Execute(w, data)
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
+		writeCSPHeaders(w)
 	} else {
 		log.FromContext(r.Context()).Error(err, "failed to process template")
 		w.WriteHeader(http.StatusInternalServerError)
