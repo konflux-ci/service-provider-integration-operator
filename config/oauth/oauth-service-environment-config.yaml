@@ -4,3 +4,4 @@ metadata:
   name: oauth-service-environment-config
 data:
   VAULTKUBERNETESROLE: spi-oauth
+  VAULTAPPROLENAME: spi-oauth

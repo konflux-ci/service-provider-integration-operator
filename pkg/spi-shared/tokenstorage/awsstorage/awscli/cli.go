@@ -26,6 +26,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,7 +39,7 @@ var (
 	errInvalidCliArgs = errors.New("invalid cli args")
 )
 
-func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.TokenStorage, error) {
+func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs, client client.Client) (tokenstorage.TokenStorage, error) {
 	log.FromContext(ctx).Info("creating aws client")
 	cfg, err := configFromCliArgs(ctx, args)
 	if err != nil {

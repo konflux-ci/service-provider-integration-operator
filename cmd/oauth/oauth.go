@@ -79,7 +79,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
+	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs, inClusterK8sClient)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)

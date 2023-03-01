@@ -33,6 +33,7 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -98,8 +99,10 @@ type VaultStorageConfig struct {
 	Role                        string
 	ServiceAccountTokenFilePath string
 
-	RoleIdFilePath   string
-	SecretIdFilePath string
+	AppRoleName                string
+	CredentialsSecretNamespace string
+	RoleIdFilePath             string
+	SecretIdFilePath           string
 
 	MetricsRegisterer prometheus.Registerer
 
@@ -107,7 +110,7 @@ type VaultStorageConfig struct {
 }
 
 // NewVaultStorage creates a new `TokenStorage` instance using the provided Vault instance.
-func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (tokenstorage.TokenStorage, error) {
+func NewVaultStorage(ctx context.Context, vaultTokenStorageConfig *VaultStorageConfig, k8sClient client.Client) (tokenstorage.TokenStorage, error) {
 	if err := config.ValidateStruct(vaultTokenStorageConfig); err != nil {
 		return nil, fmt.Errorf("error validating storage config: %w", err)
 	}
@@ -131,7 +134,7 @@ func NewVaultStorage(vaultTokenStorageConfig *VaultStorageConfig) (tokenstorage.
 		return nil, fmt.Errorf("error creating the client: %w", err)
 	}
 
-	authMethod, authErr := prepareAuth(vaultTokenStorageConfig)
+	authMethod, authErr := prepareAuth(ctx, vaultTokenStorageConfig, k8sClient)
 	if authErr != nil {
 		return nil, fmt.Errorf("error preparing vault authentication: %w", authErr)
 	}

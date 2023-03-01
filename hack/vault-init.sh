@@ -166,10 +166,19 @@ function approleAuth() {
     vaultExec "vault write auth/approle/role/${1} token_policies=${SPI_POLICY_NAME}"
     ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
     SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
-    echo "---" >> ${SECRET_FILE}
-    kubectl --kubeconfig=${VAULT_KUBE_CONFIG} create secret generic vault-approle-${1} \
-      --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
-      --dry-run=client -o yaml >> ${SECRET_FILE}
+    cat >> ${SECRET_FILE} <<EOL
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-approle-${1}
+  labels:
+    spi.appstudio.redhat.com/tokenstorage-credentials: vault
+    spi.appstudio.redhat.com/vault-approle: ${1}
+data:
+  role_id: $( echo -n ${ROLE_ID} | base64 )
+  secret_id: $( echo -n ${SECRET_ID} | base64 )
+EOL
   }
 
   if [ -f ${SECRET_FILE} ]; then rm ${SECRET_FILE}; fi

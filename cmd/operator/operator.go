@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -43,6 +44,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 
 	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,7 +94,8 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 	ctx = log.IntoContext(ctx, ctrl.Log)
 
-	mgr, mgrErr := createManager(args)
+	kubeconfig := ctrl.GetConfigOrDie()
+	mgr, mgrErr := createManager(args, kubeconfig)
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
@@ -104,7 +107,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
+	initClient, errKubeClient := client.New(kubeconfig, client.Options{})
+	if errKubeClient != nil {
+		setupLog.Error(errKubeClient, "failed to create init kube client")
+		os.Exit(1)
+	}
+	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs, initClient)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
@@ -153,7 +161,7 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 	return ret, nil
 }
 
-func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
+func createManager(args cli.OperatorCliArgs, restConfig *rest.Config) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
@@ -163,7 +171,6 @@ func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
 	}
-	restConfig := ctrl.GetConfigOrDie()
 
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {

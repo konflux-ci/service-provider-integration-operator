@@ -22,6 +22,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage/vaultcli"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -29,15 +30,15 @@ var (
 	errNilTokenStorage         = errors.New("nil token storage")
 )
 
-func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.TokenStorage, error) {
+func InitTokenStorage(ctx context.Context, args *CommonCliArgs, k8sClient client.Client) (tokenstorage.TokenStorage, error) {
 	var tokenStorage tokenstorage.TokenStorage
 	var errTokenStorage error
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		tokenStorage, errTokenStorage = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
+		tokenStorage, errTokenStorage = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs, k8sClient)
 	case AWSTokenStorage:
-		tokenStorage, errTokenStorage = awscli.NewAwsTokenStorage(ctx, &args.AWSCliArgs)
+		tokenStorage, errTokenStorage = awscli.NewAwsTokenStorage(ctx, &args.AWSCliArgs, k8sClient)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedTokenStorage, args.TokenStorage)
 	}
