@@ -353,10 +353,22 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		TokenStorage: r.TokenStorage,
 	}
 
+	// remember the state that we need to revert to if updates to the binding fail after we've made changes to the cluster
+	depCheckpoint, err := dependentsHandler.CheckPoint(ctx)
+	if err != nil {
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate, err)
+		return ctrl.Result{}, fmt.Errorf("failed to prepare a checkpoint to revert to prior to changing the cluster state: %w", err)
+	}
+
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
 		deps, errorReason, err := dependentsHandler.Sync(ctx, token, sp)
 		if err != nil {
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, &binding, errorReason, err)
+			if rerr := dependentsHandler.RevertTo(ctx, depCheckpoint); rerr != nil {
+				lg.Error(rerr, "failed to revert dependent objects changes")
+			}
 			return ctrl.Result{}, fmt.Errorf("failed to sync the dependent objects: %w", err)
 		}
 
@@ -375,8 +387,6 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			sas = append(sas, sa.Name)
 		}
 
-		// TODO this can leave the dependent objects behind if we subsequently fail to update
-		// the status of the binding.
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
 		binding.Status.SyncedObjectRef = toObjectRef(deps.Secret)
 		binding.Status.ServiceAccountNames = sas
@@ -388,6 +398,9 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if err := r.updateBindingStatusSuccess(ctx, &binding); err != nil {
 		lg.Error(err, "unable to update the status")
+		if rerr := dependentsHandler.RevertTo(ctx, depCheckpoint); rerr != nil {
+			lg.Error(rerr, "failed to revert the dependent objects")
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
