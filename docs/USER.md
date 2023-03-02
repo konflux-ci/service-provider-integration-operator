@@ -145,13 +145,13 @@ Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secre
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
 - Create Kubernetes Secret with labeled with `spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
-- If you want new SPIAccessToken to be created and associated with the Token, put the name you want to be assigned to the `spi.appstudio.redhat.com/token-name` label or just remove this label (or leave it empty), in the latter case SPIAccessToken name will be randomly generated. 
+- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `spi.appstudio.redhat.com/token-name` label or just remove this label (or leave it empty), in the latter case SPIAccessToken name will be randomly generated. 
 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: upload-secret
+  name: $upload-secret-name
   labels:
     spi.appstudio.redhat.com/upload-secret: token
     spi.appstudio.redhat.com/token-name: $TOKEN_NAME
@@ -161,7 +161,11 @@ stringData:
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
-In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
+
+### Error Handling
+Since the Secret is removed in any case (since point is to make the Secret live time as short as possible), there are no chance to read any status and error information we may put in it.    
+So, in a case if something goes wrong the reason is written to K8s Event named with Secret name, user can can check it with `kubectl get event $upload-secret-name`.
+This event is refreshed or deleted after next creation of some-named Secret or normally by Kubernetes (in 60 minutes by default)    
 
 ## Providing secrets to a service account
 
