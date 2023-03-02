@@ -50,10 +50,6 @@ const (
 	providerUrlField  = "providerUrl"
 )
 
-var (
-	noProviderUrlErr = fmt.Errorf("can not create SPIAccessToken w/o providerURL field")
-)
-
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 
@@ -88,11 +84,13 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// try to find  SPIAccessToken
 		accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
 		if err != nil {
+			r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token: %w ", err), lg)
 			continue
 		} else if accessToken == nil {
 			// SPIAccessToken does not exist, so create it
 			accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
 			if err != nil {
+				r.logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token: %w ", err), lg)
 				continue
 			}
 		}
@@ -193,7 +191,6 @@ func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName s
 
 func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	spiTokenName := uploadSecret.Labels[spiTokenNameLabel]
-
 	if spiTokenName == "" {
 		lg.V(logs.DebugLevel).Info("No label found, will try to create with generated ", "spi.appstudio.redhat.com/token-name", spiTokenName)
 		return nil, nil
@@ -207,7 +204,6 @@ func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSe
 			lg.V(logs.DebugLevel).Info("SPI Access Token NOT found, will try to create  ", "SPIAccessToken.name", accessToken.Name)
 			return nil, nil
 		} else {
-			r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), lg)
 			return nil, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err)
 		}
 	} else {
@@ -217,18 +213,12 @@ func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSe
 }
 
 func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
-	providerUrl := string(uploadSecret.Data[providerUrlField])
-	if providerUrl == "" {
-		r.logError(ctx, uploadSecret, noProviderUrlErr, lg)
-		return nil, noProviderUrlErr
-	}
-
 	accessToken := spi.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: uploadSecret.Namespace,
 		},
 		Spec: spi.SPIAccessTokenSpec{
-			ServiceProviderUrl: providerUrl,
+			ServiceProviderUrl: string(uploadSecret.Data[providerUrlField]),
 		},
 	}
 	spiTokenName := uploadSecret.Labels[spiTokenNameLabel]

@@ -87,10 +87,10 @@ var _ = Describe("TokenUploadController", func() {
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).Error()
 			})
 		})
-		It("fails creating SPIAccessToken b/c ProviderURL is not defined", func() {
+		It("fails creating SPIAccessToken b/c SPIAccessToken name is invalid", func() {
 			accessToken := api.SPIAccessToken{}
 
-			createSecret("secret", "not-existed-spitoken", "")
+			createSecret("secret", "my-spi-access-token_2023_03_02__15_37_28", "")
 			Eventually(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
 		})
 	})
