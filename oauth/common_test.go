@@ -340,6 +340,7 @@ var _ = Describe("Controller", func() {
 				_, res := loginFlow(g)
 				sessionCookies := res.Result().Cookies()
 				controller, _, res := authenticateFlow(g, res.Result().Cookies())
+				g.Expect(res.Header().Get("Content-Security-Policy")).To(Equal("default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';"))
 
 				redirect := getRedirectUrlFromAuthenticateResponse(Default, res)
 
