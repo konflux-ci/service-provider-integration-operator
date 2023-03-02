@@ -97,6 +97,8 @@ func main() {
 	sessionManager := scs.New()
 	sessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
 	sessionManager.IdleTimeout = 15 * time.Minute
+	sessionManager.Lifetime = time.Hour
+	sessionManager.Cookie.Persist = false
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
