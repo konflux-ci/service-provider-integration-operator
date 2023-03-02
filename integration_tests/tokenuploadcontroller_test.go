@@ -71,16 +71,17 @@ var _ = Describe("TokenUploadController", func() {
 			})
 		})
 		It("creates new SPIAccessToken and updates its status", func() {
+			spiTokenName := "new-spitoken"
 			accessToken := api.SPIAccessToken{}
-			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "new-token", Namespace: "default"}, &accessToken)).Error()
-			createSecret("test-token2", "new-token", testSetup.InCluster.Tokens[0].Spec.ServiceProviderUrl)
-			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).To(Succeed())
+			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).Error()
+			createSecret("test-token2", spiTokenName, testSetup.InCluster.Tokens[0].Spec.ServiceProviderUrl)
+
 			Eventually(func(g Gomega) {
 				// Token added to Storage...
 				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
 				// And new SPIAccessToken created and moved to Ready state...
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "new-token", Namespace: "default"}, &accessToken)).To(Succeed())
-				g.Expect(accessToken.Name == "new-token").To(BeTrue())
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).To(Succeed())
+				g.Expect(accessToken.Name == spiTokenName).To(BeTrue())
 				g.Expect(accessToken.Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
 				// And the secret deleted eventually
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).Error()
@@ -88,26 +89,9 @@ var _ = Describe("TokenUploadController", func() {
 		})
 		It("fails creating SPIAccessToken b/c ProviderURL is not defined", func() {
 			accessToken := api.SPIAccessToken{}
-			//			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "failed-token", Namespace: "default"}, &accessToken)).Error()
-			o := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "bad-secret",
-					Labels: map[string]string{
-						"spi.appstudio.redhat.com/upload-secret": "token",
-						"spi.appstudio.redhat.com/token-name":    "failed-spitoken",
-					},
-				},
-				Type: "Opaque",
-				StringData: map[string]string{
-					"tokenData": "token-data",
-					// No providerURL
-				},
-			}
-			Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
-			Eventually(func(g Gomega) {
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "failed-spitoken", Namespace: "default"}, &accessToken)).Error()
-			})
+
+			createSecret("secret", "not-existed-spitoken", "")
+			Eventually(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
 		})
 	})
 })
