@@ -81,17 +81,17 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// we immediately delete the Secret
 		err := r.Delete(ctx, &uploadSecretList.Items[i])
 		if err != nil {
-			logError(ctx, uploadSecret, fmt.Errorf("can not delete the Secret: %w", err), r, lg)
+			r.logError(ctx, uploadSecret, fmt.Errorf("can not delete the Secret: %w", err), lg)
 			continue
 		}
 
 		// try to find  SPIAccessToken
-		accessToken, err := findSpiAccessToken(ctx, uploadSecret, r, lg)
+		accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
 		if err != nil {
 			continue
 		} else if accessToken == nil {
 			// SPIAccessToken does not exist, so create it
-			accessToken, err = createSpiAccessToken(ctx, uploadSecret, r, lg)
+			accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
 			if err != nil {
 				continue
 			}
@@ -106,13 +106,13 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Upload Token, it will cause update SPIAccessToken State as well
 		err = r.TokenStorage.Store(ctx, accessToken, &token)
 		if err != nil {
-			logError(ctx, uploadSecret, fmt.Errorf("token storing failed: %w", err), r, lg)
+			r.logError(ctx, uploadSecret, fmt.Errorf("failed to store the token: %w", err), lg)
 			logs.AuditLog(ctx).Error(err, "manual token upload failed", uploadSecret.Namespace, accessToken.Name)
 			continue
 		}
 		logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, accessToken.Name)
 
-		tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, r, lg)
+		r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
 	}
 	return ctrl.Result{}, nil
 }
@@ -151,11 +151,11 @@ func createTokenPredicate() predicate.Predicate {
 }
 
 // reports error in both Log and Event in current Namespace
-func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUploadReconciler, lg logr.Logger) {
+func (r *TokenUploadReconciler) logError(ctx context.Context, secret corev1.Secret, err error, lg logr.Logger) {
 
 	lg.Error(err, "Secret upload failed:")
 
-	tryDeleteEvent(ctx, secret.Name, secret.Namespace, r, lg)
+	r.tryDeleteEvent(ctx, secret.Name, secret.Namespace, lg)
 
 	secretErrEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
@@ -178,7 +178,7 @@ func logError(ctx context.Context, secret corev1.Secret, err error, r *TokenUplo
 
 // Contract: having at only one event if upload failed and no events if uploaded.
 // For this need to delete the event every attempt
-func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenUploadReconciler, lg logr.Logger) {
+func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName string, ns string, lg logr.Logger) {
 	stored := &corev1.Event{}
 	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: ns}, stored)
 
@@ -191,11 +191,11 @@ func tryDeleteEvent(ctx context.Context, secretName string, ns string, r *TokenU
 	}
 }
 
-func findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *TokenUploadReconciler, lg logr.Logger) (*spi.SPIAccessToken, error) {
+func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	spiTokenName := uploadSecret.Labels[spiTokenNameLabel]
 
 	if spiTokenName == "" {
-		lg.V(logs.DebugLevel).Info("No label found, will try to create with generated ", spiTokenNameLabel, spiTokenName)
+		lg.V(logs.DebugLevel).Info("No label found, will try to create with generated ", "spi.appstudio.redhat.com/token-name", spiTokenName)
 		return nil, nil
 	}
 
@@ -207,7 +207,7 @@ func findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *Toke
 			lg.V(logs.DebugLevel).Info("SPI Access Token NOT found, will try to create  ", "SPIAccessToken.name", accessToken.Name)
 			return nil, nil
 		} else {
-			logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), r, lg)
+			r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err), lg)
 			return nil, fmt.Errorf("can not find SPI access token %s: %w ", spiTokenName, err)
 		}
 	} else {
@@ -216,10 +216,10 @@ func findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *Toke
 	}
 }
 
-func createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, r *TokenUploadReconciler, lg logr.Logger) (*spi.SPIAccessToken, error) {
+func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	providerUrl := string(uploadSecret.Data[providerUrlField])
 	if providerUrl == "" {
-		logError(ctx, uploadSecret, noProviderUrlErr, r, lg)
+		r.logError(ctx, uploadSecret, noProviderUrlErr, lg)
 		return nil, noProviderUrlErr
 	}
 

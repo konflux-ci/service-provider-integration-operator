@@ -151,7 +151,7 @@ Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secre
 apiVersion: v1
 kind: Secret
 metadata:
-  name: $upload-secret-name
+  name: $UPLOAD-SECRET_NAME
   labels:
     spi.appstudio.redhat.com/upload-secret: token
     spi.appstudio.redhat.com/token-name: $TOKEN_NAME
@@ -164,7 +164,7 @@ After reconciliation SPIAccessToken should be filled with the Access Token metad
 
 ### Error Handling
 Since the Secret is removed in any case (since point is to make the Secret live time as short as possible), there are no chance to read any status and error information we may put in it.    
-So, in a case if something goes wrong the reason is written to K8s Event named with Secret name, user can can check it with `kubectl get event $upload-secret-name`.
+So, in a case if something goes wrong the reason is written to K8s Event named with Secret name, user can can check it with `kubectl get event $UPLOAD-SECRET_NAME`.
 This event is refreshed or deleted after next creation of some-named Secret or normally by Kubernetes (in 60 minutes by default)    
 
 ## Providing secrets to a service account
