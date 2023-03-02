@@ -1,0 +1,30 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+namespace: spi-system
+
+resources:
+  - ../../openshift
+
+patches:
+  - path: oauth_aws.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: spi-oauth-service
+  - path: operator_aws.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: spi-controller-manager
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: shared-environment-config
+      namespace: system
+    patch: |-
+      - op: add
+        path: /data/TOKENSTORAGE
+        value: "aws"
