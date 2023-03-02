@@ -47,9 +47,9 @@ func OkHandler(w http.ResponseWriter, _ *http.Request) {
 // This page is a landing page after successfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
 func CallbackSuccessHandler() http.Handler {
-	return CSPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "../static/callback_success.html")
-	}))
+	})
 }
 
 // viewData structure is used to pass parameters during callback_error.html template processing.
@@ -62,7 +62,7 @@ type viewData struct {
 // This page is a landing page after unsuccessfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
 func CallbackErrorHandler() http.Handler {
-	return CSPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		errorMsg := q.Get("error")
 		errorDescription := q.Get("error_description")
@@ -81,7 +81,7 @@ func CallbackErrorHandler() http.Handler {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
 		}
-	}))
+	})
 }
 
 // HandleUpload returns Handler implementation that is relied on provided TokenUploader to persist provided credentials
@@ -146,7 +146,7 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 	}
 }
 
-// CSPHandler is a Handler that writes into response an CSP headers allowing inline styles, images from redhat domain, and denying everything else, including framing
+// CSPHandler is a Handler that writes into response a CSP headers allowing inline styles, images from redhat domain, and denying everything else, including framing
 func CSPHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
