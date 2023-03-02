@@ -110,6 +110,7 @@ func TestCallbackSuccessHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
+	assert.Equal(t, rr.Header().Get("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
 }
 
 func TestCallbackErrorHandler(t *testing.T) {
@@ -133,6 +134,7 @@ func TestCallbackErrorHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
+	assert.Equal(t, rr.Header().Get("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
 }
 
 func TestUploaderOk(t *testing.T) {
