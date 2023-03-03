@@ -7,11 +7,20 @@ To build the project one needs to invoke (builds both `operator` and `oauth` bin
 make build
 ```
 
-To test the code (!tests requires running cluster in kubectl context):
+To test the code (WARNING: tests require a running cluster in the kubectl context):
 
 ```
 make test
 ```
+To run individual unit tests, you can use the normal `go test` workflow.
+
+There are also many integration tests that are also run by `make test`.
+
+The integration tests run with a `testenv` Kubernetes API server so they cannot be run simply by `go test`. You can run individual integration tests using 
+```
+make itest focus="..."
+```
+where the value of `focus` is the description of the Ginkgo integration test you want to run.
 
 To build the docker images of the operator and oauth service one can run:
 
@@ -23,7 +32,7 @@ This will make a docker images called `quay.io/redhat-appstudio/service-provider
 To override the name of the image build, specify it in the `SPI_IMG_BASE` and/or `TAG_NAME` environment variable, e.g.:
 
 ```
-SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-build
+make docker-build SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix
 ```
 
 To push the images to an image repository one can use:
@@ -34,7 +43,7 @@ make docker-push
 
 The image being pushed can again be modified using the environment variable:
 ```
-SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix make docker-push
+make docker-push SPI_IMG_BASE=quay.io/acme TAG_NAME=bugfix
 ```
 
 To set precise image names, one can use `SPIO_IMG` for operator image and `SPIS_IMG` for oauth image (see [Makefile](Makefile) for more details).
@@ -45,8 +54,15 @@ run the formatting check, static code analysis and all the tests:
 ```
 make check
 ```
+If you don't want to merely check that everything is OK but also make the modifications automatically, if necessary, you can, instead of `make check`, run:
 
-### Out of cluster
+```
+make ready
+```
+
+which will automatically format and lint the code, update the `go.mod` and `go.sum` files and run tests. As such, this goal may modify the contents of the repository.
+
+### Running out of cluster
 There is a dedicated make target to run the operator locally:
 
 ```
@@ -60,8 +76,13 @@ To run the operator with the permissions of the currently active kubectl context
 ```
 make run_as_current_user
 ```
+To run the OAuth service locally, one can use:
 
-### In cluster
+```
+make run_oauth
+```
+
+### Running in cluster
 Again, there is a dedicated make target to deploy the operator into the cluster:
 
 For OpenShift, use:
@@ -74,21 +95,25 @@ For Kubernetes, use:
 ```
 make deploy_k8s
 ```
-
 Once deployed, several manual modifications need to be made. See the below section about manual testing
 with custom images for details.
+
+For Minikube, use:
+```
+make deploy_minikube
+```
+
+This differs from the `deploy_k8s` target in that it automatically configures the URLs of the OAuth host and Vault host to point to the cluster using the `.nip.io` hostnames as one normally does to make endpoints running in Minikube accessible using hostnames.
 
 ## Debugging
 
 It is possible to debug the operator using `dlv` or some IDE like `vscode`. Just point the debugger of your choice to `main.go` as the main program file and remember to configure the environment variables for the correct/intended function of the operator.
 
-The `launch.json` file for `vscode` is included in the repository so you should be all set if using that IDE. Just make sure to run `make prepare` before debugging.
-
 ## Manual testing with custom images
 
 This assumes the current working directory is your local checkout of this repository.
 
-First, we need to enable the ingress addon (skip this step, obviously, if you're working with OpenShift):
+If on Minikube, we first need to enable the ingress addon (skip this step, obviously, if you're working with OpenShift or other Kubernetes distribution):
 ```
 minikube addons enable ingress
 ```
