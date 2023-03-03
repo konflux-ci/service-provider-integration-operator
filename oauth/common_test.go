@@ -211,6 +211,20 @@ var _ = Describe("Controller", func() {
 		Expect(res.Result().Cookies()).NotTo(BeEmpty())
 	})
 
+	It("deauthenticate in POST", func() {
+
+		req := httptest.NewRequest("POST", "/", nil)
+		res := httptest.NewRecorder()
+
+		c := prepareAuthenticator(Default)
+		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Logout(w, r)
+		})).ServeHTTP(res, req)
+
+		Expect(res.Code).To(Equal(http.StatusOK))
+		Expect(res.Result().Cookies()).NotTo(BeEmpty())
+	})
+
 	It("redirects to SP OAuth URL with state and scopes", func() {
 		_, res := loginFlow(Default)
 		Expect(res.Code).To(Equal(http.StatusOK))
