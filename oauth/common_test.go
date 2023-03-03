@@ -211,9 +211,9 @@ var _ = Describe("Controller", func() {
 		Expect(res.Result().Cookies()).NotTo(BeEmpty())
 	})
 
-	It("deauthenticate in POST", func() {
+	It("invalidates the user session cookie", func() {
 
-		req := httptest.NewRequest("POST", "/", nil)
+		req := httptest.NewRequest("GET", "/logout", nil)
 		res := httptest.NewRecorder()
 
 		c := prepareAuthenticator(Default)
@@ -222,7 +222,10 @@ var _ = Describe("Controller", func() {
 		})).ServeHTTP(res, req)
 
 		Expect(res.Code).To(Equal(http.StatusOK))
-		Expect(res.Result().Cookies()).NotTo(BeEmpty())
+		Expect(res.Result().Cookies()).To(HaveLen(1))
+		Expect(res.Result().Cookies()[0].Value).To(BeEmpty())
+		Expect(res.Result().Cookies()[0].MaxAge).To(BeNumerically("<=", 0))
+		Expect(res.Result().Cookies()[0].Expires).To(BeTemporally("<=", time.Now()))
 	})
 
 	It("redirects to SP OAuth URL with state and scopes", func() {
