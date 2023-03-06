@@ -62,7 +62,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
 					}
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -180,7 +180,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -275,11 +275,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 				Expect(ITest.Client.Create(ITest.Context, otherToken)).To(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+				ITest.TestServiceProvider.LookupTokensImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 					if strings.HasSuffix(binding.Spec.RepoUrl, "test") {
-						return createdToken, nil
+						return []api.SPIAccessToken{*createdToken}, nil
 					} else if strings.HasSuffix(binding.Spec.RepoUrl, "other") {
-						return otherToken, nil
+						return []api.SPIAccessToken{*otherToken}, nil
 					} else {
 						return nil, fmt.Errorf("request for invalid test token")
 					}
@@ -320,7 +320,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
 
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 
 					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
 						AccessToken: "token",
@@ -402,7 +402,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -515,7 +515,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -535,7 +535,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 		When("linked token is ready and secret not injected", func() {
 			BeforeEach(func() {
 				// We have the token in the ready state... let's not look it up during token matching
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 
 				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
@@ -616,7 +616,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				// we're trying to use the token defined by the outer layer first.
 				// This token is not ready, so we should be in a situation that should
 				// still enable swapping the token for a better fitting one.
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&createdToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&createdToken)
 
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
 			})
@@ -629,7 +629,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 
 				// now start returning the better token from the lookup
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&betterToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&betterToken)
 
 				// and check that the binding switches to the better token
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -781,7 +781,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Update(ITest.Context, updatedCRD)).To(Succeed())
 				}).Should(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).Should(Succeed())
 			})
 
@@ -934,7 +934,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1168,7 +1168,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1372,7 +1372,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}

@@ -53,7 +53,7 @@ var _ = Describe("SPIAccessToken", func() {
 					}
 				},
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -98,7 +98,7 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -239,7 +239,7 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -339,7 +339,7 @@ var _ = Describe("SPIAccessToken", func() {
 			testSetup := TestSetup{
 				ToCreate: TestObjects{Tokens: []*api.SPIAccessToken{StandardTestToken("phase-test")}},
 				Behavior: ITestBehavior{AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				}},
 			}
 			BeforeEach(func() {
