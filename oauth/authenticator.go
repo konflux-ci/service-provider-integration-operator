@@ -106,6 +106,20 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
+	lg := log.FromContext(r.Context())
+	defer logs.TimeTrack(lg, time.Now(), "/logout")
+
+	if err := a.SessionManager.Destroy(r.Context()); err != nil {
+		LogErrorAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "failed to destroy the user session", err)
+		logs.AuditLog(r.Context()).Info("unsuccessful attempt to clear the user session")
+		return
+	}
+
+	logs.AuditLog(r.Context()).Info("successfully cleared the user session")
+	w.WriteHeader(http.StatusOK)
+}
+
 func NewAuthenticator(sessionManager *scs.SessionManager, cl AuthenticatingClient) *Authenticator {
 	return &Authenticator{
 		K8sClient:      cl,

@@ -111,6 +111,7 @@ func main() {
 
 	// auth
 	router.HandleFunc("/login", authenticator.Login).Methods("POST")
+	router.HandleFunc("/logout", authenticator.Logout).Methods("POST")
 
 	// token upload
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
