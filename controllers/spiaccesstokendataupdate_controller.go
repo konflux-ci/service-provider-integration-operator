@@ -86,6 +86,18 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
+	lg = lg.WithValues("token_name", update.Spec.TokenName)
+
+	// The token data changed in the token storage. We need to delete the token metadata so that all the bindings are
+	// updated with the latest data...
+	token := &api.SPIAccessToken{}
+	if err := r.Get(ctx, client.ObjectKey{Name: update.Spec.TokenName, Namespace: update.Namespace}, token); err != nil {
+		if !errors.IsNotFound(err) {
+			lg.Error(err, "failed to obtain the updated token")
+			return ctrl.Result{}, fmt.Errorf("failed to obtain the updated token: %w", err)
+		}
+	}
+
 	creationTime := update.CreationTimestamp
 
 	// Here, we just directly delete the object, because it serves only as a trigger for reconciling the token

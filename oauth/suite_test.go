@@ -124,6 +124,8 @@ var _ = BeforeSuite(func() {
 
 	IT.SessionManager = scs.New()
 	IT.SessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
+	IT.SessionManager.Lifetime = time.Hour
+	IT.SessionManager.Cookie.Persist = false
 	IT.SessionManager.IdleTimeout = 15 * time.Minute
 	IT.SessionManager.Cookie.Name = "appstudio_spi_session"
 	IT.SessionManager.Cookie.SameSite = http.SameSiteNoneMode
