@@ -502,6 +502,10 @@ This endpoint is used to authenticate `/{sp_type}/authenticate` method with Kube
 
 This endpoint sets a session cookie that is required to be present when completing the OAuth flow in the `/{sp_type}/authenticate` and `/{sp_type}/callback` endpoints.
 
+### POST /logout
+This endpoint is used to invalidate the session cookie set by the `/login` endpoint. 
+It is not required to call this endpoint, as the session cookie expires in 15 minutes after the last request.
+
 #### Response
 - 200 - authorization data successfully accepted.
 - 403 - provided authorization header is not valid.
