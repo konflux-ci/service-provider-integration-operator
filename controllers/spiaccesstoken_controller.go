@@ -302,6 +302,7 @@ func (r *SPIAccessTokenReconciler) updateTokenStatusSuccess(ctx context.Context,
 func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPIAccessToken) error {
 	if at.Status.TokenMetadata == nil || at.Status.TokenMetadata.Username == "" {
 		oauthUrl, err := r.oAuthUrlFor(ctx, at)
+		log.FromContext(ctx).V(logs.DebugLevel).Info("Setting OAUTH URL", "oauthurl", oauthUrl)
 		if err != nil {
 			return err
 		}
@@ -311,6 +312,7 @@ func (r *SPIAccessTokenReconciler) fillInStatus(ctx context.Context, at *api.SPI
 	} else {
 		changed := at.Status.Phase != api.SPIAccessTokenPhaseReady || at.Status.OAuthUrl != ""
 		at.Status.Phase = api.SPIAccessTokenPhaseReady
+		log.FromContext(ctx).V(logs.DebugLevel).Info("Setting OAUTH URLEMPTY")
 		at.Status.OAuthUrl = ""
 		if changed {
 			log.FromContext(ctx).V(logs.DebugLevel).Info("Flipping token to ready state because of metadata presence", "metadata", at.Status.TokenMetadata)
