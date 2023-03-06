@@ -112,9 +112,11 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.SessionManager.Destroy(r.Context()); err != nil {
 		LogErrorAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "failed to destroy the user session", err)
+		logs.AuditLog(r.Context()).Info("unsuccessful attempt to clear the user session")
 		return
 	}
 
+	logs.AuditLog(r.Context()).Info("successfully cleared the user session")
 	w.WriteHeader(http.StatusOK)
 }
 
