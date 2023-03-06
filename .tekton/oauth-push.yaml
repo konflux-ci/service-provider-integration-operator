@@ -4,9 +4,15 @@ kind: PipelineRun
 metadata:
   name: spi-oauth-on-push
   annotations:
-    pipelinesascode.tekton.dev/on-event: "[push]"
-    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "5"
+    pipelinesascode.tekton.dev/on-event: '[push]'
+    pipelinesascode.tekton.dev/on-target-branch: '[main]'
+  labels:
+    appstudio.openshift.io/application: spi
+    appstudio.openshift.io/component: oauth
+    pipelines.appstudio.openshift.io/type: build
 spec:
   params:
     - name: git-url
