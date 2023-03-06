@@ -4,9 +4,16 @@ kind: PipelineRun
 metadata:
   name: spi-controller-pull-request
   annotations:
-    pipelinesascode.tekton.dev/on-event: "[pull_request]"
-    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "5"
+    pipelinesascode.tekton.dev/on-event: '[pull_request]'
+    pipelinesascode.tekton.dev/on-target-branch: '[main]'
+  labels:
+    appstudio.openshift.io/application: spi
+    appstudio.openshift.io/component: controller
+    pipelines.appstudio.openshift.io/type: build
 spec:
   params:
     - name: git-url
