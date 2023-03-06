@@ -174,7 +174,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("object not found")
+			lg.Info("binding object not found in cluster, skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
 
@@ -277,81 +277,33 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	ctx = log.IntoContext(ctx, lg)
+
 	var token *api.SPIAccessToken
-
-	if binding.Status.LinkedAccessTokenName == "" {
-		var err error
-		token, err = r.linkToken(ctx, sp, &binding)
-		if err != nil {
-			lg.Error(err, "unable to link the token")
-			return ctrl.Result{}, fmt.Errorf("failed to link the token: %w", err)
-		}
-
-		lg = lg.WithValues("linked_to", binding.Status.LinkedAccessTokenName, "token_phase", token.Status.Phase)
-	} else {
-		token = &api.SPIAccessToken{}
-		if err := r.Client.Get(ctx, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token); err != nil {
-			if errors.IsNotFound(err) {
-				binding.Status.LinkedAccessTokenName = ""
-				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
-			}
-			lg.Error(err, "failed to fetch the linked token")
-			return ctrl.Result{}, fmt.Errorf("failed to fetch the linked token: %w", err)
-		}
-		lg = lg.WithValues("token_phase", token.Status.Phase)
-
-		if token.Status.Phase == api.SPIAccessTokenPhaseReady && binding.Status.SyncedObjectRef.Name == "" {
-			// we've not yet synced the token... let's check that it fulfills the reqs
-			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to lookup token before definitely assigning it to the binding: %w", err)
-			}
-			if newToken == nil {
-				// the token that we are linked to is ready but doesn't match the criteria of the binding.
-				// We can't do much here - the user granted the token the access we requested, but we still don't match
-				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-				binding.Status.OAuthUrl = ""
-				r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
-				return ctrl.Result{}, nil
-			}
-
-			if newToken.UID != token.UID {
-				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
-					return ctrl.Result{}, fmt.Errorf("failed to persist the newly matching token: %w", err)
-				}
-				token = newToken
-				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
-			}
-		} else if token.Status.Phase != api.SPIAccessTokenPhaseReady {
-			// let's try to do a lookup in case another token started matching our reqs
-			// this time, only do the lookup in SP and don't create a new token if no match found
-			//
-			// yes, this can create garbage - abandoned tokens, see https://issues.redhat.com/browse/SVPI-65
-			newToken, err := sp.LookupToken(ctx, r.Client, &binding)
-			if err != nil {
-				lg.Error(err, "failed lookup when trying to reassign linked token")
-				// we're not returning the error or writing the status here, because the binding already has a valid
-				// linked token.
-			} else if newToken != nil {
-				// yay, we found another match! Let's persist that change otherwise we could enter a weird state below,
-				// where we would be syncing a secret that comes from a token that is not linked
-				if err = r.persistWithMatchingLabels(ctx, &binding, newToken); err != nil {
-					return ctrl.Result{}, fmt.Errorf("failed to persist the newly matching token: %w", err)
-				}
-				token = newToken
-				lg = lg.WithValues("new_token_phase", token.Status.Phase, "new_token", newToken.Name)
-			}
-		}
+	var matching bool
+	token, matching, err = r.linkToken(ctx, sp, &binding)
+	if err != nil {
+		lg.Error(err, "unable to link the token")
+		return ctrl.Result{}, fmt.Errorf("failed to link the token: %w", err)
 	}
-
-	binding.Status.OAuthUrl = token.Status.OAuthUrl
-	binding.Status.UploadUrl = token.Status.UploadUrl
+	lg = lg.WithValues("linked_to", token.Name)
+	if !matching && token.Status.Phase == api.SPIAccessTokenPhaseReady {
+		// the token that we are linked to is ready but doesn't match the criteria of the binding.
+		// We can't do much here - the user granted the token the access we requested, but we still don't match
+		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+		binding.Status.OAuthUrl = ""
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, linkedTokenDoesntMatchError)
+		return ctrl.Result{}, nil
+	}
 
 	dependentsHandler := &bindings.DependentsHandler{
 		Client:       r.Client,
 		Binding:      &binding,
 		TokenStorage: r.TokenStorage,
 	}
+
+	binding.Status.OAuthUrl = token.Status.OAuthUrl
+	binding.Status.UploadUrl = token.Status.UploadUrl
 
 	// remember the state that we need to revert to if updates to the binding fail after we've made changes to the cluster
 	depCheckpoint, err := dependentsHandler.CheckPoint(ctx)
@@ -404,14 +356,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
-	// now that we set up the binding correctly, we need to clean up the potentially dangling secret (that might contain
-	// stale data if the data of the token disappeared from the token)
 	if binding.Status.Phase != api.SPIAccessTokenBindingPhaseInjected {
 		if err := dependentsHandler.Cleanup(ctx); err != nil {
 			lg.Error(err, "failed to clean up dependent objects")
 			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonTokenSync, err)
+			return ctrl.Result{}, fmt.Errorf("failed to clean up the dependent objects: %w", err)
 		}
 	}
+
+	// this will be used in the deferred time tracker log message
+	lg = lg.WithValues("phase_at_reconcile_end", binding.Status.Phase)
 
 	if expectedLifetimeDuration == nil {
 		lg.V(logs.DebugLevel).Info("binding with unlimited lifetime", "requeueIn", "never")
@@ -484,6 +438,16 @@ func checkQuayPermissionAreasMigration(binding *api.SPIAccessTokenBinding, spNam
 	return permissionChange
 }
 
+func getLinkedTokenFromList(s *api.SPIAccessTokenBinding, tokens []api.SPIAccessToken) *api.SPIAccessToken {
+	for _, t := range tokens {
+		if t.Name == s.Status.LinkedAccessTokenName {
+			return &t
+		}
+	}
+
+	return nil
+}
+
 // getServiceProvider obtains the service provider instance according to the repository URL from the binding's spec.
 // The status of the binding is immediately persisted with an error if the service provider cannot be determined.
 func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context, binding *api.SPIAccessTokenBinding) (serviceprovider.ServiceProvider, error) {
@@ -507,42 +471,62 @@ func (r *SPIAccessTokenBindingReconciler) getServiceProvider(ctx context.Context
 
 // linkToken updates the binding with a link to an SPIAccessToken object that should hold the token data. If no
 // suitable SPIAccessToken object exists, it is created (in an awaiting state) and linked.
-func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serviceprovider.ServiceProvider, binding *api.SPIAccessTokenBinding) (token *api.SPIAccessToken, matching bool, err error) {
 	lg := log.FromContext(ctx)
-	token, err := sp.LookupToken(ctx, r.Client, binding)
+	tokens, err := sp.LookupTokens(ctx, r.Client, binding)
 	if err != nil {
 		r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonTokenLookup, err)
-		return nil, fmt.Errorf("failed to lookup the token in the service provider: %w", err)
+		return nil, false, fmt.Errorf("failed to lookup the matching tokens in the service provider: %w", err)
 	}
 
 	newTokenCreated := false
-	if token == nil {
-		lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
+	if len(tokens) == 0 {
+		matching = false
+		if binding.Status.LinkedAccessTokenName != "" {
+			// ok, there are no matching tokens, but we're already linked to one. So let's just load that token here...
+			token = &api.SPIAccessToken{}
+			if err = r.Client.Get(ctx, client.ObjectKey{Name: binding.Status.LinkedAccessTokenName, Namespace: binding.Namespace}, token); err != nil {
+				return nil, false, fmt.Errorf("failed to get the linked token: %w", err)
+			}
+		} else {
+			lg.V(logs.DebugLevel).Info("creating a new token because none found for binding")
 
-		serviceProviderUrl := sp.GetBaseUrl()
-		if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
-			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
-			return nil, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
-		}
+			serviceProviderUrl := sp.GetBaseUrl()
+			if err := validateServiceProviderUrl(serviceProviderUrl); err != nil {
+				binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
+				r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonUnknownServiceProviderType, err)
+				return nil, false, fmt.Errorf("failed to determine the service provider URL from the repo: %w", err)
+			}
 
-		// create the token (and let its webhook and controller finish the setup)
-		token = &api.SPIAccessToken{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "generated-spi-access-token-",
-				Namespace:    binding.Namespace,
-			},
-			Spec: api.SPIAccessTokenSpec{
-				Permissions:        binding.Spec.Permissions,
-				ServiceProviderUrl: serviceProviderUrl,
-			},
-		}
+			// create the token (and let its webhook and controller finish the setup)
+			token = &api.SPIAccessToken{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "generated-spi-access-token-",
+					Namespace:    binding.Namespace,
+				},
+				Spec: api.SPIAccessTokenSpec{
+					Permissions:        binding.Spec.Permissions,
+					ServiceProviderUrl: serviceProviderUrl,
+				},
+			}
 
-		if err := r.Client.Create(ctx, token); err != nil {
-			r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
-			return nil, fmt.Errorf("failed to create the token: %w", err)
+			if err := r.Client.Create(ctx, token); err != nil {
+				r.updateBindingStatusError(ctx, binding, api.SPIAccessTokenBindingErrorReasonLinkedToken, err)
+				return nil, false, fmt.Errorf("failed to create the token: %w", err)
+			}
+			newTokenCreated = true
+			// we've just created a new token. It technically doesn't match, but we want to give it a chance at least
+			// until the next reconciliation.
+			matching = true
 		}
-		newTokenCreated = true
+	} else {
+		// if the binding is already linked to a matching token, no change needed. Otherwise, we need to link it to one
+		// of the results (we randomly choose the first one ;) ).
+		token = getLinkedTokenFromList(binding, tokens)
+		if token == nil {
+			token = &tokens[0]
+		}
+		matching = true
 	}
 
 	// we need to have this label so that updates to the linked SPIAccessToken are reflected here, too... We're setting
@@ -556,10 +540,10 @@ func (r *SPIAccessTokenBindingReconciler) linkToken(ctx context.Context, sp serv
 				lg.Error(err, "failed to delete token after the an unsuccessful linking attempt", "namespace", token.GetNamespace(), "token", token.GetName())
 			}
 		}
-		return nil, err
+		return nil, false, err
 	}
 
-	return token, nil
+	return
 }
 
 func validateServiceProviderUrl(serviceProviderUrl string) error {
@@ -604,7 +588,7 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusError(ctx context.C
 	binding.Status.ErrorMessage = err.Error()
 	binding.Status.ErrorReason = reason
 	if err := r.Client.Status().Update(ctx, binding); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the status with error", "reason", reason, "error", err)
+		log.FromContext(ctx).Error(err, "failed to update the status with error", "status_to_update", binding.Status, "reason", reason, "error", err)
 	}
 }
 
@@ -613,6 +597,7 @@ func (r *SPIAccessTokenBindingReconciler) updateBindingStatusSuccess(ctx context
 	binding.Status.ErrorMessage = ""
 	binding.Status.ErrorReason = ""
 	if err := r.Client.Status().Update(ctx, binding); err != nil {
+		log.FromContext(ctx).Error(err, "failed to update the status", "status_to_update", binding.Status, "error", err)
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 	return nil

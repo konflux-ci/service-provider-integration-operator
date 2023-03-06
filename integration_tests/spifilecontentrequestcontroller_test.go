@@ -180,7 +180,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 						AccessToken: "token",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -222,7 +222,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 						AccessToken: "token",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}

@@ -35,10 +35,10 @@ import (
 
 // ServiceProvider abstracts the interaction with some service provider
 type ServiceProvider interface {
-	// LookupToken tries to match an SPIAccessToken object with the requirements expressed in the provided binding.
+	// LookupTokens tries to match an SPIAccessToken object with the requirements expressed in the provided binding.
 	// This usually searches kubernetes (using the provided client) and the service provider itself (using some specific
 	// mechanism (usually an http client)).
-	LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+	LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any
 	// state and metadata required for the token lookup. The metadata must be stored in the Status.TokenMetadata field
