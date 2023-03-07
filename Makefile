@@ -100,6 +100,9 @@ all: build
 # http://linuxcommand.org/lc3_adv_awk.php
 
 help: ## Display this help.
+	@echo "For more detailed information consult:"
+	@echo
+	@echo "https://github.com/redhat-appstudio/service-provider-integration-operator/blob/main/docs/DEVELOP.md"
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
@@ -180,21 +183,21 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 
 ##@ Build
 
-build: generate ## Build manager binary.
+build: generate ## Build the operator and oauth service Binaries.
 	go build -o bin/ ./cmd/...
 
-run_as_current_user: manifests generate install ## Run a controller from your host as the current user in ~/.kubeconfig
+run_as_current_user: manifests generate install ## Run the operator from your host as the current user in ~/.kubeconfig
 	go run ./cmd/operator/operator.go
 
-run: ensure-tmp manifests generate prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+run: ensure-tmp manifests generate prepare ## Run the operator from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
 	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
 
-run_oauth:
+run_oauth: ## Run the OAuth service locally
 	go run ./cmd/oauth/oauth.go
 
-docker-build: docker-build-operator docker-build-oauth
+docker-build: docker-build-operator docker-build-oauth ## Builds the docker images for operator and OAuth service. Use SPI_IMG_BASE and TAG_NAME env vars to modify the image name of both at the same time.
 
 docker-build-operator:
 	docker build -t ${SPIO_IMG}  . -f Dockerfile
@@ -202,7 +205,7 @@ docker-build-operator:
 docker-build-oauth:
 	docker build -t ${SPIS_IMG} . -f oauth.Dockerfile
 
-docker-push: docker-push-operator docker-push-oauth
+docker-push: docker-push-operator docker-push-oauth ## Pushes the built images to the docker registry. See docker-build target for how to configure the names of the images.
 
 docker-push-operator:
 	docker push ${SPIO_IMG}

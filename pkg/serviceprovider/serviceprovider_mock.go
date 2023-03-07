@@ -30,7 +30,7 @@ import (
 // supplying custom implementations of each of the interface methods. It provides dummy implementations of them, too, so
 // that no null pointer dereferences should occur under normal operation.
 type TestServiceProvider struct {
-	LookupTokenImpl           func(context.Context, client.Client, *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error)
+	LookupTokensImpl          func(context.Context, client.Client, *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
 	GetTypeImpl               func() config.ServiceProviderType
@@ -52,11 +52,11 @@ func (t TestServiceProvider) CheckRepositoryAccess(ctx context.Context, cl clien
 	return t.CheckRepositoryAccessImpl(ctx, cl, accessCheck)
 }
 
-func (t TestServiceProvider) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	if t.LookupTokenImpl == nil {
+func (t TestServiceProvider) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+	if t.LookupTokensImpl == nil {
 		return nil, nil
 	}
-	return t.LookupTokenImpl(ctx, cl, binding)
+	return t.LookupTokensImpl(ctx, cl, binding)
 }
 
 func (t TestServiceProvider) PersistMetadata(ctx context.Context, cl client.Client, token *api.SPIAccessToken) error {
@@ -119,7 +119,7 @@ func (t TestServiceProvider) Validate(ctx context.Context, validated Validated) 
 }
 
 func (t *TestServiceProvider) Reset() {
-	t.LookupTokenImpl = nil
+	t.LookupTokensImpl = nil
 	t.GetBaseUrlImpl = nil
 	t.GetTypeImpl = nil
 	t.PersistMetadataImpl = nil
@@ -181,8 +181,8 @@ func (t *TestCapabilities) RefreshToken(ctx context.Context, token *api.Token, c
 // LookupConcreteToken returns a function that can be used as the TestServiceProvider.LookupTokenImpl that just returns
 // a freshly loaded version of the provided token. The token is a pointer to a pointer to the token so that this can
 // also support lazily initialized tokens.
-func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
-	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
+	return func(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 		if *tokenPointer == nil {
 			return nil, nil
 		}
@@ -191,7 +191,7 @@ func LookupConcreteToken(tokenPointer **api.SPIAccessToken) func(ctx context.Con
 		if err := cl.Get(ctx, client.ObjectKeyFromObject(*tokenPointer), freshToken); err != nil {
 			return nil, err
 		}
-		return freshToken, nil
+		return []api.SPIAccessToken{*freshToken}, nil
 	}
 }
 

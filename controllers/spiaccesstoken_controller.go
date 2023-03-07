@@ -88,6 +88,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
+		// We're watching the bindings so that we can remove abandoned tokens without data
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenBinding", func() string {
 				return object.GetLabels()[SPIAccessTokenLinkLabel]
@@ -136,6 +137,7 @@ func requestsForTokenInObjectNamespace(object client.Object, objectKind string, 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessToken")
 
 	at := api.SPIAccessToken{}
