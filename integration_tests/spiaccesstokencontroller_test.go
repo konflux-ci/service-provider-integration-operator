@@ -47,8 +47,8 @@ var _ = Describe("SPIAccessToken", func() {
 				},
 			},
 			Behavior: ITestBehavior{
-				// We need to set OAuth capability prior to the first reconciliation. Alternatively, it can be set as a
-				// testSetup.BeforeEach post-condition, but that kind of duplicates the OAuth URL test case itself.
+				// We need to set OAuth capability prior to the first reconciliation. Alternatively, it can be set in AfterObjectsCreated
+				// and checked in testSetup.BeforeEach post-condition, but that kind of duplicates the OAuth URL test case itself.
 				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
