@@ -47,13 +47,11 @@ var _ = Describe("SPIAccessToken", func() {
 				},
 			},
 			Behavior: ITestBehavior{
-				BeforeObjectsCreated: func() {
+				AfterObjectsCreated: func(objects TestObjects) {
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
 					}
-				},
-				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}

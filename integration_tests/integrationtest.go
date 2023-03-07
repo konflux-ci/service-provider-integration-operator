@@ -367,7 +367,9 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		if ts.Behavior.DontTriggerReconcileAfterObjectsCreated {
 			ts.settleWithCluster(false, postCondition)
 			ts.Behavior.AfterObjectsCreated(ts.InCluster)
+			log.Log.Info("SETTLE OPTION 1")
 		} else {
+			log.Log.Info("SETTLE OPTION 2")
 			ts.settleWithCluster(false, nil)
 			ts.Behavior.AfterObjectsCreated(ts.InCluster)
 			ts.settleWithCluster(true, postCondition)
@@ -462,6 +464,7 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 	}
 
 	findAll := func() {
+		log.Log.Info("FIND ALL")
 		ts.InCluster.Tokens = addAllExisting(&api.SPIAccessTokenList{}, convertTokens)
 		ts.InCluster.Bindings = addAllExisting(&api.SPIAccessTokenBindingList{}, convertBindings)
 		ts.InCluster.Checks = addAllExisting(&api.SPIAccessCheckList{}, convertChecks)
@@ -506,6 +509,7 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 				log.Log.Info("////")
 				log.Log.Info("////")
 			}
+			log.Log.Info("TRIGGERING RECONCILLATION")
 			forEach(ts.InCluster.Tokens, TriggerReconciliation)
 			forEach(ts.InCluster.Bindings, TriggerReconciliation)
 			forEach(ts.InCluster.Checks, TriggerReconciliation)
