@@ -145,7 +145,7 @@ Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secre
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
 - Create Kubernetes Secret with labeled with `spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
-- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `spi.appstudio.redhat.com/token-name` label or just remove this label (or leave it empty), in the latter case SPIAccessToken name will be randomly generated. 
+- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `stringData.spiTokenName`  or do not have this field, in the latter case SPIAccessToken name will be randomly generated. In this case make sure you added `providerUrl` and point it to the valid, registered `URL_PROVIDER` 
 
 ```yaml
 apiVersion: v1
@@ -154,10 +154,10 @@ metadata:
   name: $UPLOAD-SECRET_NAME
   labels:
     spi.appstudio.redhat.com/upload-secret: token
-    spi.appstudio.redhat.com/token-name: $TOKEN_NAME
 type: Opaque
 stringData:
-  
+  spiTokenName: $TOKEN_NAME
+  providerUrl: $PROVIDER_URL
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
