@@ -18,7 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/go-github/v45/github"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -41,6 +44,30 @@ var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
+
+var unexpectedStatusCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "github_public_repo_unexpected_response_status",
+		Help:      "The number of unexpected status codes from unauthorized requests determining if repository is public",
+	},
+	[]string{"unexpected_status"},
+)
+
+var rateLimitErrorCounter = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "github_rate_limit_errors",
+		Help:      "The number of rateLimitErrors encountered with authorized GitHub client",
+	},
+)
+
+func init() {
+	prometheus.MustRegister(unexpectedStatusCounter)
+	prometheus.MustRegister(rateLimitErrorCounter)
+}
 
 var (
 	unableToParsePathError = errors.New("unable to parse path")
@@ -219,6 +246,9 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		token := &tokens[0]
 		ghClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 		if err != nil {
+			if errors.Is(err, &github.RateLimitError{}) {
+				rateLimitErrorCounter.Inc()
+			}
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
 			return status, err
@@ -280,6 +310,7 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		return false, nil
 	} else {
 		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
+		unexpectedStatusCounter.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
 		return false, nil
 	}
 }
