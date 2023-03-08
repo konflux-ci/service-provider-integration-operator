@@ -5,4 +5,4 @@ namespace: spi-system
 
 resources:
   - ../../bases/vault
-  - ../../route
+  - ../../oauth/route

@@ -5,7 +5,7 @@ namespace: spi-system
 
 resources:
   - ../../bases/vault
-  - ../../ingress
+  - ../../oauth/ingress
 
 patches:
   - target:

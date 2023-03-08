@@ -5,4 +5,4 @@ namespace: spi-system
 
 resources:
   - ../../bases/aws
-  - ../../route
+  - ../../oauth/route
