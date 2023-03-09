@@ -17,3 +17,11 @@ patches:
       - op: add
         path: /data/VAULTINSECURETLS
         value: "true"
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: shared-configuration-file
+    files:
+      - config.yaml

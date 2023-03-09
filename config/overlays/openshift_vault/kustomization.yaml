@@ -6,3 +6,11 @@ namespace: spi-system
 resources:
   - ../../bases/vault
   - ../../oauth/route
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: shared-configuration-file
+    files:
+      - config.yaml
