@@ -46,7 +46,7 @@ import (
 
 const (
 	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameLabel = "spi.appstudio.redhat.com/token-name"    //#nosec G101 -- false positive, this is not a token
+	spiTokenNameField = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
 	providerUrlField  = "providerUrl"
 )
 
@@ -190,9 +190,9 @@ func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName s
 }
 
 func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
-	spiTokenName := uploadSecret.Labels[spiTokenNameLabel]
+	spiTokenName := string(uploadSecret.Data[spiTokenNameField])
 	if spiTokenName == "" {
-		lg.V(logs.DebugLevel).Info("No label found, will try to create with generated ", "spi.appstudio.redhat.com/token-name", spiTokenName)
+		lg.V(logs.DebugLevel).Info("No spiTokenName found, will try to create with generated ", "spiTokenName", spiTokenName)
 		return nil, nil
 	}
 
@@ -221,7 +221,7 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 			ServiceProviderUrl: string(uploadSecret.Data[providerUrlField]),
 		},
 	}
-	spiTokenName := uploadSecret.Labels[spiTokenNameLabel]
+	spiTokenName := string(uploadSecret.Data[spiTokenNameField])
 	if spiTokenName == "" {
 		accessToken.GenerateName = "generated-"
 	} else {
@@ -230,6 +230,7 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 
 	err := r.Create(ctx, &accessToken)
 	if err == nil {
+		lg.V(logs.DebugLevel).Info("SPI Access Token created : ", "SPIAccessToken.name", accessToken.Name)
 		return &accessToken, nil
 	} else {
 		return nil, fmt.Errorf("can not create SPIAccessToken %s. Reason: %w", accessToken.Name, err)
