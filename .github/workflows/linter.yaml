@@ -50,9 +50,12 @@ jobs:
       - name: Create ./.kube-linter/ for deployment files
         shell: bash
         run: mkdir -p ./.kube-linter/
-      - name: Generate production configuration
+      - name: Generate openshift with vault configuration
         shell: bash
-        run: kustomize build config/openshift/ >  ./.kube-linter/deploy-spi-openshift.yaml
+        run: kustomize build config/overlays/openshift_vault/ >  ./.kube-linter/deploy-spi-openshift-vault.yaml
+      - name: Generate openshift with aws configuration
+        shell: bash
+        run: kustomize build config/overlays/openshift_aws/ >  ./.kube-linter/deploy-spi-openshift-aws.yaml
       - name: Generate monitoring configuration
         shell: bash
         run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml

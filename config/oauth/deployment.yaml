@@ -58,14 +58,6 @@ spec:
             name: config-file
             readOnly: true
             subPath: config.yaml
-          - mountPath: /etc/spi/secret_id
-            name: vault-approle
-            readOnly: true
-            subPath: secret_id
-          - mountPath: /etc/spi/role_id
-            name: vault-approle
-            readOnly: true
-            subPath: role_id
         - name: kube-rbac-proxy
           image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
           args:
@@ -101,11 +93,3 @@ spec:
           items:
             - key: config.yaml
               path: config.yaml
-      - name: vault-approle
-        secret:
-          secretName: vault-approle-spi-oauth
-          items:
-            - key: role_id
-              path: role_id
-            - key: secret_id
-              path: secret_id

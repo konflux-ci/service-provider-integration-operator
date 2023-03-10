@@ -134,7 +134,7 @@ All described scopes should be permitted to avoid integration issues with SPI.
 ## Token Storage
 ### Vault
 
-Vault is default token storage. Vault instance is deployed together with SPI components. `make deploy` or `make deploy_minikube` configures it automatically.
+Vault is default token storage. Vault instance is deployed together with SPI components. `make deploy_minikube` or `make deploy_openshift` configures it automatically.
 For other deployments, like [infra-deployments](https://github.com/redhat-appstudio/infra-deployments) run `./hack/vault-init.sh` manually.
 
 There are couple of support scripts to work with Vault
@@ -148,9 +148,11 @@ There are couple of support scripts to work with Vault
 
 _Warning: AWS Secrets Manager as SPI Token storage is currently in experimental phase of implementation. Usage is not recommended for production use, implementation can change with backward breaking changes anytime without any further notice._
 
-To enable AWS Secrets Manager as SPI token storage, set `--tokenstorage=aws`. SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
+To enable AWS Secrets Manager as SPI token storage, set `--tokenstorage=aws`. `make deploy_minikube_aws` or `make deploy_openshift_aws` configures it automatically.
 
-_Note: If you've used AWS cli before, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`._
+SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
+
+_Note: If you've used AWS cli locally, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`. To create the secret, use `./hack/aws-create-credentials-secret.sh`_
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 
