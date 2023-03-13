@@ -17,6 +17,7 @@ package github
 import (
 	"bytes"
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
@@ -418,6 +419,78 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 			tokenStorage: ts,
 		},
 	}
+}
+
+func TestGitHubUnexpectedStatusMetric(t *testing.T) {
+	// given
+	numberOfResponses := 3
+	expectedLabels := map[string]string{"unexpected_status": "429"}
+	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
+	for i := 0; i < numberOfResponses; i++ {
+		public, err := gh.publicRepo(context.TODO(), &api.SPIAccessCheck{
+			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
+		})
+		assert.NoError(t, err)
+		assert.False(t, public)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_public_repo_unexpected_response_status" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				for _, lp := range m.Label {
+					assert.Equal(t, expectedLabels[*lp.Name], *lp.Value)
+				}
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
+}
+
+func TestGitHubRateLimitErrorMetric(t *testing.T) {
+	// given
+	numberOfResponses := 3
+	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
+	gh.ghClientBuilder.httpClient = &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: returnCode,
+				Header:     http.Header{},
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "error"}`))),
+				Request:    r,
+			}, httpErr
+		}),
+	}
+	for i := 0; i < numberOfResponses; i++ {
+		public, err := gh.publicRepo(context.TODO(), &api.SPIAccessCheck{
+			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
+		})
+		assert.NoError(t, err)
+		assert.False(t, public)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_public_repo_unexpected_response_status" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
 }
 
 func mockK8sClient(objects ...client.Object) client.WithWatch {

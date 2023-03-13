@@ -247,15 +247,15 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		token := &tokens[0]
 		ghClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 		if err != nil {
-			if errors.Is(err, &github.RateLimitError{}) {
-				rateLimitErrorCounter.Inc()
-			}
 			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 			status.ErrorMessage = err.Error()
 			return status, err
 		}
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
+			if errors.Is(err, &github.RateLimitError{}) {
+				rateLimitErrorCounter.Inc()
+			}
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = err.Error()
 			return status, nil //nolint:nilerr // we preserve the error in the status
