@@ -260,7 +260,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 			}
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = err.Error()
-			return status, nil //nolint:nilerr // we preserve the error in the status
+			return status, nil
 		}
 
 		status.Accessible = true
