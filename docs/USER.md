@@ -141,25 +141,31 @@ There is an ability to upload Personal Access Token using very short living K8s 
 Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secret: token` label, gets the PAT and the Name of the SPIAccessToken associated with it, then deletes the Secret (for better security reason) and uploads the Token (which in turn updates the Status of associated SPIAccess/Token/TokenBinding).
 
 - To enable this option SPI Operator should be configured with `ENABLETOKENUPLOAD=true` (see Admin Guide for details).
-- Find the name of SPIAccessToken you want to associate Access Token to like:
+- If you want to associate it to existed SPIAccessToken, find the name of SPIAccessToken you want to associate Access Token to like:
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
-- Create Kubernetes Secret with labeled with `label.spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
+- Create Kubernetes Secret with labeled with `spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
+- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `stringData.spiTokenName`  or do not have this field, in the latter case SPIAccessToken name will be randomly generated. In this case make sure you added `providerUrl` and point it to the valid, registered `URL_PROVIDER` 
 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: upload-secret
+  name: $UPLOAD-SECRET_NAME
   labels:
     spi.appstudio.redhat.com/upload-secret: token
-    spi.appstudio.redhat.com/token-name: $TOKEN_NAME
 type: Opaque
 stringData:
+  spiTokenName: $TOKEN_NAME
+  providerUrl: $PROVIDER_URL
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
-In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
+
+### Error Handling
+Since the Secret is removed in any case (since point is to make the Secret live time as short as possible), there are no chance to read any status and error information we may put in it.    
+So, in a case if something goes wrong the reason is written to K8s Event named with Secret name, user can can check it with `kubectl get event $UPLOAD-SECRET_NAME`.
+This event is refreshed or deleted after next creation of some-named Secret or normally by Kubernetes (in 60 minutes by default)    
 
 ## Providing secrets to a service account
 
@@ -501,6 +507,10 @@ As per now, `SPIFileContentRequests` are one-time objects, that means they refle
 This endpoint is used to authenticate `/{sp_type}/authenticate` method with Kubernetes (SSO) bearer token in the `Authorization` header.
 
 This endpoint sets a session cookie that is required to be present when completing the OAuth flow in the `/{sp_type}/authenticate` and `/{sp_type}/callback` endpoints.
+
+### POST /logout
+This endpoint is used to invalidate the session cookie set by the `/login` endpoint. 
+It is not required to call this endpoint, as the session cookie expires in 15 minutes after the last request.
 
 #### Response
 - 200 - authorization data successfully accepted.

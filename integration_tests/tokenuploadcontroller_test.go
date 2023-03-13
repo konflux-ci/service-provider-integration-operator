@@ -25,7 +25,7 @@ import (
 )
 
 var _ = Describe("TokenUploadController", func() {
-	Describe("Create with token", func() {
+	Describe("Upload token", func() {
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
 				Tokens: []*api.SPIAccessToken{StandardTestToken("upload-token")},
@@ -46,38 +46,52 @@ var _ = Describe("TokenUploadController", func() {
 		}
 		BeforeEach(func() {
 			testSetup.BeforeEach(nil)
-			//ITest.OperatorConfiguration.EnableTokenUpload = true
+			for i := range testSetup.InCluster.Tokens {
+				testSetup.InCluster.Tokens[i].Status.Phase = api.SPIAccessTokenPhaseAwaitingTokenData
+			}
+
 		})
 
 		var _ = AfterEach(func() {
 			testSetup.AfterEach()
 		})
 
-		It("updates the SPIAccessToken status", func() {
-
+		It("updates existed SPIAccessToken's status", func() {
+			accessToken := api.SPIAccessToken{}
+			Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeFalse())
 			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
-			testSetup.ReconcileWithCluster(func(g Gomega) {
+			Eventually(func(g Gomega) {
+				// Token added to Storage...
+				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
+				// And SPIAccessToken updated...
 				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
 				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId == "42").To(BeTrue())
 				// The secret should be deleted
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{}).Error())
 			})
 		})
-		It("failed with event as SPIAccessToken does not exist", func() {
-			createSecret("test-token-err", "not-exists", "")
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(errorMessage("test-token-err")).
-					Should(MatchRegexp("can not find SPI access token not-exists: SPIAccessToken.appstudio.redhat.com \"not-exists\" not found"))
+		It("creates new SPIAccessToken and updates its status", func() {
+			spiTokenName := "new-spitoken"
+			accessToken := api.SPIAccessToken{}
+			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).Error()
+			createSecret("test-token2", spiTokenName, testSetup.InCluster.Tokens[0].Spec.ServiceProviderUrl)
 
+			Eventually(func(g Gomega) {
+				// Token added to Storage...
+				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
+				// And new SPIAccessToken created and moved to Ready state...
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).To(Succeed())
+				g.Expect(accessToken.Name == spiTokenName).To(BeTrue())
+				g.Expect(accessToken.Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
+				// And the secret deleted eventually
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).Error()
 			})
 		})
-		It("finds the SPIAccessToken by serviceProviderURL and updates the status", func() {
+		It("fails creating SPIAccessToken b/c SPIAccessToken name is invalid", func() {
+			accessToken := api.SPIAccessToken{}
 
-			createSecret("test-token", "", testSetup.InCluster.Tokens[0].Spec.ServiceProviderUrl)
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
-				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId == "42").To(BeTrue())
-			})
+			createSecret("secret", "my-spi-access-token_2023_03_02__15_37_28", "")
+			Eventually(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
 		})
 	})
 })
@@ -99,19 +113,11 @@ func createSecret(name string, spiAccessTokenName string, serviceProviderURL str
 	}
 
 	if spiAccessTokenName != "" {
-		o.Labels["spi.appstudio.redhat.com/token-name"] = spiAccessTokenName
-	} else if serviceProviderURL != "" {
+		o.StringData["spiTokenName"] = spiAccessTokenName
+	}
+	if serviceProviderURL != "" {
 		o.StringData["providerUrl"] = serviceProviderURL
 	}
 
 	Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
-}
-
-func errorMessage(secretName string) string {
-	event := &corev1.Event{}
-	err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: secretName, Namespace: "default"}, event)
-	if err != nil {
-		Fail("Can't get the Event")
-	}
-	return event.Message
 }

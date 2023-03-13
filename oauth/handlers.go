@@ -46,8 +46,10 @@ func OkHandler(w http.ResponseWriter, _ *http.Request) {
 // CallbackSuccessHandler is a Handler implementation that responds with HTML page
 // This page is a landing page after successfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
-func CallbackSuccessHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "../static/callback_success.html")
+func CallbackSuccessHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "../static/callback_success.html")
+	})
 }
 
 // viewData structure is used to pass parameters during callback_error.html template processing.
@@ -59,26 +61,27 @@ type viewData struct {
 // CallbackErrorHandler is a Handler implementation that responds with HTML page
 // This page is a landing page after unsuccessfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
-func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	errorMsg := q.Get("error")
-	errorDescription := q.Get("error_description")
-	data := viewData{
-		Title:   errorMsg,
-		Message: errorDescription,
-	}
-	logs.AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
-	tmpl, _ := template.ParseFiles("../static/callback_error.html")
+func CallbackErrorHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		errorMsg := q.Get("error")
+		errorDescription := q.Get("error_description")
+		data := viewData{
+			Title:   errorMsg,
+			Message: errorDescription,
+		}
+		logs.AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
+		tmpl, _ := template.ParseFiles("../static/callback_error.html")
 
-	err := tmpl.Execute(w, data)
-	if err == nil {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		log.FromContext(r.Context()).Error(err, "failed to process template")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
-	}
-
+		err := tmpl.Execute(w, data)
+		if err == nil {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			log.FromContext(r.Context()).Error(err, "failed to process template")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
+		}
+	})
 }
 
 // HandleUpload returns Handler implementation that is relied on provided TokenUploader to persist provided credentials
@@ -141,6 +144,14 @@ func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Reques
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// CSPHandler is a Handler that writes into response a CSP headers allowing inline styles, images from redhat domain, and denying everything else, including framing
+func CSPHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
+		h.ServeHTTP(w, r)
+	})
 }
 
 // BypassHandler is a Handler that redirects a request that has URL with certain prefix to a bypassHandler

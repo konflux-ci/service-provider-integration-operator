@@ -211,6 +211,23 @@ var _ = Describe("Controller", func() {
 		Expect(res.Result().Cookies()).NotTo(BeEmpty())
 	})
 
+	It("invalidates the user session cookie", func() {
+
+		req := httptest.NewRequest("GET", "/logout", nil)
+		res := httptest.NewRecorder()
+
+		c := prepareAuthenticator(Default)
+		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Logout(w, r)
+		})).ServeHTTP(res, req)
+
+		Expect(res.Code).To(Equal(http.StatusOK))
+		Expect(res.Result().Cookies()).To(HaveLen(1))
+		Expect(res.Result().Cookies()[0].Value).To(BeEmpty())
+		Expect(res.Result().Cookies()[0].MaxAge).To(BeNumerically("<=", 0))
+		Expect(res.Result().Cookies()[0].Expires).To(BeTemporally("<=", time.Now()))
+	})
+
 	It("redirects to SP OAuth URL with state and scopes", func() {
 		_, res := loginFlow(Default)
 		Expect(res.Code).To(Equal(http.StatusOK))

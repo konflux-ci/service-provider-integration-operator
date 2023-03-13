@@ -4,9 +4,15 @@ kind: PipelineRun
 metadata:
   name: spi-controller-on-push
   annotations:
-    pipelinesascode.tekton.dev/on-event: "[push]"
-    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "5"
+    pipelinesascode.tekton.dev/on-event: '[push]'
+    pipelinesascode.tekton.dev/on-target-branch: '[main]'
+  labels:
+    appstudio.openshift.io/application: spi
+    appstudio.openshift.io/component: controller
+    pipelines.appstudio.openshift.io/type: build
 spec:
   params:
     - name: git-url
@@ -17,7 +23,7 @@ spec:
       value: 'quay.io/redhat-appstudio/service-provider-integration-operator:{{revision}}'
     - name: infra-deployment-update-script
       value: |
-        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/openshift?ref=\)\(.*\)|\1{{ revision }}|' components/spi/base/kustomization.yaml;
+        sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/overlays/openshift_vault?ref=\)\(.*\)|\1{{ revision }}|' components/spi/base/kustomization.yaml;
         awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/base/kustomization.yaml
         awk  -i inplace -v n=2 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/spi/base/kustomization.yaml
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/vault/openshift?ref=\)\(.*\)|\1{{ revision }}|' components/spi-vault/kustomization.yaml
