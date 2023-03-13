@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-github/v45/github"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strconv"
 	"strings"
 
@@ -65,8 +66,8 @@ var rateLimitErrorCounter = prometheus.NewCounter(
 )
 
 func init() {
-	prometheus.MustRegister(unexpectedStatusCounter)
-	prometheus.MustRegister(rateLimitErrorCounter)
+	metrics.Registry.MustRegister(unexpectedStatusCounter)
+	metrics.Registry.MustRegister(rateLimitErrorCounter)
 }
 
 var (
