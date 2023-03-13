@@ -17,6 +17,8 @@ package github
 import (
 	"bytes"
 	"context"
+
+	"github.com/google/go-github/v45/github"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -423,6 +425,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 
 func TestGitHubUnexpectedStatusMetric(t *testing.T) {
 	// given
+	unexpectedStatusCounter.Reset()
 	numberOfResponses := 3
 	expectedLabels := map[string]string{"unexpected_status": "429"}
 	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
@@ -457,23 +460,46 @@ func TestGitHubUnexpectedStatusMetric(t *testing.T) {
 func TestGitHubRateLimitErrorMetric(t *testing.T) {
 	// given
 	numberOfResponses := 3
-	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
 	gh.ghClientBuilder.httpClient = &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: returnCode,
-				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "error"}`))),
-				Request:    r,
-			}, httpErr
+			return nil, &github.RateLimitError{
+				Rate: github.Rate{
+					Limit:     5000,
+					Remaining: 0,
+					Reset:     github.Timestamp{},
+				},
+				Response: nil,
+				Message:  "rate limit exceeded",
+			}
 		}),
 	}
+	ac := &api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://github.com/user/repo"},
+	}
 	for i := 0; i < numberOfResponses; i++ {
-		public, err := gh.publicRepo(context.TODO(), &api.SPIAccessCheck{
-			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
-		})
+		accessCheckStatus, err := gh.CheckRepositoryAccess(context.TODO(), cl, ac)
 		assert.NoError(t, err)
-		assert.False(t, public)
+		assert.NotNil(t, accessCheckStatus)
 	}
 
 	// when
@@ -483,7 +509,7 @@ func TestGitHubRateLimitErrorMetric(t *testing.T) {
 	// then
 	metricPresent := false
 	for _, mf := range mfs {
-		if mf.GetName() == "redhat_appstudio_spi_github_public_repo_unexpected_response_status" {
+		if mf.GetName() == "redhat_appstudio_spi_github_rate_limit_errors" {
 			for _, m := range mf.GetMetric() {
 				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
 				metricPresent = true

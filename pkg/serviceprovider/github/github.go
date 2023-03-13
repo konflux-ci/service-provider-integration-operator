@@ -18,12 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/go-github/v45/github"
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strconv"
 	"strings"
+
+	"github.com/google/go-github/v45/github"
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -253,7 +254,8 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
-			if errors.Is(err, &github.RateLimitError{}) {
+			var rateLimitError *github.RateLimitError
+			if errors.As(err, &rateLimitError) {
 				rateLimitErrorCounter.Inc()
 			}
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
