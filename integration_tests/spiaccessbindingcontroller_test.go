@@ -664,7 +664,6 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("deletes the secret and flips back to awaiting phase", func() {
-				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
 				Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 				testSetup.ReconcileWithCluster(func(g Gomega) {

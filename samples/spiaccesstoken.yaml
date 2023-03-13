@@ -4,7 +4,6 @@ metadata:
   name: test-access-token
   namespace: default
 spec:
-  serviceProviderType: Github
   permissions:
     required:
       - type: r
