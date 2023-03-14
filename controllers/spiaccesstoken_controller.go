@@ -196,6 +196,12 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
+	// r.TokenStorage.Get(ctx, )
+	if token, getTokenErr := r.TokenStorage.Get(ctx, &at); token == nil && getTokenErr == nil {
+		lg.Info("no token data found for the SPIAccessToken. Clearing metadata.", "SPIAccessToken", at)
+		at.Status.TokenMetadata = nil
+	}
+
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, at.Spec.ServiceProviderUrl, req.Namespace)
 	if err != nil {
