@@ -151,7 +151,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to load the token from the cluster: %w", err)
 	}
 
-	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase)
+	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase, "accesstoken", at)
 	log.IntoContext(ctx, lg)
 
 	finalizationResult, err := r.finalizers.Finalize(ctx, &at)
@@ -196,10 +196,8 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	// r.TokenStorage.Get(ctx, )
-	if token, getTokenErr := r.TokenStorage.Get(ctx, &at); token == nil && getTokenErr == nil {
-		lg.Info("no token data found for the SPIAccessToken. Clearing metadata.", "SPIAccessToken", at)
-		at.Status.TokenMetadata = nil
+	if errCheckData := r.reconcileTokenData(ctx, &at); errCheckData != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check the token's data in token storage: %w", errCheckData)
 	}
 
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
@@ -276,6 +274,18 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	lg = lg.WithValues("phase_at_reconcile_end", at.Status.Phase)
 
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
+}
+
+func (r *SPIAccessTokenReconciler) reconcileTokenData(ctx context.Context, at *api.SPIAccessToken) error {
+	if at.Status.TokenMetadata != nil && at.Status.Phase == api.SPIAccessTokenPhaseReady {
+		if token, errGetToken := r.TokenStorage.Get(ctx, at); token == nil && errGetToken == nil {
+			log.FromContext(ctx).Info("no token data found for the SPIAccessToken. Clearing metadata.")
+			at.Status.TokenMetadata = nil
+		} else if errGetToken != nil {
+			return fmt.Errorf("failed to get the token: %w", errGetToken)
+		}
+	}
+	return nil
 }
 
 func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
