@@ -4,4 +4,5 @@ metadata:
   name: shared-environment-config
   namespace: system
 data:
-  BASEURL: https://${OAUTH_HOST}
+  VAULTHOST: ${VAULT_HOST}
+  TOKENSTORAGE: vault

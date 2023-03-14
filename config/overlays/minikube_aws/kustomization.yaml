@@ -4,8 +4,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 namespace: spi-system
 
 resources:
-  - ../default
-  - route.yaml
+  - ../../bases/aws
+  - ../../oauth/ingress
 
 generatorOptions:
   disableNameSuffixHash: true
