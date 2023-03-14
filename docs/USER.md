@@ -140,7 +140,6 @@ spec:
 There is an ability to upload Personal Access Token using very short living K8s Secret.
 Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secret: token` label, gets the PAT and the Name of the SPIAccessToken associated with it, then deletes the Secret (for better security reason) and uploads the Token (which in turn updates the Status of associated SPIAccess/Token/TokenBinding).
 
-- To enable this option SPI Operator should be configured with `ENABLETOKENUPLOAD=true` (see Admin Guide for details).
 - If you want to associate it to existed SPIAccessToken, find the name of SPIAccessToken you want to associate Access Token to like:
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
