@@ -112,6 +112,8 @@ func (h loginHandler) doLogin(ctx context.Context) (*vault.Secret, error) {
 		return nil, noAuthInfoInVaultError
 	}
 
+	log.FromContext(ctx).V(logs.DebugLevel).Info("logged into Vault")
+
 	return authInfo, nil
 }
 
@@ -141,7 +143,7 @@ func (h loginHandler) startRenew(ctx context.Context, secret *vault.Secret) (boo
 			lg.Info("stopping the Vault token renewal routine because the context is done")
 			return false, nil
 		case err = <-watcher.DoneCh():
-			// we enter here if the watcher detects it can no longer renew the token. We therefore exist and ask the caller
+			// we enter here if the watcher detects it can no longer renew the token. We therefore exit and ask the caller
 			// to try and log in again.
 			return true, err
 		case <-watcher.RenewCh():

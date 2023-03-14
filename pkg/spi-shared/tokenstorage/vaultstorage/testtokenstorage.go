@@ -21,15 +21,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
-	"github.com/hashicorp/go-hclog"
-	kv "github.com/hashicorp/vault-plugin-secrets-kv"
-	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/api/auth/approle"
-	vaulthttp "github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
 	vtesting "github.com/mitchellh/go-testing-interface"
 
@@ -77,127 +71,25 @@ func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 
 var _ tokenstorage.TokenStorage = (*TestTokenStorage)(nil)
 
+// FIXME: remove this and replace usages with token storage based on secretstorage.memorystorage
 func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, tokenstorage.TokenStorage) {
 	t.Helper()
-	cluster, storage, _, _ := createTestVaultTokenStorage(t, false, nil)
-	return cluster, storage
+	cluster, storage := vaultstorage.CreateTestVaultSecretStorage(t)
+	return cluster, &tokenstorage.DefaultTokenStorage{
+		SecretStorage: storage,
+		Serializer: tokenstorage.JSONSerializer,
+		Deserializer: tokenstorage.JSONDeserializer,
+	}
 }
 
+// FIXME: remove this and replace usages with the equivalent in secretstorage.vaultstorage (or with the secretstorage.memorystorage)
 func CreateTestVaultTokenStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry *prometheus.Registry) (*vault.TestCluster, tokenstorage.TokenStorage, string, string) {
 	t.Helper()
-	return createTestVaultTokenStorage(t, true, metricsRegistry)
-}
-
-func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prometheus.Registry) (*vault.TestCluster, tokenstorage.TokenStorage, string, string) {
-	t.Helper()
-
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"kv": kv.Factory,
-		},
+	cluster, storage, roleId, secretId := vaultstorage.CreateTestVaultSecretStorageWithAuthAndMetrics(t, metricsRegistry)
+	tokenStorage := &tokenstorage.DefaultTokenStorage{
+		SecretStorage: storage,
+		Serializer: tokenstorage.JSONSerializer,
+		Deserializer: tokenstorage.JSONDeserializer,
 	}
-
-	clusterCfg := &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-		NumCores:    1,
-		Logger:      hclog.Default().With("vault", "cluster"),
-	}
-
-	cluster := vault.NewTestCluster(t, coreConfig, clusterCfg)
-	cluster.Start()
-
-	// the client that we're returning to the caller
-	var client *vaultapi.Client
-
-	if auth {
-		cfg := vaultapi.DefaultConfig()
-		cfg.Address = cluster.Cores[0].Client.Address()
-		cfg.Logger = hclog.Default().With("vault", "authenticating-client")
-
-		var err error
-		if err = cfg.ConfigureTLS(&vaultapi.TLSConfig{
-			Insecure: true,
-		}); err != nil {
-			t.Fatal(err)
-		}
-
-		// This needs to be done AFTER configuring the TLS, because ConfigureTLS assumes that the transport is http.Transport
-		// and not our round tripper.
-		cfg.HttpClient.Transport = httptransport.HttpMetricCollectingRoundTripper{RoundTripper: cfg.HttpClient.Transport}
-
-		client, err = vaultapi.NewClient(cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		client = cluster.Cores[0].Client
-		client.SetLogger(hclog.Default().With("vault", "root-client"))
-	}
-
-	// we're going to have to do the setup using the privileged client
-	rootClient := cluster.Cores[0].Client
-
-	// Create KV V2 mount
-	if err := rootClient.Sys().Mount("spi", &vaultapi.MountInput{
-		Type: "kv",
-		Options: map[string]string{
-			"version": "2",
-		},
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	var roleId, secretId string
-
-	var lh *loginHandler
-
-	if auth {
-		if err := rootClient.Sys().EnableAuthWithOptions("approle", &vaultapi.EnableAuthOptions{
-			Type: "approle",
-		}); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := rootClient.Sys().PutPolicy("test-policy", `path "/spi/*" { capabilities = ["create", "read", "update", "patch", "delete", "list"] }`); err != nil {
-			t.Fatal(err)
-		}
-
-		if _, err := rootClient.Logical().Write("/auth/approle/role/test-role", map[string]interface{}{
-			"token_policies": "test-policy",
-		}); err != nil {
-			t.Fatal(err)
-		}
-
-		resp, err := rootClient.Logical().Read("/auth/approle/role/test-role/role-id")
-		if err != nil {
-			t.Fatal(err)
-		}
-		roleId = resp.Data["role_id"].(string)
-
-		resp, err = rootClient.Logical().Write("/auth/approle/role/test-role/secret-id", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		secretId = resp.Data["secret_id"].(string)
-
-		approleAuth, err := approle.NewAppRoleAuth(roleId, &approle.SecretID{FromString: secretId})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		lh = &loginHandler{
-			client:     client,
-			authMethod: approleAuth,
-		}
-	}
-
-	// we have to be sure that we're passing a true nil to vault storage - not a non-nil interface pointer pointing
-	// to a nil struct (yes, I think this is ridiculous, too).
-	var nilSafeRegistry prometheus.Registerer
-	if metricsRegistry == nil {
-		nilSafeRegistry = nil
-	} else {
-		nilSafeRegistry = metricsRegistry
-	}
-	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh, config: &VaultStorageConfig{DataPathPrefix: "spi", MetricsRegisterer: nilSafeRegistry}}, roleId, secretId
+	return cluster, tokenStorage, roleId, secretId
 }

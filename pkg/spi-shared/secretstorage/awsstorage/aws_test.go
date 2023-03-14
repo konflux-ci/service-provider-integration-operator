@@ -16,7 +16,6 @@ package awsstorage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -24,25 +23,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var testToken = &v1beta1.Token{
-	Username:     "testUsername",
-	AccessToken:  "testAccessToken",
-	TokenType:    "testTokenType",
-	RefreshToken: "testRefreshToken",
-	Expiry:       123,
-}
+var testData = []byte("test_data")
 
-var testSpiAccessToken = &v1beta1.SPIAccessToken{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "testSpiAccessToken",
-		Namespace: "testNamespace",
-	},
+var testSecretID = secretstorage.SecretID{
+	Name:      "testSpiAccessToken",
+	Namespace: "testNamespace",
 }
 
 func TestInitialize(t *testing.T) {
@@ -50,7 +39,7 @@ func TestInitialize(t *testing.T) {
 	awsConfig, _ := config.LoadDefaultConfig(ctx,
 		config.WithSharedConfigFiles([]string{"nothing"}),
 		config.WithSharedCredentialsFiles([]string{"nothing"}))
-	strg := AwsTokenStorage{
+	strg := AwsSecretStorage{
 		Config: &awsConfig,
 	}
 
@@ -60,7 +49,7 @@ func TestInitialize(t *testing.T) {
 }
 
 func TestGenerateSecretName(t *testing.T) {
-	secretName := generateAwsSecretName(&v1beta1.SPIAccessToken{ObjectMeta: metav1.ObjectMeta{Namespace: "tokennamespace", Name: "tokenname"}})
+	secretName := generateAwsSecretName(&secretstorage.SecretID{Namespace: "tokennamespace", Name: "tokenname"})
 
 	assert.NotNil(t, secretName)
 	assert.Contains(t, *secretName, "tokennamespace")
@@ -75,9 +64,8 @@ func TestCheckCredentials(t *testing.T) {
 				return nil, nil
 			},
 		}
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     log.FromContext(ctx),
 		}
 		assert.NoError(t, strg.checkCredentials(ctx))
 	})
@@ -89,9 +77,8 @@ func TestCheckCredentials(t *testing.T) {
 				return nil, fmt.Errorf("fail")
 			},
 		}
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     log.FromContext(ctx),
 		}
 		assert.Error(t, strg.checkCredentials(ctx))
 		assert.True(t, cl.listCalled)
@@ -107,12 +94,11 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     log.FromContext(ctx),
 		}
 
-		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.NoError(t, errStore)
 		assert.True(t, cl.createCalled)
 		assert.False(t, cl.updateCalled)
@@ -126,12 +112,11 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     log.FromContext(ctx),
 		}
 
-		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
 		assert.True(t, cl.createCalled)
 		assert.False(t, cl.updateCalled)
@@ -141,7 +126,6 @@ func TestStore(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
@@ -155,12 +139,11 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.NoError(t, errStore)
 		assert.True(t, cl.createCalled)
 		assert.True(t, cl.updateCalled)
@@ -169,7 +152,6 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("fail", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
@@ -183,12 +165,11 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
 		assert.True(t, cl.createCalled)
 		assert.True(t, cl.updateCalled)
@@ -197,7 +178,6 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("fail get to update", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
@@ -208,12 +188,11 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		errStore := strg.Store(ctx, testSpiAccessToken, testToken)
+		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
 		assert.True(t, cl.createCalled)
 		assert.False(t, cl.updateCalled)
@@ -224,50 +203,25 @@ func TestUpdate(t *testing.T) {
 func TestGet(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				tokenData, _ := json.Marshal(testToken)
-				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: tokenData}, nil
+				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: testData}, nil
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.NoError(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.NoError(t, err)
 		assert.True(t, cl.getCalled)
-		assert.Equal(t, testToken, token)
-	})
-
-	t.Run("corrupted data", func(t *testing.T) {
-		ctx := context.TODO()
-		lg := log.FromContext(ctx)
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: []byte("blabol")}, nil
-			},
-		}
-
-		strg := AwsTokenStorage{
-			client: cl,
-			lg:     lg,
-		}
-
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.Error(t, errStore)
-		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Equal(t, testData, data)
 	})
 
 	t.Run("got nil secret", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
@@ -275,20 +229,18 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.Error(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.Error(t, err)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Nil(t, data)
 	})
 
 	t.Run("fail to get", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
@@ -296,20 +248,18 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.Error(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.Error(t, err)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Nil(t, data)
 	})
 
-	t.Run("token not found", func(t *testing.T) {
+	t.Run("data not found", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
@@ -317,20 +267,19 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.NoError(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.Error(t, err)
+		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Nil(t, data)
 	})
 
 	t.Run("secret is deleting", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
@@ -338,20 +287,19 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.NoError(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.Error(t, err)
+		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Nil(t, data)
 	})
 
 	t.Run("fail invalid request", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
@@ -359,22 +307,21 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		token, errStore := strg.Get(ctx, testSpiAccessToken)
-		assert.Error(t, errStore)
+		data, err := strg.Get(ctx, testSecretID)
+		assert.Error(t, err)
+		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, token)
+		assert.Nil(t, data)
 	})
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
@@ -382,19 +329,17 @@ func TestDelete(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		errDelete := strg.Delete(ctx, testSpiAccessToken)
+		errDelete := strg.Delete(ctx, testSecretID)
 		assert.NoError(t, errDelete)
 		assert.True(t, cl.deleteCalled)
 	})
 
 	t.Run("fail", func(t *testing.T) {
 		ctx := context.TODO()
-		lg := log.FromContext(ctx)
 
 		cl := &mockAwsClient{
 			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
@@ -402,12 +347,11 @@ func TestDelete(t *testing.T) {
 			},
 		}
 
-		strg := AwsTokenStorage{
+		strg := AwsSecretStorage{
 			client: cl,
-			lg:     lg,
 		}
 
-		errDelete := strg.Delete(ctx, testSpiAccessToken)
+		errDelete := strg.Delete(ctx, testSecretID)
 		assert.Error(t, errDelete)
 		assert.True(t, cl.deleteCalled)
 	})

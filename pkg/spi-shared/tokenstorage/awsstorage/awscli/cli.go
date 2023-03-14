@@ -24,8 +24,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go/logging"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -45,7 +45,15 @@ func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.Tok
 		return nil, fmt.Errorf("failed to create AWS secretmanager configuration: %w", err)
 	}
 
-	return &awsstorage.AwsTokenStorage{Config: cfg}, nil
+	secretStorage := &awsstorage.AwsSecretStorage{
+		Config: cfg,
+	}
+
+	return &tokenstorage.DefaultTokenStorage{
+		SecretStorage: secretStorage,
+		Serializer: tokenstorage.JSONSerializer,
+		Deserializer: tokenstorage.JSONDeserializer,
+	}, nil
 }
 
 func configFromCliArgs(ctx context.Context, args *AWSCliArgs) (*aws.Config, error) {
