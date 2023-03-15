@@ -315,33 +315,38 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
 		deps, errorReason, err := dependentsHandler.Sync(ctx, token, sp)
-		if err != nil {
+		if err != nil && stderrors.Is(err, bindings.AccessTokenDataNotFoundError) {
+			// token data suddenly disappeared, that's not an error generally, so flipping back to Awaiting state
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
+			binding.Status.SyncedObjectRef = api.TargetObjectRef{}
+			binding.Status.ServiceAccountNames = []string{}
+		} else if err != nil {
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
 			r.updateBindingStatusError(ctx, &binding, errorReason, err)
 			if rerr := dependentsHandler.RevertTo(ctx, depCheckpoint); rerr != nil {
 				lg.Error(rerr, "failed to revert dependent objects changes")
 			}
 			return ctrl.Result{}, fmt.Errorf("failed to sync the dependent objects: %w", err)
-		}
+		} else {
+			if lg.Enabled() {
+				var serviceAccounts []client.ObjectKey
 
-		if lg.Enabled() {
-			serviceAccounts := []client.ObjectKey{}
+				for i := range deps.ServiceAccounts {
+					serviceAccounts = append(serviceAccounts, client.ObjectKeyFromObject(deps.ServiceAccounts[i]))
+				}
 
-			for i := range deps.ServiceAccounts {
-				serviceAccounts = append(serviceAccounts, client.ObjectKeyFromObject(deps.ServiceAccounts[i]))
+				lg.Info("linked dependent objects", "secret", client.ObjectKeyFromObject(deps.Secret), "serviceAccounts", serviceAccounts)
 			}
 
-			lg.Info("linked dependent objects", "secret", client.ObjectKeyFromObject(deps.Secret), "serviceAccounts", serviceAccounts)
-		}
+			sas := make([]string, 0, len(deps.ServiceAccounts))
+			for _, sa := range deps.ServiceAccounts {
+				sas = append(sas, sa.Name)
+			}
 
-		sas := make([]string, 0, len(deps.ServiceAccounts))
-		for _, sa := range deps.ServiceAccounts {
-			sas = append(sas, sa.Name)
+			binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
+			binding.Status.SyncedObjectRef = toObjectRef(deps.Secret)
+			binding.Status.ServiceAccountNames = sas
 		}
-
-		binding.Status.Phase = api.SPIAccessTokenBindingPhaseInjected
-		binding.Status.SyncedObjectRef = toObjectRef(deps.Secret)
-		binding.Status.ServiceAccountNames = sas
 	} else {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
 		binding.Status.SyncedObjectRef = api.TargetObjectRef{}
