@@ -15,9 +15,11 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -54,5 +56,33 @@ func TestEnsureLabels(t *testing.T) {
 		assert.Equal(t, "hello", at.Labels[api.ServiceProviderHostLabel])
 		assert.Equal(t, "av", at.Labels["a"])
 		assert.Equal(t, "bv", at.Labels["b"])
+	})
+}
+
+func TestReconcileData(t *testing.T) {
+	t.Run("no data found then nil the metadata", func(t *testing.T) {
+		at := &api.SPIAccessToken{Status: api.SPIAccessTokenStatus{Phase: api.SPIAccessTokenPhaseReady, TokenMetadata: &api.TokenMetadata{}}}
+		reconciler := SPIAccessTokenReconciler{
+			TokenStorage: &memorystorage.MemoryTokenStorage{},
+		}
+
+		err := reconciler.reconcileTokenData(context.TODO(), at)
+
+		assert.NoError(t, err)
+		assert.Nil(t, at.Status.TokenMetadata)
+	})
+
+	t.Run("data found, don't touch the SPIAccessToken", func(t *testing.T) {
+		at := &api.SPIAccessToken{Status: api.SPIAccessTokenStatus{Phase: api.SPIAccessTokenPhaseReady, TokenMetadata: &api.TokenMetadata{}}}
+		ts := &memorystorage.MemoryTokenStorage{}
+		ts.Store(context.TODO(), at, &api.Token{Username: "blabol", AccessToken: "kockopes"})
+		reconciler := SPIAccessTokenReconciler{
+			TokenStorage: ts,
+		}
+
+		err := reconciler.reconcileTokenData(context.TODO(), at)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, at.Status.TokenMetadata)
 	})
 }
