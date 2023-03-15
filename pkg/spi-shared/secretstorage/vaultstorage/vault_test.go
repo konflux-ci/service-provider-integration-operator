@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/stretchr/testify/assert"
-	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 func TestMetricCollection(t *testing.T) {

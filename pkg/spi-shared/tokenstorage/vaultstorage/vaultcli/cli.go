@@ -59,7 +59,7 @@ func CreateVaultStorage(ctx context.Context, args *VaultCliArgs) (tokenstorage.T
 		SecretStorage: &vaultstorage.VaultSecretStorage{
 			Config: vaultConfig,
 		},
-		Serializer: tokenstorage.JSONSerializer,
+		Serializer:   tokenstorage.JSONSerializer,
 		Deserializer: tokenstorage.JSONDeserializer,
 	}, nil
 }

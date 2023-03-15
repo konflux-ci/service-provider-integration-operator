@@ -77,8 +77,8 @@ func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, tokenstorage
 	cluster, storage := vaultstorage.CreateTestVaultSecretStorage(t)
 	return cluster, &tokenstorage.DefaultTokenStorage{
 		SecretStorage: storage,
-		Serializer: tokenstorage.JSONSerializer,
-		Deserializer: tokenstorage.JSONDeserializer,
+		Serializer:    tokenstorage.JSONSerializer,
+		Deserializer:  tokenstorage.JSONDeserializer,
 	}
 }
 
@@ -88,8 +88,8 @@ func CreateTestVaultTokenStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry
 	cluster, storage, roleId, secretId := vaultstorage.CreateTestVaultSecretStorageWithAuthAndMetrics(t, metricsRegistry)
 	tokenStorage := &tokenstorage.DefaultTokenStorage{
 		SecretStorage: storage,
-		Serializer: tokenstorage.JSONSerializer,
-		Deserializer: tokenstorage.JSONDeserializer,
+		Serializer:    tokenstorage.JSONSerializer,
+		Deserializer:  tokenstorage.JSONDeserializer,
 	}
 	return cluster, tokenStorage, roleId, secretId
 }

@@ -51,8 +51,8 @@ func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.Tok
 
 	return &tokenstorage.DefaultTokenStorage{
 		SecretStorage: secretStorage,
-		Serializer: tokenstorage.JSONSerializer,
-		Deserializer: tokenstorage.JSONDeserializer,
+		Serializer:    tokenstorage.JSONSerializer,
+		Deserializer:  tokenstorage.JSONDeserializer,
 	}, nil
 }
 

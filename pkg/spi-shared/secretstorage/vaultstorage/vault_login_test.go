@@ -55,7 +55,7 @@ func TestVaultLogin_Renewal(t *testing.T) {
 	assert.NotEqual(t, origToken, ts.client.Token())
 
 	secretId := secretstorage.SecretID{
-		Name: "test",
+		Name:      "test",
 		Namespace: "test",
 	}
 	testData := []byte{0, 1, 2}

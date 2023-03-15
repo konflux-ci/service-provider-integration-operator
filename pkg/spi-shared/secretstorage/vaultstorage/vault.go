@@ -39,14 +39,13 @@ type VaultSecretStorage struct {
 	ignoreLoginHandler bool
 	// Config holds the configuration of the storage. After the Initialize method is called, no changes
 	// to this configuration object are reflected even if Initialize is called again.
-	Config       *VaultStorageConfig
+	Config *VaultStorageConfig
 }
 
 const vaultDataPathFormat = "%s/data/%s/%s"
 
 var (
 	VaultError             = errors.New("error in Vault")
-	corruptedDataError     = errors.New("corrupted data in Vault")
 	noAuthInfoInVaultError = errors.New("no auth info returned from Vault")
 	unexpectedDataError    = errors.New("unexpected data")
 	unspecifiedStoreError  = errors.New("failed to store the token, no error but returned nil")
@@ -124,7 +123,7 @@ func (v *VaultSecretStorage) Store(ctx context.Context, id secretstorage.SecretI
 	data := map[string]interface{}{
 		// yes, the data HAS TO be a map
 		"data": map[string]interface{}{
-			"bytes": base64.StdEncoding.EncodeToString(bytes), 
+			"bytes": base64.StdEncoding.EncodeToString(bytes),
 		},
 	}
 	lg := log.FromContext(ctx)

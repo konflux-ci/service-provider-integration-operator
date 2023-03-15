@@ -63,7 +63,7 @@ func JSONDeserializer(data []byte, token *api.Token) error {
 
 // Delete implements TokenStorage
 func (s *DefaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	if err := s.SecretStorage.Delete(ctx, toSecretID(owner)); err != nil && errors.Is(err, secretstorage.NotFoundError) { 
+	if err := s.SecretStorage.Delete(ctx, toSecretID(owner)); err != nil && errors.Is(err, secretstorage.NotFoundError) {
 		return fmt.Errorf("failed to delete the token data: %w", err)
 	}
 	return nil
