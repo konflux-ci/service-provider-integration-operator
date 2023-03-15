@@ -22,7 +22,8 @@ import (
 
 // SecretID is a generic identifier of the secret that we store data of. While it very
 // much resembles the Kubernetes client's ObjectKey, we keep it as a separate struct to
-// be more explicit.
+// be more explicit and forward-compatible should any changes to this struct arise in
+// the future.
 type SecretID struct {
 	Name      string
 	Namespace string
