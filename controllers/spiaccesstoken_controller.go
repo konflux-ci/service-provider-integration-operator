@@ -151,7 +151,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to load the token from the cluster: %w", err)
 	}
 
-	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase, "accesstoken", at)
+	lg = lg.WithValues("phase_at_reconcile_start", at.Status.Phase)
 	log.IntoContext(ctx, lg)
 
 	finalizationResult, err := r.finalizers.Finalize(ctx, &at)
@@ -279,7 +279,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *SPIAccessTokenReconciler) reconcileTokenData(ctx context.Context, at *api.SPIAccessToken) error {
 	if at.Status.TokenMetadata != nil && at.Status.Phase == api.SPIAccessTokenPhaseReady {
 		if token, errGetToken := r.TokenStorage.Get(ctx, at); token == nil && errGetToken == nil {
-			log.FromContext(ctx).Info("no token data found for the SPIAccessToken. Clearing metadata.")
+			log.FromContext(ctx).Info("no token data found in tokenstorage for the SPIAccessToken. Clearing metadata.")
 			at.Status.TokenMetadata = nil
 		} else if errGetToken != nil {
 			return fmt.Errorf("failed to get the token: %w", errGetToken)
