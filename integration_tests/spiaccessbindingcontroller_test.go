@@ -663,12 +663,26 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 			})
 
-			It("deletes the secret and flips back to awaiting phase", func() {
-				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+			It("deletes the secret and flips back to awaiting phase when token data disappears", func() {
 				Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 				testSetup.ReconcileWithCluster(func(g Gomega) {
 					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
+					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+					err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(secret), &corev1.Secret{})
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				})
+			})
+
+			It("deletes the secret and flips back to awaiting phase when token is in awaiting state", func() {
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
 					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
 
