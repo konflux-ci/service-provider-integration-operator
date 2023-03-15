@@ -276,7 +276,9 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
 }
 
+// reconcileTokenData verifies that token data are really in the storage. If data is missing, it cleans up the token's metadata
 func (r *SPIAccessTokenReconciler) reconcileTokenData(ctx context.Context, at *api.SPIAccessToken) error {
+	// as an optimization, we check status here first to not touch tokenstorage in cases when we don't expect data to be there
 	if at.Status.TokenMetadata != nil && at.Status.Phase == api.SPIAccessTokenPhaseReady {
 		if token, errGetToken := r.TokenStorage.Get(ctx, at); token == nil && errGetToken == nil {
 			log.FromContext(ctx).Info("no token data found in tokenstorage for the SPIAccessToken. Clearing metadata.")
