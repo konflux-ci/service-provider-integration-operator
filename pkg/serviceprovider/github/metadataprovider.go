@@ -135,6 +135,7 @@ func (s metadataProvider) fetchUserAndScopes(ctx context.Context, githubClient *
 	defer logs.TimeTrack(lg, time.Now(), "fetch user and scopes")
 	usr, resp, err := githubClient.Users.Get(ctx, "")
 	if err != nil {
+		checkRateLimitError(err)
 		lg.Error(err, "Error during fetching user metadata from Github")
 		err = fmt.Errorf("failed to fetch user info: %w", err)
 		return

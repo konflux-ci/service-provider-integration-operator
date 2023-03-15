@@ -54,6 +54,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 	for {
 		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
 		if err != nil {
+			checkRateLimitError(err)
 			lg.Error(err, "Error during fetching Github repositories list")
 			return fmt.Errorf("failed to list github repositories: %w", err)
 		}

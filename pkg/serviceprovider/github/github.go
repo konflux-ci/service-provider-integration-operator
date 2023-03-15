@@ -66,6 +66,16 @@ var rateLimitErrorCounter = prometheus.NewCounter(
 	},
 )
 
+// checkRateLimitError checks if the error is a rate limit error and increments
+// the rateLimitErrorCounter for metrics if it is. It should be used whenever
+// we do a request with an authorized GitHub client.
+func checkRateLimitError(err error) {
+	var rateLimitError *github.RateLimitError
+	if errors.As(err, &rateLimitError) {
+		rateLimitErrorCounter.Inc()
+	}
+}
+
 func init() {
 	metrics.Registry.MustRegister(unexpectedStatusCounter)
 	metrics.Registry.MustRegister(rateLimitErrorCounter)
@@ -254,10 +264,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
-			var rateLimitError *github.RateLimitError
-			if errors.As(err, &rateLimitError) {
-				rateLimitErrorCounter.Inc()
-			}
+			checkRateLimitError(err)
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = err.Error()
 			return status, nil
