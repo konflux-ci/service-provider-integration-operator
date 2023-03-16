@@ -19,7 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/google/go-github/v45/github"
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -41,6 +46,40 @@ var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
+
+var unexpectedStatusCounter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "github_public_repo_unexpected_response_status",
+		Help:      "The number of unexpected status codes from unauthorized requests determining if repository is public",
+	},
+	[]string{"unexpected_status"},
+)
+
+var rateLimitErrorCounter = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "github_rate_limit_errors",
+		Help:      "The number of rateLimitErrors encountered with authorized GitHub client",
+	},
+)
+
+// checkRateLimitError checks if the error is a rate limit error and increments
+// the rateLimitErrorCounter for metrics if it is. It should be used whenever
+// we do a request with an authorized GitHub client.
+func checkRateLimitError(err error) {
+	var rateLimitError *github.RateLimitError
+	if errors.As(err, &rateLimitError) {
+		rateLimitErrorCounter.Inc()
+	}
+}
+
+func init() {
+	metrics.Registry.MustRegister(unexpectedStatusCounter)
+	metrics.Registry.MustRegister(rateLimitErrorCounter)
+}
 
 var (
 	unableToParsePathError = errors.New("unable to parse path")
@@ -225,9 +264,10 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 		if err != nil {
+			checkRateLimitError(err)
 			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 			status.ErrorMessage = err.Error()
-			return status, nil //nolint:nilerr // we preserve the error in the status
+			return status, nil
 		}
 
 		status.Accessible = true
@@ -280,6 +320,7 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		return false, nil
 	} else {
 		lg.Info("unexpected return code for repo", "repo", accessCheck.Spec.RepoUrl, "code", resp.StatusCode)
+		unexpectedStatusCounter.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
 		return false, nil
 	}
 }
