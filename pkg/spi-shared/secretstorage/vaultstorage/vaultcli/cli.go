@@ -16,11 +16,10 @@ package vaultcli
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -55,9 +54,12 @@ func CreateVaultStorage(ctx context.Context, args *VaultCliArgs) (tokenstorage.T
 	vaultConfig := VaultStorageConfigFromCliArgs(args)
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
-	strg, err := vaultstorage.NewVaultStorage(vaultConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault token storage: %w", err)
-	}
-	return strg, nil
+
+	return &tokenstorage.DefaultTokenStorage{
+		SecretStorage: &vaultstorage.VaultSecretStorage{
+			Config: vaultConfig,
+		},
+		Serializer:   tokenstorage.JSONSerializer,
+		Deserializer: tokenstorage.JSONDeserializer,
+	}, nil
 }

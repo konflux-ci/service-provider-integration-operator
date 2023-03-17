@@ -21,36 +21,48 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVaultLogin_Renewal(t *testing.T) {
+func init() {
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+}
 
-	cluster, ts, roleId, secretId := CreateTestVaultTokenStorageWithAuthAndMetrics(t, nil)
+func TestVaultLogin_Renewal(t *testing.T) {
+	logs.InitDevelLoggers()
+
+	cluster, ts, vaultRoleId, vaultSecretId := CreateTestVaultSecretStorageWithAuthAndMetrics(t, nil)
 	defer cluster.Cleanup()
 
 	rootClient := cluster.Cores[0].Client
 	_, err := rootClient.Logical().Write("/auth/approle/role/test-role", map[string]interface{}{"token_ttl": "1s"})
 	assert.NoError(t, err)
 
-	auth, err := approle.NewAppRoleAuth(roleId, &approle.SecretID{FromString: secretId})
+	auth, err := approle.NewAppRoleAuth(vaultRoleId, &approle.SecretID{FromString: vaultSecretId})
 	assert.NoError(t, err)
 
-	vts := ts.(*vaultTokenStorage)
-	origToken := vts.Token()
-	assert.NotNil(t, vts.loginHandler)
-	assert.Equal(t, auth, vts.loginHandler.authMethod)
+	origToken := ts.client.Token()
+	assert.NotNil(t, ts.loginHandler)
+	assert.Equal(t, auth, ts.loginHandler.authMethod)
 	assert.NoError(t, ts.Initialize(context.TODO()))
 
 	time.Sleep(2 * time.Second)
 
-	assert.NotEqual(t, origToken, vts.Token())
+	assert.NotEqual(t, origToken, ts.client.Token())
 
-	assert.NoError(t, ts.Store(context.TODO(), testSpiAccessToken, testToken))
+	secretId := secretstorage.SecretID{
+		Name:      "test",
+		Namespace: "test",
+	}
+	testData := []byte{0, 1, 2}
+	assert.NoError(t, ts.Store(context.TODO(), secretId, testData))
 
 	expiredClientCfg := vault.DefaultConfig()
-	expiredClientCfg.Address = ts.(*vaultTokenStorage).Client.Address()
+	expiredClientCfg.Address = ts.client.Address()
 	assert.NoError(t, expiredClientCfg.ConfigureTLS(&vault.TLSConfig{
 		Insecure: true,
 	}))
@@ -58,11 +70,11 @@ func TestVaultLogin_Renewal(t *testing.T) {
 	assert.NoError(t, err)
 	expiredClient.SetToken(origToken)
 
-	notRenewingTokenStorage := &vaultTokenStorage{
-		Client: expiredClient,
-		config: &VaultStorageConfig{
+	notRenewingTokenStorage := &VaultSecretStorage{
+		client: expiredClient,
+		Config: &VaultStorageConfig{
 			DataPathPrefix: "spi",
 		},
 	}
-	assert.Error(t, notRenewingTokenStorage.Store(context.TODO(), testSpiAccessToken, testToken))
+	assert.Error(t, notRenewingTokenStorage.Store(context.TODO(), secretId, testData))
 }
