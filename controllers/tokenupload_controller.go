@@ -80,37 +80,48 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			r.logError(ctx, uploadSecret, fmt.Errorf("can not delete the Secret: %w", err), lg)
 			continue
 		}
-
-		// try to find  SPIAccessToken
-		accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
-		if err != nil {
-			r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token: %w ", err), lg)
-			continue
-		} else if accessToken == nil {
-			// SPIAccessToken does not exist, so create it
-			accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
+		secretType, _ := uploadSecret.GetLabels()[tokenSecretLabel]
+		switch secretType {
+		case "token":
+			// try to find  SPIAccessToken
+			accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
 			if err != nil {
-				r.logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token: %w ", err), lg)
+				r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token: %w ", err), lg)
+				continue
+			} else if accessToken == nil {
+				// SPIAccessToken does not exist, so create it
+				accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
+				if err != nil {
+					r.logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token: %w ", err), lg)
+					continue
+				}
+			}
+
+			token := spi.Token{
+				Username:    string(uploadSecret.Data["userName"]),
+				AccessToken: string(uploadSecret.Data["tokenData"]),
+			}
+
+			logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name)
+			// Upload Token, it will cause update SPIAccessToken State as well
+			err = r.TokenStorage.Store(ctx, accessToken, &token)
+			if err != nil {
+				r.logError(ctx, uploadSecret, fmt.Errorf("failed to store the token: %w", err), lg)
+				logs.AuditLog(ctx).Error(err, "manual token upload failed", uploadSecret.Namespace, accessToken.Name)
 				continue
 			}
-		}
+			logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, accessToken.Name)
 
-		token := spi.Token{
-			Username:    string(uploadSecret.Data["userName"]),
-			AccessToken: string(uploadSecret.Data["tokenData"]),
-		}
+			r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
+			break
+		case "secret":
+			logs.AuditLog(ctx).Info("manual token upload initiated for ", uploadSecret.Namespace, secretType)
 
-		logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name)
-		// Upload Token, it will cause update SPIAccessToken State as well
-		err = r.TokenStorage.Store(ctx, accessToken, &token)
-		if err != nil {
-			r.logError(ctx, uploadSecret, fmt.Errorf("failed to store the token: %w", err), lg)
-			logs.AuditLog(ctx).Error(err, "manual token upload failed", uploadSecret.Namespace, accessToken.Name)
+		default:
+			logs.AuditLog(ctx).Error(err, "Unknown upload secret", uploadSecret.Namespace, secretType)
 			continue
 		}
-		logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, accessToken.Name)
 
-		r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
 	}
 	return ctrl.Result{}, nil
 }
