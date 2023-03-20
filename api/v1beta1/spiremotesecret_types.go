@@ -20,31 +20,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SPIRemoteSecretSpec defines the desired state of SPIRemoteSecret
-type SPIRemoteSecretSpec struct {
+// RemoteSecretSpec defines the desired state of RemoteSecret
+type RemoteSecretSpec struct {
 	EnvironmentName string `json:"environmentName,omitempty"`
 	SecretName      string `json:"secretname,omitempty"`
 }
 
-// SPIRemoteSecretStatus defines the observed state of SPIRemoteSecret
-type SPIRemoteSecretStatus struct {
+// RemoteSecretStatus defines the observed state of RemoteSecret
+type RemoteSecretStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
-// SPIRemoteSecretReason is the reconciliation status of the SPIRemoteSecret object
-type SPIRemoteSecretReason string
+// RemoteSecretReason is the reconciliation status of the RemoteSecret object
+type RemoteSecretReason string
 
 const (
-	SPIRemoteSecretReasonAwaitingTokenData SPIRemoteSecretReason = "AwaitingSecretData"
-	SPIRemoteSecretReasonInjected          SPIRemoteSecretReason = "Injected"
-	SPIRemoteSecretReasonError             SPIRemoteSecretReason = "Error"
+	RemoteSecretReasonAwaitingTokenData RemoteSecretReason = "AwaitingSecretData"
+	RemoteSecretReasonInjected          RemoteSecretReason = "Injected"
+	RemoteSecretReasonError             RemoteSecretReason = "Error"
 )
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// SPIRemoteSecret is the Schema for the spiremotesecret API
-type SPIRemoteSecret struct {
+// RemoteSecret is the Schema for the RemoteSecret API
+type RemoteSecret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -54,13 +54,13 @@ type SPIRemoteSecret struct {
 
 //+kubebuilder:object:root=true
 
-// SPIRemoteSecretList contains a list of SPIRemoteSecret
-type SPIRemoteSecretList struct {
+// RemoteSecretList contains a list of RemoteSecret
+type RemoteSecretList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SPIRemoteSecret `json:"items"`
+	Items           []RemoteSecret `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&SPIRemoteSecret{}, &SPIRemoteSecretList{})
+	SchemeBuilder.Register(&RemoteSecret{}, &RemoteSecretList{})
 }
