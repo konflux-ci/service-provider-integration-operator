@@ -14,18 +14,10 @@
 
 //go:build !release
 
-package vaultstorage
+package tokenstorage
 
 import (
 	"context"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
-	"github.com/hashicorp/vault/vault"
-	vtesting "github.com/mitchellh/go-testing-interface"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
@@ -69,27 +61,4 @@ func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken)
 	return t.DeleteImpl(ctx, owner)
 }
 
-var _ tokenstorage.TokenStorage = (*TestTokenStorage)(nil)
-
-// FIXME: remove this and replace usages with token storage based on secretstorage.memorystorage
-func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, tokenstorage.TokenStorage) {
-	t.Helper()
-	cluster, storage := vaultstorage.CreateTestVaultSecretStorage(t)
-	return cluster, &tokenstorage.DefaultTokenStorage{
-		SecretStorage: storage,
-		Serializer:    tokenstorage.JSONSerializer,
-		Deserializer:  tokenstorage.JSONDeserializer,
-	}
-}
-
-// FIXME: remove this and replace usages with the equivalent in secretstorage.vaultstorage (or with the secretstorage.memorystorage)
-func CreateTestVaultTokenStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry *prometheus.Registry) (*vault.TestCluster, tokenstorage.TokenStorage, string, string) {
-	t.Helper()
-	cluster, storage, roleId, secretId := vaultstorage.CreateTestVaultSecretStorageWithAuthAndMetrics(t, metricsRegistry)
-	tokenStorage := &tokenstorage.DefaultTokenStorage{
-		SecretStorage: storage,
-		Serializer:    tokenstorage.JSONSerializer,
-		Deserializer:  tokenstorage.JSONDeserializer,
-	}
-	return cluster, tokenStorage, roleId, secretId
-}
+var _ TokenStorage = (*TestTokenStorage)(nil)
