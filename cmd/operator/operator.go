@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	sharedconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	corev1 "k8s.io/api/core/v1"
 
@@ -91,6 +93,7 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 	ctx = log.IntoContext(ctx, ctrl.Log)
+	ctx = context.WithValue(ctx, config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
 
 	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {

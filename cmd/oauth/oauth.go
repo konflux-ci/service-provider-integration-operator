@@ -44,6 +44,8 @@ func main() {
 	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
+	ctx := context.WithValue(context.Background(), config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
+
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
 	setupLog := ctrl.Log.WithName("setup")
@@ -62,7 +64,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
+	go metrics.ServeMetrics(ctx, args.MetricsAddr)
 	router := mux.NewRouter()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
@@ -79,7 +81,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
+	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
@@ -131,7 +133,7 @@ func main() {
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProviderTypes)
+	oauthRouter, routerErr := oauth.NewRouter(ctx, routerCfg, config.SupportedServiceProviderTypes)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
@@ -168,7 +170,7 @@ func main() {
 	<-stop
 	setupLog.Info("Server got interrupt signal, going to gracefully shutdown the server", "signal", stop)
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
