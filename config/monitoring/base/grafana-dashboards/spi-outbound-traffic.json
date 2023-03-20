@@ -22,7 +22,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 2,
+  "id": 8,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -69,8 +69,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -163,8 +162,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "#EAB839",
@@ -214,8 +212,11 @@
       "type": "gauge"
     },
     {
-      "datasource": "$datasource",
-      "description": "The overall time to fetch the metadata of a single token in GitLab.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PF224BEF3374A25F8"
+      },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -224,11 +225,11 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "ops/s",
-            "axisPlacement": "left",
+            "axisLabel": "",
+            "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 35,
+            "drawStyle": "line",
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -236,7 +237,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 0,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -256,8 +257,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -266,41 +266,15 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "custom.axisLabel",
-                "value": "response time (s)"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
-              {
-                "id": "custom.drawStyle",
-                "value": "line"
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 1
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 7,
+        "w": 12,
         "x": 12,
         "y": 0
       },
-      "id": 11,
-      "interval": "1m",
+      "id": 20,
       "options": {
         "legend": {
           "calcs": [],
@@ -315,90 +289,31 @@
       },
       "targets": [
         {
-          "datasource": "$datasource",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PF224BEF3374A25F8"
+          },
           "editorMode": "builder",
-          "expr": "sum(rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count[$__rate_interval]))",
-          "interval": "",
-          "legendFormat": "total fetches",
+          "expr": "rate(redhat_appstudio_spi_github_rate_limit_errors[$__rate_interval])",
+          "legendFormat": "rate limit errors",
           "range": true,
           "refId": "A"
         },
         {
-          "datasource": "$datasource",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PF224BEF3374A25F8"
+          },
           "editorMode": "builder",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_bucket[$__rate_interval])))",
+          "expr": "sum by(unexpected_status) (rate(redhat_appstudio_spi_github_public_repo_unexpected_response_status[$__rate_interval]))",
           "hide": false,
-          "interval": "",
-          "legendFormat": "99% responses faster",
+          "legendFormat": "status {{unexpected_status}}",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "GitLab Metadata Fetch",
+      "title": "GitHub Request Errors",
       "type": "timeseries"
-    },
-    {
-      "datasource": "$datasource",
-      "description": "The number of individual requests made to the GitLab API in the last 24 hours.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 2000
-              },
-              {
-                "color": "red",
-                "value": 4000
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 19,
-        "y": 0
-      },
-      "id": 15,
-      "interval": "1m",
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "9.1.7",
-      "targets": [
-        {
-          "datasource": "$datasource",
-          "editorMode": "builder",
-          "expr": "sum(count_over_time(redhat_appstudio_spi_service_provider_request_count_total{sp=\"GitLab\"}[24h]))",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "GitLab Requests per day",
-      "type": "gauge"
     },
     {
       "datasource": "$datasource",
@@ -413,8 +328,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -463,67 +377,6 @@
     },
     {
       "datasource": "$datasource",
-      "description": "The mean of the overall time to fetch the metadata of a single token in GitLab.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 19,
-        "y": 4
-      },
-      "id": 12,
-      "interval": "1m",
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "9.1.7",
-      "targets": [
-        {
-          "datasource": "$datasource",
-          "editorMode": "code",
-          "expr": "sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_sum{failure=\"false\"}) / sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count{failure=\"false\"}) ",
-          "interval": "",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "GitLab Metadata Fetch Mean",
-      "type": "gauge"
-    },
-    {
-      "datasource": "$datasource",
       "description": "The overall time to fetch the metadata of a single repository for a single token in Quay. This is a compound of the number of requests to Quay + the processing and storage time.",
       "fieldConfig": {
         "defaults": {
@@ -565,8 +418,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -659,8 +511,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "#EAB839",
@@ -710,10 +561,8 @@
       "type": "gauge"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PF224BEF3374A25F8"
-      },
+      "datasource": "$datasource",
+      "description": "The overall time to fetch the metadata of a single token in GitLab.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -722,11 +571,11 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
+            "axisLabel": "ops/s",
+            "axisPlacement": "left",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 35,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -734,7 +583,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 0,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -754,8 +603,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -764,15 +612,41 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "response time (s)"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 7,
         "x": 12,
         "y": 8
       },
-      "id": 20,
+      "id": 11,
+      "interval": "1m",
       "options": {
         "legend": {
           "calcs": [],
@@ -787,31 +661,89 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PF224BEF3374A25F8"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
-          "expr": "rate(redhat_appstudio_spi_github_rate_limit_errors[$__rate_interval])",
-          "legendFormat": "rate limit errors",
+          "expr": "sum(rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count[$__rate_interval]))",
+          "interval": "",
+          "legendFormat": "total fetches",
           "range": true,
           "refId": "A"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PF224BEF3374A25F8"
-          },
+          "datasource": "$datasource",
           "editorMode": "builder",
-          "expr": "sum by(unexpected_status) (rate(redhat_appstudio_spi_github_public_repo_unexpected_response_status[$__rate_interval]))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_bucket[$__rate_interval])))",
           "hide": false,
-          "legendFormat": "status {{unexpected_status}}",
+          "interval": "",
+          "legendFormat": "99% responses faster",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "GitHub Request Errors",
+      "title": "GitLab Metadata Fetch",
       "type": "timeseries"
+    },
+    {
+      "datasource": "$datasource",
+      "description": "The number of individual requests made to the GitLab API in the last 24 hours.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 2000
+              },
+              {
+                "color": "red",
+                "value": 4000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 8
+      },
+      "id": 15,
+      "interval": "1m",
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "9.1.7",
+      "targets": [
+        {
+          "datasource": "$datasource",
+          "editorMode": "builder",
+          "expr": "sum(count_over_time(redhat_appstudio_spi_service_provider_request_count_total{sp=\"GitLab\"}[24h]))",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GitLab Requests per day",
+      "type": "gauge"
     },
     {
       "datasource": "$datasource",
@@ -826,8 +758,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -876,6 +807,66 @@
     },
     {
       "datasource": "$datasource",
+      "description": "The mean of the overall time to fetch the metadata of a single token in GitLab.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 12
+      },
+      "id": 12,
+      "interval": "1m",
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "9.1.7",
+      "targets": [
+        {
+          "datasource": "$datasource",
+          "editorMode": "code",
+          "expr": "sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_sum{failure=\"false\"}) / sum(redhat_appstudio_spi_gitlab_token_metadata_fetch_seconds_count{failure=\"false\"}) ",
+          "interval": "",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GitLab Metadata Fetch Mean",
+      "type": "gauge"
+    },
+    {
+      "datasource": "$datasource",
       "description": "The individual requests made to the service providers.",
       "fieldConfig": {
         "defaults": {
@@ -917,8 +908,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1372,13 +1362,13 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "SPI Outbound traffic",
   "uid": "02eba7fa13efdec3252f76353f9243ec45ac9a14",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
