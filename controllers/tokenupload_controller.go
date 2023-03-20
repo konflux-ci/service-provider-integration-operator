@@ -45,9 +45,11 @@ import (
 )
 
 const (
-	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
-	providerUrlField  = "providerUrl"
+	tokenSecretLabel            = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	targetEnvironmentAnnotation = "spi.appstudio.redhat.com/target-environment"
+	spiTokenNameField           = "spiTokenName" //#nosec G101 -- false positive, this is not a token
+	remoteSecretNameAnnotation  = "spi.appstudio.redhat.com/remote-secret-name"
+	providerUrlField            = "providerUrl"
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
@@ -116,6 +118,22 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			break
 		case "secret":
 			logs.AuditLog(ctx).Info("manual token upload initiated for ", uploadSecret.Namespace, secretType)
+			// try to find  RemoteSecret
+			remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
+			if err != nil {
+				r.logError(ctx, uploadSecret, fmt.Errorf("can not find RemoteSecret: %w ", err), lg)
+				continue
+			} else if remoteSecret == nil {
+				// SPIAccessToken does not exist, so create it
+				remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
+				if err != nil {
+					r.logError(ctx, uploadSecret, fmt.Errorf("can not create RemoteSecret: %w ", err), lg)
+					continue
+				}
+			}
+			logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, remoteSecret.Name)
+			logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, remoteSecret.Name)
+			r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
 
 		default:
 			logs.AuditLog(ctx).Error(err, "Unknown upload secret", uploadSecret.Namespace, secretType)
@@ -223,6 +241,29 @@ func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSe
 	}
 }
 
+func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
+	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+	if remoteSecretName == "" {
+		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
+		return nil, nil
+	}
+
+	remoteSecret := spi.RemoteSecret{}
+	err := r.Get(ctx, types.NamespacedName{Name: remoteSecretName, Namespace: uploadSecret.Namespace}, &remoteSecret)
+
+	if err != nil {
+		if kuberrors.IsNotFound(err) {
+			lg.V(logs.DebugLevel).Info("RemoteSecret NOT found, will try to create  ", "RemoteSecret.name", remoteSecret.Name)
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("can not find RemoteSecret %s: %w ", remoteSecretName, err)
+		}
+	} else {
+		lg.V(logs.DebugLevel).Info("RemoteSecret found : ", "RemoteSecret.name", remoteSecret.Name)
+		return &remoteSecret, nil
+	}
+}
+
 func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	accessToken := spi.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
@@ -232,6 +273,7 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 			ServiceProviderUrl: string(uploadSecret.Data[providerUrlField]),
 		},
 	}
+
 	spiTokenName := string(uploadSecret.Data[spiTokenNameField])
 	if spiTokenName == "" {
 		accessToken.GenerateName = "generated-"
@@ -245,5 +287,35 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 		return &accessToken, nil
 	} else {
 		return nil, fmt.Errorf("can not create SPIAccessToken %s. Reason: %w", accessToken.Name, err)
+	}
+}
+
+func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
+	targetEnvironment, ok := uploadSecret.Annotations[targetEnvironmentAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("can not create RemoteSecret %s. target environment is not set", uploadSecret.Name)
+	}
+	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+	remoteSecret := spi.RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: uploadSecret.Namespace,
+		},
+		Spec: spi.RemoteSecretSpec{
+			EnvironmentName: targetEnvironment,
+		},
+	}
+
+	if remoteSecretName == "" {
+		remoteSecret.GenerateName = "generated-"
+	} else {
+		remoteSecret.Name = remoteSecretName
+	}
+
+	err := r.Create(ctx, &remoteSecret)
+	if err == nil {
+		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "environment", targetEnvironment)
+		return &remoteSecret, nil
+	} else {
+		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
 	}
 }

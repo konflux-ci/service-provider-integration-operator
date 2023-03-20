@@ -23,7 +23,6 @@ import (
 // RemoteSecretSpec defines the desired state of RemoteSecret
 type RemoteSecretSpec struct {
 	EnvironmentName string `json:"environmentName,omitempty"`
-	SecretName      string `json:"secretname,omitempty"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
@@ -48,8 +47,8 @@ type RemoteSecret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SPIAccessTokenSpec   `json:"spec,omitempty"`
-	Status SPIAccessTokenStatus `json:"status,omitempty"`
+	Spec   RemoteSecretSpec   `json:"spec,omitempty"`
+	Status RemoteSecretStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
