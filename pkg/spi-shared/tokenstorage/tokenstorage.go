@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 )
 
@@ -42,6 +43,8 @@ type DefaultTokenStorage struct {
 	Serializer func(*api.Token) ([]byte, error)
 	// Deserializer is a function to turn byte arrays back into token objects. You can use JSONDeserializer if it fits your purpose.
 	Deserializer func([]byte, *api.Token) error
+
+	spiInstanceId string
 }
 
 // JSONSerializer is a thin wrapper around Marshal function of encoding/json.
@@ -63,7 +66,7 @@ func JSONDeserializer(data []byte, token *api.Token) error {
 
 // Delete implements TokenStorage
 func (s *DefaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	if err := s.SecretStorage.Delete(ctx, toSecretID(owner)); err != nil && errors.Is(err, secretstorage.NotFoundError) {
+	if err := s.SecretStorage.Delete(ctx, s.toSecretID(owner)); err != nil && errors.Is(err, secretstorage.NotFoundError) {
 		return fmt.Errorf("failed to delete the token data: %w", err)
 	}
 	return nil
@@ -71,7 +74,7 @@ func (s *DefaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessTo
 
 // Get implements TokenStorage
 func (s *DefaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	data, err := s.SecretStorage.Get(ctx, toSecretID(owner))
+	data, err := s.SecretStorage.Get(ctx, s.toSecretID(owner))
 	if errors.Is(err, secretstorage.NotFoundError) {
 		return nil, nil
 	} else if err != nil {
@@ -92,6 +95,8 @@ func (s *DefaultTokenStorage) Initialize(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize the underlying secret storage: %w", err)
 	}
 
+	s.spiInstanceId = fmt.Sprint(ctx.Value(config.SPIInstanceIdContextKey))
+
 	return nil
 }
 
@@ -102,7 +107,7 @@ func (s *DefaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessTok
 		return fmt.Errorf("failed to serialize the token data: %w", err)
 	}
 
-	if err = s.SecretStorage.Store(ctx, toSecretID(owner), data); err != nil {
+	if err = s.SecretStorage.Store(ctx, s.toSecretID(owner), data); err != nil {
 		return fmt.Errorf("failed to store the token data: %w", err)
 	}
 
@@ -129,9 +134,10 @@ func (s *DefaultTokenStorage) toData(t *api.Token) ([]byte, error) {
 
 var _ TokenStorage = (*DefaultTokenStorage)(nil)
 
-func toSecretID(t *api.SPIAccessToken) secretstorage.SecretID {
+func (s *DefaultTokenStorage) toSecretID(t *api.SPIAccessToken) secretstorage.SecretID {
 	return secretstorage.SecretID{
-		Name:      t.Name,
-		Namespace: t.Namespace,
+		Name:          t.Name,
+		Namespace:     t.Namespace,
+		SpiInstanceId: s.spiInstanceId,
 	}
 }

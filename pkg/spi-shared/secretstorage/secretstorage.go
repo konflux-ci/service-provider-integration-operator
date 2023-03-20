@@ -25,8 +25,9 @@ import (
 // be more explicit and forward-compatible should any changes to this struct arise in
 // the future.
 type SecretID struct {
-	Name      string
-	Namespace string
+	Name          string
+	Namespace     string
+	SpiInstanceId string
 }
 
 // String returns the string representation of the SecretID.

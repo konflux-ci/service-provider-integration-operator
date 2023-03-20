@@ -25,7 +25,6 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -48,16 +47,14 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	Config           *aws.Config
-	secretNameFormat string
-	client           awsClient
+	Config *aws.Config
+	client awsClient
 }
 
 func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 	lg(ctx).Info("initializing AWS token storage")
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
-	s.secretNameFormat = initSecretNameFormat(ctx)
 
 	if errCheck := s.checkCredentials(ctx); errCheck != nil {
 		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
@@ -201,13 +198,5 @@ func lg(ctx context.Context) logr.Logger {
 }
 
 func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretID) *string {
-	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Namespace, secretId.Name))
-}
-
-func initSecretNameFormat(ctx context.Context) string {
-	if spiInstanceId := ctx.Value(config.SPIInstanceIdContextKey); spiInstanceId == nil {
-		return "%s/%s"
-	} else {
-		return fmt.Sprint(spiInstanceId) + "/%s/%s"
-	}
+	return aws.String(fmt.Sprintf("%s/%s/%s", secretId.SpiInstanceId, secretId.Namespace, secretId.Name))
 }
