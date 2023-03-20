@@ -92,8 +92,8 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
-	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId))
 	ctx = context.WithValue(ctx, config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
+	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId))
 
 	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {
