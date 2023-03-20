@@ -83,27 +83,13 @@ make run_oauth
 ```
 
 ### Running in cluster
-Again, there is a dedicated make target to deploy the operator into the cluster:
-
-For OpenShift, use:
-
+Again, there is a dedicated make target to deploy the operator with OAuth service into the cluster:
 ```
-make deploy
+make deploy_openshift       # OpenShift with Vault tokenstorage
+make deploy_openshift_aws   # OpenShift with AWS tokenstorage
+make deploy_minikube        # minikube with Vault tokenstorage
+make deploy_minikube_aws    # minikube with AWS tokenstorage
 ```
-
-For Kubernetes, use:
-```
-make deploy_k8s
-```
-Once deployed, several manual modifications need to be made. See the below section about manual testing
-with custom images for details.
-
-For Minikube, use:
-```
-make deploy_minikube
-```
-
-This differs from the `deploy_k8s` target in that it automatically configures the URLs of the OAuth host and Vault host to point to the cluster using the `.nip.io` hostnames as one normally does to make endpoints running in Minikube accessible using hostnames.
 
 ## Debugging
 
@@ -135,7 +121,7 @@ default one, specify just the `SPIS_IMG` or `SPIO_IMG` env var below.
 
 On OpenShift use:
 ```
-make deploy SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
+make deploy_openshift SPI_IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
 
 On Minikube use:

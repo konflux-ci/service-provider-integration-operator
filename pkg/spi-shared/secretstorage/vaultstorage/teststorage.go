@@ -12,18 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !release
+// go:build !release
 
 package vaultstorage
 
 import (
-	"context"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
 	"github.com/hashicorp/go-hclog"
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	vaultapi "github.com/hashicorp/vault/api"
@@ -32,63 +25,22 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
 	vtesting "github.com/mitchellh/go-testing-interface"
-
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 )
 
-type TestTokenStorage struct {
-	InitializeImpl func(context.Context) error
-	StoreImpl      func(context.Context, *api.SPIAccessToken, *api.Token) error
-	GetImpl        func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error)
-	DeleteImpl     func(context.Context, *api.SPIAccessToken) error
-}
-
-func (t TestTokenStorage) Initialize(ctx context.Context) error {
-	if t.InitializeImpl == nil {
-		return nil
-	}
-
-	return t.InitializeImpl(ctx)
-}
-
-func (t TestTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
-	if t.StoreImpl == nil {
-		return nil
-	}
-
-	return t.StoreImpl(ctx, owner, token)
-}
-
-func (t TestTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	if t.GetImpl == nil {
-		return nil, nil
-	}
-
-	return t.GetImpl(ctx, owner)
-}
-
-func (t TestTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	if t.DeleteImpl == nil {
-		return nil
-	}
-
-	return t.DeleteImpl(ctx, owner)
-}
-
-var _ tokenstorage.TokenStorage = (*TestTokenStorage)(nil)
-
-func CreateTestVaultTokenStorage(t vtesting.T) (*vault.TestCluster, tokenstorage.TokenStorage) {
+func CreateTestVaultSecretStorage(t vtesting.T) (*vault.TestCluster, *VaultSecretStorage) {
 	t.Helper()
 	cluster, storage, _, _ := createTestVaultTokenStorage(t, false, nil)
 	return cluster, storage
 }
 
-func CreateTestVaultTokenStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry *prometheus.Registry) (*vault.TestCluster, tokenstorage.TokenStorage, string, string) {
+func CreateTestVaultSecretStorageWithAuthAndMetrics(t vtesting.T, metricsRegistry *prometheus.Registry) (*vault.TestCluster, *VaultSecretStorage, string, string) {
 	t.Helper()
 	return createTestVaultTokenStorage(t, true, metricsRegistry)
 }
 
-func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prometheus.Registry) (*vault.TestCluster, tokenstorage.TokenStorage, string, string) {
+func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prometheus.Registry) (*vault.TestCluster, *VaultSecretStorage, string, string) {
 	t.Helper()
 
 	coreConfig := &vault.CoreConfig{
@@ -199,5 +151,5 @@ func createTestVaultTokenStorage(t vtesting.T, auth bool, metricsRegistry *prome
 	} else {
 		nilSafeRegistry = metricsRegistry
 	}
-	return cluster, &vaultTokenStorage{Client: client, loginHandler: lh, config: &VaultStorageConfig{DataPathPrefix: "spi", MetricsRegisterer: nilSafeRegistry}}, roleId, secretId
+	return cluster, &VaultSecretStorage{ignoreLoginHandler: !auth, client: client, loginHandler: lh, Config: &VaultStorageConfig{DataPathPrefix: "spi", MetricsRegisterer: nilSafeRegistry}}, roleId, secretId
 }

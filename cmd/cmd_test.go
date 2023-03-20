@@ -40,7 +40,7 @@ func TestCreateTokenStorage(t *testing.T) {
 
 		assert.Nil(t, strg)
 		assert.Error(t, err)
-		assert.ErrorContains(t, err, "vault")
+		assert.ErrorContains(t, err, "Host")
 	})
 
 	t.Run("fail AWS new", func(t *testing.T) {

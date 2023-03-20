@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spi-controller-manager
+  namespace: spi-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        volumeMounts:
+          - mountPath: /etc/spi/secret_id
+            name: vault-approle
+            readOnly: true
+            subPath: secret_id
+          - mountPath: /etc/spi/role_id
+            name: vault-approle
+            readOnly: true
+            subPath: role_id
+      volumes:
+        - name: vault-approle
+          secret:
+            secretName: vault-approle-spi-operator
+            items:
+              - key: role_id
+                path: role_id
+              - key: secret_id
+                path: secret_id

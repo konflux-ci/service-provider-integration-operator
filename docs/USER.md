@@ -140,12 +140,12 @@ spec:
 There is an ability to upload Personal Access Token using very short living K8s Secret.
 Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secret: token` label, gets the PAT and the Name of the SPIAccessToken associated with it, then deletes the Secret (for better security reason) and uploads the Token (which in turn updates the Status of associated SPIAccess/Token/TokenBinding).
 
-- To enable this option SPI Operator should be configured with `ENABLETOKENUPLOAD=true` (see Admin Guide for details).
 - If you want to associate it to existed SPIAccessToken, find the name of SPIAccessToken you want to associate Access Token to like:
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
 - Create Kubernetes Secret with labeled with `spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
-- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `spi.appstudio.redhat.com/token-name` label or just remove this label (or leave it empty), in the latter case SPIAccessToken name will be randomly generated. 
+- Field `userName` can be used to set concrete provider's username that should be associated with token.
+- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `stringData.spiTokenName`  or do not have this field, in the latter case SPIAccessToken name will be randomly generated. In this case make sure you added `providerUrl` and point it to the valid, registered `URL_PROVIDER` 
 
 ```yaml
 apiVersion: v1
@@ -154,10 +154,11 @@ metadata:
   name: $UPLOAD-SECRET_NAME
   labels:
     spi.appstudio.redhat.com/upload-secret: token
-    spi.appstudio.redhat.com/token-name: $TOKEN_NAME
 type: Opaque
 stringData:
-  
+  spiTokenName: $TOKEN_NAME
+  providerUrl: $PROVIDER_URL
+  userName: $USER_NAME
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.

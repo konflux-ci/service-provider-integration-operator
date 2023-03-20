@@ -113,8 +113,9 @@ func createSecret(name string, spiAccessTokenName string, serviceProviderURL str
 	}
 
 	if spiAccessTokenName != "" {
-		o.Labels["spi.appstudio.redhat.com/token-name"] = spiAccessTokenName
-	} else if serviceProviderURL != "" {
+		o.StringData["spiTokenName"] = spiAccessTokenName
+	}
+	if serviceProviderURL != "" {
 		o.StringData["providerUrl"] = serviceProviderURL
 	}
 
