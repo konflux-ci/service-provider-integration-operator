@@ -1,6 +1,6 @@
 module github.com/redhat-appstudio/service-provider-integration-operator
 
-go 1.19
+go 1.20
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.1
