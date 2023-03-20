@@ -26,7 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 
 	"github.com/prometheus/client_golang/prometheus"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -54,7 +54,7 @@ func init() {
 }
 
 func ServeMetrics(ctx context.Context, address string) {
-	setupLog := ctrl.Log.WithName("metrics")
+	setupLog := log.FromContext(ctx).WithName("metrics")
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 	server := &http.Server{Addr: address,

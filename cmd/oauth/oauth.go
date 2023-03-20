@@ -38,6 +38,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func main() {
@@ -48,7 +49,9 @@ func main() {
 
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	setupLog := ctrl.Log.WithName("setup")
+	setupLog := ctrl.Log.WithName("setup").WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId)
+	ctx = log.IntoContext(ctx, setupLog)
+
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	var err error
