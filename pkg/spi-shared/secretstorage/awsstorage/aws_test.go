@@ -20,9 +20,10 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,9 +37,9 @@ var testSecretID = secretstorage.SecretID{
 
 func TestInitialize(t *testing.T) {
 	ctx := context.TODO()
-	awsConfig, _ := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigFiles([]string{"nothing"}),
-		config.WithSharedCredentialsFiles([]string{"nothing"}))
+	awsConfig, _ := awsconfig.LoadDefaultConfig(ctx,
+		awsconfig.WithSharedConfigFiles([]string{"nothing"}),
+		awsconfig.WithSharedCredentialsFiles([]string{"nothing"}))
 	strg := AwsSecretStorage{
 		Config: &awsConfig,
 	}
@@ -48,8 +49,16 @@ func TestInitialize(t *testing.T) {
 	assert.Error(t, errInit)
 }
 
+func TestInitSecretNameFormat(t *testing.T) {
+	ctx := context.WithValue(context.TODO(), config.SPIInstanceIdContextKey, "blabol")
+	assert.Contains(t, initSecretNameFormat(ctx), "blabol")
+}
+
 func TestGenerateSecretName(t *testing.T) {
-	secretName := generateAwsSecretName(&secretstorage.SecretID{Namespace: "tokennamespace", Name: "tokenname"})
+	s := AwsSecretStorage{
+		secretNameFormat: "%s/%s",
+	}
+	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Namespace: "tokennamespace", Name: "tokenname"})
 
 	assert.NotNil(t, secretName)
 	assert.Contains(t, *secretName, "tokennamespace")
