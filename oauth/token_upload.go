@@ -48,7 +48,7 @@ type SpiTokenUploader struct {
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName)
+	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
 	if err := u.K8sClient.Get(ctx, client.ObjectKey{Name: tokenObjectName, Namespace: tokenObjectNamespace}, token); err != nil {
 		return fmt.Errorf("failed to get SPIAccessToken object %s/%s: %w", tokenObjectNamespace, tokenObjectName, err)
