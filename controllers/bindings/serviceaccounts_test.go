@@ -112,7 +112,9 @@ func TestServiceAccountSync(t *testing.T) {
 	scheme := runtime.NewScheme()
 	assert.NoError(t, corev1.AddToScheme(scheme))
 
-	clBld := fake.NewClientBuilder().WithScheme(scheme)
+	clBld := func() *fake.ClientBuilder {
+		return fake.NewClientBuilder().WithScheme(scheme)
+	}
 
 	binding := &api.SPIAccessTokenBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,7 +128,7 @@ func TestServiceAccountSync(t *testing.T) {
 	}
 
 	t.Run("with SA", func(t *testing.T) {
-		cl := clBld.WithObjects(
+		cl := clBld().WithObjects(
 			&corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "sa",
@@ -155,8 +157,6 @@ func TestServiceAccountSync(t *testing.T) {
 			},
 		}
 
-		h.Binding = binding
-
 		sas, _, err := h.Sync(context.TODO())
 		assert.NoError(t, err)
 
@@ -179,7 +179,7 @@ func TestServiceAccountSync(t *testing.T) {
 	})
 
 	t.Run("no SA", func(t *testing.T) {
-		cl := clBld.Build()
+		cl := clBld().Build()
 		h.Client = cl
 
 		binding.Spec.Secret.LinkedTo = []api.SecretLink{
@@ -223,6 +223,229 @@ func TestServiceAccountSync(t *testing.T) {
 		assert.Equal(t, sa.Name, storedSA.Name)
 		assert.Equal(t, sa.Labels, storedSA.Labels)
 		assert.Equal(t, sa.Annotations, storedSA.Annotations)
+	})
+
+	t.Run("flip referenced to managed", func(t *testing.T) {
+		cl := clBld().
+			WithObjects(
+				&corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sa",
+						Namespace: "default",
+					},
+				},
+			).
+			Build()
+
+		h.Client = cl
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Reference: corev1.LocalObjectReference{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err := h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA := &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.NotContains(t, ManagedByLabel, storedSA.Labels)
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Managed: api.ManagedServiceAccountSpec{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err = h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA = &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+	})
+
+	t.Run("flip managed to referenced", func(t *testing.T) {
+		cl := clBld().Build()
+
+		h.Client = cl
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Managed: api.ManagedServiceAccountSpec{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err := h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA := &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Reference: corev1.LocalObjectReference{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err = h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA = &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.NotContains(t, ManagedByLabel, storedSA.Labels)
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+	})
+
+	t.Run("disallow taking ownership", func(t *testing.T) {
+		cl := clBld().Build()
+
+		h.Client = cl
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Managed: api.ManagedServiceAccountSpec{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err := h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA := &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+
+		binding.Name = "binding2"
+
+		_, _, err = h.Sync(context.TODO())
+
+		binding.Name = "binding"
+
+		assert.Error(t, err)
+
+		storedSA = &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+	})
+
+	t.Run("single owner, multiple referenced", func(t *testing.T) {
+		cl := clBld().Build()
+
+		h.Client = cl
+
+		binding.Spec.Secret.LinkedTo = []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Managed: api.ManagedServiceAccountSpec{
+						Name: "sa",
+					},
+				},
+			},
+		}
+
+		_, _, err := h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA := &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+
+		binding2 := &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "binding2",
+				Namespace: "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				Secret: api.SecretSpec{
+					LinkedTo: []api.SecretLink{
+						{
+							ServiceAccount: api.ServiceAccountLink{
+								Reference: corev1.LocalObjectReference{
+									Name: "sa",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		binding3 := &api.SPIAccessTokenBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "binding3",
+				Namespace: "default",
+			},
+			Spec: api.SPIAccessTokenBindingSpec{
+				Secret: api.SecretSpec{
+					LinkedTo: []api.SecretLink{
+						{
+							ServiceAccount: api.ServiceAccountLink{
+								Reference: corev1.LocalObjectReference{
+									Name: "sa",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		h.Binding = binding2
+
+		_, _, err = h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA = &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding,binding2", storedSA.Annotations[LinkAnnotation])
+
+		h.Binding = binding3
+
+		_, _, err = h.Sync(context.TODO())
+		assert.NoError(t, err)
+
+		storedSA = &corev1.ServiceAccount{}
+		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
+		assert.Equal(t, "sa", storedSA.Name)
+		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
+		assert.Equal(t, "binding,binding2,binding3", storedSA.Annotations[LinkAnnotation])
 	})
 }
 
