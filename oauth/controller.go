@@ -56,13 +56,13 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
 	ts := &tokenstorage.NotifyingTokenStorage{
-		Client:       cfg.UserAuthK8sClient,
-		TokenStorage: cfg.TokenStorage,
+		ClientFactory: cfg.ClientFactory,
+		TokenStorage:  cfg.TokenStorage,
 	}
 
 	controller := &commonController{
 		OAuthServiceConfiguration: cfg.OAuthServiceConfiguration,
-		UserAuthK8sClient:         cfg.UserAuthK8sClient,
+		ClientFactory:             cfg.ClientFactory,
 		InClusterK8sClient:        cfg.InClusterK8sClient,
 		TokenStorage:              ts,
 		Authenticator:             cfg.Authenticator,

@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
 	"html/template"
 	"net/http"
 	"os"
@@ -72,14 +73,11 @@ func main() {
 	router := mux.NewRouter()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
-
-	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
-	if errUserAuthClient != nil {
-		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
-		os.Exit(1)
+	clientFactory := clientfactory.WSClientFactory{
+		FactoryConfig: clientFactoryConfig,
 	}
 
-	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&clientFactoryConfig)
+	inClusterK8sClient, errK8sClient := clientFactory.CreateInClusterClient()
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
@@ -92,10 +90,10 @@ func main() {
 	}
 
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: userAuthClient,
+		ClientFactory: clientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       userAuthClient,
-			TokenStorage: strg,
+			ClientFactory: clientFactory,
+			TokenStorage:  strg,
 		},
 	}
 
@@ -108,7 +106,7 @@ func main() {
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
-	authenticator := oauth.NewAuthenticator(sessionManager, userAuthClient)
+	authenticator := oauth.NewAuthenticator(sessionManager, clientFactory)
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
@@ -132,7 +130,7 @@ func main() {
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
-		UserAuthK8sClient:         userAuthClient,
+		ClientFactory:             clientFactory,
 		InClusterK8sClient:        inClusterK8sClient,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
@@ -198,8 +196,8 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
 }
 
-func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
-	return oauth.ClientFactoryConfig{
+func createClientFactoryConfig(args cli.OAuthServiceCliArgs) clientfactory.ClientFactoryConfig {
+	return clientfactory.ClientFactoryConfig{
 		KubeConfig:      args.KubeConfig,
 		KubeInsecureTLS: args.KubeInsecureTLS,
 		ApiServer:       args.ApiServer,

@@ -11,10 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package clientfactory
 
 import (
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	"net/url"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -40,9 +41,13 @@ type ClientFactoryConfig struct {
 	ApiServerCAPath string
 }
 
+type WSClientFactory struct {
+	FactoryConfig ClientFactoryConfig
+}
+
 // CreateUserAuthClient creates a new client based on the provided configuration. We use this client for k8s requests with user's token (e.g.: SelfSubjectAccessReview).
 // Note that configuration is potentially modified during the call.
-func CreateUserAuthClient(args *ClientFactoryConfig) (AuthenticatingClient, error) {
+func (f WSClientFactory) CreateUserAuthClient(namespace string) (AuthenticatingClient, error) {
 	// we can't use the default dynamic rest mapper, because we don't have a token that would enable us to connect
 	// to the cluster just yet. Therefore, we need to list all the resources that we are ever going to query using our
 	// client here thus making the mapper not reach out to the target cluster at all.
@@ -51,15 +56,15 @@ func CreateUserAuthClient(args *ClientFactoryConfig) (AuthenticatingClient, erro
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
 
-	return createClient(args, mapper, true)
+	return createClient(&f.FactoryConfig, mapper, true)
 }
 
 // CreateInClusterClient creates a new client based on the provided configuration. We use this client for k8s requests with ServiceAccount (e.g.: reading configuration secrets).
-func CreateInClusterClient(args *ClientFactoryConfig) (client.Client, error) {
+func (f WSClientFactory) CreateInClusterClient() (client.Client, error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 
-	return createClient(args, mapper, false)
+	return createClient(&f.FactoryConfig, mapper, false)
 }
 
 func createClient(args *ClientFactoryConfig, mapper meta.RESTMapper, userAuthentication bool) (client.Client, error) {
@@ -93,7 +98,7 @@ func customizeKubeconfig(kubeconfig *rest.Config, args *ClientFactoryConfig, use
 	}
 
 	if userAuthentication {
-		AugmentConfiguration(kubeconfig)
+		oauth.AugmentConfiguration(kubeconfig)
 	}
 
 	return kubeconfig, nil
