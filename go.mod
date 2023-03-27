@@ -20,7 +20,7 @@ require (
 	github.com/google/go-github/v45 v45.2.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/go-hclog v1.4.0
+	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/hashicorp/vault v1.13.0
 	github.com/hashicorp/vault-plugin-secrets-kv v0.14.2
