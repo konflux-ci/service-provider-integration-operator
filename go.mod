@@ -7,7 +7,7 @@ require (
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go-v2 v1.17.7
 	github.com/aws/aws-sdk-go-v2/config v1.18.19
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.0
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.1
 	github.com/aws/smithy-go v1.13.5
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/go-jose/go-jose/v3 v3.0.0
