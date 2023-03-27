@@ -200,7 +200,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
-	ctx, err := c.WsContextSupplier.NewWorkspaceContext(ctx, exchange.TokenNamespace)
+	ctx, err := c.WsContextSupplier.NewContext(ctx, exchange.TokenNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to prepare workspace context for SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
 	}

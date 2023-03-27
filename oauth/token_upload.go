@@ -52,7 +52,7 @@ type SpiTokenUploader struct {
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName)
 	token := &api.SPIAccessToken{}
-	ctx, err := u.WsContextSupplier.NewWorkspaceContext(ctx, tokenObjectNamespace)
+	ctx, err := u.WsContextSupplier.NewContext(ctx, tokenObjectNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to prepare workspace context for SPIAccessToken object %s/%s: %w", tokenObjectNamespace, tokenObjectName, err)
 	}
