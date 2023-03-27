@@ -15,6 +15,9 @@ package oauth
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
 	authz "k8s.io/api/authorization/v1"
@@ -25,8 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	certutil "k8s.io/client-go/util/cert"
-	"net/http"
-	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
