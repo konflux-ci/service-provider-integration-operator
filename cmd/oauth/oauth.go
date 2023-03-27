@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
 	"html/template"
 	"net/http"
 	"os"
@@ -91,8 +92,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	wsContextSupplier := workspace.ContextSupplier{
+		ApiServerUrl: args.ApiServer,
+		HTTPClient: ???,
+	}
+
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: userAuthClient,
+		WsContextSupplier: wsContextSupplier,
+		K8sClient:         userAuthClient,
 		Storage: tokenstorage.NotifyingTokenStorage{
 			Client:       userAuthClient,
 			TokenStorage: strg,
@@ -134,6 +141,7 @@ func main() {
 		StateStorage:              stateStorage,
 		UserAuthK8sClient:         userAuthClient,
 		InClusterK8sClient:        inClusterK8sClient,
+		WsContextSupplier:         wsContextSupplier,
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}

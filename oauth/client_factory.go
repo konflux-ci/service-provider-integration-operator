@@ -15,7 +15,10 @@ package oauth
 
 import (
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
+	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	authz "k8s.io/api/authorization/v1"
@@ -96,6 +99,10 @@ func customizeKubeconfig(kubeconfig *rest.Config, args *ClientFactoryConfig, use
 		AugmentConfiguration(kubeconfig)
 	}
 
+	kubeconfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return &workspaceRoundTripper{next: rt}
+	})
+
 	return kubeconfig, nil
 }
 
@@ -166,4 +173,19 @@ func baseKubernetesConfig(args *ClientFactoryConfig, userAuthentication bool) (*
 		}
 		return cfg, nil
 	}
+}
+
+type workspaceRoundTripper struct {
+	next http.RoundTripper
+}
+
+func (w workspaceRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	if wsName, hasWsName := workspace.FromContext(request.Context()); hasWsName {
+		request.URL.Path = path.Join("/workspaces", wsName, request.URL.Path)
+	}
+	response, err := w.next.RoundTrip(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run next http roundtrip: %w", err)
+	}
+	return response, nil
 }

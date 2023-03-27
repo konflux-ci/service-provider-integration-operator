@@ -67,6 +67,7 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		TokenStorage:              ts,
 		Authenticator:             cfg.Authenticator,
 		StateStorage:              cfg.StateStorage,
+		WsContextSupplier:         cfg.WsContextSupplier,
 		RedirectTemplate:          cfg.RedirectTemplate,
 		ServiceProviderType:       spType,
 	}

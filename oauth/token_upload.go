@@ -16,9 +16,9 @@ package oauth
 import (
 	"context"
 	"fmt"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -43,13 +43,18 @@ func (u UploadFunc) Upload(ctx context.Context, tokenObjectName string, tokenObj
 var _ TokenUploader = (UploadFunc)(nil)
 
 type SpiTokenUploader struct {
-	K8sClient client.Client
-	Storage   tokenstorage.TokenStorage
+	K8sClient         client.Client
+	WsContextSupplier workspace.ContextSupplier
+	Storage           tokenstorage.TokenStorage
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName)
 	token := &api.SPIAccessToken{}
+	ctx, err := u.WsContextSupplier.NewWorkspaceContext(ctx, tokenObjectNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to prepare workspace context for SPIAccessToken object %s/%s: %w", tokenObjectNamespace, tokenObjectName, err)
+	}
 	if err := u.K8sClient.Get(ctx, client.ObjectKey{Name: tokenObjectName, Namespace: tokenObjectNamespace}, token); err != nil {
 		return fmt.Errorf("failed to get SPIAccessToken object %s/%s: %w", tokenObjectNamespace, tokenObjectName, err)
 	}

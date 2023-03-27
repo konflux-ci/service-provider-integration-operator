@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
 	"html/template"
 	"net/http"
 	"strings"
@@ -44,6 +45,7 @@ var (
 type commonController struct {
 	OAuthServiceConfiguration
 	UserAuthK8sClient   AuthenticatingClient
+	WsContextSupplier   workspace.ContextSupplier
 	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
@@ -197,6 +199,10 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
+	ctx, err := c.WsContextSupplier.NewWorkspaceContext(ctx, exchange.TokenNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to prepare workspace context for SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
+	}
 	if err := c.UserAuthK8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
 		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
 	}

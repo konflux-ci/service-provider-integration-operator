@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/workspace"
 	"html/template"
 	"net/http"
 	"time"
@@ -53,6 +54,7 @@ type RouterConfiguration struct {
 	Authenticator      *Authenticator
 	StateStorage       StateStorage
 	UserAuthK8sClient  AuthenticatingClient
+	WsContextSupplier  workspace.ContextSupplier
 	InClusterK8sClient client.Client
 	TokenStorage       tokenstorage.TokenStorage
 	RedirectTemplate   *template.Template
