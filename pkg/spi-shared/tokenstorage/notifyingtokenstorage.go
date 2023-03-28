@@ -17,6 +17,7 @@ package tokenstorage
 import (
 	"context"
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -73,6 +74,7 @@ func (n NotifyingTokenStorage) createDataUpdate(ctx context.Context, owner *api.
 			TokenName: owner.Name,
 		},
 	}
+
 	err := n.Client.Create(ctx, update)
 	if err != nil {
 		return fmt.Errorf("error creating data update: %w", err)

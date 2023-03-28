@@ -17,11 +17,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
+
+	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
