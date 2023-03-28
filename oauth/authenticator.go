@@ -16,7 +16,6 @@ package oauth
 import (
 	"context"
 	"errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
 	"net/http"
 	"time"
 
@@ -27,7 +26,7 @@ import (
 )
 
 type Authenticator struct {
-	ClientFactory  clientfactory.WSClientFactory
+	ClientFactory  ClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -121,7 +120,7 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory clientfactory.WSClientFactory) *Authenticator {
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory ClientFactory) *Authenticator {
 	return &Authenticator{
 		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,

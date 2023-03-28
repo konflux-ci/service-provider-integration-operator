@@ -16,7 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"html/template"
 	"net/http"
 	"os"
@@ -73,8 +73,9 @@ func main() {
 	router := mux.NewRouter()
 
 	clientFactoryConfig := createClientFactoryConfig(args)
-	clientFactory := clientfactory.WSClientFactory{
+	clientFactory := oauth.ClientFactory{
 		FactoryConfig: clientFactoryConfig,
+		HTTPClient:    &http.Client{Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: http.DefaultTransport}},
 	}
 
 	inClusterK8sClient, errK8sClient := clientFactory.CreateInClusterClient()
@@ -92,8 +93,8 @@ func main() {
 	tokenUploader := oauth.SpiTokenUploader{
 		ClientFactory: clientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			ClientFactory: clientFactory,
-			TokenStorage:  strg,
+			Client:       inClusterK8sClient,
+			TokenStorage: strg,
 		},
 	}
 
@@ -196,8 +197,8 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
 }
 
-func createClientFactoryConfig(args cli.OAuthServiceCliArgs) clientfactory.ClientFactoryConfig {
-	return clientfactory.ClientFactoryConfig{
+func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
+	return oauth.ClientFactoryConfig{
 		KubeConfig:      args.KubeConfig,
 		KubeInsecureTLS: args.KubeInsecureTLS,
 		ApiServer:       args.ApiServer,

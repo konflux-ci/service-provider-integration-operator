@@ -16,8 +16,6 @@ package oauth
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,14 +42,14 @@ func (u UploadFunc) Upload(ctx context.Context, tokenObjectName string, tokenObj
 var _ TokenUploader = (UploadFunc)(nil)
 
 type SpiTokenUploader struct {
-	ClientFactory clientfactory.WSClientFactory
+	ClientFactory ClientFactory
 	Storage       tokenstorage.TokenStorage
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
-	cl, err := u.ClientFactory.CreateUserAuthClient(tokenObjectNamespace)
+	cl, err := u.ClientFactory.CreateUserAuthClientForNamespace(ctx, tokenObjectNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", tokenObjectNamespace, err)
 	}

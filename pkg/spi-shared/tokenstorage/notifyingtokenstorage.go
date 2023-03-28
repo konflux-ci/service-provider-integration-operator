@@ -17,7 +17,7 @@ package tokenstorage
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +27,7 @@ import (
 // the v1beta1.SPIAccessTokenDataUpdate objects.
 type NotifyingTokenStorage struct {
 	// Client is the kubernetes client to use to create the v1beta1.SPIAccessTokenDataUpdate objects.
-	ClientFactory clientfactory.WSClientFactory
+	Client client.Client
 
 	// TokenStorage is the token storage to delegate the actual storage operations to.
 	TokenStorage TokenStorage
@@ -73,11 +73,7 @@ func (n NotifyingTokenStorage) createDataUpdate(ctx context.Context, owner *api.
 			TokenName: owner.Name,
 		},
 	}
-	k8sClient, err := n.ClientFactory.CreateUserAuthClient(owner.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to create K8S client for namespace %s: %w", owner.Namespace, err)
-	}
-	err = k8sClient.Create(ctx, update)
+	err := n.Client.Create(ctx, update)
 	if err != nil {
 		return fmt.Errorf("error creating data update: %w", err)
 	}

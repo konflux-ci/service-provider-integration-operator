@@ -17,7 +17,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/clientfactory"
 	"html/template"
 	"net/http"
 	"strings"
@@ -44,7 +43,7 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	ClientFactory       clientfactory.WSClientFactory
+	ClientFactory       ClientFactory
 	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
@@ -198,7 +197,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
-	k8sClient, err := c.ClientFactory.CreateUserAuthClient(exchange.TokenNamespace)
+	k8sClient, err := c.ClientFactory.CreateUserAuthClientForNamespace(ctx, exchange.TokenNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
 	}
@@ -233,7 +232,7 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 		},
 	}
 
-	k8sClient, err := c.ClientFactory.CreateUserAuthClient(state.TokenNamespace)
+	k8sClient, err := c.ClientFactory.CreateUserAuthClientForNamespace(ctx, state.TokenNamespace)
 	if err != nil {
 		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", state.TokenNamespace, err)
 	}
