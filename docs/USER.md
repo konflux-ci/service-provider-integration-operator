@@ -8,7 +8,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
     - [Uploading Access Token to SPI using Kubernetes Secret](#uploading-access-token-to-spi-using-kubernetes-secret)
     - [Providing secrets to a service account](#providing-secrets-to-a-service-account)
-	- [Refreshing OAuth Access Tokens](#refreshing-oauth-access-tokens)
+    - [Refreshing OAuth Access Tokens](#refreshing-oauth-access-tokens)
 
 - [SPI OAuth Service](#spi-oauth-service)
     - [Go through the OAuth flow manually](#go-through-the-oauth-flow-manually)
@@ -191,10 +191,10 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-	linkedTo:
-	- serviceAccount:
-		reference:
-			name: mysa
+    linkedTo:
+    - serviceAccount:
+        reference:
+            name: mysa
   ...
 ```
 
@@ -215,11 +215,11 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-	linkedTo:
-	- serviceAccount:
-		as: imagePullSecret
-		reference:
-			name: mysa
+    linkedTo:
+    - serviceAccount:
+        as: imagePullSecret
+        reference:
+            name: mysa
   ...
 ```
 
@@ -241,10 +241,10 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/basic-auth
-	linkedTo:
-	- serviceAccount:
-		managed:
-			generateName: mysa-
+    linkedTo:
+    - serviceAccount:
+        managed:
+            generateName: mysa-
   ...
 ```
 ## Refreshing OAuth Access Tokens
