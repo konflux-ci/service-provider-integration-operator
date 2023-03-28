@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	specInconsistentWithStatusError    = stderrors.New("the number of service accounts in the spec doesn't correspond to the number of found service accounts")
-	managedServiceAccountAlreadyExists = stderrors.New("a service account with same name as the managed one already exists")
+	specInconsistentWithStatusError              = stderrors.New("the number of service accounts in the spec doesn't correspond to the number of found service accounts")
+	managedServiceAccountAlreadyExists           = stderrors.New("a service account with same name as the managed one already exists")
+	managedServiceAccountManagedByAnotherBinding = stderrors.New("the service account already exists and is managed by another binding object")
 )
 
 const (
@@ -213,12 +214,18 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 	}
 	sa.Annotations[LinkAnnotation] = linkAnno
 
-	_, hasManaged := sa.Labels[ManagedByLabel]
-	if hasManaged {
+	// Only delete the managed binding label from the SA if it is our binding that was previously managing it.
+	// This makes sure that if there are multiple bindings associated with an SA that is also managed by one of them
+	// We don't end up in a ping-pong situation where the bindings reconcilers would "fight" over the value of this
+	// annotation.
+	managedChanged := false
+	managingBinding := sa.Labels[ManagedByLabel]
+	if managingBinding == h.Binding.Name {
+		managedChanged = true
 		delete(sa.Labels, ManagedByLabel)
 	}
 
-	if origAnno != linkAnno || hasManaged {
+	if origAnno != linkAnno || managedChanged {
 		// we need to update the service account with the new link to the binding
 		if err := h.Client.Update(ctx, sa); err != nil {
 			return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate, fmt.Errorf("failed to update the annotations in the referenced service account %s of binding %s: %w", client.ObjectKeyFromObject(sa), client.ObjectKeyFromObject(h.Binding), err)
@@ -266,10 +273,17 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			err = h.Client.Create(ctx, sa)
 		}
 	} else {
-		// the service account already exists. We need to make sure that it belongs to this binding, otherwise we
-		// error out because we found a pre-existing SA that should be managed
+		// The service account already exists. We need to make sure that it is associated with this binding,
+		// otherwise we error out because we found a pre-existing SA that should be managed.
+		// Note that the managed SAs always also have the link annotation pointing to the managing binding.
 		if !BindingNameInAnnotation(sa.Annotations[LinkAnnotation], h.Binding.Name) {
 			err = managedServiceAccountAlreadyExists
+		}
+
+		// we also check that if the SA is managed, it is managed by us and not by some other binding.
+		managedBy := sa.Labels[ManagedByLabel]
+		if err == nil && managedBy != "" && managedBy != h.Binding.Name {
+			err = managedServiceAccountManagedByAnotherBinding
 		}
 	}
 
