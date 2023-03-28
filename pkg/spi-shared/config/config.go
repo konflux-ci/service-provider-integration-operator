@@ -24,7 +24,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var SPIInstanceIdContextKey = struct{}{}
+type spiInstanceIdContextKeyType struct{}
+
+var SPIInstanceIdContextKey = spiInstanceIdContextKeyType{}
 
 type ServiceProviderName string
 type ServiceProviderType struct {

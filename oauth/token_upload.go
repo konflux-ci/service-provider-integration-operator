@@ -49,7 +49,7 @@ type SpiTokenUploader struct {
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName)
+	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
 	cl, err := u.ClientFactory.CreateUserAuthClient(tokenObjectNamespace)
 	if err != nil {

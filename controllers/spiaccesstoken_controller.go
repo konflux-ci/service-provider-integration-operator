@@ -380,7 +380,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 
 func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
 	lg := logs.AuditLog(ctx)
-	lg.Info("initiated token refresh")
+	lg.Info("initiated token refresh", "action", "UPDATE")
 	token, err := r.TokenStorage.Get(ctx, at)
 	if err != nil {
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)

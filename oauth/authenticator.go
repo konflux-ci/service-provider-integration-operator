@@ -103,7 +103,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.SessionManager.Put(r.Context(), "k8s_token", token)
-	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token")
+	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token", "action", "ADD")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -117,7 +117,7 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs.AuditLog(r.Context()).Info("successfully cleared the user session")
+	logs.AuditLog(r.Context()).Info("successfully cleared the user session", "action", "DELETE")
 	w.WriteHeader(http.StatusOK)
 }
 

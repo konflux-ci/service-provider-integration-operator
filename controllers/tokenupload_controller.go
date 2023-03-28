@@ -100,7 +100,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			AccessToken: string(uploadSecret.Data["tokenData"]),
 		}
 
-		logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name)
+		logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name, "action", "UPDATE")
 		// Upload Token, it will cause update SPIAccessToken State as well
 		err = r.TokenStorage.Store(ctx, accessToken, &token)
 		if err != nil {
