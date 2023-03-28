@@ -41,6 +41,9 @@ type ContextSupplier struct {
 // NewContext calculates and puts a workspace name into a context.
 // Note that inbound context MUST contain an Auth info (i.e. K8S token set) to have access to the API
 func (c ContextSupplier) NewContext(ctx context.Context, namespace string) (context.Context, error) {
+	if c.ApiServerUrl == "" {
+		return ctx, nil // No API to call, assuming we're in non workspace-aware environment
+	}
 	workspace, err := c.calculateWorkspace(ctx, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to detect workspace name from namespace %s: %w", namespace, err)
