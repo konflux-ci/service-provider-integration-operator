@@ -18,10 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NotifyingTokenStorage is a wrapper around TokenStorage that also automatically creates
