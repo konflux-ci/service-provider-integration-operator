@@ -59,7 +59,7 @@ func FromContext(ctx context.Context) (string, bool) {
 
 func (c ContextSupplier) calculateWorkspace(ctx context.Context, namespace string) (string, error) {
 	lg := log.FromContext(ctx)
-	wsEndpoint := path.Join(c.ApiServerUrl, "apis/toolchain.dev.openshift.com/v1alpha1/workspaces")
+	wsEndpoint := path.Join(c.ApiServerUrl, "apis/toolchain.dev.openshift.com/v1alpha1/workspaces") //TODO: configurable path ?
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
