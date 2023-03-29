@@ -100,15 +100,15 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			AccessToken: string(uploadSecret.Data["tokenData"]),
 		}
 
-		logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name)
+		logs.AuditLog(ctx).Info("manual token upload initiated", "namespace", uploadSecret.Namespace, "SPIAccessToken.name", accessToken.Name)
 		// Upload Token, it will cause update SPIAccessToken State as well
 		err = r.TokenStorage.Store(ctx, accessToken, &token)
 		if err != nil {
 			r.logError(ctx, uploadSecret, fmt.Errorf("failed to store the token: %w", err), lg)
-			logs.AuditLog(ctx).Error(err, "manual token upload failed", uploadSecret.Namespace, accessToken.Name)
+			logs.AuditLog(ctx).Error(err, "manual token upload failed", "namespace", uploadSecret.Namespace, "SPIAccessToken.name", accessToken.Name)
 			continue
 		}
-		logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, accessToken.Name)
+		logs.AuditLog(ctx).Info("manual token upload completed", "namespace", uploadSecret.Namespace, "SPIAccessToken.name", accessToken.Name)
 
 		r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
 	}
