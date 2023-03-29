@@ -189,6 +189,8 @@ func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namesp
 	}
 }
 
+// calculateWorkspaceSubpath fetches all accessible workspaces for user and finds out one that given namespace belongs to,
+// and constructs API URL sub-path
 func calculateWorkspaceSubpath(ctx context.Context, apiServer string, client rest.HTTPClient, namespace string) (string, error) {
 	lg := log.FromContext(ctx)
 	wsEndpoint := path.Join(apiServer, "apis/toolchain.dev.openshift.com/v1alpha1/workspaces") //TODO: configurable path ?
