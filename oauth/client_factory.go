@@ -64,7 +64,7 @@ func (f ClientFactory) CreateUserAuthClientForNamespace(ctx context.Context, nam
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
 
-	return createClient(ctx, &f.FactoryConfig, mapper, namespace, f.HTTPClient, true)
+	return f.createClient(ctx, mapper, namespace, true)
 }
 
 // CreateInClusterClient creates a new client based on the provided configuration. We use this client for k8s requests with ServiceAccount (e.g.: reading configuration secrets).
@@ -72,16 +72,16 @@ func (f ClientFactory) CreateInClusterClient() (client.Client, error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 
-	return createClient(context.TODO(), &f.FactoryConfig, mapper, "", nil, false)
+	return f.createClient(context.TODO(), mapper, "", false)
 }
 
-func createClient(ctx context.Context, args *ClientFactoryConfig, mapper meta.RESTMapper, namespace string, client2 rest.HTTPClient, userAuthentication bool) (client.Client, error) {
-	kubeconfig, err := baseKubernetesConfig(ctx, args, namespace, client2, userAuthentication)
+func (f ClientFactory) createClient(ctx context.Context, mapper meta.RESTMapper, namespace string, userAuthentication bool) (client.Client, error) {
+	kubeconfig, err := baseKubernetesConfig(ctx, &f.FactoryConfig, namespace, &f.HTTPClient, userAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes incluster config: %w", err)
 	}
 
-	kubeconfig, err = customizeKubeconfig(kubeconfig, args, userAuthentication)
+	kubeconfig, err = customizeKubeconfig(kubeconfig, &f.FactoryConfig, userAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubernetes incluster config: %w", err)
 	}
@@ -136,7 +136,7 @@ func clientOptions(mapper meta.RESTMapper) (*client.Options, error) {
 // baseKubernetesConfig returns proper configuration based on given cli args. `userAuthentication=true` allows setting apiserver url in cli args
 // and enables using bearer token in authorization header to authenticate kubernetes requests. This is used for requests we're doing on behalf of end-user.
 // If `kubeconfig` is set in cli args, it is always used.
-func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namespace string, client2 rest.HTTPClient, userAuthentication bool) (*rest.Config, error) {
+func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namespace string, httpClient *rest.HTTPClient, userAuthentication bool) (*rest.Config, error) {
 	if args.KubeConfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", args.KubeConfig)
 		if err != nil {
@@ -172,7 +172,7 @@ func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namesp
 		cfg.TLSClientConfig = tlsConfig
 
 		if namespace != "" {
-			wsPath, err := calculateWorkspaceSubpath(ctx, args.ApiServer, client2, namespace)
+			wsPath, err := calculateWorkspaceSubpath(ctx, args.ApiServer, *httpClient, namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare workspace context for client in namespace %s: %w", namespace, err)
 			}
