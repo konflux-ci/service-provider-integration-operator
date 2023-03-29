@@ -200,9 +200,10 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 
 func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
 	return oauth.ClientFactoryConfig{
-		KubeConfig:      args.KubeConfig,
-		KubeInsecureTLS: args.KubeInsecureTLS,
-		ApiServer:       args.ApiServer,
-		ApiServerCAPath: args.ApiServerCAPath,
+		KubeConfig:             args.KubeConfig,
+		KubeInsecureTLS:        args.KubeInsecureTLS,
+		ApiServer:              args.ApiServer,
+		ApiServerCAPath:        args.ApiServerCAPath,
+		ApiServerWorkspacePath: args.ApiServerWorkspacePath,
 	}
 }

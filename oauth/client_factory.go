@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,10 +43,11 @@ import (
 type AuthenticatingClient client.Client
 
 type ClientFactoryConfig struct {
-	KubeInsecureTLS bool
-	KubeConfig      string
-	ApiServer       string
-	ApiServerCAPath string
+	KubeInsecureTLS        bool
+	KubeConfig             string
+	ApiServer              string
+	ApiServerCAPath        string
+	ApiServerWorkspacePath string
 }
 
 type ClientFactory struct {
@@ -172,7 +174,7 @@ func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namesp
 		cfg.TLSClientConfig = tlsConfig
 
 		if namespace != "" {
-			wsPath, err := calculateWorkspaceSubpath(ctx, args.ApiServer, *httpClient, namespace)
+			wsPath, err := calculateWorkspaceSubpath(ctx, args, *httpClient, namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare workspace context for client in namespace %s: %w", namespace, err)
 			}
@@ -191,9 +193,10 @@ func baseKubernetesConfig(ctx context.Context, args *ClientFactoryConfig, namesp
 
 // calculateWorkspaceSubpath fetches all accessible workspaces for user and finds out one that given namespace belongs to,
 // and constructs API URL sub-path
-func calculateWorkspaceSubpath(ctx context.Context, apiServer string, client rest.HTTPClient, namespace string) (string, error) {
+func calculateWorkspaceSubpath(ctx context.Context, args *ClientFactoryConfig, client rest.HTTPClient, namespace string) (string, error) {
 	lg := log.FromContext(ctx)
-	wsEndpoint := path.Join(apiServer, "apis/toolchain.dev.openshift.com/v1alpha1/workspaces") //TODO: configurable path ?
+	wsApiPath, _ := strings.CutPrefix(args.ApiServerWorkspacePath, "/")
+	wsEndpoint := path.Join(args.ApiServer, wsApiPath)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
