@@ -26,6 +26,6 @@ type OAuthServiceCliArgs struct {
 	KubeConfig             string `arg:"--kubeconfig, env" default:"" help:""`
 	KubeInsecureTLS        bool   `arg:"--kube-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure kubernetes tls connection."`
 	ApiServer              string `arg:"--api-server, env:API_SERVER" default:"" help:"host:port of the Kubernetes API server to use when handling HTTP requests"`
-	ApiServerWorkspacePath string `arg:"--workspace-api-path, env:API_SERVER_WORKSPACE_PATH" default:"/apis/toolchain.dev.openshift.com/v1alpha1/workspaces" help:"path of the workspace API to use when configuring the user K8S clients"`
 	ApiServerCAPath        string `arg:"--ca-path, env:API_SERVER_CA_PATH" default:"" help:"the path to the CA certificate to use when connecting to the Kubernetes API server"`
+	ApiServerWorkspacePath string `arg:"--workspace-api-path, env:API_SERVER_WORKSPACE_PATH" default:"/apis/toolchain.dev.openshift.com/v1alpha1/workspaces" help:"path of the workspace API to use when configuring the user K8S clients"`
 }
