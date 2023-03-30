@@ -52,7 +52,7 @@ type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator      *Authenticator
 	StateStorage       StateStorage
-	ClientFactory      ClientFactory
+	ClientFactory      K8sClientFactory
 	InClusterK8sClient client.Client
 	TokenStorage       tokenstorage.TokenStorage
 	RedirectTemplate   *template.Template

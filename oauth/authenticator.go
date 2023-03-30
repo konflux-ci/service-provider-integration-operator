@@ -26,7 +26,7 @@ import (
 )
 
 type Authenticator struct {
-	ClientFactory  ClientFactory
+	ClientFactory  K8sClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -120,7 +120,7 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory ClientFactory) *Authenticator {
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory K8sClientFactory) *Authenticator {
 	return &Authenticator{
 		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,
