@@ -157,7 +157,6 @@ func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: args.ProbeAddr,
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
