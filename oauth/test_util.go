@@ -19,6 +19,7 @@ package oauth
 import (
 	"context"
 	"net/http"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
