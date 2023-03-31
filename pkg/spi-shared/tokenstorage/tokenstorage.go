@@ -16,7 +16,6 @@ package tokenstorage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -24,8 +23,9 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 )
 
-// TokenStorage is a simple interface on top of Kubernetes client to perform CRUD operations on the tokens. This is done
-// so that we can provide either secret-based or Vault-based implementation.
+// TokenStorage is an interface similar to SecretStorage that has historically been used to work with tokens.
+// New storage types are built on top of secretstorage.TypedSecretStorage that provides the same interface
+// generically.
 type TokenStorage interface {
 	Initialize(ctx context.Context) error
 	Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error
@@ -33,37 +33,32 @@ type TokenStorage interface {
 	Delete(ctx context.Context, owner *api.SPIAccessToken) error
 }
 
+// NewJSONSerializingTokenStorage is a convenience function to construct a TokenStorage instance
+// based on the provided SecretStorage and serializing the data to JSON for persistence.
+// The returned object is an instance of DefaultTokenStorage.
+func NewJSONSerializingTokenStorage(secretStorage secretstorage.SecretStorage) TokenStorage {
+	return &DefaultTokenStorage{
+		SecretStorage: &secretstorage.DefaultTypedSecretStorate[api.SPIAccessToken, api.Token]{
+			DataTypeName:  "token",
+			SecretStorage: secretStorage,
+			ToID: secretstorage.ObjectToID[*api.SPIAccessToken],
+			Serialize: secretstorage.SerializeJSON[api.Token],
+			Deserialize: secretstorage.DeserializeJSON[api.Token],
+		},
+	}
+}
 // DefaultTokenStorage is the default implementation of the TokenStorage interface that uses the underlying SecretStorage
 // for actually storing the data.
+// It honors the original behavior of the TokenStorage interface that used to return nil instead
+// of throwing NotFoundError when encountering non-existent records in Get and Delete.
 type DefaultTokenStorage struct {
 	// SecretStorage is the underlying storage that handled the storing of the tokens
-	SecretStorage secretstorage.SecretStorage
-	// Serializer is a function to turn the tokens into byte arrays. You can use JSONSerializer if it fits your purpose.
-	Serializer func(*api.Token) ([]byte, error)
-	// Deserializer is a function to turn byte arrays back into token objects. You can use JSONDeserializer if it fits your purpose.
-	Deserializer func([]byte, *api.Token) error
-}
-
-// JSONSerializer is a thin wrapper around Marshal function of encoding/json.
-func JSONSerializer(token *api.Token) ([]byte, error) {
-	bytes, err := json.Marshal(token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize token data: %w", err)
-	}
-	return bytes, nil
-}
-
-// JSONDeserializer is a thin wrapper around Unmarshal function of encoding/json.
-func JSONDeserializer(data []byte, token *api.Token) error {
-	if err := json.Unmarshal(data, token); err != nil {
-		return fmt.Errorf("failed to deserialize token data: %w", err)
-	}
-	return nil
+	SecretStorage secretstorage.TypedSecretStorage[api.SPIAccessToken, api.Token]
 }
 
 // Delete implements TokenStorage
 func (s *DefaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessToken) error {
-	if err := s.SecretStorage.Delete(ctx, toSecretID(owner)); err != nil && errors.Is(err, secretstorage.NotFoundError) {
+	if err := s.SecretStorage.Delete(ctx, owner); err != nil && errors.Is(err, secretstorage.NotFoundError) {
 		return fmt.Errorf("failed to delete the token data: %w", err)
 	}
 	return nil
@@ -71,16 +66,11 @@ func (s *DefaultTokenStorage) Delete(ctx context.Context, owner *api.SPIAccessTo
 
 // Get implements TokenStorage
 func (s *DefaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-	data, err := s.SecretStorage.Get(ctx, toSecretID(owner))
+	t, err := s.SecretStorage.Get(ctx, owner)
 	if errors.Is(err, secretstorage.NotFoundError) {
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get the token data: %w", err)
-	}
-
-	t, err := s.toToken(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize the token data: %w", err)
 	}
 
 	return t, nil
@@ -97,41 +87,11 @@ func (s *DefaultTokenStorage) Initialize(ctx context.Context) error {
 
 // Store implements TokenStorage
 func (s *DefaultTokenStorage) Store(ctx context.Context, owner *api.SPIAccessToken, token *api.Token) error {
-	data, err := s.toData(token)
-	if err != nil {
-		return fmt.Errorf("failed to serialize the token data: %w", err)
-	}
-
-	if err = s.SecretStorage.Store(ctx, toSecretID(owner), data); err != nil {
+	if err := s.SecretStorage.Store(ctx, owner, token); err != nil {
 		return fmt.Errorf("failed to store the token data: %w", err)
 	}
 
 	return nil
 }
 
-func (s *DefaultTokenStorage) toToken(data []byte) (*api.Token, error) {
-	token := &api.Token{}
-	if err := s.Deserializer(data, token); err != nil {
-		return nil, fmt.Errorf("failed to deserialize the data to api.Token: %w", err)
-	}
-
-	return token, nil
-}
-
-func (s *DefaultTokenStorage) toData(t *api.Token) ([]byte, error) {
-	data, err := s.Serializer(t)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize the api.Token: %w", err)
-	}
-
-	return data, nil
-}
-
 var _ TokenStorage = (*DefaultTokenStorage)(nil)
-
-func toSecretID(t *api.SPIAccessToken) secretstorage.SecretID {
-	return secretstorage.SecretID{
-		Name:      t.Name,
-		Namespace: t.Namespace,
-	}
-}
