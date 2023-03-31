@@ -58,8 +58,8 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: testClientFactory{client: cl},
+		Storage:       strg,
 	}
 
 	//when
@@ -97,8 +97,8 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: testClientFactory{client: cl},
+		Storage:       strg,
 	}
 	//when
 	err := uploader.Upload(cntx, "token-123", "ns-1", tokenData)
@@ -134,8 +134,8 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: testClientFactory{client: cl},
+		Storage:       strg,
 	}
 	//when
 	err := uploader.Upload(cntx, "token-123", "ns-1", tokenData)

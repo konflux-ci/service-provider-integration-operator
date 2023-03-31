@@ -16,6 +16,7 @@ package oauth
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
@@ -24,14 +25,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	certutil "k8s.io/client-go/util/cert"
 
-	"net/http"
-	"net/url"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,16 +48,18 @@ func (r K8sClientFactoryBuilder) CreateInClusterClientFactory() (clientFactory K
 	}
 	if r.Args.KubeConfig != "" {
 		restConfig, err := clientcmd.BuildConfigFromFlags("", r.Args.KubeConfig)
+		setInsecure(r.Args, restConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create rest configuration: %w", err)
 		}
-		return &InClusterK8sClientFactory{ClientOptions: clientOptions, RestConfig: restConfig}, nil
+		return InClusterK8sClientFactory{ClientOptions: clientOptions, RestConfig: restConfig}, nil
 	}
 	restConfig, err := rest.InClusterConfig()
+	setInsecure(r.Args, restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize in-cluster config: %w", err)
 	}
-	return &InClusterK8sClientFactory{ClientOptions: clientOptions, RestConfig: restConfig}, nil
+	return InClusterK8sClientFactory{ClientOptions: clientOptions, RestConfig: restConfig}, nil
 }
 
 func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8sClientFactory, err error) {
@@ -80,13 +81,6 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8
 	// handled on per-request basis...
 	cfg := &rest.Config{}
 
-	apiServerUrl, err := url.Parse(r.Args.ApiServer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
-	}
-
-	cfg.Host = "https://" + apiServerUrl.Host
-
 	tlsConfig := rest.TLSClientConfig{}
 
 	if r.Args.ApiServerCAPath != "" {
@@ -100,8 +94,18 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8
 
 	cfg.TLSClientConfig = tlsConfig
 
+	setInsecure(r.Args, cfg)
+
+	AugmentConfiguration(cfg)
+
 	if r.Args.ApiServer != "" {
-		return &WorkspaceAwareK8sClientFactory{
+		apiServerUrl, err := url.Parse(r.Args.ApiServer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
+		}
+		cfg.Host = "https://" + apiServerUrl.Host
+
+		return WorkspaceAwareK8sClientFactory{
 			ClientOptions: clientOptions,
 			RestConfig:    cfg,
 			ApiServer:     r.Args.ApiServer,
@@ -109,7 +113,14 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8
 				Transport: httptransport.HttpMetricCollectingRoundTripper{
 					RoundTripper: http.DefaultTransport}}}, nil
 	}
-	return &UserAuthK8sClientFactory{ClientOptions: clientOptions, RestConfig: cfg}, nil
+	return UserAuthK8sClientFactory{ClientOptions: clientOptions, RestConfig: cfg}, nil
+}
+
+func setInsecure(args cli.OAuthServiceCliArgs, cfg *rest.Config) {
+	// insecure mode only allowed when the trusted root certificate is not specified...
+	if args.KubeInsecureTLS && args.ApiServerCAPath == "" {
+		cfg.Insecure = true
+	}
 }
 
 func clientOptions(mapper meta.RESTMapper) (*client.Options, error) {

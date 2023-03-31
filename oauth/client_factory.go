@@ -107,6 +107,7 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 }
 
 func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+
 	cl, err := client.New(u.RestConfig, *u.ClientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
@@ -115,7 +116,6 @@ func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client
 }
 
 func (i InClusterK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-
 	cl, err := client.New(i.RestConfig, *i.ClientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)

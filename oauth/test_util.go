@@ -16,7 +16,11 @@
 
 package oauth
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // fakeRoundTrip casts a function into a http.RoundTripper
 type fakeRoundTrip func(r *http.Request) (*http.Response, error)
@@ -25,4 +29,12 @@ var _ http.RoundTripper = fakeRoundTrip(nil)
 
 func (f fakeRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+type testClientFactory struct {
+	client client.Client
+}
+
+func (c testClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+	return c.client, nil
 }
