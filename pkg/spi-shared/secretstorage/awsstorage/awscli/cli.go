@@ -24,8 +24,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go/logging"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,21 +38,15 @@ var (
 	errInvalidCliArgs = errors.New("invalid cli args")
 )
 
-func NewAwsTokenStorage(ctx context.Context, args *AWSCliArgs) (tokenstorage.TokenStorage, error) {
+func NewAwsSecretStorage(ctx context.Context, args *AWSCliArgs) (secretstorage.SecretStorage, error) {
 	log.FromContext(ctx).Info("creating aws client")
 	cfg, err := configFromCliArgs(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS secretmanager configuration: %w", err)
 	}
 
-	secretStorage := &awsstorage.AwsSecretStorage{
+	return &awsstorage.AwsSecretStorage{
 		Config: cfg,
-	}
-
-	return &tokenstorage.DefaultTokenStorage{
-		SecretStorage: secretStorage,
-		Serializer:    tokenstorage.JSONSerializer,
-		Deserializer:  tokenstorage.JSONDeserializer,
 	}, nil
 }
 

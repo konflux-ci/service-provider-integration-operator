@@ -82,7 +82,7 @@ func TestAws(t *testing.T) {
 		return
 	}
 
-	storage, error := awscli.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
+	storage, error := tokenstorage.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
 		ConfigFile:      awsConfig,
 		CredentialsFile: awsCreds,
 	})
@@ -96,11 +96,7 @@ func TestAws(t *testing.T) {
 }
 
 func createTokenStorage(secretStorage secretstorage.SecretStorage) tokenstorage.TokenStorage {
-	return &tokenstorage.DefaultTokenStorage{
-		SecretStorage: secretStorage,
-		Serializer:    tokenstorage.JSONSerializer,
-		Deserializer:  tokenstorage.JSONDeserializer,
-	}
+	return tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
 }
 
 func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenStorage) {
