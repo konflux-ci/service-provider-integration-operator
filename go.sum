@@ -750,8 +750,8 @@ github.com/hashicorp/raft-boltdb/v2 v2.0.0-20210421194847-a7e34179d62c/go.mod h1
 github.com/hashicorp/raft-snapshot v1.0.4 h1:EuDuayAJPdiDmVk1ygTDnG2zDzrs0/6/yBuma1IYSow=
 github.com/hashicorp/raft-snapshot v1.0.4/go.mod h1:5sL9eUn72lH5DzsFIJ9jaysITbHksSSszImWSOTC8Ic=
 github.com/hashicorp/serf v0.10.1 h1:Z1H2J60yRKvfDYAOZLd2MU0ND4AH/WDz7xYHDWQsIPY=
-github.com/hashicorp/vault v1.13.0 h1:/J/ldGnqRHKDlaSznOQAXy4STah76tCYy2fsUSsvYwk=
-github.com/hashicorp/vault v1.13.0/go.mod h1:W1VOUMJ1klrGAHFnTJYDw2N2RlBh+kdwmCyYZTSGap0=
+github.com/hashicorp/vault v1.13.1 h1:4Q31hCWCwD2XRCwGL+9gsrCwxn6+ngToBgjT0FCTG+M=
+github.com/hashicorp/vault v1.13.1/go.mod h1:aD5a/VHOADe8hiMHx4rYJwv6W6+1WYlco/hf8MWbYaw=
 github.com/hashicorp/vault-plugin-auth-alicloud v0.14.0 h1:O6tNk0s/arubLUbLeCyaRs5xGo9VwmbQazISY/BfPK4=
 github.com/hashicorp/vault-plugin-auth-azure v0.13.0 h1:1j8fPQPumYg9oZG+MCFftglu/Edd6YGOuBvEWEkK0qQ=
 github.com/hashicorp/vault-plugin-auth-centrify v0.14.0 h1:qZKnqU1tX1WS6+11+PskGMhlXl5LnfkVrDvJO4BRY7s=
@@ -762,7 +762,7 @@ github.com/hashicorp/vault-plugin-auth-kerberos v0.9.0 h1:gdbrEwpPICDt8xQ7C595M+
 github.com/hashicorp/vault-plugin-auth-kubernetes v0.15.0 h1:uHsn1fJqxGxbWiiD2resMYZzPJWPwPMCGNCEziGHfwE=
 github.com/hashicorp/vault-plugin-auth-oci v0.13.1 h1:xThaZC9jzZoqqccfxTk11hfwgqwN3yEZ3kYOnY2v2Fs=
 github.com/hashicorp/vault-plugin-database-couchbase v0.9.0 h1:hJOHJ9yZ9kt1/DuRaU5Sa339j3/QcPL4esT9JLQonYA=
-github.com/hashicorp/vault-plugin-database-elasticsearch v0.13.0 h1:NwcbzQB529WtB/m7tZKxKiB6pQc0IyD3L80tk3mtBl8=
+github.com/hashicorp/vault-plugin-database-elasticsearch v0.13.1 h1:nVO6F8V69E2fAQklh/Ds+EypVMutN4iIlt3sat9qW9M=
 github.com/hashicorp/vault-plugin-database-mongodbatlas v0.9.0 h1:wlWrg1z5Pyx+FTUCOzA9yh0FTI+pfA9tMrsFPFBcjjA=
 github.com/hashicorp/vault-plugin-database-redis v0.2.0 h1:Fg1inevnDhj58+/y5SY1CihLftytG1D+3QqbUJbHYUM=
 github.com/hashicorp/vault-plugin-database-redis-elasticache v0.2.0 h1:dgTT7E8xj56hjktMxHNAgFpy7pchpoQ20cIhDsBcgz8=
@@ -777,7 +777,7 @@ github.com/hashicorp/vault-plugin-secrets-kubernetes v0.3.0 h1:Joz9SBwjpEOGu+Ynv
 github.com/hashicorp/vault-plugin-secrets-kv v0.14.3 h1:6hV/p/yXff50v540Kc6RexOP4z3My398NRmSI5xaX90=
 github.com/hashicorp/vault-plugin-secrets-kv v0.14.3/go.mod h1:tQ87Y0wm1JhliWuiXReCvh6uM0lpFXyrEkuWsFJUR6o=
 github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.9.1 h1:WkW8fyHxEdz1wGSTxCnSCrzXvgLXqXr8Iqp7upa/s4E=
-github.com/hashicorp/vault-plugin-secrets-openldap v0.10.0 h1:Q3nKBbHQ6E/kOa3amKvcbhYTbkz4U25BBTwH66LnF+0=
+github.com/hashicorp/vault-plugin-secrets-openldap v0.10.1 h1:EN3/iEjPPmcpX9yihybQNHvewc+YoJw7aoKsio1WK5s=
 github.com/hashicorp/vault-plugin-secrets-terraform v0.7.0 h1:jgJpVKhV0Eh6EjpUEIf7VYH2D6D0xW2Lry9/3PI8hy0=
 github.com/hashicorp/vault/api v1.9.0 h1:ab7dI6W8DuCY7yCU8blo0UCYl2oHre/dloCmzMWg9w8=
 github.com/hashicorp/vault/api v1.9.0/go.mod h1:lloELQP4EyhjnCQhF8agKvWIVTmxbpEJj70b98959sM=
@@ -874,6 +874,7 @@ github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxv
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
+github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.0 h1:WgNl7dwNpEZ6jJ9k1snq4pZsg7DOEN8hP9Xw0Tsjwk0=
 github.com/kr/pretty v0.3.0/go.mod h1:640gp4NfQd8pI5XOwp5fnNeVWj67G7CFk/SaSQn7NBk=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
@@ -974,7 +975,6 @@ github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f/go.mod h1:qRW
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
 github.com/nicolai86/scaleway-sdk v1.10.2-0.20180628010248-798f60e20bb2 h1:BQ1HW7hr4IVovMwWg0E0PYcyW8CzqDcVmaew9cujU4s=
 github.com/nicolai86/scaleway-sdk v1.10.2-0.20180628010248-798f60e20bb2/go.mod h1:TLb2Sg7HQcgGdloNxkrmtgDNR9uVYF3lfdFIN4Ro6Sk=
-github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
@@ -1651,8 +1651,9 @@ gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLks
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f h1:BLraFXnmrev5lT+xlilqcH8XK9/i0At2xKjWk4p6zsU=
 gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
 gopkg.in/errgo.v2 v2.1.0/go.mod h1:hNsd1EY+bozCKY1Ytp96fpM3vjJbqLJn88ws8XvfDNI=
 gopkg.in/fsnotify.v1 v1.4.7/go.mod h1:Tz8NjZHkW78fSQdbUxIjBTcgA1z1m8ZHf0WmKUhAMys=
 gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2/go.mod h1:Xk6kEKp8OKb+X14hQBKWaSkCsqBpgog8nAV2xsGOxlo=
