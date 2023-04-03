@@ -16,6 +16,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,11 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+var (
+	errUnparseableResponse = errors.New("unable to parse workspace  API response for namespace")
+	errWorkspaceNotFound   = errors.New("target workspace not found for namespace")
 )
 
 type K8sClientFactory interface {
@@ -86,7 +92,7 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 		}
 		wsList := &v1alpha1.WorkspaceList{}
 		if err := json.Unmarshal(bodyBytes, wsList); err != nil {
-			return nil, fmt.Errorf("unable to parse workspace  API response for namespace %s", namespace)
+			return nil, fmt.Errorf("%w: %s", errUnparseableResponse, namespace)
 		}
 		for _, ws := range wsList.Items {
 			for _, ns := range ws.Status.Namespaces {
@@ -100,7 +106,7 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 				}
 			}
 		}
-		return nil, fmt.Errorf("target workspace not found for namespace %s", namespace)
+		return nil, fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
 	} else {
 		lg.Info("unexpected return code for workspace api", "url", wsEndpoint, "code", resp.StatusCode)
 		return nil, fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)

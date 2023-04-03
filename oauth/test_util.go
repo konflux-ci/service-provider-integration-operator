@@ -32,10 +32,10 @@ func (f fakeRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
-type testClientFactory struct {
+type TestClientFactory struct {
 	client client.Client
 }
 
-func (c testClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+func (c TestClientFactory) CreateClient(_ context.Context) (client.Client, error) {
 	return c.client, nil
 }

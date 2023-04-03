@@ -58,7 +58,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: testClientFactory{client: cl},
+		ClientFactory: TestClientFactory{client: cl},
 		Storage:       strg,
 	}
 
@@ -97,7 +97,7 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: testClientFactory{client: cl},
+		ClientFactory: TestClientFactory{client: cl},
 		Storage:       strg,
 	}
 	//when
@@ -134,7 +134,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: testClientFactory{client: cl},
+		ClientFactory: TestClientFactory{client: cl},
 		Storage:       strg,
 	}
 	//when
