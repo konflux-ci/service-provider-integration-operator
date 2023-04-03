@@ -178,7 +178,7 @@ func (r *TokenUploadReconciler) createErrorEvent(ctx context.Context, secret *co
 
 }
 
-// Contract: having at most one event if upload failed and no events if uploaded.
+// Contract: having exactly one event if upload failed and no events if uploaded.
 // For this need to delete the event every attempt
 func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName string, ns string, lg logr.Logger) {
 	stored := &corev1.Event{}
