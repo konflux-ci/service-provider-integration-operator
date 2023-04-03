@@ -49,7 +49,8 @@ var IT = struct {
 	Cancel          context.CancelFunc
 	Scheme          *runtime.Scheme
 	Namespace       string
-	Client          client.Client
+	InClusterClient client.Client
+	ClientFactory   K8sClientFactory
 	Clientset       *kubernetes.Clientset
 	TokenStorage    tokenstorage.TokenStorage
 	SessionManager  *scs.SessionManager
@@ -102,8 +103,10 @@ var _ = BeforeSuite(func() {
 	Expect(authz.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(v1beta1.AddToScheme(IT.Scheme)).To(Succeed())
 
+	IT.ClientFactory = UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
+
 	// create the test namespace which we'll use for the tests
-	IT.Client, err = client.New(IT.TestEnvironment.Config, client.Options{Scheme: IT.Scheme})
+	IT.InClusterClient, err = client.New(IT.TestEnvironment.Config, client.Options{Scheme: IT.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.Clientset, err = kubernetes.NewForConfig(IT.TestEnvironment.Config)
@@ -115,7 +118,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.TokenStorage = tokenstorage.NotifyingTokenStorage{
-		Client:       IT.Client,
+		Client:       IT.InClusterClient,
 		TokenStorage: IT.TokenStorage,
 	}
 
@@ -133,7 +136,7 @@ var _ = BeforeSuite(func() {
 			GenerateName: "spi-oauth-test-",
 		},
 	}
-	Expect(IT.Client.Create(context.TODO(), ns)).To(Succeed())
+	Expect(IT.InClusterClient.Create(context.TODO(), ns)).To(Succeed())
 	IT.Namespace = ns.Name
 
 	//[SELF_CONTAINED_TEST_ATTEMPT]
@@ -179,8 +182,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	ns := &corev1.Namespace{}
-	Expect(IT.Client.Get(context.TODO(), client.ObjectKey{Name: IT.Namespace}, ns)).To(Succeed())
-	Expect(IT.Client.Delete(context.TODO(), ns)).To(Succeed())
+	Expect(IT.InClusterClient.Get(context.TODO(), client.ObjectKey{Name: IT.Namespace}, ns)).To(Succeed())
+	Expect(IT.InClusterClient.Delete(context.TODO(), ns)).To(Succeed())
 	IT.Cancel()
 	Expect(IT.TestEnvironment.Stop()).To(Succeed())
 })
