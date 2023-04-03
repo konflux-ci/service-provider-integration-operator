@@ -50,7 +50,7 @@ type SpiTokenUploader struct {
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
-	cl, err := u.ClientFactory.CreateClient(context.WithValue(ctx, NamespaceContextKey, tokenObjectNamespace))
+	cl, err := u.ClientFactory.CreateClient(NamespaceIntoContext(ctx, tokenObjectNamespace))
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", tokenObjectNamespace, err)
 	}

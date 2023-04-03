@@ -51,7 +51,7 @@ type UserAuthK8sClientFactory struct {
 }
 
 func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (client.Client, error) {
-	namespace, ok := GetNamespaceFromContext(ctx)
+	namespace, ok := NamespaceFromContext(ctx)
 	if !ok {
 		// no namespace, return simple client
 		cl, err := client.New(w.RestConfig, *w.ClientOptions)

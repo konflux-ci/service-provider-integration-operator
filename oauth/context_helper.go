@@ -16,17 +16,17 @@ package oauth
 
 import "context"
 
-type contextKey string
-
-func (c contextKey) String() string {
-	return string(c)
-}
+type contextKey struct{}
 
 var (
-	NamespaceContextKey = contextKey("namespace")
+	namespaceContextKey = contextKey{}
 )
 
-func GetNamespaceFromContext(ctx context.Context) (string, bool) {
-	namespace, ok := ctx.Value(NamespaceContextKey).(string)
+func NamespaceFromContext(ctx context.Context) (string, bool) {
+	namespace, ok := ctx.Value(namespaceContextKey).(string)
 	return namespace, ok
+}
+
+func NamespaceIntoContext(ctx context.Context, namespace string) context.Context {
+	return context.WithValue(ctx, namespaceContextKey, namespace)
 }
