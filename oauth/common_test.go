@@ -18,14 +18,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
+	"html/template"
+	"io/ioutil"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"golang.org/x/oauth2"
-	"html"
-	"html/template"
-	"io/ioutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -36,9 +37,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Controller", func() {

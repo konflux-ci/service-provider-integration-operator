@@ -85,7 +85,9 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 			fmt.Print(err.Error())
 		}
 		wsList := &v1alpha1.WorkspaceList{}
-		json.Unmarshal(bodyBytes, wsList)
+		if err := json.Unmarshal(bodyBytes, wsList); err != nil {
+			return nil, fmt.Errorf("unable to parse workspace  API response for namespace %s", namespace)
+		}
 		for _, ws := range wsList.Items {
 			for _, ns := range ws.Status.Namespaces {
 				if ns.Name == namespace {

@@ -108,7 +108,7 @@ func TestCustomizeRestconfig(t *testing.T) {
 
 	})
 
-	t.Run("set apiserver for user client", func(t *testing.T) {
+	t.Run("set apiserver for factory config", func(t *testing.T) {
 		cliArgs := oauthcli.OAuthServiceCliArgs{ApiServer: "https://testapiserver:1234"}
 		builder := K8sClientFactoryBuilder{Args: cliArgs}
 
@@ -122,7 +122,7 @@ func TestCustomizeRestconfig(t *testing.T) {
 		assert.NotNil(t, userClientFactory.RestConfig.Host)
 	})
 
-	t.Run("not set apiserver for in-cluster client", func(t *testing.T) {
+	t.Run("not set apiserver for in-cluster factory", func(t *testing.T) {
 		// if for some reason this is running in pod, we temporarly unset KUBERNETES_SERVICE_HOST env so in-cluster configuration can fail
 		// we want it to fail because we're testing that with some given cli args we try to create in-cluster config. not that it's actually created
 		// it's easier to unset one env variable then create everything what is needed for in-cluster config (exact env vars and cert files at predefined paths)
