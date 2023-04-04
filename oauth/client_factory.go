@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path"
+	"net/url"
 	"strings"
 
 	"github.com/codeready-toolchain/api/api/v1alpha1"
@@ -58,16 +58,16 @@ type UserAuthK8sClientFactory struct {
 
 func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (client.Client, error) {
 	namespace, ok := NamespaceFromContext(ctx)
-	if !ok {
-		// no namespace, return simple client
-		cl, err := client.New(w.RestConfig, *w.ClientOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
-		}
-		return cl, nil
+	if !ok { // no namespace, return simple client
+		return doCreateClient(w.RestConfig, *w.ClientOptions)
 	}
+
 	lg := log.FromContext(ctx)
-	wsEndpoint := path.Join(w.ApiServer, strings.TrimPrefix(w.WorkspaceApiPath, "/"))
+	wsEndpoint, err := url.JoinPath(w.ApiServer, strings.TrimPrefix(w.WorkspaceApiPath, "/"))
+	if err != nil {
+		lg.Error(err, "failed to create the workspace API path", "api", w.ApiServer, "path", w.WorkspaceApiPath)
+		return nil, fmt.Errorf("failed to create the workspace API path from URL %s and path %s: %w", w.ApiServer, w.WorkspaceApiPath, err)
+	}
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
@@ -76,7 +76,7 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 	resp, err := w.HTTPClient.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to request the workspace API", "url", wsEndpoint)
-		return nil, fmt.Errorf("error performing HTTP request for workspace context to %v: %w", wsEndpoint, err)
+		return nil, fmt.Errorf("error performing HTTP request for workspace context to %s: %w", wsEndpoint, err)
 	}
 
 	defer func() {
@@ -85,46 +85,46 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 		}
 	}()
 
-	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Print(err.Error())
-		}
-		wsList := &v1alpha1.WorkspaceList{}
-		if err := json.Unmarshal(bodyBytes, wsList); err != nil {
-			return nil, fmt.Errorf("%w: %s", errUnparseableResponse, namespace)
-		}
-		for _, ws := range wsList.Items {
-			for _, ns := range ws.Status.Namespaces {
-				if ns.Name == namespace {
-					w.RestConfig.APIPath = path.Join("workspaces", ws.Name)
-					cl, err := client.New(w.RestConfig, *w.ClientOptions)
-					if err != nil {
-						return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
-					}
-					return cl, nil
-				}
-			}
-		}
-		return nil, fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
-	} else {
+	if resp.StatusCode != http.StatusOK {
 		lg.Info("unexpected return code for workspace api", "url", wsEndpoint, "code", resp.StatusCode)
 		return nil, fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)
 	}
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		lg.Error(err, "failed to read the workspace API response", "error", err.Error())
+		return nil, fmt.Errorf("failed to read the workspace API response: %w", err)
+	}
+
+	wsList := &v1alpha1.WorkspaceList{}
+	if err := json.Unmarshal(bodyBytes, wsList); err != nil {
+		return nil, fmt.Errorf("%w '%s': %s", errUnparseableResponse, namespace, err.Error())
+	}
+	for _, ws := range wsList.Items {
+		for _, ns := range ws.Status.Namespaces {
+			if ns.Name == namespace {
+				w.RestConfig.Host, err = url.JoinPath(w.RestConfig.Host, "workspaces", ws.Name)
+				if err != nil {
+					lg.Error(err, "failed to create the K8S API path", "api", w.RestConfig.Host, "workspace", ws.Name)
+					return nil, fmt.Errorf("failed to create the K8S API path from URL %s and workspace %s: %w", w.RestConfig.Host, ws.Name, err)
+				}
+				return doCreateClient(w.RestConfig, *w.ClientOptions)
+			}
+		}
+	}
+	return nil, fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
 }
 
 func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-
-	cl, err := client.New(u.RestConfig, *u.ClientOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
-	}
-	return cl, nil
+	return doCreateClient(u.RestConfig, *u.ClientOptions)
 }
 
 func (i InClusterK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	cl, err := client.New(i.RestConfig, *i.ClientOptions)
+	return doCreateClient(i.RestConfig, *i.ClientOptions)
+}
+
+func doCreateClient(cfg *rest.Config, opts client.Options) (client.Client, error) {
+	cl, err := client.New(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
 	}
