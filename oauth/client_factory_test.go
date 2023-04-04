@@ -16,13 +16,14 @@ package oauth
 import (
 	"bytes"
 	"context"
+	"io"
+	"net/http"
+	"testing"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
-	"io"
 	"k8s.io/client-go/rest"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 const wsResponseMock = `
