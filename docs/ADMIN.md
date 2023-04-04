@@ -100,14 +100,16 @@ This table only contains the configuration parameters specific to the oauth serv
 are also applicable to the oauth service. The configmap for oauth-service-specific configuration is called
 `spi-oauth-service-environment-config`.
 
-| Command argument    | Environment variable | Default                                                                                                                     | Description                                                                         |
-|---------------------|----------------------|-----------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| --service-addr      | SERVICEADDR          | 0.0.0.0:8000                                                                                                                | Service address to listen on.                                                       |
-| --allowed-origins   | ALLOWEDORIGINS       | https://console.redhat.com,https://console.stage.redhat.com,https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                  |
-| --kubeconfig        | KUBECONFIG           |                                                                                                                             | KUBE-CONFIG.                                                                        |
-| --kube-insecure-tls | KUBEINSECURETLS      | false                                                                                                                       | Whether is allowed or not insecure kubernetes tls connection.                       |
-| --api-server        | API_SERVER           |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
-| --ca-path           | API_SERVER_CA_PATH   |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server. |
+| Command argument     | Environment variable      | Default                                                                                                                     | Description                                                                          |
+|----------------------|---------------------------|-----------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| --service-addr       | SERVICEADDR               | 0.0.0.0:8000                                                                                                                | Service address to listen on.                                                        |
+| --allowed-origins    | ALLOWEDORIGINS            | https://console.redhat.com,https://console.stage.redhat.com,https://console.dev.redhat.com,https://prod.foo.redhat.com:1337 | Comma-separated list of domains allowed for cross-domain requests.                   |
+| --kubeconfig         | KUBECONFIG                |                                                                                                                             | KUBE-CONFIG.                                                                         |
+| --kube-insecure-tls  | KUBEINSECURETLS           | false                                                                                                                       | Whether is allowed or not insecure kubernetes tls connection.                        |
+| --api-server         | API_SERVER                |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.           |
+| --ca-path            | API_SERVER_CA_PATH        |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server.  |
+| --workspace-api-path | API_SERVER_WORKSPACE_PATH | /apis/toolchain.dev.openshift.com/v1alpha1/workspaces                                                                       | Path of the workspace API on API server to use when configuring the user K8S clients |
+
 
 ## [Configuring Service Providers](#configuring-service-providers)
 
