@@ -64,10 +64,10 @@ type TypedSecretStorage[ID any, D any] interface {
 	Delete(ctx context.Context, id *ID) error
 }
 
-// DefaultTypedSecretStorate is the default implementation of the TypedSecretStorage interface
+// DefaultTypedSecretStorage is the default implementation of the TypedSecretStorage interface
 // that uses the provided functions to convert between the id and data types to SecretID and []byte
 // respectively.
-type DefaultTypedSecretStorate[ID any, D any] struct {
+type DefaultTypedSecretStorage[ID any, D any] struct {
 	// DataTypeName is the human-readable name of the data type that is being stored. This is used
 	// in error messages.
 	DataTypeName string
@@ -113,10 +113,10 @@ func DeserializeJSON[D any](data []byte, obj *D) error {
 	return nil
 }
 
-var _ TypedSecretStorage[string, string] = (*DefaultTypedSecretStorate[string, string])(nil)
+var _ TypedSecretStorage[string, string] = (*DefaultTypedSecretStorage[string, string])(nil)
 
 // Delete implements TypedSecretStorage
-func (s *DefaultTypedSecretStorate[ID, D]) Delete(ctx context.Context, id *ID) error {
+func (s *DefaultTypedSecretStorage[ID, D]) Delete(ctx context.Context, id *ID) error {
 	if err := s.SecretStorage.Delete(ctx, s.ToID(id)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", s.DataTypeName, err)
 	}
@@ -124,7 +124,7 @@ func (s *DefaultTypedSecretStorate[ID, D]) Delete(ctx context.Context, id *ID) e
 }
 
 // Get implements TypedSecretStorage
-func (s *DefaultTypedSecretStorate[ID, D]) Get(ctx context.Context, id *ID) (*D, error) {
+func (s *DefaultTypedSecretStorage[ID, D]) Get(ctx context.Context, id *ID) (*D, error) {
 	d, err := s.SecretStorage.Get(ctx, s.ToID(id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the %s: %w", s.DataTypeName, err)
@@ -138,7 +138,7 @@ func (s *DefaultTypedSecretStorate[ID, D]) Get(ctx context.Context, id *ID) (*D,
 }
 
 // Initialize implements TypedSecretStorage
-func (s *DefaultTypedSecretStorate[ID, D]) Initialize(ctx context.Context) error {
+func (s *DefaultTypedSecretStorage[ID, D]) Initialize(ctx context.Context) error {
 	if err := s.SecretStorage.Initialize(ctx); err != nil {
 		return fmt.Errorf("underlying secret storage failed to initialize: %w", err)
 	}
@@ -146,7 +146,7 @@ func (s *DefaultTypedSecretStorate[ID, D]) Initialize(ctx context.Context) error
 }
 
 // Store implements TypedSecretStorage
-func (s *DefaultTypedSecretStorate[ID, D]) Store(ctx context.Context, id *ID, data *D) error {
+func (s *DefaultTypedSecretStorage[ID, D]) Store(ctx context.Context, id *ID, data *D) error {
 	secretId := s.ToID(id)
 	bytes, err := s.Serialize(data)
 	if err != nil {
