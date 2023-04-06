@@ -18,8 +18,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -50,16 +50,12 @@ func VaultStorageConfigFromCliArgs(args *VaultCliArgs) *vaultstorage.VaultStorag
 	}
 }
 
-func CreateVaultStorage(ctx context.Context, args *VaultCliArgs) (tokenstorage.TokenStorage, error) {
+func CreateVaultStorage(ctx context.Context, args *VaultCliArgs) (secretstorage.SecretStorage, error) {
 	vaultConfig := VaultStorageConfigFromCliArgs(args)
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
 
-	return &tokenstorage.DefaultTokenStorage{
-		SecretStorage: &vaultstorage.VaultSecretStorage{
-			Config: vaultConfig,
-		},
-		Serializer:   tokenstorage.JSONSerializer,
-		Deserializer: tokenstorage.JSONDeserializer,
+	return &vaultstorage.VaultSecretStorage{
+		Config: vaultConfig,
 	}, nil
 }
