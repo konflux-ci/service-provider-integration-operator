@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	errUnparseableResponse  = errors.New("unable to parse workspace  API response for namespace")
+	errWrongResponseContent = errors.New("unable to parse workspace API response content for namespace")
 	errWorkspaceNotFound    = errors.New("target workspace not found for namespace")
 	errClientInstanceNotSet = errors.New("client instance does not set")
 )
@@ -99,7 +99,7 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 
 	wsList := &v1alpha1.WorkspaceList{}
 	if err := json.Unmarshal(bodyBytes, wsList); err != nil {
-		return nil, fmt.Errorf("%w '%s': %s", errUnparseableResponse, namespace, err.Error())
+		return nil, fmt.Errorf("%w '%s': %s", errWrongResponseContent, namespace, err.Error())
 	}
 	for _, ws := range wsList.Items {
 		for _, ns := range ws.Status.Namespaces {
