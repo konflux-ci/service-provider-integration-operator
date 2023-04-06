@@ -38,15 +38,16 @@ type TokenStorage interface {
 // The returned object is an instance of DefaultTokenStorage.
 func NewJSONSerializingTokenStorage(secretStorage secretstorage.SecretStorage) TokenStorage {
 	return &DefaultTokenStorage{
-		SecretStorage: &secretstorage.DefaultTypedSecretStorate[api.SPIAccessToken, api.Token]{
+		SecretStorage: &secretstorage.DefaultTypedSecretStorage[api.SPIAccessToken, api.Token]{
 			DataTypeName:  "token",
 			SecretStorage: secretStorage,
-			ToID: secretstorage.ObjectToID[*api.SPIAccessToken],
-			Serialize: secretstorage.SerializeJSON[api.Token],
-			Deserialize: secretstorage.DeserializeJSON[api.Token],
+			ToID:          secretstorage.ObjectToID[*api.SPIAccessToken],
+			Serialize:     secretstorage.SerializeJSON[api.Token],
+			Deserialize:   secretstorage.DeserializeJSON[api.Token],
 		},
 	}
 }
+
 // DefaultTokenStorage is the default implementation of the TokenStorage interface that uses the underlying SecretStorage
 // for actually storing the data.
 // It honors the original behavior of the TokenStorage interface that used to return nil instead

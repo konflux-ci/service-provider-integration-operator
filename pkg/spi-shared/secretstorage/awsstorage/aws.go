@@ -25,11 +25,10 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-const awsDataPathFormat = "%s/%s"
 
 var _ secretstorage.SecretStorage = (*AwsSecretStorage)(nil)
 
@@ -49,14 +48,16 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	Config *aws.Config
-	client awsClient
+	Config           *aws.Config
+	secretNameFormat string
+	client           awsClient
 }
 
 func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 	lg(ctx).Info("initializing AWS token storage")
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
+	s.secretNameFormat = initSecretNameFormat(ctx)
 
 	if errCheck := s.checkCredentials(ctx); errCheck != nil {
 		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
@@ -70,7 +71,7 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	dbgLog.Info("storing data")
 
-	secretName := generateAwsSecretName(&id)
+	secretName := s.generateAwsSecretName(&id)
 
 	dbgLog = dbgLog.WithValues("secretname", secretName)
 	ctx = log.IntoContext(ctx, dbgLog)
@@ -86,7 +87,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
 	dbgLog.Info("getting the token")
 
-	secretName := generateAwsSecretName(&id)
+	secretName := s.generateAwsSecretName(&id)
 	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
@@ -111,7 +112,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
 	lg(ctx).V(logs.DebugLevel).Info("deleting the token", "secretID", id)
 
-	secretName := generateAwsSecretName(&id)
+	secretName := s.generateAwsSecretName(&id)
 	input := &secretsmanager.DeleteSecretInput{
 		SecretId:                   secretName,
 		ForceDeleteWithoutRecovery: aws.Bool(true),
@@ -199,6 +200,14 @@ func lg(ctx context.Context) logr.Logger {
 	return log.FromContext(ctx, "secretstorage", "AWS")
 }
 
-func generateAwsSecretName(secretId *secretstorage.SecretID) *string {
-	return aws.String(fmt.Sprintf(awsDataPathFormat, secretId.Namespace, secretId.Name))
+func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretID) *string {
+	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Namespace, secretId.Name))
+}
+
+func initSecretNameFormat(ctx context.Context) string {
+	if spiInstanceId := ctx.Value(config.SPIInstanceIdContextKey); spiInstanceId == nil {
+		return "%s/%s"
+	} else {
+		return fmt.Sprint(spiInstanceId) + "/%s/%s"
+	}
 }

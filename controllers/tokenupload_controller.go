@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/go-logr/logr"
@@ -46,9 +47,7 @@ import (
 
 const (
 	tokenSecretLabel            = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	targetEnvironmentAnnotation = "spi.appstudio.redhat.com/target-environment"
 	spiTokenNameField           = "spiTokenName" //#nosec G101 -- false positive, this is not a token
-	remoteSecretNameAnnotation  = "spi.appstudio.redhat.com/remote-secret-name"
 	providerUrlField            = "providerUrl"
 )
 
@@ -63,93 +62,92 @@ type TokenUploadReconciler struct {
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	lg := log.FromContext(ctx)
-	uploadSecretList := &corev1.SecretList{}
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
+	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile Upload Secret")
 
-	// uploadSecretList secrets labeled with "spi.appstudio.redhat.com/upload-secret"
-	err := r.List(ctx, uploadSecretList, client.HasLabels{tokenSecretLabel})
+	uploadSecret := &corev1.Secret{}
+
+	if err := r.Get(ctx, req.NamespacedName, uploadSecret); err != nil {
+		if errors.IsNotFound(err) {
+			lg.V(logs.DebugLevel).Info("upload secret already gone from the cluster. skipping reconciliation")
+		}
+		return ctrl.Result{}, fmt.Errorf("failed to load the upload secret from the cluster: %w", err)
+	}
+
+	if uploadSecret.DeletionTimestamp != nil {
+		lg.V(logs.DebugLevel).Info("upload secret is being deleted. skipping reconciliation")
+		return ctrl.Result{}, nil
+	}
+
+	// we immediately delete the Secret
+	err := r.Delete(ctx, uploadSecret)
 	if err != nil {
-		lg.Error(err, "can not get uploadSecretList of secrets")
-		return ctrl.Result{}, fmt.Errorf("can not get uploadSecretList of secrets: %w", err)
+		// We failed to delete the secret, so we error out so that we can try again in the next reconciliation round.
+		// We therefore also DON'T create the error event in this case like we do later on in this method.
+		return ctrl.Result{}, fmt.Errorf("cannot delete the Secret: %w", err)
 	}
 
-	for i, uploadSecret := range uploadSecretList.Items {
+	// NOTE: it is useless to return any error to the controller runtime after this point, because we just
+	// deleted the secret that is being reconciled and so its repeated reconciliation would short-circuit
+	// on the non-nil DeletionTimestamp. Therefore, in case of errors, we just create the error event and
+	// return a "success" to the controller runtime.
 
-		// we immediately delete the Secret
-		err := r.Delete(ctx, &uploadSecretList.Items[i])
+	// try to find the SPIAccessToken
+	accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
+	if err != nil {
+		err = fmt.Errorf("cannot find SPI access token: %w", err)
+		r.createErrorEvent(ctx, uploadSecret, err, lg)
+		return ctrl.Result{}, nil
+	} else if accessToken == nil {
+		// SPIAccessToken does not exist, so create it
+		accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
 		if err != nil {
-			r.logError(ctx, uploadSecret, fmt.Errorf("can not delete the Secret: %w", err), lg)
-			continue
+			err = fmt.Errorf("can not create SPI access token: %w ", err)
+			r.createErrorEvent(ctx, uploadSecret, err, lg)
+			return ctrl.Result{}, nil
 		}
-		secretType, _ := uploadSecret.GetLabels()[tokenSecretLabel]
-		switch secretType {
-		case "token":
-			// try to find  SPIAccessToken
-			accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
-			if err != nil {
-				r.logError(ctx, uploadSecret, fmt.Errorf("can not find SPI access token: %w ", err), lg)
-				continue
-			} else if accessToken == nil {
-				// SPIAccessToken does not exist, so create it
-				accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
-				if err != nil {
-					r.logError(ctx, uploadSecret, fmt.Errorf("can not create SPI access token: %w ", err), lg)
-					continue
-				}
-			}
-
-			token := spi.Token{
-				Username:    string(uploadSecret.Data["userName"]),
-				AccessToken: string(uploadSecret.Data["tokenData"]),
-			}
-
-			logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, accessToken.Name)
-			// Upload Token, it will cause update SPIAccessToken State as well
-			err = r.TokenStorage.Store(ctx, accessToken, &token)
-			if err != nil {
-				r.logError(ctx, uploadSecret, fmt.Errorf("failed to store the token: %w", err), lg)
-				logs.AuditLog(ctx).Error(err, "manual token upload failed", uploadSecret.Namespace, accessToken.Name)
-				continue
-			}
-			logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, accessToken.Name)
-
-			r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
-			break
-		case "secret":
-			logs.AuditLog(ctx).Info("manual token upload initiated for ", uploadSecret.Namespace, secretType)
-			// try to find  RemoteSecret
-			remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
-			if err != nil {
-				r.logError(ctx, uploadSecret, fmt.Errorf("can not find RemoteSecret: %w ", err), lg)
-				continue
-			} else if remoteSecret == nil {
-				// SPIAccessToken does not exist, so create it
-				remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
-				if err != nil {
-					r.logError(ctx, uploadSecret, fmt.Errorf("can not create RemoteSecret: %w ", err), lg)
-					continue
-				}
-			}
-			logs.AuditLog(ctx).Info("manual token upload initiated", uploadSecret.Namespace, remoteSecret.Name)
-			logs.AuditLog(ctx).Info("manual token upload completed", uploadSecret.Namespace, remoteSecret.Name)
-			r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
-
-		default:
-			logs.AuditLog(ctx).Error(err, "Unknown upload secret", uploadSecret.Namespace, secretType)
-			continue
-		}
-
 	}
+
+	token := spi.Token{
+		Username:    string(uploadSecret.Data["userName"]),
+		AccessToken: string(uploadSecret.Data["tokenData"]),
+	}
+
+	auditLog := logs.AuditLog(ctx).WithValues("SPIAccessToken.name", accessToken.Name)
+
+	auditLog.Info("manual token upload initiated", "action", "UPDATE")
+	// Upload Token, it will cause update SPIAccessToken State as well
+	err = r.TokenStorage.Store(ctx, accessToken, &token)
+	if err != nil {
+		err = fmt.Errorf("failed to store the token: %w", err)
+		r.createErrorEvent(ctx, uploadSecret, err, lg)
+		auditLog.Error(err, "manual token upload failed")
+		return ctrl.Result{}, nil
+	}
+	auditLog.Info("manual token upload completed")
+
+	r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
+
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      tokenSecretLabel,
+				Operator: metav1.LabelSelectorOpExists,
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
+	}
 
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}).
-		WithEventFilter(createTokenPredicate()).
+		For(&corev1.Secret{}, builder.WithPredicates(pred)).
 		Complete(r); err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 		return err
@@ -157,31 +155,8 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func createTokenPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			_, ok := e.Object.GetLabels()[tokenSecretLabel]
-			return ok
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			_, newLabelExists := e.ObjectNew.GetLabels()[tokenSecretLabel]
-			_, oldLabelExists := e.ObjectOld.GetLabels()[tokenSecretLabel]
-			if newLabelExists && !oldLabelExists {
-				return true
-			}
-			return false
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-	}
-}
-
 // reports error in both Log and Event in current Namespace
-func (r *TokenUploadReconciler) logError(ctx context.Context, secret corev1.Secret, err error, lg logr.Logger) {
-
-	lg.Error(err, "Secret upload failed:")
-
+func (r *TokenUploadReconciler) createErrorEvent(ctx context.Context, secret *corev1.Secret, err error, lg logr.Logger) {
 	r.tryDeleteEvent(ctx, secret.Name, secret.Namespace, lg)
 
 	secretErrEvent := &corev1.Event{
@@ -190,7 +165,7 @@ func (r *TokenUploadReconciler) logError(ctx context.Context, secret corev1.Secr
 			Namespace: secret.Namespace,
 		},
 		Message:        err.Error(),
-		Reason:         "Can not upload access token",
+		Reason:         "cannot process upload secret",
 		InvolvedObject: corev1.ObjectReference{Namespace: secret.Namespace, Name: secret.Name, Kind: secret.Kind, APIVersion: secret.APIVersion},
 		Type:           "Error",
 		LastTimestamp:  metav1.NewTime(time.Now()),
@@ -198,27 +173,27 @@ func (r *TokenUploadReconciler) logError(ctx context.Context, secret corev1.Secr
 
 	err = r.Create(ctx, secretErrEvent)
 	if err != nil {
-		lg.Error(err, "Event creation failed for Secret: ", "secret.name", secret.Name)
+		lg.Error(err, "event creation failed for upload secret")
 	}
 
 }
 
-// Contract: having at only one event if upload failed and no events if uploaded.
+// Contract: having exactly one event if upload failed and no events if uploaded.
 // For this need to delete the event every attempt
 func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName string, ns string, lg logr.Logger) {
 	stored := &corev1.Event{}
 	err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: ns}, stored)
 
 	if err == nil {
-		lg.V(logs.DebugLevel).Info("event Found and will be deleted: ", "event.name", stored.Name)
+		lg.V(logs.DebugLevel).Info("event found and will be deleted", "event.name", stored.Name)
 		err = r.Delete(ctx, stored)
 		if err != nil {
-			lg.Error(err, " can not delete Event ")
+			lg.Error(err, "can not delete event")
 		}
 	}
 }
 
-func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
+func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	spiTokenName := string(uploadSecret.Data[spiTokenNameField])
 	if spiTokenName == "" {
 		lg.V(logs.DebugLevel).Info("No spiTokenName found, will try to create with generated ", "spiTokenName", spiTokenName)
@@ -241,30 +216,7 @@ func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSe
 	}
 }
 
-func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
-	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
-	if remoteSecretName == "" {
-		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
-		return nil, nil
-	}
-
-	remoteSecret := spi.RemoteSecret{}
-	err := r.Get(ctx, types.NamespacedName{Name: remoteSecretName, Namespace: uploadSecret.Namespace}, &remoteSecret)
-
-	if err != nil {
-		if kuberrors.IsNotFound(err) {
-			lg.V(logs.DebugLevel).Info("RemoteSecret NOT found, will try to create  ", "RemoteSecret.name", remoteSecret.Name)
-			return nil, nil
-		} else {
-			return nil, fmt.Errorf("can not find RemoteSecret %s: %w ", remoteSecretName, err)
-		}
-	} else {
-		lg.V(logs.DebugLevel).Info("RemoteSecret found : ", "RemoteSecret.name", remoteSecret.Name)
-		return &remoteSecret, nil
-	}
-}
-
-func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
+func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.SPIAccessToken, error) {
 	accessToken := spi.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: uploadSecret.Namespace,
@@ -273,7 +225,6 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 			ServiceProviderUrl: string(uploadSecret.Data[providerUrlField]),
 		},
 	}
-
 	spiTokenName := string(uploadSecret.Data[spiTokenNameField])
 	if spiTokenName == "" {
 		accessToken.GenerateName = "generated-"
@@ -287,35 +238,5 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 		return &accessToken, nil
 	} else {
 		return nil, fmt.Errorf("can not create SPIAccessToken %s. Reason: %w", accessToken.Name, err)
-	}
-}
-
-func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
-	targetEnvironment, ok := uploadSecret.Annotations[targetEnvironmentAnnotation]
-	if !ok {
-		return nil, fmt.Errorf("can not create RemoteSecret %s. target environment is not set", uploadSecret.Name)
-	}
-	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
-	remoteSecret := spi.RemoteSecret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: uploadSecret.Namespace,
-		},
-		Spec: spi.RemoteSecretSpec{
-			EnvironmentName: targetEnvironment,
-		},
-	}
-
-	if remoteSecretName == "" {
-		remoteSecret.GenerateName = "generated-"
-	} else {
-		remoteSecret.Name = remoteSecretName
-	}
-
-	err := r.Create(ctx, &remoteSecret)
-	if err == nil {
-		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "environment", targetEnvironment)
-		return &remoteSecret, nil
-	} else {
-		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
 	}
 }

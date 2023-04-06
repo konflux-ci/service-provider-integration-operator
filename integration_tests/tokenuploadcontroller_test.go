@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("TokenUploadController", func() {
@@ -54,6 +55,7 @@ var _ = Describe("TokenUploadController", func() {
 
 		var _ = AfterEach(func() {
 			testSetup.AfterEach()
+			Expect(ITest.Client.DeleteAllOf(ITest.Context, &corev1.Secret{}, client.InNamespace("default"))).Should(Succeed())
 		})
 
 		It("updates existed SPIAccessToken's status", func() {
@@ -92,6 +94,35 @@ var _ = Describe("TokenUploadController", func() {
 
 			createSecret("secret", "my-spi-access-token_2023_03_02__15_37_28", "")
 			Eventually(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
+		})
+		It("leaves non-annotated secrets alone", func() {
+			accessToken := api.SPIAccessToken{}
+			Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeFalse())
+			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
+			noTouchSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-touching",
+					Namespace: "default",
+				},
+				Type: corev1.SecretTypeOpaque,
+				StringData: map[string]string{
+					"ryans": "privates",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, noTouchSecret)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				// Token added to Storage...
+				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
+				// And SPIAccessToken updated...
+				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
+				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId == "42").To(BeTrue())
+				// The secret should be deleted
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})).NotTo(Succeed())
+			})
+			Consistently(func(g Gomega) {
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "no-touching", Namespace: "default"}, &corev1.Secret{})).To(Succeed())
+			}, "1s").Should(Succeed())
 		})
 	})
 })
