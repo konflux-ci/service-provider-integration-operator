@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	errWrongResponseContent = errors.New("unable to parse workspace API response content for namespace")
+	errWrongResponseContent = errors.New("unable to parse response from workspace API requested for namespace")
 	errWorkspaceNotFound    = errors.New("target workspace not found for namespace")
 	errClientInstanceNotSet = errors.New("client instance does not set")
 )
