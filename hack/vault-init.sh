@@ -46,7 +46,7 @@ function secret() {
     return
   fi
 
-  if kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}; then
+  if kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get secret ${SECRET_NAME} -n ${VAULT_NAMESPACE} 2> /dev/null; then
     echo "Secret ${SECRET_NAME} already exists. Deleting ..."
     kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete secret ${SECRET_NAME} -n ${VAULT_NAMESPACE}
   fi
@@ -160,7 +160,7 @@ function approleAuth() {
   fi
 
   if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
-  SECRET_FILE=$( realpath .tmp/approle_secret.yaml )
+  SECRET_FILE="$( realpath .tmp )/approle_secret.yaml"
 
   function approleSet() {
     vaultExec "vault write auth/approle/role/${1} token_policies=${SPI_POLICY_NAME}"
@@ -201,7 +201,7 @@ function restart() {
 
 until [ "$(kubectl --kubeconfig=${VAULT_KUBE_CONFIG} get pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -o jsonpath='{.status.phase}')" == "Running" ]; do
    sleep 5
-   echo "Waiting for Vault pod to be ready."
+   echo "Waiting for Vault pod to be running."
 done
 
 sleep 5
