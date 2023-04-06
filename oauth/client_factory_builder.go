@@ -85,42 +85,41 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8
 		setInsecure(r.Args, cfg)
 		AugmentConfiguration(cfg)
 		return UserAuthK8sClientFactory{ClientOptions: clientOptions, RestConfig: cfg}, nil
-	} else {
-		// here we're essentially replicating what is done in rest.InClusterConfig() but we're using our own
-		// configuration - this is to support going through an alternative API server to the one we're running with...
-		// Note that we're NOT adding the Token or the TokenFile to the configuration here. This is supposed to be
-		// handled on per-request basis...
-		cfg := &rest.Config{}
-
-		tlsConfig := rest.TLSClientConfig{}
-
-		if r.Args.ApiServerCAPath != "" {
-			// rest.InClusterConfig is doing this most possibly only for early error handling so let's do the same
-			if _, err := certutil.NewPool(r.Args.ApiServerCAPath); err != nil {
-				return nil, fmt.Errorf("expected to load root CA config from %s, but got err: %w", r.Args.ApiServerCAPath, err)
-			} else {
-				tlsConfig.CAFile = r.Args.ApiServerCAPath
-			}
-		}
-
-		cfg.TLSClientConfig = tlsConfig
-		setInsecure(r.Args, cfg)
-		AugmentConfiguration(cfg)
-		apiServerUrl, err := url.Parse(r.Args.ApiServer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
-		}
-		cfg.Host = "https://" + apiServerUrl.Host
-
-		return WorkspaceAwareK8sClientFactory{
-			ClientOptions: clientOptions,
-			RestConfig:    cfg,
-			ApiServer:     r.Args.ApiServer,
-			HTTPClient: &http.Client{
-				Transport: httptransport.HttpMetricCollectingRoundTripper{
-					RoundTripper: http.DefaultTransport}}}, nil
 	}
 
+	// here we're essentially replicating what is done in rest.InClusterConfig() but we're using our own
+	// configuration - this is to support going through an alternative API server to the one we're running with...
+	// Note that we're NOT adding the Token or the TokenFile to the configuration here. This is supposed to be
+	// handled on per-request basis...
+	cfg := &rest.Config{}
+
+	tlsConfig := rest.TLSClientConfig{}
+
+	if r.Args.ApiServerCAPath != "" {
+		// rest.InClusterConfig is doing this most possibly only for early error handling so let's do the same
+		if _, err := certutil.NewPool(r.Args.ApiServerCAPath); err != nil {
+			return nil, fmt.Errorf("expected to load root CA config from %s, but got err: %w", r.Args.ApiServerCAPath, err)
+		} else {
+			tlsConfig.CAFile = r.Args.ApiServerCAPath
+		}
+	}
+
+	cfg.TLSClientConfig = tlsConfig
+	setInsecure(r.Args, cfg)
+	AugmentConfiguration(cfg)
+	apiServerUrl, err := url.Parse(r.Args.ApiServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the API server URL: %w", err)
+	}
+	cfg.Host = "https://" + apiServerUrl.Host
+
+	return WorkspaceAwareK8sClientFactory{
+		ClientOptions: clientOptions,
+		RestConfig:    cfg,
+		ApiServer:     r.Args.ApiServer,
+		HTTPClient: &http.Client{
+			Transport: httptransport.HttpMetricCollectingRoundTripper{
+				RoundTripper: http.DefaultTransport}}}, nil
 }
 
 func setInsecure(args cli.OAuthServiceCliArgs, cfg *rest.Config) {

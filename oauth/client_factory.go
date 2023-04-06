@@ -30,8 +30,9 @@ import (
 )
 
 var (
-	errUnparseableResponse = errors.New("unable to parse workspace  API response for namespace")
-	errWorkspaceNotFound   = errors.New("target workspace not found for namespace")
+	errUnparseableResponse  = errors.New("unable to parse workspace  API response for namespace")
+	errWorkspaceNotFound    = errors.New("target workspace not found for namespace")
+	errClientInstanceNotSet = errors.New("client instance does not set")
 )
 
 type K8sClientFactory interface {
@@ -129,4 +130,17 @@ func doCreateClient(cfg *rest.Config, opts client.Options) (client.Client, error
 		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
 	}
 	return cl, nil
+}
+
+// SingleInstanceClientFactory client instance holding factory impl, used in tests only
+type SingleInstanceClientFactory struct {
+	client client.Client
+}
+
+func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+	if c.client != nil {
+		return c.client, nil
+	} else {
+		return nil, errClientInstanceNotSet
+	}
 }
