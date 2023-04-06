@@ -58,13 +58,13 @@ func TestClientOptions(t *testing.T) {
 func TestCustomizeRestconfig(t *testing.T) {
 	t.Run("auth provider is set for user factories", func(t *testing.T) {
 
-		cliArgs := oauthcli.OAuthServiceCliArgs{}
+		cliArgs := oauthcli.OAuthServiceCliArgs{ApiServer: "https://testapiserver:1234"}
 		builder := K8sClientFactoryBuilder{Args: cliArgs}
 
 		clientFactory, err := builder.CreateUserAuthClientFactory()
 		assert.NoError(t, err)
 
-		userClientFactory, ok := clientFactory.(UserAuthK8sClientFactory)
+		userClientFactory, ok := clientFactory.(WorkspaceAwareK8sClientFactory)
 		assert.True(t, ok)
 
 		assert.NotNil(t, userClientFactory.RestConfig)
