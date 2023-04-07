@@ -68,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
+	go metrics.ServeMetrics(ctx, args.MetricsAddr)
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	clientFactoryConfig := createClientFactoryConfig(args)
@@ -85,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
+	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
@@ -103,6 +103,8 @@ func main() {
 	sessionManager := scs.New()
 	sessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
 	sessionManager.IdleTimeout = 15 * time.Minute
+	sessionManager.Lifetime = time.Hour
+	sessionManager.Cookie.Persist = false
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
@@ -140,14 +142,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//router.Handle("/callback_success", oauth.CSPHandler(oauth.CallbackSuccessHandler())).Methods("GET")
-	//router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").Handler(oauth.CSPHandler(oauth.CallbackErrorHandler()))
-	//router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
-	//router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate()))
-
 	router.GET("/callback_success", gin.WrapH(oauth.CallbackSuccessHandler()))
-	//router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
-	//router.GET(oauth2.CallBackRoutePath, gin.WrapH(oauthRouter.Callback()))
 	router.GET(oauth2.CallBackRoutePath, gin.WrapH(oauthRouter.Callback()))
 	router.GET(oauth2.AuthenticateRoutePath, gin.WrapH(oauthRouter.Authenticate()))
 	router.Use(oauth.NewLoggerHandler(), oauth.NewCorsHandler(strings.Split(args.AllowedOrigins, ",")))
@@ -178,7 +173,7 @@ func main() {
 	<-stop
 	setupLog.Info("Server got interrupt signal, going to gracefully shutdown the server", "signal", stop)
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
