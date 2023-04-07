@@ -14,13 +14,14 @@
 package oauth
 
 import (
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
-	"net/http"
-	"strings"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 

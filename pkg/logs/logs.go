@@ -18,9 +18,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"strconv"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
