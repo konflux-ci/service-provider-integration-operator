@@ -18,8 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"html/template"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -111,6 +113,29 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 }
 
 func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
+
+	q := req.URL.Query()
+	errorMsg := q.Get("error")
+	errorDescription := q.Get("error_description")
+	if errorMsg != "" && errorDescription != "" {
+		data := viewData{
+			Title:   errorMsg,
+			Message: errorDescription,
+		}
+		logs.AuditLog(req.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
+		tmpl, _ := template.ParseFiles("../static/callback_error.html")
+
+		err := tmpl.Execute(wrt, data)
+		if err == nil {
+			wrt.WriteHeader(http.StatusOK)
+		} else {
+			log.FromContext(req.Context()).Error(err, "failed to process template")
+			wrt.WriteHeader(http.StatusInternalServerError)
+			_, _ = wrt.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
+		}
+		return
+	}
+
 	ctrl, state, err := r.router.findController(req, true)
 	if err != nil {
 		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)

@@ -14,19 +14,15 @@
 package oauth
 
 import (
-	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
-	"html/template"
 	"net/http"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -36,7 +32,6 @@ import (
 	"github.com/go-jose/go-jose/v3/json"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // OkHandler is a Handler implementation that responds only with http.StatusOK.
@@ -48,8 +43,10 @@ func OkHandler(w http.ResponseWriter, _ *http.Request) {
 // CallbackSuccessHandler is a Handler implementation that responds with HTML page
 // This page is a landing page after successfully completing the OAuth flow.
 // Resource file location is prefixed with `../` to be compatible with tests running locally.
-func CallbackSuccessHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "../static/callback_success.html")
+func CallbackSuccessHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "../static/callback_success.html")
+	})
 }
 
 // viewData structure is used to pass parameters during callback_error.html template processing.
@@ -58,30 +55,30 @@ type viewData struct {
 	Message string
 }
 
-// CallbackErrorHandler is a Handler implementation that responds with HTML page
-// This page is a landing page after unsuccessfully completing the OAuth flow.
-// Resource file location is prefixed with `../` to be compatible with tests running locally.
-func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	errorMsg := q.Get("error")
-	errorDescription := q.Get("error_description")
-	data := viewData{
-		Title:   errorMsg,
-		Message: errorDescription,
-	}
-	logs.AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
-	tmpl, _ := template.ParseFiles("../static/callback_error.html")
-
-	err := tmpl.Execute(w, data)
-	if err == nil {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		log.FromContext(r.Context()).Error(err, "failed to process template")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
-	}
-
-}
+//// CallbackErrorHandler is a Handler implementation that responds with HTML page
+//// This page is a landing page after unsuccessfully completing the OAuth flow.
+//// Resource file location is prefixed with `../` to be compatible with tests running locally.
+//func CallbackErrorHandler(w http.ResponseWriter, r *http.Request) {
+//	q := r.URL.Query()
+//	errorMsg := q.Get("error")
+//	errorDescription := q.Get("error_description")
+//	data := viewData{
+//		Title:   errorMsg,
+//		Message: errorDescription,
+//	}
+//	logs.AuditLog(r.Context()).Info("OAuth authentication flow failed.", "message", errorMsg, "description", errorDescription)
+//	tmpl, _ := template.ParseFiles("../static/callback_error.html")
+//
+//	err := tmpl.Execute(w, data)
+//	if err == nil {
+//		w.WriteHeader(http.StatusOK)
+//	} else {
+//		log.FromContext(r.Context()).Error(err, "failed to process template")
+//		w.WriteHeader(http.StatusInternalServerError)
+//		_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
+//	}
+//
+//}
 
 // HandleUpload returns Handler implementation that is relied on provided TokenUploader to persist provided credentials
 // for some concrete SPIAccessToken.

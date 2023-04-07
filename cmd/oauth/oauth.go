@@ -69,6 +69,7 @@ func main() {
 	}
 
 	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	clientFactoryConfig := createClientFactoryConfig(args)
 
@@ -139,8 +140,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	router.GET("/callback_success", gin.WrapF(oauth.CallbackSuccessHandler))
+	//router.Handle("/callback_success", oauth.CSPHandler(oauth.CallbackSuccessHandler())).Methods("GET")
+	//router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").Handler(oauth.CSPHandler(oauth.CallbackErrorHandler()))
+	//router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
+	//router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate()))
+
+	router.GET("/callback_success", gin.WrapH(oauth.CallbackSuccessHandler()))
 	//router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	//router.GET(oauth2.CallBackRoutePath, gin.WrapH(oauthRouter.Callback()))
 	router.GET(oauth2.CallBackRoutePath, gin.WrapH(oauthRouter.Callback()))
 	router.GET(oauth2.AuthenticateRoutePath, gin.WrapH(oauthRouter.Authenticate()))
 	router.Use(oauth.NewLoggerHandler(), oauth.NewCorsHandler(strings.Split(args.AllowedOrigins, ",")))
