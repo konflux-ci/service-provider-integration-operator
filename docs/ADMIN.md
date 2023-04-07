@@ -109,7 +109,6 @@ are also applicable to the oauth service. The configmap for oauth-service-specif
 | --api-server         | API_SERVER                |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.           |
 | --ca-path            | API_SERVER_CA_PATH        |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server.  |
 
-
 ## [Configuring Service Providers](#configuring-service-providers)
 
 OAuth requires to create OAuth Application on Service Provider side. Service providers usually require to set:
