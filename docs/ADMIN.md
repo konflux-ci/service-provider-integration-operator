@@ -108,7 +108,6 @@ are also applicable to the oauth service. The configmap for oauth-service-specif
 | --kube-insecure-tls  | KUBEINSECURETLS           | false                                                                                                                       | Whether is allowed or not insecure kubernetes tls connection.                        |
 | --api-server         | API_SERVER                |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.           |
 | --ca-path            | API_SERVER_CA_PATH        |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server.  |
-| --workspace-api-path | API_SERVER_WORKSPACE_PATH | /apis/toolchain.dev.openshift.com/v1alpha1/workspaces                                                                       | Path of the workspace API on API server to use when configuring the user K8S clients |
 
 
 ## [Configuring Service Providers](#configuring-service-providers)

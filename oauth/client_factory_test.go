@@ -79,7 +79,6 @@ const apiResponseMock = `
 
 var (
 	apiserver = "https://testapiserver:1234"
-	wsApiPath = "/api/workspace"
 )
 
 func TestWorkspaceAwareK8sClientFactory(t *testing.T) {
@@ -101,12 +100,11 @@ func TestWorkspaceAwareK8sClientFactory(t *testing.T) {
 					}
 				}),
 			},
-			ClientOptions:    &client.Options{},
-			ApiServer:        apiserver,
-			WorkspaceApiPath: wsApiPath,
+			ClientOptions: &client.Options{},
+			ApiServer:     apiserver,
 			HTTPClient: &http.Client{
 				Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-					if r.URL.String() == apiserver+"/api/workspace" {
+					if r.URL.String() == apiserver+wsApiPath {
 						return &http.Response{
 							StatusCode: 200,
 							Body:       io.NopCloser(bytes.NewBuffer([]byte(wsResponseMock))),
@@ -129,12 +127,11 @@ func TestWorkspaceAwareK8sClientFactory(t *testing.T) {
 			RestConfig: &rest.Config{
 				Host: apiserver,
 			},
-			ClientOptions:    &client.Options{},
-			ApiServer:        apiserver,
-			WorkspaceApiPath: wsApiPath,
+			ClientOptions: &client.Options{},
+			ApiServer:     apiserver,
 			HTTPClient: &http.Client{
 				Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-					if r.URL.String() == apiserver+"/api/workspace" {
+					if r.URL.String() == apiserver+wsApiPath {
 						return &http.Response{
 							StatusCode: 200,
 							Body:       io.NopCloser(bytes.NewBuffer([]byte(wsResponseMock))),
@@ -158,9 +155,8 @@ func TestWorkspaceAwareK8sClientFactory(t *testing.T) {
 			RestConfig: &rest.Config{
 				Host: apiserver,
 			},
-			ClientOptions:    &client.Options{},
-			ApiServer:        apiserver,
-			WorkspaceApiPath: wsApiPath,
+			ClientOptions: &client.Options{},
+			ApiServer:     apiserver,
 			HTTPClient: &http.Client{
 				Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 					return &http.Response{
@@ -193,10 +189,9 @@ func TestWorkspaceAwareK8sClientFactory(t *testing.T) {
 					}
 				}),
 			},
-			ClientOptions:    &client.Options{},
-			ApiServer:        apiserver,
-			WorkspaceApiPath: wsApiPath,
-			HTTPClient:       &http.Client{},
+			ClientOptions: &client.Options{},
+			ApiServer:     apiserver,
+			HTTPClient:    &http.Client{},
 		}
 		_, err := clientFactory.CreateClient(context.TODO())
 		assert.NoError(t, err)

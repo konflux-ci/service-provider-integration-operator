@@ -18,21 +18,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"io"
+	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
-	"strings"
-
-	"github.com/codeready-toolchain/api/api/v1alpha1"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const wsApiPath = "/apis/toolchain.dev.openshift.com/v1alpha1/workspaces"
+
 var (
-	errWrongResponseContent = errors.New("unable to parse response from workspace API requested for namespace")
-	errWorkspaceNotFound    = errors.New("target workspace not found for namespace")
-	errClientInstanceNotSet = errors.New("client instance does not set")
+	errUnableToParseWorkspaceResponse = errors.New("unable to parse response from workspace API requested for namespace")
+	errWorkspaceNotFound              = errors.New("target workspace not found for namespace")
+	errClientInstanceNotSet           = errors.New("client instance does not set")
 )
 
 type K8sClientFactory interface {
@@ -45,11 +45,10 @@ type InClusterK8sClientFactory struct {
 }
 
 type WorkspaceAwareK8sClientFactory struct {
-	ClientOptions    *client.Options
-	RestConfig       *rest.Config
-	ApiServer        string
-	WorkspaceApiPath string
-	HTTPClient       rest.HTTPClient
+	ClientOptions *client.Options
+	RestConfig    *rest.Config
+	ApiServer     string
+	HTTPClient    rest.HTTPClient
 }
 
 type UserAuthK8sClientFactory struct {
@@ -62,58 +61,19 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 	if !ok { // no namespace, return simple client
 		return doCreateClient(w.RestConfig, *w.ClientOptions)
 	}
-
 	lg := log.FromContext(ctx)
-	wsEndpoint, err := url.JoinPath(w.ApiServer, strings.TrimPrefix(w.WorkspaceApiPath, "/"))
+
+	wsName, err := fetchWorkspaceName(ctx, w.ApiServer, namespace, w.HTTPClient)
 	if err != nil {
-		lg.Error(err, "failed to create the workspace API path", "api", w.ApiServer, "path", w.WorkspaceApiPath)
-		return nil, fmt.Errorf("failed to create the workspace API path from URL %s and path %s: %w", w.ApiServer, w.WorkspaceApiPath, err)
+		lg.Error(err, "failed to fetch workspace name via API:", "api", w.RestConfig.Host, "workspace", wsName, "error", err.Error())
+		return nil, fmt.Errorf("unable to fetch workspace name via API: %w", err)
 	}
-	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
-	if reqErr != nil {
-		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
-		return nil, fmt.Errorf("error while constructing HTTP request for workspace context to %s: %w", wsEndpoint, reqErr)
-	}
-	resp, err := w.HTTPClient.Do(req)
+	w.RestConfig.Host, err = url.JoinPath(w.RestConfig.Host, "workspaces", wsName)
 	if err != nil {
-		lg.Error(err, "failed to request the workspace API", "url", wsEndpoint)
-		return nil, fmt.Errorf("error performing HTTP request for workspace context to %s: %w", wsEndpoint, err)
+		lg.Error(err, "failed to create the K8S API path", "api", w.RestConfig.Host, "workspace", wsName)
+		return nil, fmt.Errorf("failed to create the K8S API path from URL %s and workspace %s: %w", w.RestConfig.Host, wsName, err)
 	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			lg.Error(err, "Failed to close response body doing workspace fetch")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		lg.Info("unexpected return code for workspace api", "url", wsEndpoint, "code", resp.StatusCode)
-		return nil, fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		lg.Error(err, "failed to read the workspace API response", "error", err.Error())
-		return nil, fmt.Errorf("failed to read the workspace API response: %w", err)
-	}
-
-	wsList := &v1alpha1.WorkspaceList{}
-	if err := json.Unmarshal(bodyBytes, wsList); err != nil {
-		return nil, fmt.Errorf("%w '%s': %s", errWrongResponseContent, namespace, err.Error())
-	}
-	for _, ws := range wsList.Items {
-		for _, ns := range ws.Status.Namespaces {
-			if ns.Name == namespace {
-				w.RestConfig.Host, err = url.JoinPath(w.RestConfig.Host, "workspaces", ws.Name)
-				if err != nil {
-					lg.Error(err, "failed to create the K8S API path", "api", w.RestConfig.Host, "workspace", ws.Name)
-					return nil, fmt.Errorf("failed to create the K8S API path from URL %s and workspace %s: %w", w.RestConfig.Host, ws.Name, err)
-				}
-				return doCreateClient(w.RestConfig, *w.ClientOptions)
-			}
-		}
-	}
-	return nil, fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
+	return doCreateClient(w.RestConfig, *w.ClientOptions)
 }
 
 func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
@@ -143,4 +103,49 @@ func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Cli
 	} else {
 		return nil, errClientInstanceNotSet
 	}
+}
+
+func fetchWorkspaceName(ctx context.Context, apiServer, namespace string, client rest.HTTPClient) (string, error) {
+	lg := log.FromContext(ctx)
+	wsEndpoint := apiServer + wsApiPath
+	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
+	if reqErr != nil {
+		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
+		return "", fmt.Errorf("error while constructing HTTP request for workspace context to %s: %w", wsEndpoint, reqErr)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.Error(err, "failed to request the workspace API", "url", wsEndpoint)
+		return "", fmt.Errorf("error performing HTTP request for workspace context to %s: %w", wsEndpoint, err)
+	}
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lg.Error(err, "Failed to close response body doing workspace fetch")
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		lg.Info("unexpected return code for workspace api", "url", wsEndpoint, "code", resp.StatusCode)
+		return "", fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		lg.Error(err, "failed to read the workspace API response", "error", err.Error())
+		return "", fmt.Errorf("failed to read the workspace API response: %w", err)
+	}
+
+	wsList := &v1alpha1.WorkspaceList{}
+	if err := json.Unmarshal(bodyBytes, wsList); err != nil {
+		return "", fmt.Errorf("%w '%s': %s", errUnableToParseWorkspaceResponse, namespace, err.Error())
+	}
+	for _, ws := range wsList.Items {
+		for _, ns := range ws.Status.Namespaces {
+			if ns.Name == namespace {
+				return ws.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
 }
