@@ -88,6 +88,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
+		// We're watching the bindings so that we can remove abandoned tokens without data
 		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenBinding", func() string {
 				return object.GetLabels()[SPIAccessTokenLinkLabel]
@@ -136,6 +137,7 @@ func requestsForTokenInObjectNamespace(object client.Object, objectKind string, 
 // move the current state of the cluster closer to the desired state.
 func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIAccessToken")
 
 	at := api.SPIAccessToken{}
@@ -192,6 +194,10 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			lg.V(logs.DebugLevel).Info("token being deleted on reaching іts lifetime or being unreferenced with awaiting state", "token", at.ObjectMeta.Name, "tokenLifetime", tokenLifetime, "accesstokenttl", r.Configuration.AccessTokenTtl.Seconds())
 			return ctrl.Result{}, nil
 		}
+	}
+
+	if errCheckData := r.reconcileTokenData(ctx, &at); errCheckData != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check the token's data in token storage: %w", errCheckData)
 	}
 
 	// persist the SP-specific state so that it is available as soon as the token flips to the ready state.
@@ -268,6 +274,20 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	lg = lg.WithValues("phase_at_reconcile_end", at.Status.Phase)
 
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&at)}, nil
+}
+
+// reconcileTokenData verifies that token data are really in the storage. If data is missing, it cleans up the token's metadata
+func (r *SPIAccessTokenReconciler) reconcileTokenData(ctx context.Context, at *api.SPIAccessToken) error {
+	// as an optimization, we check status here first to not touch tokenstorage in cases when we don't expect data to be there
+	if at.Status.TokenMetadata != nil && at.Status.Phase == api.SPIAccessTokenPhaseReady {
+		if token, errGetToken := r.TokenStorage.Get(ctx, at); token == nil && errGetToken == nil {
+			log.FromContext(ctx).Info("no token data found in tokenstorage for the SPIAccessToken. Clearing metadata.")
+			at.Status.TokenMetadata = nil
+		} else if errGetToken != nil {
+			return fmt.Errorf("failed to get the token: %w", errGetToken)
+		}
+	}
+	return nil
 }
 
 func (r *SPIAccessTokenReconciler) durationUntilNextReconcile(at *api.SPIAccessToken) time.Duration {
@@ -360,7 +380,7 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 
 func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPIAccessToken, sp serviceprovider.ServiceProvider) error {
 	lg := logs.AuditLog(ctx)
-	lg.Info("initiated token refresh")
+	lg.Info("initiated token refresh", "action", "UPDATE")
 	token, err := r.TokenStorage.Get(ctx, at)
 	if err != nil {
 		return fmt.Errorf("unable to get refresh token from storage: %w", err)

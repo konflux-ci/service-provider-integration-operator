@@ -24,10 +24,11 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage/awscli"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/awsstorage/awscli"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -39,23 +40,23 @@ import (
 
 // TestVaultStorage runs against local in-memory Vault. No external dependency or setup is needed, test runs everytime.
 func TestVaultStorage(t *testing.T) {
-	cluster, storage := vaultstorage.CreateTestVaultTokenStorage(t)
+	cluster, storage := vaultstorage.CreateTestVaultSecretStorage(t)
 
 	ctx := context.TODO()
 	assert.NoError(t, storage.Initialize(ctx))
 	defer cluster.Cleanup()
 
-	testStorage(t, ctx, storage)
+	testStorage(t, ctx, createTokenStorage(storage))
 }
 
 // TestInMemoryStorage runs against our testing in-memory implementation of the TokenStorage.
 func TestInMemoryStorage(t *testing.T) {
-	storage := &memorystorage.MemoryTokenStorage{}
+	storage := &memorystorage.MemoryStorage{}
 
 	ctx := context.TODO()
 	assert.NoError(t, storage.Initialize(ctx))
 
-	testStorage(t, ctx, storage)
+	testStorage(t, ctx, createTokenStorage(storage))
 }
 
 // TestAws runs against real AWS secret manager.
@@ -81,7 +82,7 @@ func TestAws(t *testing.T) {
 		return
 	}
 
-	storage, error := awscli.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
+	storage, error := tokenstorage.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
 		ConfigFile:      awsConfig,
 		CredentialsFile: awsCreds,
 	})
@@ -92,6 +93,10 @@ func TestAws(t *testing.T) {
 	assert.NoError(t, err)
 
 	testStorage(t, ctx, storage)
+}
+
+func createTokenStorage(secretStorage secretstorage.SecretStorage) tokenstorage.TokenStorage {
+	return tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
 }
 
 func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenStorage) {

@@ -79,13 +79,15 @@ type HttpMetricCollectingRoundTripper struct {
 
 var _ http.RoundTripper = (*HttpMetricCollectingRoundTripper)(nil)
 
-var metricsCollectorKey = struct{}{}
+type metricsCollectorContextKeyType struct{}
+
+var metricsCollectorContextKey = metricsCollectorContextKeyType{}
 
 // ContextWithMetrics returns a new context based on the supplied one that contains the provided metrics collection
 // configurations. If this context is used to perform an HTTP request with the HttpMetricCollectingRoundTripper, the
 // configured metrics will be collected.
 func ContextWithMetrics(ctx context.Context, cfg *HttpMetricCollectionConfig) context.Context {
-	return context.WithValue(ctx, metricsCollectorKey, cfg)
+	return context.WithValue(ctx, metricsCollectorContextKey, cfg)
 }
 
 // HttpMetricCollectionConfig specifies what metric should be collected.
@@ -96,7 +98,7 @@ type HttpMetricCollectionConfig struct {
 }
 
 func (h HttpMetricCollectingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	stored := request.Context().Value(metricsCollectorKey)
+	stored := request.Context().Value(metricsCollectorContextKey)
 	var cfg *HttpMetricCollectionConfig
 
 	if stored != nil {

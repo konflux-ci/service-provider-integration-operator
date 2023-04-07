@@ -38,15 +38,21 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func main() {
 	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
+	ctx := context.WithValue(context.Background(), config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
+
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	setupLog := ctrl.Log.WithName("setup")
+	setupLog := ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId)
+	ctx = log.IntoContext(ctx, setupLog)
+	setupLog = log.FromContext(ctx).WithName("setup")
+
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	var err error
@@ -127,7 +133,7 @@ func main() {
 		TokenStorage:              strg,
 		RedirectTemplate:          redirectTpl,
 	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProviderTypes)
+	oauthRouter, routerErr := oauth.NewRouter(ctx, routerCfg, config.SupportedServiceProviderTypes)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)

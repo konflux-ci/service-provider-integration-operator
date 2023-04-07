@@ -28,8 +28,16 @@ import (
 )
 
 var (
-	specInconsistentWithStatusError    = stderrors.New("the number of service accounts in the spec doesn't correspond to the number of found service accounts")
-	managedServiceAccountAlreadyExists = stderrors.New("a service account with same name as the managed one already exists")
+	specInconsistentWithStatusError              = stderrors.New("the number of service accounts in the spec doesn't correspond to the number of found service accounts")
+	managedServiceAccountAlreadyExists           = stderrors.New("a service account with same name as the managed one already exists")
+	managedServiceAccountManagedByAnotherBinding = stderrors.New("the service account already exists and is managed by another binding object")
+)
+
+const (
+	// serviceAccountUpdateRetryCount is the number of times we retry update operations on a service account. This a completely arbitrary number that is bigger
+	// than 2. We need this because OpenShift automagically updates service accounts with dockerconfig secrets, etc, and so the service account change change
+	// underneath our hands basically immediatelly after creation.
+	serviceAccountUpdateRetryCount = 10
 )
 
 type serviceAccountHandler struct {
@@ -59,46 +67,65 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 	}
 
 	for i, link := range h.Binding.Spec.Secret.LinkedTo {
-		saSpec := link.ServiceAccount
 		sa := serviceAccounts[i]
-		updated := false
-		hasLink := false
-		linkType := saSpec.EffectiveSecretLinkType()
+		linkType := link.ServiceAccount.EffectiveSecretLinkType()
 
-		if linkType == api.ServiceAccountLinkTypeSecret {
-			for _, r := range sa.Secrets {
-				if r.Name == secret.Name {
-					hasLink = true
-					break
-				}
+		// we first try with the state of the service account as is, but because service accounts are treated somewhat specially at least in OpenShift
+		// the environment might be making updates to them under our hands. So let's have a couple of retries here so that we don't have to retry until
+		// "everything" (our updates and OpenShift udates to the SA) clicks just in the right order.
+		//
+		// Note that this SHOULD do at most 1 retry, but let's try a little harder than that to allow for multiple out-of-process concurrent updates
+		// on the SA.
+		attempt := func() (client.Object, error) {
+			if h.linkSecretByName(sa, secret.Name, linkType) {
+				return sa, nil
 			}
-
-			if !hasLink {
-				sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secret.Name})
-				updated = true
-			}
-		} else if linkType == api.ServiceAccountLinkTypeImagePullSecret {
-			for _, r := range sa.ImagePullSecrets {
-				if r.Name == secret.Name {
-					hasLink = true
-					break
-				}
-			}
-
-			if !hasLink {
-				sa.ImagePullSecrets = append(sa.ImagePullSecrets, corev1.LocalObjectReference{Name: secret.Name})
-				updated = true
-			}
+			// no update needed
+			return nil, nil
 		}
 
-		if updated {
-			if err := h.Client.Update(ctx, sa); err != nil {
-				return fmt.Errorf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s': %w", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding), err)
-			}
+		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Client, attempt, "retrying SA secret linking update due to conflict",
+			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s'", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding)))
+
+		if err != nil {
+			return fmt.Errorf("failed to link the secret %s to the service account %s: %w", client.ObjectKeyFromObject(secret), client.ObjectKeyFromObject(sa), err)
 		}
 	}
 
 	return nil
+}
+
+func (h *serviceAccountHandler) linkSecretByName(sa *corev1.ServiceAccount, secretName string, linkType api.ServiceAccountLinkType) bool {
+	updated := false
+	hasLink := false
+
+	if linkType == api.ServiceAccountLinkTypeSecret {
+		for _, r := range sa.Secrets {
+			if r.Name == secretName {
+				hasLink = true
+				break
+			}
+		}
+
+		if !hasLink {
+			sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secretName})
+			updated = true
+		}
+	} else if linkType == api.ServiceAccountLinkTypeImagePullSecret {
+		for _, r := range sa.ImagePullSecrets {
+			if r.Name == secretName {
+				hasLink = true
+				break
+			}
+		}
+
+		if !hasLink {
+			sa.ImagePullSecrets = append(sa.ImagePullSecrets, corev1.LocalObjectReference{Name: secretName})
+			updated = true
+		}
+	}
+
+	return updated
 }
 
 func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAccount, error) {
@@ -125,13 +152,17 @@ func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAcco
 // Unlink removes the provided secret from any links in the service account (either secrets or image pull secrets fields).
 // Returns `true` if the service account object was changed, `false` otherwise. This does not update the object in the cluster!
 func (h *serviceAccountHandler) Unlink(secret *corev1.Secret, serviceAccount *corev1.ServiceAccount) bool {
+	return h.unlinkSecretByName(secret.Name, serviceAccount)
+}
+
+func (h *serviceAccountHandler) unlinkSecretByName(secretName string, serviceAccount *corev1.ServiceAccount) bool {
 	updated := false
 
 	if len(serviceAccount.Secrets) > 0 {
 		saSecrets := make([]corev1.ObjectReference, 0, len(serviceAccount.Secrets))
 		for i := range serviceAccount.Secrets {
 			r := serviceAccount.Secrets[i]
-			if r.Name == secret.Name {
+			if r.Name == secretName {
 				updated = true
 			} else {
 				saSecrets = append(saSecrets, r)
@@ -144,7 +175,7 @@ func (h *serviceAccountHandler) Unlink(secret *corev1.Secret, serviceAccount *co
 		saIPSecrets := make([]corev1.LocalObjectReference, 0, len(serviceAccount.ImagePullSecrets))
 		for i := range serviceAccount.ImagePullSecrets {
 			r := serviceAccount.ImagePullSecrets[i]
-			if r.Name == secret.Name {
+			if r.Name == secretName {
 				updated = true
 			} else {
 				saIPSecrets = append(saIPSecrets, r)
@@ -171,8 +202,9 @@ func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specId
 
 func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Context, spec *corev1.LocalObjectReference) (*corev1.ServiceAccount, api.SPIAccessTokenBindingErrorReason, error) {
 	sa := &corev1.ServiceAccount{}
-	if err := h.Client.Get(ctx, client.ObjectKey{Name: spec.Name, Namespace: h.Binding.Namespace}, sa); err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUnavailable, fmt.Errorf("failed to get the referenced service account exists: %w", err)
+	key := client.ObjectKey{Name: spec.Name, Namespace: h.Binding.Namespace}
+	if err := h.Client.Get(ctx, key, sa); err != nil {
+		return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUnavailable, fmt.Errorf("failed to get the referenced service account (%s): %w", key, err)
 	}
 
 	origAnno := sa.Annotations[LinkAnnotation]
@@ -182,7 +214,18 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 	}
 	sa.Annotations[LinkAnnotation] = linkAnno
 
-	if origAnno != linkAnno {
+	// Only delete the managed binding label from the SA if it is our binding that was previously managing it.
+	// This makes sure that if there are multiple bindings associated with an SA that is also managed by one of them
+	// We don't end up in a ping-pong situation where the bindings reconcilers would "fight" over the value of this
+	// annotation.
+	managedChanged := false
+	managingBinding := sa.Labels[ManagedByLabel]
+	if managingBinding == h.Binding.Name {
+		managedChanged = true
+		delete(sa.Labels, ManagedByLabel)
+	}
+
+	if origAnno != linkAnno || managedChanged {
 		// we need to update the service account with the new link to the binding
 		if err := h.Client.Update(ctx, sa); err != nil {
 			return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate, fmt.Errorf("failed to update the annotations in the referenced service account %s of binding %s: %w", client.ObjectKeyFromObject(sa), client.ObjectKeyFromObject(h.Binding), err)
@@ -230,10 +273,17 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			err = h.Client.Create(ctx, sa)
 		}
 	} else {
-		// the service account already exists. We need to make sure that it belongs to this binding, otherwise we
-		// error out because we found a pre-existing SA that should be managed
+		// The service account already exists. We need to make sure that it is associated with this binding,
+		// otherwise we error out because we found a pre-existing SA that should be managed.
+		// Note that the managed SAs always also have the link annotation pointing to the managing binding.
 		if !BindingNameInAnnotation(sa.Annotations[LinkAnnotation], h.Binding.Name) {
 			err = managedServiceAccountAlreadyExists
+		}
+
+		// we also check that if the SA is managed, it is managed by us and not by some other binding.
+		managedBy := sa.Labels[ManagedByLabel]
+		if err == nil && managedBy != "" && managedBy != h.Binding.Name {
+			err = managedServiceAccountManagedByAnotherBinding
 		}
 	}
 

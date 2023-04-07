@@ -24,11 +24,9 @@ import (
 
 	authz "k8s.io/api/authorization/v1"
 
-	"github.com/hashicorp/vault/vault"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -46,16 +44,15 @@ import (
 )
 
 var IT = struct {
-	TestEnvironment  *envtest.Environment
-	Context          context.Context
-	Cancel           context.CancelFunc
-	Scheme           *runtime.Scheme
-	Namespace        string
-	Client           client.Client
-	Clientset        *kubernetes.Clientset
-	TokenStorage     tokenstorage.TokenStorage
-	VaultTestCluster *vault.TestCluster
-	SessionManager   *scs.SessionManager
+	TestEnvironment *envtest.Environment
+	Context         context.Context
+	Cancel          context.CancelFunc
+	Scheme          *runtime.Scheme
+	Namespace       string
+	Client          client.Client
+	Clientset       *kubernetes.Clientset
+	TokenStorage    tokenstorage.TokenStorage
+	SessionManager  *scs.SessionManager
 }{}
 
 func TestSuite(t *testing.T) {
@@ -112,7 +109,7 @@ var _ = BeforeSuite(func() {
 	IT.Clientset, err = kubernetes.NewForConfig(IT.TestEnvironment.Config)
 	Expect(err).NotTo(HaveOccurred())
 
-	IT.VaultTestCluster, IT.TokenStorage = vaultstorage.CreateTestVaultTokenStorage(GinkgoT())
+	IT.TokenStorage = &memorystorage.MemoryTokenStorage{}
 
 	err = IT.TokenStorage.Initialize(ctx)
 	Expect(err).NotTo(HaveOccurred())
@@ -124,6 +121,8 @@ var _ = BeforeSuite(func() {
 
 	IT.SessionManager = scs.New()
 	IT.SessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
+	IT.SessionManager.Lifetime = time.Hour
+	IT.SessionManager.Cookie.Persist = false
 	IT.SessionManager.IdleTimeout = 15 * time.Minute
 	IT.SessionManager.Cookie.Name = "appstudio_spi_session"
 	IT.SessionManager.Cookie.SameSite = http.SameSiteNoneMode
@@ -184,5 +183,4 @@ var _ = AfterSuite(func() {
 	Expect(IT.Client.Delete(context.TODO(), ns)).To(Succeed())
 	IT.Cancel()
 	Expect(IT.TestEnvironment.Stop()).To(Succeed())
-	IT.VaultTestCluster.Cleanup()
 })

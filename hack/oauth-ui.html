@@ -9,6 +9,13 @@
             form.submit();
         }
 
+        function logout() {
+            let form = document.getElementById("loginform");
+            let oauthUrl = new URL(document.getElementById("oauth_url").value);
+            form.action = oauthUrl.origin + "/logout";
+            form.submit();
+        }
+
         function oauth_submit() {
             let form = document.getElementById("oauthform");
             let oauthUrl = new URL(document.getElementById("oauth_url").value);
@@ -26,6 +33,7 @@
     <label for="k8s_token">K8s token:</label> <input id="k8s_token" type="text" name="k8s_token"/><br/>
 </form>
 <input type="button" onclick="login()" value="Login"/>
+<input type="button" onclick="logout()" value="Logout"/>
 <form id="oauthform" method="post" target="_blank">
     <input id="state" type="hidden" name="state"/>
 </form>

@@ -62,7 +62,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
 					}
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -180,7 +180,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -275,11 +275,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 				Expect(ITest.Client.Create(ITest.Context, otherToken)).To(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+				ITest.TestServiceProvider.LookupTokensImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 					if strings.HasSuffix(binding.Spec.RepoUrl, "test") {
-						return createdToken, nil
+						return []api.SPIAccessToken{*createdToken}, nil
 					} else if strings.HasSuffix(binding.Spec.RepoUrl, "other") {
-						return otherToken, nil
+						return []api.SPIAccessToken{*otherToken}, nil
 					} else {
 						return nil, fmt.Errorf("request for invalid test token")
 					}
@@ -320,7 +320,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
 
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 
 					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
 						AccessToken: "token",
@@ -402,7 +402,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -515,7 +515,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -535,7 +535,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 		When("linked token is ready and secret not injected", func() {
 			BeforeEach(func() {
 				// We have the token in the ready state... let's not look it up during token matching
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 
 				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
@@ -616,7 +616,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				// we're trying to use the token defined by the outer layer first.
 				// This token is not ready, so we should be in a situation that should
 				// still enable swapping the token for a better fitting one.
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&createdToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&createdToken)
 
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
 			})
@@ -629,7 +629,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 
 				// now start returning the better token from the lookup
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&betterToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&betterToken)
 
 				// and check that the binding switches to the better token
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -663,12 +663,26 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 			})
 
-			It("deletes the secret and flips back to awaiting phase", func() {
-				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+			It("deletes the secret and flips back to awaiting phase when token data disappears", func() {
 				Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 				testSetup.ReconcileWithCluster(func(g Gomega) {
 					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
+					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+					err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(secret), &corev1.Secret{})
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				})
+			})
+
+			It("deletes the secret and flips back to awaiting phase when token is in awaiting state", func() {
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
 					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
 
@@ -781,7 +795,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Update(ITest.Context, updatedCRD)).To(Succeed())
 				}).Should(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).Should(Succeed())
 			})
 
@@ -910,7 +924,18 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					},
 				},
 				Behavior: ITestBehavior{
+					BeforeObjectsCreated: func() {
+						// wait until we can actually see the service account in the cluster
+						Eventually(func(g Gomega) {
+							g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+						}).Should(Succeed())
+					},
 					AfterObjectsCreated: func(objects TestObjects) {
+						// wait until we can actually see the service account in the cluster
+						Eventually(func(g Gomega) {
+							g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+						}).Should(Succeed())
+
 						err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
 							AccessToken:  "access",
 							RefreshToken: "refresh",
@@ -923,7 +948,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -936,6 +961,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					},
 				})).To(Succeed())
 
+				// wait until we can actually see the service account in the cluster
+				Eventually(func(g Gomega) {
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "sa-token", Namespace: "default"}, &corev1.ServiceAccount{})).Should(Succeed())
+				}).Should(Succeed())
+
 				testSetup.BeforeEach(nil)
 
 			})
@@ -946,15 +976,21 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("should persist service account name in status", func() {
-				for _, binding := range testSetup.InCluster.Bindings {
-					Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					for _, binding := range testSetup.InCluster.Bindings {
+						g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
 
-					sa := &corev1.ServiceAccount{}
-					Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
-				}
+						sa := &corev1.ServiceAccount{}
+						g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
+					}
+				})
 			})
 
 			It("should link the service account with service-account-token secret", func() {
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				})
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
@@ -968,6 +1004,10 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			})
 
 			It("should link the service account with docker-config-json secret as image pull secret", func() {
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-token-sync", Namespace: "default"})[0]
+					g.Expect(binding.Status.ServiceAccountNames).NotTo(BeEmpty())
+				})
 				binding := testSetup.InCluster.GetBindingsByNamePrefix(client.ObjectKey{Name: "sa-image-pull-secret-sync", Namespace: "default"})[0]
 				sa := &corev1.ServiceAccount{}
 				Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.ServiceAccountNames[0], Namespace: binding.Namespace}, sa)).To(Succeed())
@@ -1142,7 +1182,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1346,7 +1386,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}

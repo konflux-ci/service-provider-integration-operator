@@ -141,6 +141,14 @@ func HandleUpload(uploader TokenUploader) gin.HandlerFunc {
 	}
 }
 
+// CSPHandler is a Handler that writes into response a CSP headers allowing inline styles, images from redhat domain, and denying everything else, including framing
+func CSPHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
+		h.ServeHTTP(w, r)
+	})
+}
+
 // BypassHandler is a Handler that redirects a request that has URL with certain prefix to a bypassHandler
 // all remaining requests are redirected to mainHandler.
 func BypassHandler(mainHandler http.Handler, bypassPathPrefixes []string, bypassHandler http.Handler) http.Handler {

@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.19 as builder
+FROM golang:1.20 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -22,7 +22,7 @@ COPY oauth/ oauth/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/ -a ./cmd/oauth/oauth.go
 
 # Compose the final image of spi-oauth service
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.7-1085 as spi-oauth
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.7-1107 as spi-oauth
 
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf install shadow-utils \

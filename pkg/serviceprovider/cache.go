@@ -112,7 +112,7 @@ func (c *MetadataCache) Ensure(ctx context.Context, token *api.SPIAccessToken, s
 		if token.Labels[api.ServiceProviderTypeLabel] != "" {
 			auditLog = auditLog.WithValues("provider", token.Labels[api.ServiceProviderTypeLabel])
 		}
-		auditLog.Info("token metadata being fetched or refreshed")
+		auditLog.Info("token metadata being fetched or refreshed", "action", "UPDATE")
 		data, err := ser.Fetch(ctx, token, c.CacheServiceProviderState)
 		if err != nil {
 			auditLog.Error(err, "error fetching token metadata")

@@ -18,8 +18,11 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/google/go-github/v45/github"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 
 	"errors"
@@ -385,7 +388,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
 		CacheServiceProviderState: true,
 	}
-	ts := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
@@ -418,6 +421,102 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 			tokenStorage: ts,
 		},
 	}
+}
+
+func TestGitHubUnexpectedStatusMetric(t *testing.T) {
+	// given
+	unexpectedStatusCounter.Reset()
+	numberOfResponses := 3
+	expectedLabels := map[string]string{"unexpected_status": "429"}
+	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
+	for i := 0; i < numberOfResponses; i++ {
+		public, err := gh.publicRepo(context.TODO(), &api.SPIAccessCheck{
+			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
+		})
+		assert.NoError(t, err)
+		assert.False(t, public)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_public_repo_unexpected_response_status" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				for _, lp := range m.Label {
+					assert.Equal(t, expectedLabels[*lp.Name], *lp.Value)
+				}
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
+}
+
+func TestGitHubRateLimitErrorMetric(t *testing.T) {
+	// given
+	numberOfResponses := 3
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
+	gh.ghClientBuilder.httpClient = &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return nil, &github.RateLimitError{
+				Rate: github.Rate{
+					Limit:     5000,
+					Remaining: 0,
+					Reset:     github.Timestamp{},
+				},
+				Response: nil,
+				Message:  "rate limit exceeded",
+			}
+		}),
+	}
+	ac := &api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://github.com/user/repo"},
+	}
+	for i := 0; i < numberOfResponses; i++ {
+		accessCheckStatus, err := gh.CheckRepositoryAccess(context.TODO(), cl, ac)
+		assert.NoError(t, err)
+		assert.NotNil(t, accessCheckStatus)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_rate_limit_errors" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
 }
 
 func mockK8sClient(objects ...client.Object) client.WithWatch {
