@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
