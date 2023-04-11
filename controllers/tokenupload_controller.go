@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	stdErrors "errors"
 	"fmt"
 	"time"
 
@@ -46,9 +47,17 @@ import (
 )
 
 const (
-	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
-	providerUrlField  = "providerUrl"
+	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
+	providerUrlField           = "providerUrl"
+	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remote-secret-name" //#nosec G101 -- false positive, this is not a token
+	targetTypeAnnotation       = "spi.appstudio.redhat.com/remote-secret-target-type"
+	targetNameAnnotation       = "spi.appstudio.redhat.com/remote-secret-target-name"
+)
+
+var (
+	targetTypeNotSetError = stdErrors.New("target type not set")
+	targetNameNotSetError = stdErrors.New("target name not set")
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
@@ -93,19 +102,34 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// on the non-nil DeletionTimestamp. Therefore, in case of errors, we just create the error event and
 	// return a "success" to the controller runtime.
 
+	secretType := uploadSecret.GetLabels()[tokenSecretLabel]
+	switch secretType {
+	case "token":
+		err = r.reconcileToken(ctx, uploadSecret)
+	case "secret":
+		err = r.reconcileRemoteSecret(ctx, uploadSecret)
+	}
+
+	if err != nil {
+		r.createErrorEvent(ctx, uploadSecret, err, lg)
+	} else {
+		r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *TokenUploadReconciler) reconcileToken(ctx context.Context, uploadSecret *corev1.Secret) error {
+	lg := log.FromContext(ctx)
 	// try to find the SPIAccessToken
 	accessToken, err := r.findSpiAccessToken(ctx, uploadSecret, lg)
 	if err != nil {
-		err = fmt.Errorf("cannot find SPI access token: %w", err)
-		r.createErrorEvent(ctx, uploadSecret, err, lg)
-		return ctrl.Result{}, nil
+		return fmt.Errorf("cannot find SPI access token: %w", err)
 	} else if accessToken == nil {
 		// SPIAccessToken does not exist, so create it
 		accessToken, err = r.createSpiAccessToken(ctx, uploadSecret, lg)
 		if err != nil {
-			err = fmt.Errorf("can not create SPI access token: %w ", err)
-			r.createErrorEvent(ctx, uploadSecret, err, lg)
-			return ctrl.Result{}, nil
+			return fmt.Errorf("can not create SPI access token: %w ", err)
 		}
 	}
 
@@ -121,15 +145,32 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	err = r.TokenStorage.Store(ctx, accessToken, &token)
 	if err != nil {
 		err = fmt.Errorf("failed to store the token: %w", err)
-		r.createErrorEvent(ctx, uploadSecret, err, lg)
 		auditLog.Error(err, "manual token upload failed")
-		return ctrl.Result{}, nil
+		return err
 	}
 	auditLog.Info("manual token upload completed")
 
-	r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
+	return nil
+}
 
-	return ctrl.Result{}, nil
+func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
+	lg := log.FromContext(ctx)
+	// try to find  RemoteSecret
+	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
+	if err != nil {
+		return fmt.Errorf("can not find RemoteSecret: %w ", err)
+	} else if remoteSecret == nil {
+		// SPIAccessToken does not exist, so create it
+		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
+		if err != nil {
+			return fmt.Errorf("can not create RemoteSecret: %w ", err)
+		}
+	}
+
+	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
+	auditLog.Info("manual secret upload initiated")
+	auditLog.Info("manual secret upload completed")
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -238,5 +279,71 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 		return &accessToken, nil
 	} else {
 		return nil, fmt.Errorf("can not create SPIAccessToken %s. Reason: %w", accessToken.Name, err)
+	}
+}
+
+func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
+	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+	if remoteSecretName == "" {
+		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
+		return nil, nil
+	}
+
+	remoteSecret := spi.RemoteSecret{}
+	err := r.Get(ctx, types.NamespacedName{Name: remoteSecretName, Namespace: uploadSecret.Namespace}, &remoteSecret)
+
+	if err != nil {
+		if kuberrors.IsNotFound(err) {
+			lg.V(logs.DebugLevel).Info("RemoteSecret NOT found, will try to create  ", "RemoteSecret.name", remoteSecret.Name)
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("can not find RemoteSecret %s: %w ", remoteSecretName, err)
+		}
+	} else {
+		lg.V(logs.DebugLevel).Info("RemoteSecret found : ", "RemoteSecret.name", remoteSecret.Name)
+		return &remoteSecret, nil
+	}
+}
+
+func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
+	targetType, ok := uploadSecret.Annotations[targetTypeAnnotation]
+	if !ok {
+		return nil, targetTypeNotSetError
+	}
+	targetName, ok := uploadSecret.Annotations[targetNameAnnotation]
+	if !ok {
+		return nil, targetNameNotSetError
+	}
+	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+
+	targetSpec := spi.RemoteSecretTarget{}
+	switch targetType {
+	case "namespace":
+		targetSpec.Namespace = targetName
+	case "environment":
+		targetSpec.Environment = targetName
+	}
+
+	remoteSecret := spi.RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: uploadSecret.Namespace,
+		},
+		Spec: spi.RemoteSecretSpec{
+			Target: targetSpec,
+		},
+	}
+
+	if remoteSecretName == "" {
+		remoteSecret.GenerateName = "generated-"
+	} else {
+		remoteSecret.Name = remoteSecretName
+	}
+
+	err := r.Create(ctx, &remoteSecret)
+	if err == nil {
+		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetType", targetType, "targetName", targetName)
+		return &remoteSecret, nil
+	} else {
+		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
 	}
 }
