@@ -15,6 +15,7 @@ package oauth
 
 import (
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"strings"
@@ -88,7 +89,7 @@ func CallbackErrorHandler() http.Handler {
 // for some concrete SPIAccessToken.
 func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, err := WithAuthFromRequestIntoContext(r, r.Context())
+		ctx, err := clientfactory.WithAuthFromRequestIntoContext(r, r.Context())
 		if err != nil {
 			LogErrorAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "failed extract authorization information from headers", err)
 			return

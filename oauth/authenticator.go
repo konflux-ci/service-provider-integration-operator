@@ -16,6 +16,7 @@ package oauth
 import (
 	"context"
 	"errors"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"net/http"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 )
 
 type Authenticator struct {
-	ClientFactory  K8sClientFactory
+	ClientFactory  clientfactory.K8sClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -78,7 +79,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("k8s_token")
 
 	if token == "" {
-		token = ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
+		token = clientfactory.ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
 	}
 
 	if token == "" {
@@ -120,7 +121,7 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory K8sClientFactory) *Authenticator {
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory clientfactory.K8sClientFactory) *Authenticator {
 	return &Authenticator{
 		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,

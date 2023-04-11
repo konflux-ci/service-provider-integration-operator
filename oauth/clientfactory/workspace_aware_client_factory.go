@@ -1,3 +1,4 @@
+//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package clientfactory
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"io"
+	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
-
-	"github.com/codeready-toolchain/api/api/v1alpha1"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -33,28 +33,16 @@ const wsApiPath = "/apis/toolchain.dev.openshift.com/v1alpha1/workspaces"
 var (
 	errUnableToParseWorkspaceResponse = errors.New("unable to parse response from workspace API requested for namespace")
 	errWorkspaceNotFound              = errors.New("target workspace not found for namespace")
-	errClientInstanceNotSet           = errors.New("client instance does not set")
 )
 
-type K8sClientFactory interface {
-	CreateClient(ctx context.Context) (client.Client, error)
-}
-
-type InClusterK8sClientFactory struct {
-	ClientOptions *client.Options
-	RestConfig    *rest.Config
-}
-
+// WorkspaceAwareK8sClientFactory is a K8S client factory, which is authenticates on server via user token,
+// but it uses the custom API server URL and workspace path in the requests to the cluster,
+// by consuming the namespace in the context when new client instance is created.
 type WorkspaceAwareK8sClientFactory struct {
 	ClientOptions *client.Options
 	RestConfig    *rest.Config
 	ApiServer     string
 	HTTPClient    rest.HTTPClient
-}
-
-type UserAuthK8sClientFactory struct {
-	ClientOptions *client.Options
-	RestConfig    *rest.Config
 }
 
 func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (client.Client, error) {
@@ -77,47 +65,35 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 	return doCreateClient(w.RestConfig, *w.ClientOptions)
 }
 
-func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	return doCreateClient(u.RestConfig, *u.ClientOptions)
-}
-
-func (i InClusterK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	return doCreateClient(i.RestConfig, *i.ClientOptions)
-}
-
-func doCreateClient(cfg *rest.Config, opts client.Options) (client.Client, error) {
-	cl, err := client.New(cfg, opts)
+// fetchWorkspaceName finds the workspace to which the given namespace is belongs
+func fetchWorkspaceName(ctx context.Context, apiServer, namespace string, httpClient rest.HTTPClient) (string, error) {
+	wsList, err := fetchAllAvailableWorkspaces(ctx, apiServer, namespace, httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
+		return "", fmt.Errorf("unable to list available workspaces foe namespace %s, error:%w", namespace, err)
 	}
-	return cl, nil
-}
-
-// SingleInstanceClientFactory client instance holding factory impl, used in tests only
-type SingleInstanceClientFactory struct {
-	client client.Client
-}
-
-func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	if c.client != nil {
-		return c.client, nil
-	} else {
-		return nil, errClientInstanceNotSet
+	for _, ws := range wsList.Items {
+		for _, ns := range ws.Status.Namespaces {
+			if ns.Name == namespace {
+				return ws.Name, nil
+			}
+		}
 	}
+	return "", fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
 }
 
-func fetchWorkspaceName(ctx context.Context, apiServer, namespace string, client rest.HTTPClient) (string, error) {
+// fetchAllAvailableWorkspaces returns list of the workspaces accessible for the user via REST API
+func fetchAllAvailableWorkspaces(ctx context.Context, apiServer, namespace string, httpClient rest.HTTPClient) (*v1alpha1.WorkspaceList, error) {
 	lg := log.FromContext(ctx)
 	wsEndpoint := apiServer + wsApiPath
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", wsEndpoint, nil)
 	if reqErr != nil {
 		lg.Error(reqErr, "failed to create request for the workspace API", "url", wsEndpoint)
-		return "", fmt.Errorf("error while constructing HTTP request for workspace context to %s: %w", wsEndpoint, reqErr)
+		return nil, fmt.Errorf("error while constructing HTTP request for workspace context to %s: %w", wsEndpoint, reqErr)
 	}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		lg.Error(err, "failed to request the workspace API", "url", wsEndpoint)
-		return "", fmt.Errorf("error performing HTTP request for workspace context to %s: %w", wsEndpoint, err)
+		return nil, fmt.Errorf("error performing HTTP request for workspace context to %s: %w", wsEndpoint, err)
 	}
 
 	defer func() {
@@ -128,25 +104,18 @@ func fetchWorkspaceName(ctx context.Context, apiServer, namespace string, client
 
 	if resp.StatusCode != http.StatusOK {
 		lg.Info("unexpected return code for workspace api", "url", wsEndpoint, "code", resp.StatusCode)
-		return "", fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)
+		return nil, fmt.Errorf("bad status (%d) when performing HTTP request for workspace context to %v: %w", resp.StatusCode, wsEndpoint, err)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		lg.Error(err, "failed to read the workspace API response", "error", err.Error())
-		return "", fmt.Errorf("failed to read the workspace API response: %w", err)
+		return nil, fmt.Errorf("failed to read the workspace API response: %w", err)
 	}
 
 	wsList := &v1alpha1.WorkspaceList{}
 	if err := json.Unmarshal(bodyBytes, wsList); err != nil {
-		return "", fmt.Errorf("%w '%s': %s", errUnableToParseWorkspaceResponse, namespace, err.Error())
+		return nil, fmt.Errorf("%w '%s': %s", errUnableToParseWorkspaceResponse, namespace, err.Error())
 	}
-	for _, ws := range wsList.Items {
-		for _, ns := range ws.Status.Namespaces {
-			if ns.Name == namespace {
-				return ws.Name, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("%w: %s", errWorkspaceNotFound, namespace)
+	return wsList, nil
 }

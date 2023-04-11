@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"os"
@@ -71,7 +72,7 @@ func main() {
 	go metrics.ServeMetrics(ctx, args.MetricsAddr)
 	router := mux.NewRouter()
 
-	builder := oauth.K8sClientFactoryBuilder{
+	builder := clientfactory.K8sClientFactoryBuilder{
 		Args: args,
 	}
 

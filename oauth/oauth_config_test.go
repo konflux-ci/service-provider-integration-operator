@@ -16,6 +16,7 @@ package oauth
 
 import (
 	"context"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -55,7 +56,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -98,7 +99,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -152,7 +153,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -213,7 +214,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -268,7 +269,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -313,7 +314,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			}}).Build()
 
 		ctrl := commonController{
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
@@ -351,7 +352,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -376,7 +377,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(v1.AddToScheme(scheme))
 
-		ctx := WithAuthIntoContext("token", context.TODO())
+		ctx := clientfactory.WithAuthIntoContext("token", context.TODO())
 
 		secretNamespace := "test-secretConfigNamespace"
 		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjectTracker(&mockTracker{
@@ -389,7 +390,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		ctrl := commonController{
-			ClientFactory:       SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}

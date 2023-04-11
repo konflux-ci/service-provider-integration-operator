@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package clientfactory
 
-import "context"
-
-type contextKey struct{}
-
-var (
-	namespaceContextKey = contextKey{}
+import (
+	"context"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NamespaceFromContext(ctx context.Context) (string, bool) {
-	namespace, ok := ctx.Value(namespaceContextKey).(string)
-	return namespace, ok
+// InClusterK8sClientFactory produces instances of the clients that works on behalf of SPI SA;
+// (it's quite ok to get just one instance of the client from that factory and pass it to all the consumers)
+type InClusterK8sClientFactory struct {
+	ClientOptions *client.Options
+	RestConfig    *rest.Config
 }
 
-func NamespaceIntoContext(ctx context.Context, namespace string) context.Context {
-	return context.WithValue(ctx, namespaceContextKey, namespace)
+func (i InClusterK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+	return doCreateClient(i.RestConfig, *i.ClientOptions)
 }

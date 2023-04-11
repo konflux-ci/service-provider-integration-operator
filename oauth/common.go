@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"strings"
@@ -43,7 +44,7 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	ClientFactory       K8sClientFactory
+	ClientFactory       clientfactory.K8sClientFactory
 	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
@@ -76,7 +77,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
 		return
 	}
-	ctx = WithAuthIntoContext(token, ctx)
+	ctx = clientfactory.WithAuthIntoContext(token, ctx)
 
 	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
 	if err != nil {
@@ -167,7 +168,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
-	ctx = WithAuthIntoContext(k8sToken, ctx)
+	ctx = clientfactory.WithAuthIntoContext(k8sToken, ctx)
 
 	// the state is ok, let's retrieve the token from the service provider
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
@@ -194,10 +195,10 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 
 // syncTokenData stores the data of the token to the configured TokenStorage.
 func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
-	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
+	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
-	k8sClient, err := c.ClientFactory.CreateClient(NamespaceIntoContext(ctx, exchange.TokenNamespace))
+	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace))
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
 	}
@@ -232,7 +233,7 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 		},
 	}
 
-	k8sClient, err := c.ClientFactory.CreateClient(NamespaceIntoContext(ctx, state.TokenNamespace))
+	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, state.TokenNamespace))
 	if err != nil {
 		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", state.TokenNamespace, err)
 	}

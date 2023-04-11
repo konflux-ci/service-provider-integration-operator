@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package oauth
+package clientfactory
 
 import (
 	"net/http"
@@ -82,4 +82,13 @@ func TestWithAuthFromRequest(t *testing.T) {
 	obj := corev1.ConfigMap{}
 	_ = cl.Get(ctx, client.ObjectKey{Name: "name", Namespace: "ns"}, &obj)
 	assert.True(t, requestPerformed)
+}
+
+// fakeRoundTrip casts a function into a http.RoundTripper
+type fakeRoundTrip func(r *http.Request) (*http.Response, error)
+
+var _ http.RoundTripper = fakeRoundTrip(nil)
+
+func (f fakeRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

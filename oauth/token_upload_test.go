@@ -16,6 +16,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -58,7 +59,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: SingleInstanceClientFactory{client: cl},
+		ClientFactory: clientfactory.SingleInstanceClientFactory{client: cl},
 		Storage:       strg,
 	}
 
@@ -97,7 +98,7 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: SingleInstanceClientFactory{client: cl},
+		ClientFactory: clientfactory.SingleInstanceClientFactory{client: cl},
 		Storage:       strg,
 	}
 	//when
@@ -134,7 +135,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: SingleInstanceClientFactory{client: cl},
+		ClientFactory: clientfactory.SingleInstanceClientFactory{client: cl},
 		Storage:       strg,
 	}
 	//when

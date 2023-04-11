@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"time"
@@ -52,7 +53,7 @@ type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator      *Authenticator
 	StateStorage       StateStorage
-	ClientFactory      K8sClientFactory
+	ClientFactory      clientfactory.K8sClientFactory
 	InClusterK8sClient client.Client
 	TokenStorage       tokenstorage.TokenStorage
 	RedirectTemplate   *template.Template

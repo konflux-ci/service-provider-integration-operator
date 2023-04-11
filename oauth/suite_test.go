@@ -15,6 +15,7 @@ package oauth
 
 import (
 	"context"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"net/http"
 	"testing"
 	"time"
@@ -50,7 +51,7 @@ var IT = struct {
 	Scheme          *runtime.Scheme
 	Namespace       string
 	InClusterClient client.Client
-	ClientFactory   K8sClientFactory
+	ClientFactory   clientfactory.K8sClientFactory
 	Clientset       *kubernetes.Clientset
 	TokenStorage    tokenstorage.TokenStorage
 	SessionManager  *scs.SessionManager
@@ -103,7 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(authz.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(v1beta1.AddToScheme(IT.Scheme)).To(Succeed())
 
-	IT.ClientFactory = UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
+	IT.ClientFactory = clientfactory.UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
 
 	// create the test namespace which we'll use for the tests
 	IT.InClusterClient, err = client.New(IT.TestEnvironment.Config, client.Options{Scheme: IT.Scheme})
