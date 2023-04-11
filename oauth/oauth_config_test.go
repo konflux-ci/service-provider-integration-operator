@@ -57,7 +57,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -100,7 +100,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -154,7 +154,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -215,7 +215,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -270,7 +270,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -315,7 +315,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			}}).Build()
 
 		ctrl := commonController{
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
@@ -353,7 +353,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -391,7 +391,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		ctrl := commonController{
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{client: cl},
+			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}

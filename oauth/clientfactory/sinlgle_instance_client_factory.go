@@ -26,13 +26,13 @@ var (
 )
 
 // SingleInstanceClientFactory client instance holding factory impl, non-public and used in tests only
-type singleInstanceClientFactory struct {
-	client client.Client `json:"client,omitempty"`
+type SingleInstanceClientFactory struct {
+	Client client.Client `json:"client,omitempty"`
 }
 
-func (c singleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	if c.client != nil {
-		return c.client, nil
+func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+	if c.Client != nil {
+		return c.Client, nil
 	} else {
 		return nil, errClientInstanceNotSet
 	}
