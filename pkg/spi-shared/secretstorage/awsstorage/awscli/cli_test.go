@@ -25,20 +25,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewAwsTokenStorage(t *testing.T) {
+func TestNewAwsSecretStorage(t *testing.T) {
 	configFile := createFile(t, "awsconfig", "")
 	defer os.Remove(configFile)
 	credsFile := createFile(t, "awscreds", "")
 	defer os.Remove(credsFile)
 
-	storage, err := NewAwsTokenStorage(context.TODO(), &AWSCliArgs{ConfigFile: configFile, CredentialsFile: credsFile})
+	storage, err := NewAwsSecretStorage(context.TODO(), &AWSCliArgs{ConfigFile: configFile, CredentialsFile: credsFile})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, storage)
 }
 
-func TestNewAwsTokenStorageWithInvalidConfig(t *testing.T) {
-	storage, err := NewAwsTokenStorage(context.TODO(), &AWSCliArgs{})
+func TestNewAwsSecretStorageWithInvalidConfig(t *testing.T) {
+	storage, err := NewAwsSecretStorage(context.TODO(), &AWSCliArgs{})
 
 	assert.Error(t, err)
 	assert.Nil(t, storage)
