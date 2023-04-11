@@ -36,7 +36,7 @@ var (
 )
 
 // WorkspaceAwareK8sClientFactory is a K8S client factory, which is authenticates on server via user token,
-// but it uses the custom API server URL and workspace path in the requests to the cluster,
+// but it uses the custom API server URL and sets the workspace path in the requests to the cluster,
 // by consuming the namespace in the context when new client instance is created.
 type WorkspaceAwareK8sClientFactory struct {
 	ClientOptions *client.Options
