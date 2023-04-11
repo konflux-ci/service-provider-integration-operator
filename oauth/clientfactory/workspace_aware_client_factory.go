@@ -120,3 +120,11 @@ func fetchAllAvailableWorkspaces(ctx context.Context, apiServer, namespace strin
 	}
 	return wsList, nil
 }
+
+func doCreateClient(cfg *rest.Config, opts client.Options) (client.Client, error) {
+	cl, err := client.New(cfg, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a user kubernetes client: %w", err)
+	}
+	return cl, nil
+}

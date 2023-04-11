@@ -1,4 +1,3 @@
-//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,28 +11,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clientfactory
+package kubernetesclient
 
 import (
 	"context"
-	"errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	errClientInstanceNotSet = errors.New("client instance does not set")
-)
-
-// SingleInstanceClientFactory client instance holding factory impl, non-public and used in tests only
-type SingleInstanceClientFactory struct {
-	Client client.Client `json:"client,omitempty"`
-}
-
-func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	if c.Client != nil {
-		return c.Client, nil
-	} else {
-		return nil, errClientInstanceNotSet
-	}
+type K8sClientFactory interface {
+	CreateClient(ctx context.Context) (client.Client, error)
 }

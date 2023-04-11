@@ -18,6 +18,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -57,7 +59,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -100,7 +102,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -154,7 +156,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -215,7 +217,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -270,7 +272,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -315,7 +317,7 @@ func TestObtainOauthConfig(t *testing.T) {
 			}}).Build()
 
 		ctrl := commonController{
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}
@@ -353,7 +355,7 @@ func TestObtainOauthConfig(t *testing.T) {
 
 		ctrl := commonController{
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			OAuthServiceConfiguration: OAuthServiceConfiguration{
 				SharedConfiguration: config.SharedConfiguration{
@@ -391,7 +393,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		ctrl := commonController{
-			ClientFactory:       clientfactory.SingleInstanceClientFactory{Client: cl},
+			ClientFactory:       kubernetesclient.SingleInstanceClientFactory{Client: cl},
 			InClusterK8sClient:  cl,
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
 		}

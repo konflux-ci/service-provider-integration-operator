@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -28,7 +30,7 @@ import (
 )
 
 type Authenticator struct {
-	ClientFactory  clientfactory.K8sClientFactory
+	ClientFactory  kubernetesclient.K8sClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -122,7 +124,7 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory clientfactory.K8sClientFactory) *Authenticator {
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory kubernetesclient.K8sClientFactory) *Authenticator {
 	return &Authenticator{
 		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,

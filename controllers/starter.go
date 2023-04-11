@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -92,7 +94,9 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		// Setup tokenUpload controller if configured
 		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
 		notifyingStorage := tokenstorage.NotifyingTokenStorage{
-			Client:       mgr.GetClient(),
+			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
+				Client: mgr.GetClient(),
+			},
 			TokenStorage: ts,
 		}
 

@@ -17,6 +17,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -45,7 +47,7 @@ func (u UploadFunc) Upload(ctx context.Context, tokenObjectName string, tokenObj
 var _ TokenUploader = (UploadFunc)(nil)
 
 type SpiTokenUploader struct {
-	ClientFactory clientfactory.K8sClientFactory
+	ClientFactory kubernetesclient.K8sClientFactory
 	Storage       tokenstorage.TokenStorage
 }
 

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -46,7 +46,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		TokenStorage: tokenstorage.TestTokenStorage{
 			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
 				assert.Equal(t, cntx, ctx)
@@ -60,7 +60,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: clientfactory.SingleInstanceClientFactory{Client: cl},
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		Storage:       strg,
 	}
 
@@ -89,7 +89,7 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		TokenStorage: tokenstorage.TestTokenStorage{
 			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
 				assert.Fail(t, "This line should not be reached")
@@ -99,7 +99,7 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: clientfactory.SingleInstanceClientFactory{Client: cl},
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		Storage:       strg,
 	}
 	//when
@@ -127,7 +127,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		TokenStorage: tokenstorage.TestTokenStorage{
 			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
 				return fmt.Errorf("storage disconnected")
@@ -136,7 +136,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		ClientFactory: clientfactory.SingleInstanceClientFactory{Client: cl},
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		Storage:       strg,
 	}
 	//when

@@ -16,6 +16,7 @@ package clientfactory
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,5 +30,9 @@ type InClusterK8sClientFactory struct {
 }
 
 func (i InClusterK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	return doCreateClient(i.RestConfig, *i.ClientOptions)
+	cl, err := client.New(i.RestConfig, *i.ClientOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a in-cluster kubernetesclient client: %w", err)
+	}
+	return cl, nil
 }

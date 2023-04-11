@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 	"html/template"
 	"net/http"
 	"strings"
@@ -45,7 +46,7 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	ClientFactory       clientfactory.K8sClientFactory
+	ClientFactory       kubernetesclient.K8sClientFactory
 	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template

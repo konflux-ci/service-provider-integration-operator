@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -40,7 +42,7 @@ type K8sClientFactoryBuilder struct {
 	Args cli.OAuthServiceCliArgs
 }
 
-func (r K8sClientFactoryBuilder) CreateInClusterClientFactory() (clientFactory K8sClientFactory, err error) {
+func (r K8sClientFactoryBuilder) CreateInClusterClientFactory() (clientFactory kubernetesclient.K8sClientFactory, err error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
 	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
@@ -64,7 +66,7 @@ func (r K8sClientFactoryBuilder) CreateInClusterClientFactory() (clientFactory K
 	return InClusterK8sClientFactory{ClientOptions: clientOptions, RestConfig: restConfig}, nil
 }
 
-func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory K8sClientFactory, err error) {
+func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory kubernetesclient.K8sClientFactory, err error) {
 	// we can't use the default dynamic rest mapper, because we don't have a token that would enable us to connect
 	// to the cluster just yet. Therefore, we need to list all the resources that we are ever going to query using our
 	// client here thus making the mapper not reach out to the target cluster at all.

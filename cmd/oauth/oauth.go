@@ -103,8 +103,8 @@ func main() {
 	tokenUploader := oauth.SpiTokenUploader{
 		ClientFactory: userAuthK8sClientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       inClusterK8sClient,
-			TokenStorage: strg,
+			ClientFactory: userAuthK8sClientFactory,
+			TokenStorage:  strg,
 		},
 	}
 

@@ -1,3 +1,4 @@
+//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clientfactory
+package kubernetesclient
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type K8sClientFactory interface {
-	CreateClient(ctx context.Context) (client.Client, error)
+var (
+	errClientInstanceNotSet = errors.New("client instance does not set")
+)
+
+// SingleInstanceClientFactory client instance holding client impl. Used for InCluster cliens only.
+type SingleInstanceClientFactory struct {
+	Client client.Client
 }
 
-func doCreateClient(cfg *rest.Config, opts client.Options) (client.Client, error) {
-	cl, err := client.New(cfg, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a kubernetes client: %w", err)
+func (c SingleInstanceClientFactory) CreateClient(_ context.Context) (client.Client, error) {
+	if c.Client != nil {
+		return c.Client, nil
+	} else {
+		return nil, errClientInstanceNotSet
 	}
-	return cl, nil
 }

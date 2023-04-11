@@ -16,6 +16,7 @@ package clientfactory
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,5 +30,9 @@ type UserAuthK8sClientFactory struct {
 }
 
 func (u UserAuthK8sClientFactory) CreateClient(_ context.Context) (client.Client, error) {
-	return doCreateClient(u.RestConfig, *u.ClientOptions)
+	cl, err := client.New(u.RestConfig, *u.ClientOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a user auth kubernetesclient client: %w", err)
+	}
+	return cl, nil
 }
