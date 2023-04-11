@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"

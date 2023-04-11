@@ -14,9 +14,13 @@
 
 package bindings
 
+// TODO: move this to bindingtarget package once we convert the tests that use this annotation.
+//
 // LinkAnnotation is used to associate the binding to the service account (even the referenced service accounts get annotated by this so that we can clean up their secret lists when the binding is deleted).
 const LinkAnnotation = "spi.appstudio.redhat.com/linked-access-token-binding" //#nosec G101 -- false positive, this is just a label
 
-// ManagedByLabel marks the other objects as managed by SPI. Meaning that their lifecycle is bound
+// TODO: move this to bindingtarget package once we convert the tests that use this label.
+//
+// ManagedByBindingLabel marks the other objects as managed by SPI. Meaning that their lifecycle is bound
 // to the lifecycle of some SPI binding.
-const ManagedByLabel = "spi.appstudio.redhat.com/managed-by-binding"
+const ManagedByBindingLabel = "spi.appstudio.redhat.com/managed-by-binding"

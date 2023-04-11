@@ -16,6 +16,23 @@ package bindings
 
 import "errors"
 
+type ErrorReason string
+
+const (
+	ErrorReasonNone ErrorReason = ""
+
+	// XXX: note that this used to be used as:
+	// - api.SPIAccessTokenBindingErrorReasonTokenSync originally in secretHandler.Sync
+	ErrorReasonSecretUpdate ErrorReason = "SecretUpdate"
+	// XXX: note that this used to be used as:
+	// - api.SPIAccessTokenBindingErrorReasonServiceAccountUnavailable in ensureReferencedServiceAccount -> serviceAccountHandler.Sync
+	ErrorReasonServiceAccountUnavailable ErrorReason = "ServiceAccountUnavailable"
+	// XXX: note that this used to be used as:
+	// - api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate in ensureReferencedServiceAccount -> serviceAccountHandler.Sync
+	// - api.SPIAccessTokenBindingErrorReasonTokenSync in ensureReferencedServiceAccount -> serviceAccountHandler.Sync
+	ErrorReasonServiceAccountUpdate ErrorReason = "ServiceAccountUpdate"
+)
+
 var (
 	AccessTokenDataNotFoundError = errors.New("access token data not found")
 )

@@ -22,7 +22,13 @@ import (
 
 // RemoteSecretSpec defines the desired state of RemoteSecret
 type RemoteSecretSpec struct {
-	EnvironmentName string `json:"environmentName,omitempty"`
+	Secret LinkableSecretSpec `json:"secret"`
+	Target RemoteSecretTarget `json:"target"`
+}
+
+type RemoteSecretTarget struct {
+	Environment string `json:"environment,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
@@ -33,10 +39,19 @@ type RemoteSecretStatus struct {
 // RemoteSecretReason is the reconciliation status of the RemoteSecret object
 type RemoteSecretReason string
 
+// RemoteSecretConditionType lists the types of conditions we track in the remote secret status
+type RemoteSecretConditionType string
+
 const (
-	RemoteSecretReasonAwaitingTokenData RemoteSecretReason = "AwaitingSecretData"
+	RemoteSecretConditionTypeDeployed     RemoteSecretConditionType = "Deployed"
+	RemoteSecretConditionTypeDataObtained RemoteSecretConditionType = "DataObtained"
+	RemoteSecretConditionTypeError        RemoteSecretConditionType = "Error"
+
+	RemoteSecretReasonAwaitingTokenData RemoteSecretReason = "AwaitingData"
 	RemoteSecretReasonInjected          RemoteSecretReason = "Injected"
 	RemoteSecretReasonError             RemoteSecretReason = "Error"
+	RemoteSecretReasonCreated           RemoteSecretReason = "Created"
+	RemoteSecretReasonUnsupported       RemoteSecretReason = "Unsupported"
 )
 
 //+kubebuilder:object:root=true

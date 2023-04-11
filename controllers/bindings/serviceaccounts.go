@@ -18,7 +18,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"strings"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,14 +40,14 @@ const (
 )
 
 type serviceAccountHandler struct {
-	Binding *api.SPIAccessTokenBinding
-	Client  client.Client
+	Target       SecretDeploymentTarget
+	ObjectMarker ObjectMarker
 }
 
-func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAccount, api.SPIAccessTokenBindingErrorReason, error) {
+func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAccount, string, error) {
 	sas := []*corev1.ServiceAccount{}
 
-	for i, link := range h.Binding.Spec.Secret.LinkedTo {
+	for i, link := range h.Target.GetSpec().LinkedTo {
 		sa, errorReason, err := h.ensureServiceAccount(ctx, i, &link.ServiceAccount)
 		if err != nil {
 			return []*corev1.ServiceAccount{}, errorReason, err
@@ -58,15 +57,15 @@ func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAcco
 		}
 	}
 
-	return sas, api.SPIAccessTokenBindingErrorReasonNoError, nil
+	return sas, "", nil
 }
 
 func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccounts []*corev1.ServiceAccount, secret *corev1.Secret) error {
-	if len(h.Binding.Spec.Secret.LinkedTo) != len(serviceAccounts) {
+	if len(h.Target.GetSpec().LinkedTo) != len(serviceAccounts) {
 		return specInconsistentWithStatusError
 	}
 
-	for i, link := range h.Binding.Spec.Secret.LinkedTo {
+	for i, link := range h.Target.GetSpec().LinkedTo {
 		sa := serviceAccounts[i]
 		linkType := link.ServiceAccount.EffectiveSecretLinkType()
 
@@ -84,11 +83,19 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 			return nil, nil
 		}
 
-		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Client, attempt, "retrying SA secret linking update due to conflict",
-			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing binding '%s'", sa.Name, secret.Name, client.ObjectKeyFromObject(h.Binding)))
+		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Target.GetClient(), attempt, "retrying SA secret linking update due to conflict",
+			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, secret.Name, h.Target.GetType(), client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()}))
 
 		if err != nil {
-			return fmt.Errorf("failed to link the secret %s to the service account %s: %w", client.ObjectKeyFromObject(secret), client.ObjectKeyFromObject(sa), err)
+			return fmt.Errorf("failed to link the secret %s to the service account %s while processing the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(secret),
+				client.ObjectKeyFromObject(sa),
+				h.Target.GetType(),
+				client.ObjectKey{
+					Name:      h.Target.GetName(),
+					Namespace: h.Target.GetNamespace(),
+				},
+				err)
 		}
 	}
 
@@ -131,17 +138,33 @@ func (h *serviceAccountHandler) linkSecretByName(sa *corev1.ServiceAccount, secr
 func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAccount, error) {
 	sal := &corev1.ServiceAccountList{}
 
+	opts, err := h.ObjectMarker.ListReferencedOptions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct list options: %w", err)
+	}
+
+	opts = append(opts, client.InNamespace(h.Target.GetTargetNamespace()))
 	// unlike secrets that are always exclusive to the binding, there can be more service accounts
 	// associated with the binding. Therefore we need to manually filter them.
-	if err := h.Client.List(ctx, sal, client.InNamespace(h.Binding.Namespace)); err != nil {
-		return []*corev1.ServiceAccount{}, fmt.Errorf("failed to list the service accounts in the namespace '%s': %w", h.Binding.Namespace, err)
+	if err := h.Target.GetClient().List(ctx, sal, opts...); err != nil {
+		return []*corev1.ServiceAccount{}, fmt.Errorf("failed to list the service accounts in the namespace '%s' while processing the deployment target (%s) %s: %w",
+			h.Target.GetTargetNamespace(),
+			h.Target.GetType(),
+			client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+			err)
 	}
 
 	ret := []*corev1.ServiceAccount{}
 
 	for i := range sal.Items {
 		sa := sal.Items[i]
-		if BindingNameInAnnotation(sa.Annotations[LinkAnnotation], h.Binding.Name) {
+		if ok, err := h.ObjectMarker.IsReferenced(ctx, &sa); err != nil {
+			return []*corev1.ServiceAccount{}, fmt.Errorf("failed to determine if the service account %s is referenced while processing the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(&sa),
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				err)
+		} else if ok {
 			ret = append(ret, &sa)
 		}
 	}
@@ -189,7 +212,7 @@ func (h *serviceAccountHandler) unlinkSecretByName(secretName string, serviceAcc
 
 // ensureServiceAccount loads the service account configured in the binding from the cluster or creates a new one if needed.
 // It also makes sure that the service account is correctly labeled.
-func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specIdx int, spec *api.ServiceAccountLink) (*corev1.ServiceAccount, api.SPIAccessTokenBindingErrorReason, error) {
+func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specIdx int, spec *api.ServiceAccountLink) (*corev1.ServiceAccount, string, error) {
 
 	if spec.Reference.Name != "" {
 		return h.ensureReferencedServiceAccount(ctx, &spec.Reference)
@@ -197,48 +220,66 @@ func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specId
 		return h.ensureManagedServiceAccount(ctx, specIdx, &spec.Managed)
 	}
 
-	return nil, api.SPIAccessTokenBindingErrorReasonNoError, nil
+	return nil, "", nil
 }
 
-func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Context, spec *corev1.LocalObjectReference) (*corev1.ServiceAccount, api.SPIAccessTokenBindingErrorReason, error) {
+func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Context, spec *corev1.LocalObjectReference) (*corev1.ServiceAccount, string, error) {
 	sa := &corev1.ServiceAccount{}
-	key := client.ObjectKey{Name: spec.Name, Namespace: h.Binding.Namespace}
-	if err := h.Client.Get(ctx, key, sa); err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUnavailable, fmt.Errorf("failed to get the referenced service account (%s): %w", key, err)
+	key := client.ObjectKey{Name: spec.Name, Namespace: h.Target.GetTargetNamespace()}
+	if err := h.Target.GetClient().Get(ctx, key, sa); err != nil {
+		return nil, string(ErrorReasonServiceAccountUnavailable), fmt.Errorf("failed to get the referenced service account (%s): %w", key, err)
 	}
-
-	origAnno := sa.Annotations[LinkAnnotation]
-	linkAnno := ensureBindingNameInAnnotation(origAnno, h.Binding.Name)
-	if sa.Annotations == nil {
-		sa.Annotations = map[string]string{}
-	}
-	sa.Annotations[LinkAnnotation] = linkAnno
 
 	// Only delete the managed binding label from the SA if it is our binding that was previously managing it.
 	// This makes sure that if there are multiple bindings associated with an SA that is also managed by one of them
 	// We don't end up in a ping-pong situation where the bindings reconcilers would "fight" over the value of this
 	// annotation.
 	managedChanged := false
-	managingBinding := sa.Labels[ManagedByLabel]
-	if managingBinding == h.Binding.Name {
+	if managed, err := h.ObjectMarker.IsManaged(ctx, sa); err != nil {
+		return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to determine if the service account (%s) is managed while making it just referenced when processing the deployment target (%s) %s: %w",
+			key,
+			h.Target.GetType(),
+			client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+			err)
+	} else if managed {
+		if _, err := h.ObjectMarker.UnmarkManaged(ctx, sa); err != nil {
+			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to remove the managed mark from the service account (%s) while making it just referenced when processing the deployment target (%s) %s: %w",
+				key,
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				err)
+		}
 		managedChanged = true
-		delete(sa.Labels, ManagedByLabel)
+	}
+	changed, err := h.ObjectMarker.MarkReferenced(ctx, sa)
+	if err != nil {
+		return nil, string(ErrorReasonServiceAccountUpdate),
+			fmt.Errorf("failed to mark the service account (%s) as referenced when processing the deployment target (%s) %s: %w",
+				key,
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				err)
 	}
 
-	if origAnno != linkAnno || managedChanged {
+	if changed || managedChanged {
 		// we need to update the service account with the new link to the binding
-		if err := h.Client.Update(ctx, sa); err != nil {
-			return nil, api.SPIAccessTokenBindingErrorReasonServiceAccountUpdate, fmt.Errorf("failed to update the annotations in the referenced service account %s of binding %s: %w", client.ObjectKeyFromObject(sa), client.ObjectKeyFromObject(h.Binding), err)
+		if err := h.Target.GetClient().Update(ctx, sa); err != nil {
+			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to update the annotations in the referenced service account %s while processing the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(sa),
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				err)
 		}
 	}
 
-	return sa, api.SPIAccessTokenBindingErrorReasonNoError, nil
+	return sa, "", nil
 }
 
-func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context, specIdx int, spec *api.ManagedServiceAccountSpec) (*corev1.ServiceAccount, api.SPIAccessTokenBindingErrorReason, error) {
+func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context, specIdx int, spec *api.ManagedServiceAccountSpec) (*corev1.ServiceAccount, string, error) {
 	var name string
-	if len(h.Binding.Status.ServiceAccountNames) > specIdx {
-		name = h.Binding.Status.ServiceAccountNames[specIdx]
+	actualSANames := h.Target.GetActualServiceAccountNames()
+	if len(actualSANames) > specIdx {
+		name = actualSANames[specIdx]
 	}
 	if name == "" {
 		name = spec.Name
@@ -248,41 +289,51 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 	for k, v := range spec.Labels {
 		requestedLabels[k] = v
 	}
-	requestedLabels[ManagedByLabel] = h.Binding.Name
 
 	requestedAnnotations := map[string]string{}
 	for k, v := range spec.Annotations {
 		requestedAnnotations[k] = v
 	}
-	requestedAnnotations[LinkAnnotation] = h.Binding.Name
 
 	var err error
 	sa := &corev1.ServiceAccount{}
 
-	if err = h.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: h.Binding.Namespace}, sa); err != nil {
+	if err = h.Target.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: h.Target.GetTargetNamespace()}, sa); err != nil {
 		if errors.IsNotFound(err) {
 			sa = &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:         name,
-					Namespace:    h.Binding.Namespace,
+					Namespace:    h.Target.GetTargetNamespace(),
 					GenerateName: spec.GenerateName,
-					Annotations:  requestedAnnotations,
-					Labels:       requestedLabels,
 				},
 			}
-			err = h.Client.Create(ctx, sa)
+			_, err = h.ObjectMarker.MarkManaged(ctx, sa)
+			if err == nil {
+				err = h.Target.GetClient().Create(ctx, sa)
+			}
 		}
 	} else {
 		// The service account already exists. We need to make sure that it is associated with this binding,
 		// otherwise we error out because we found a pre-existing SA that should be managed.
 		// Note that the managed SAs always also have the link annotation pointing to the managing binding.
-		if !BindingNameInAnnotation(sa.Annotations[LinkAnnotation], h.Binding.Name) {
+		if ok, rerr := h.ObjectMarker.IsReferenced(ctx, sa); rerr != nil {
+			err = fmt.Errorf("failed to determine if service account %s is referenced by the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(sa),
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				rerr)
+		} else if !ok {
 			err = managedServiceAccountAlreadyExists
 		}
 
 		// we also check that if the SA is managed, it is managed by us and not by some other binding.
-		managedBy := sa.Labels[ManagedByLabel]
-		if err == nil && managedBy != "" && managedBy != h.Binding.Name {
+		if ok, merr := h.ObjectMarker.IsManagedByOther(ctx, sa); merr != nil {
+			err = fmt.Errorf("failed to determine if service account %s is managed by the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(sa),
+				h.Target.GetType(),
+				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				merr)
+		} else if ok {
 			err = managedServiceAccountManagedByAnotherBinding
 		}
 	}
@@ -297,9 +348,6 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 
 		if sa.Annotations == nil {
 			sa.Annotations = map[string]string{}
-		} else {
-			linkAnno := ensureBindingNameInAnnotation(sa.Annotations[LinkAnnotation], h.Binding.Name)
-			requestedAnnotations[LinkAnnotation] = linkAnno
 		}
 
 		for k, rv := range requestedLabels {
@@ -318,39 +366,26 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			sa.Annotations[k] = rv
 		}
 
+		var changed bool
+		changed, err = h.ObjectMarker.MarkManaged(ctx, sa)
+		if err != nil {
+			return nil, string(ErrorReasonServiceAccountUpdate),
+				fmt.Errorf("failed to sync the configured service account %s to the deployment target (%s) %s: %w",
+					client.ObjectKeyFromObject(sa),
+					h.Target.GetType(),
+					client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+					err)
+		}
+		needsUpdate = needsUpdate || changed
+
 		if needsUpdate {
-			err = h.Client.Update(ctx, sa)
+			err = h.Target.GetClient().Update(ctx, sa)
 		}
 	}
 
 	if err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenSync, fmt.Errorf("failed to sync the configured service account of the binding: %w", err)
+		return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to sync the configured service account of the deployment target: %w", err)
 	}
 
-	return sa, api.SPIAccessTokenBindingErrorReasonNoError, nil
-}
-
-func ensureBindingNameInAnnotation(annotationValue string, bindingName string) string {
-	for _, v := range strings.Split(annotationValue, ",") {
-		if strings.TrimSpace(v) == bindingName {
-			return annotationValue
-		}
-	}
-
-	annotationValue = strings.TrimSpace(annotationValue)
-	if annotationValue == "" {
-		return bindingName
-	} else {
-		return annotationValue + "," + bindingName
-	}
-}
-
-func BindingNameInAnnotation(annotationValue string, bindingName string) bool {
-	for _, v := range strings.Split(annotationValue, ",") {
-		if strings.TrimSpace(v) == bindingName {
-			return true
-		}
-	}
-
-	return false
+	return sa, "", nil
 }

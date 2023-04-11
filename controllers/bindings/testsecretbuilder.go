@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenstorage
+package bindings
 
-import (
-	"context"
-	"fmt"
+import "context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage/vaultcli"
-)
+type TestSecretBuilder[K any] struct {
+	GetDataImpl func(context.Context, K) (map[string][]byte, string, error)
+}
 
-func NewVaultStorage(ctx context.Context, args *vaultcli.VaultCliArgs) (TokenStorage, error) {
-	secretStorage, err := vaultcli.CreateVaultStorage(ctx, args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct the secret storage: %w", err)
+var _ SecretBuilder[bool] = (*TestSecretBuilder[bool])(nil)
+
+// GetData implements SecretBuilder
+func (b *TestSecretBuilder[K]) GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error) {
+	if b.GetDataImpl != nil {
+		return b.GetDataImpl(ctx, secretDataKey)
 	}
-	return NewJSONSerializingTokenStorage(secretStorage), nil
+
+	return map[string][]byte{}, "", nil
 }

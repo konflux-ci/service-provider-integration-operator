@@ -46,9 +46,9 @@ import (
 )
 
 const (
-	tokenSecretLabel            = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField           = "spiTokenName" //#nosec G101 -- false positive, this is not a token
-	providerUrlField            = "providerUrl"
+	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	spiTokenNameField = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
+	providerUrlField  = "providerUrl"
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create

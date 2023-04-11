@@ -21,16 +21,15 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DependentsHandler is taking care of the dependent objects of the binding
-type DependentsHandler struct {
-	Client       client.Client
-	TokenStorage tokenstorage.TokenStorage
-	Binding      *api.SPIAccessTokenBinding
+type DependentsHandler[K any] struct {
+	Target        SecretDeploymentTarget
+	SecretBuilder SecretBuilder[K]
+	ObjectMarker  ObjectMarker
 }
 
 // Dependents represent the secret and the list of the servicea accounts that are linked to a binding.
@@ -58,10 +57,10 @@ type CheckPoint struct {
 // CheckPoint creates an instance of CheckPoint struct that captures the secret name and the list of known service account
 // names from the Binding associated with the DependentsHandler. This can later be used to revert back to that state again.
 // See RevertTo for more details.
-func (d *DependentsHandler) CheckPoint(ctx context.Context) (CheckPoint, error) {
-	secretName := d.Binding.Status.SyncedObjectRef.Name
-	names := make(map[string]serviceAccountLink, len(d.Binding.Status.ServiceAccountNames))
-	for _, n := range d.Binding.Status.ServiceAccountNames {
+func (d *DependentsHandler[K]) CheckPoint(ctx context.Context) (CheckPoint, error) {
+	secretName := d.Target.GetActualSecretName()
+	names := make(map[string]serviceAccountLink, len(d.Target.GetActualServiceAccountNames()))
+	for _, n := range d.Target.GetActualServiceAccountNames() {
 		link, err := d.detectLinks(ctx, secretName, n)
 		if err != nil {
 			return CheckPoint{}, err
@@ -75,13 +74,13 @@ func (d *DependentsHandler) CheckPoint(ctx context.Context) (CheckPoint, error) 
 	}, nil
 }
 
-func (d *DependentsHandler) detectLinks(ctx context.Context, secretName string, saName string) (serviceAccountLink, error) {
+func (d *DependentsHandler[K]) detectLinks(ctx context.Context, secretName string, saName string) (serviceAccountLink, error) {
 	link := serviceAccountLink{}
 
 	sa := &corev1.ServiceAccount{}
 	// we can ignore the error here, because this is essentially the same as the SA having no links. Sync will create it, if needed,
 	// and RevertTo will ignore it, because it doesn't exist (it only works with the SAs actually present in the cluster).
-	_ = d.Client.Get(ctx, client.ObjectKey{Name: saName, Namespace: d.Binding.Namespace}, sa)
+	_ = d.Target.GetClient().Get(ctx, client.ObjectKey{Name: saName, Namespace: d.Target.GetNamespace()}, sa)
 
 	for _, s := range sa.Secrets {
 		if s.Name == secretName {
@@ -100,7 +99,7 @@ func (d *DependentsHandler) detectLinks(ctx context.Context, secretName string, 
 	return link, nil
 }
 
-func (d *DependentsHandler) Sync(ctx context.Context, token *api.SPIAccessToken, sp serviceprovider.ServiceProvider) (*Dependents, api.SPIAccessTokenBindingErrorReason, error) {
+func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K, sp serviceprovider.ServiceProvider) (*Dependents, string, error) {
 
 	// syncing the service accounts and secrets is a 3 step process.
 	// First, an empty service account needs to be created.
@@ -114,7 +113,7 @@ func (d *DependentsHandler) Sync(ctx context.Context, token *api.SPIAccessToken,
 		return nil, errorReason, err
 	}
 
-	sec, errorReason, err := secretsHandler.Sync(ctx, token, sp)
+	sec, errorReason, err := secretsHandler.Sync(ctx, dataKey, sp)
 	if err != nil {
 		return nil, errorReason, err
 	}
@@ -128,26 +127,42 @@ func (d *DependentsHandler) Sync(ctx context.Context, token *api.SPIAccessToken,
 		ServiceAccounts: serviceAccounts,
 	}
 
-	return deps, api.SPIAccessTokenBindingErrorReasonNoError, nil
+	return deps, "", nil
 }
 
-func (d *DependentsHandler) Cleanup(ctx context.Context) error {
+func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 	secretsHandler, saHandler := d.childHandlers()
 
 	sal, err := saHandler.List(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list the service accounts to clean up because of binding %s: %w", client.ObjectKeyFromObject(d.Binding), err)
+		return fmt.Errorf("failed to list the service accounts to clean up for the secret deployment target (%s) %s: %w",
+			d.Target.GetType(),
+			client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+			err)
 	}
 
 	sl, err := secretsHandler.List(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list the secrets to clean up because of binding %s: %w", client.ObjectKeyFromObject(d.Binding), err)
+		return fmt.Errorf("failed to list the secrets to clean for the secret deployment target (%s) %s: %w",
+			d.Target.GetType(),
+			client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+			err)
 	}
 
 	for _, sa := range sal {
-		if sa.Labels[ManagedByLabel] == d.Binding.Name {
-			if err := d.Client.Delete(ctx, sa); err != nil {
-				return fmt.Errorf("failed to delete the managed service account %s while cleaning up dependent objects of binding %s: %w", client.ObjectKeyFromObject(sa), client.ObjectKeyFromObject(d.Binding), err)
+		if managed, err := d.ObjectMarker.IsManaged(ctx, sa); err != nil {
+			return fmt.Errorf("failed to determine if the service account (%s) is managed while processing the secret deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(sa),
+				d.Target.GetType(),
+				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				err)
+		} else if managed {
+			if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
+				return fmt.Errorf("failed to delete the managed service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
+					client.ObjectKeyFromObject(sa),
+					d.Target.GetType(),
+					client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+					err)
 			}
 		} else {
 			persist := false
@@ -156,16 +171,24 @@ func (d *DependentsHandler) Cleanup(ctx context.Context) error {
 				persist = saHandler.Unlink(s, sa) || persist
 			}
 			if persist {
-				if err := d.Client.Update(ctx, sa); err != nil {
-					return fmt.Errorf("failed to remove the linked secrets from the service account %s while cleaning up dependent objects of binding %s: %w", client.ObjectKeyFromObject(sa), client.ObjectKeyFromObject(d.Binding), err)
+				if err := d.Target.GetClient().Update(ctx, sa); err != nil {
+					return fmt.Errorf("failed to remove the linked secrets from the service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(sa),
+						d.Target.GetType(),
+						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						err)
 				}
 			}
 		}
 	}
 
 	for _, s := range sl {
-		if err := d.Client.Delete(ctx, s); err != nil {
-			return fmt.Errorf("failed to delete the secret %s while cleaning up dependent objects of binding %s: %w", client.ObjectKeyFromObject(s), client.ObjectKeyFromObject(d.Binding), err)
+		if err := d.Target.GetClient().Delete(ctx, s); err != nil {
+			return fmt.Errorf("failed to delete the secret %s while cleaning up dependent objects of secret deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(s),
+				d.Target.GetType(),
+				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				err)
 		}
 	}
 
@@ -177,7 +200,7 @@ func (d *DependentsHandler) Cleanup(ctx context.Context) error {
 // the state obtained from the DependentsHandler.Binding prior to making any changes by Sync().
 // Note that currently this method is only able to delete secrets/service accounts that should not be in the cluster. It cannot "undelete"
 // what has been deleted from the cluster. That should be OK though because we don't delete stuff during the Sync call.
-func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint) error {
+func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoint) error {
 	secretHandler, serviceAccountHandler := d.childHandlers()
 
 	sl, err := secretHandler.List(ctx)
@@ -186,7 +209,7 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 	}
 	for _, s := range sl {
 		if s.Name != checkPoint.secretName {
-			if err := d.Client.Delete(ctx, s); err != nil {
+			if err := d.Target.GetClient().Delete(ctx, s); err != nil {
 				return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
 			}
 		}
@@ -205,8 +228,8 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 				// ok, the SA is in the list of the service accounts to revert to. The only thing we need to make sure is that
 				// it links to the "old" secret name and doesn't link to the new secret name.
 				// We also re-label it if needed.
-				if checkPoint.secretName != d.Binding.Status.SyncedObjectRef.Name {
-					needsUpdate = serviceAccountHandler.unlinkSecretByName(d.Binding.Status.SyncedObjectRef.Name, sa)
+				if checkPoint.secretName != d.Target.GetActualSecretName() {
+					needsUpdate = serviceAccountHandler.unlinkSecretByName(d.Target.GetActualSecretName(), sa)
 				}
 
 				if saLink.secret {
@@ -220,19 +243,37 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 				// so the SA is marked as linked to the binding in the cluster, but it is not in the list of SAs in the state we are reverting to.
 				// if the SA is managed, we can just delete it, but if it is not managed, we need to make sure the linking of secrets is accurate.
 
-				if sa.Labels[ManagedByLabel] == d.Binding.Name {
-					if err := d.Client.Delete(ctx, sa); err != nil {
-						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s: %w", sa.Name, err)) //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
+				if managed, err := d.ObjectMarker.IsManaged(ctx, sa); err != nil {
+					// let's retry, we just failed to check that labeling of the SA...
+					return nil, fmt.Errorf("failed to determine whether the service account %s is managed while processing the deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(sa),
+						d.Target.GetType(),
+						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						err)
+				} else if managed {
+					if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
+						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
+							sa.Name,
+							d.Target.GetType(),
+							client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+							err))
 					}
 					// we don't need to do anything more on the SA because we just deleted it :)
 					return nil, nil
 				}
 
-				serviceAccountHandler.unlinkSecretByName(d.Binding.Status.SyncedObjectRef.Name, sa)
+				serviceAccountHandler.unlinkSecretByName(d.Target.GetActualSecretName(), sa)
 				serviceAccountHandler.unlinkSecretByName(checkPoint.secretName, sa)
 
 				// the SA should not be linked to the binding, so let's remove the annotation...
-				delete(sa.Annotations, LinkAnnotation)
+				if _, err := d.ObjectMarker.UnmarkReferenced(ctx, sa); err != nil {
+					// let's retry, we just failed to unmark the SA as referenced (this does not actually persist anything, so we should be safe to retry).
+					return nil, fmt.Errorf("failed to unmark the SA %s as referenced to the deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(sa),
+						d.Target.GetType(),
+						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						err)
+				}
 
 				needsUpdate = true
 			}
@@ -244,10 +285,14 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 			return nil, nil
 		}
 
-		err = updateWithRetries(serviceAccountUpdateRetryCount, ctx, d.Client, attempt, "retry to update the SA while reverting to previous state of secret links", "failed to update the service account")
+		err = updateWithRetries(serviceAccountUpdateRetryCount, ctx, d.Target.GetClient(), attempt, "retry to update the SA while reverting to previous state of secret links", "failed to update the service account")
 
 		if err != nil {
-			return fmt.Errorf("failed to update the service account %s to revert it to prior state while recovering from failed binding reconciliation: %w", sa.Name, err)
+			return fmt.Errorf("failed to update the service account %s to revert it to prior state while recovering from failed secret deployment target (%s) %s reconciliation: %w",
+				sa.Name,
+				d.Target.GetType(),
+				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				err)
 		}
 	}
 
@@ -255,16 +300,16 @@ func (d *DependentsHandler) RevertTo(ctx context.Context, checkPoint CheckPoint)
 }
 
 // childHandlers is a utility function instantiating the auxilliary handlers for secrets and service accounts.
-func (d *DependentsHandler) childHandlers() (*secretHandler, *serviceAccountHandler) {
-	secretsHandler := &secretHandler{
-		Binding:      d.Binding,
-		Client:       d.Client,
-		TokenStorage: d.TokenStorage,
+func (d *DependentsHandler[K]) childHandlers() (*secretHandler[K], *serviceAccountHandler) {
+	secretsHandler := &secretHandler[K]{
+		Target:        d.Target,
+		ObjectMarker:  d.ObjectMarker,
+		SecretBuilder: d.SecretBuilder,
 	}
 
 	saHandler := &serviceAccountHandler{
-		Binding: d.Binding,
-		Client:  d.Client,
+		Target:       d.Target,
+		ObjectMarker: d.ObjectMarker,
 	}
 
 	return secretsHandler, saHandler
