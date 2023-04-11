@@ -16,9 +16,10 @@ package oauth
 import (
 	"context"
 	"errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"net/http"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"

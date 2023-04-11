@@ -16,13 +16,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"

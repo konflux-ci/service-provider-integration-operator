@@ -16,6 +16,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"

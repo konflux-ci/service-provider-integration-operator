@@ -17,6 +17,7 @@ package clientfactory
 import (
 	"context"
 	"errors"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -15,10 +15,11 @@ package oauth
 
 import (
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"html/template"
 	"net/http"
 	"strings"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 

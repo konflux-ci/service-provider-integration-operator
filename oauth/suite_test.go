@@ -15,10 +15,11 @@ package oauth
 
 import (
 	"context"
-	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"

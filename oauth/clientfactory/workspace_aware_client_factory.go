@@ -19,11 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/codeready-toolchain/api/api/v1alpha1"
 	"io"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
+
+	"github.com/codeready-toolchain/api/api/v1alpha1"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
