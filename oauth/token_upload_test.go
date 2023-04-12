@@ -16,6 +16,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	"testing"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
@@ -34,7 +35,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	//given
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
-	cntx := context.TODO()
+	cntx := clientfactory.NamespaceIntoContext(context.TODO(), "ns-1")
 	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&v1beta1.SPIAccessToken{
@@ -49,7 +50,9 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		TokenStorage: tokenstorage.TestTokenStorage{
 			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
-				assert.Equal(t, cntx, ctx)
+				nsFromBaseCntx, _ := clientfactory.NamespaceFromContext(cntx)
+				nsFromInvokedCtx, _ := clientfactory.NamespaceFromContext(ctx)
+				assert.Equal(t, nsFromBaseCntx, nsFromInvokedCtx)
 				assert.Equal(t, "jdoe", data.Username)
 				assert.Equal(t, "2345-2345-2345-234-46456", data.AccessToken)
 				assert.Equal(t, "ns-1", token.Namespace)
