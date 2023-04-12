@@ -21,9 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SecretDeploymentTarget, together with SecretBuilder and ObjectMarker, represents a method of delivering
-// the dependent objects into some kind of target location (be it the namespace of the binding, another namespace
-// or a target described by the RHTAP environment).
+// SecretDeploymentTarget, together with SecretBuilder and ObjectMarker, represents a method of obtaining enough
+// information for the DependentsHandler to be able to deliver the secrets and service accounts to some "target"
+// place in (some) K8s cluster.
 type SecretDeploymentTarget interface {
 	// GetClient returns the client to use when connecting to the target "destination" to deploy the dependent objects to.
 	GetClient() client.Client
