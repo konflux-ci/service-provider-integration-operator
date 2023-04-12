@@ -43,12 +43,12 @@ func (t *NamespaceTarget) GetClient() client.Client {
 	return t.Client
 }
 
-// GetName implements DeploymentTarget
-func (t *NamespaceTarget) GetName() string {
-	return t.RemoteSecret.Name
+// GetTargetObjectKey implements SecretDeploymentTarget
+func (t *NamespaceTarget) GetTargetObjectKey() client.ObjectKey {
+	return client.ObjectKeyFromObject(t.RemoteSecret)
 }
 
-// GetNamespace implements DeploymentTarget
+// GetNamespace implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetNamespace() string {
 	return t.RemoteSecret.Namespace
 }
@@ -57,17 +57,17 @@ func (t *NamespaceTarget) GetTargetNamespace() string {
 	return t.Namespace
 }
 
-// GetSecretName implements DeploymentTarget
+// GetSecretName implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualSecretName() string {
 	return t.SecretName
 }
 
-// GetServiceAccountNames implements DeploymentTarget
+// GetServiceAccountNames implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
 	return t.ServiceAccountNames
 }
 
-// GetType implements DeploymentTarget
+// GetType implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetType() string {
 	return "Namespace"
 }

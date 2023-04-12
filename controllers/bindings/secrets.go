@@ -105,7 +105,7 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, sp serviceprovider.S
 	}
 
 	if secret.GenerateName == "" {
-		secret.GenerateName = h.Target.GetName() + "-secret-"
+		secret.GenerateName = h.Target.GetTargetObjectKey().Name + "-secret-"
 	}
 
 	_, err = h.ObjectMarker.MarkManaged(ctx, secret)
@@ -136,10 +136,10 @@ func (h *secretHandler[K]) List(ctx context.Context) ([]*corev1.Secret, error) {
 
 	lg := log.FromContext(ctx).V(logs.DebugLevel)
 	if err := h.Target.GetClient().List(ctx, sl, opts...); err != nil {
-		return []*corev1.Secret{}, fmt.Errorf("failed to list the secrets associated with the deployment target (%s) %+v: %w", h.Target.GetType(), client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()}, err)
+		return []*corev1.Secret{}, fmt.Errorf("failed to list the secrets associated with the deployment target (%s) %+v: %w", h.Target.GetType(), h.Target.GetTargetObjectKey(), err)
 	}
 
-	lg.Info("listing secrets managed by target", "targetType", h.Target.GetType(), "name", h.Target.GetName(), "namespace", h.Target.GetNamespace(), "targetNamespace", h.Target.GetTargetNamespace(), "opts", opts, "secretCount", len(sl.Items))
+	lg.Info("listing secrets managed by target", "targetType", h.Target.GetType(), "targetKey", h.Target.GetTargetObjectKey(), "targetNamespace", h.Target.GetTargetNamespace(), "opts", opts, "secretCount", len(sl.Items))
 
 	ret := []*corev1.Secret{}
 	for i := range sl.Items {
@@ -147,7 +147,7 @@ func (h *secretHandler[K]) List(ctx context.Context) ([]*corev1.Secret, error) {
 			return []*corev1.Secret{}, fmt.Errorf("failed to determine if the secret %s is managed while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(&sl.Items[i]),
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				err)
 		} else if ok {
 			ret = append(ret, &sl.Items[i])

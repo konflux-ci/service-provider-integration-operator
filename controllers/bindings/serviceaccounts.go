@@ -84,17 +84,14 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 		}
 
 		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Target.GetClient(), attempt, "retrying SA secret linking update due to conflict",
-			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, secret.Name, h.Target.GetType(), client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()}))
+			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, secret.Name, h.Target.GetType(), h.Target.GetTargetObjectKey()))
 
 		if err != nil {
 			return fmt.Errorf("failed to link the secret %s to the service account %s while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(secret),
 				client.ObjectKeyFromObject(sa),
 				h.Target.GetType(),
-				client.ObjectKey{
-					Name:      h.Target.GetName(),
-					Namespace: h.Target.GetNamespace(),
-				},
+				h.Target.GetTargetObjectKey(),
 				err)
 		}
 	}
@@ -150,7 +147,7 @@ func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAcco
 		return []*corev1.ServiceAccount{}, fmt.Errorf("failed to list the service accounts in the namespace '%s' while processing the deployment target (%s) %s: %w",
 			h.Target.GetTargetNamespace(),
 			h.Target.GetType(),
-			client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+			h.Target.GetTargetObjectKey(),
 			err)
 	}
 
@@ -162,7 +159,7 @@ func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAcco
 			return []*corev1.ServiceAccount{}, fmt.Errorf("failed to determine if the service account %s is referenced while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(&sa),
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				err)
 		} else if ok {
 			ret = append(ret, &sa)
@@ -239,14 +236,14 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 		return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to determine if the service account (%s) is managed while making it just referenced when processing the deployment target (%s) %s: %w",
 			key,
 			h.Target.GetType(),
-			client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+			h.Target.GetTargetObjectKey(),
 			err)
 	} else if managed {
 		if _, err := h.ObjectMarker.UnmarkManaged(ctx, sa); err != nil {
 			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to remove the managed mark from the service account (%s) while making it just referenced when processing the deployment target (%s) %s: %w",
 				key,
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				err)
 		}
 		managedChanged = true
@@ -257,7 +254,7 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 			fmt.Errorf("failed to mark the service account (%s) as referenced when processing the deployment target (%s) %s: %w",
 				key,
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				err)
 	}
 
@@ -267,7 +264,7 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to update the annotations in the referenced service account %s while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				err)
 		}
 	}
@@ -320,7 +317,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			err = fmt.Errorf("failed to determine if service account %s is referenced by the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				rerr)
 		} else if !ok {
 			err = managedServiceAccountAlreadyExists
@@ -331,7 +328,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			err = fmt.Errorf("failed to determine if service account %s is managed by the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				h.Target.GetType(),
-				client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+				h.Target.GetTargetObjectKey(),
 				merr)
 		} else if ok {
 			err = managedServiceAccountManagedByAnotherBinding
@@ -373,7 +370,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 				fmt.Errorf("failed to sync the configured service account %s to the deployment target (%s) %s: %w",
 					client.ObjectKeyFromObject(sa),
 					h.Target.GetType(),
-					client.ObjectKey{Name: h.Target.GetName(), Namespace: h.Target.GetNamespace()},
+					h.Target.GetTargetObjectKey(),
 					err)
 		}
 		needsUpdate = needsUpdate || changed

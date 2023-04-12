@@ -29,10 +29,8 @@ type SecretDeploymentTarget interface {
 	GetClient() client.Client
 	// GetType returns the type of the secret deployment target object.
 	GetType() string
-	// GetName returns the name of the secret deployment target object.
-	GetName() string
-	// GetNamespace returns the namespace of the secret deployment target object.
-	GetNamespace() string
+	// GetTargetObjectKey is the location of the object that describes the target. This is mainly used in error reporting.
+	GetTargetObjectKey() client.ObjectKey
 	// GetTargetNamespace specifies the namespace to which the secret and service accounts
 	// should be deployed to.
 	GetTargetNamespace() string
@@ -72,8 +70,7 @@ type ObjectMarker interface {
 type TestDeploymentTarget struct {
 	GetClientImpl                    func() client.Client
 	GetTypeImpl                      func() string
-	GetNameImpl                      func() string
-	GetNamespaceImpl                 func() string
+	GetTargetObjectKeyImpl           func() client.ObjectKey
 	GetTargetNamespaceImpl           func() string
 	GetSpecImpl                      func() api.LinkableSecretSpec
 	GetActualSecretNameImpl          func() string
@@ -109,22 +106,13 @@ func (t *TestDeploymentTarget) GetClient() client.Client {
 	return nil
 }
 
-// GetName implements SecretDeploymentTarget
-func (t *TestDeploymentTarget) GetName() string {
-	if t.GetNameImpl != nil {
-		return t.GetNameImpl()
+// GetTargetObjectKey implements SecretDeploymentTarget
+func (t *TestDeploymentTarget) GetTargetObjectKey() client.ObjectKey {
+	if t.GetTargetObjectKeyImpl != nil {
+		return t.GetTargetObjectKeyImpl()
 	}
 
-	return ""
-}
-
-// GetNamespace implements SecretDeploymentTarget
-func (t *TestDeploymentTarget) GetNamespace() string {
-	if t.GetNamespaceImpl != nil {
-		return t.GetNamespaceImpl()
-	}
-
-	return ""
+	return client.ObjectKey{}
 }
 
 // GetSpec implements SecretDeploymentTarget

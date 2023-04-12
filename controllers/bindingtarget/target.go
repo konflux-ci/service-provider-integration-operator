@@ -43,14 +43,9 @@ func (t *BindingNamespaceTarget) GetClient() client.Client {
 	return t.Client
 }
 
-// GetName implements dependents.SecretDeploymentTarget
-func (t *BindingNamespaceTarget) GetName() string {
-	return t.Binding.Name
-}
-
-// GetNamespace implements dependents.SecretDeploymentTarget
-func (t *BindingNamespaceTarget) GetNamespace() string {
-	return t.Binding.Namespace
+// GetTargetObjectKey implements dependents.SecretDeploymentTarget
+func (t *BindingNamespaceTarget) GetTargetObjectKey() client.ObjectKey {
+	return client.ObjectKeyFromObject(t.Binding)
 }
 
 // GetSpec implements dependents.SecretDeploymentTarget

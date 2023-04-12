@@ -137,7 +137,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to list the service accounts to clean up for the secret deployment target (%s) %s: %w",
 			d.Target.GetType(),
-			client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+			d.Target.GetTargetObjectKey(),
 			err)
 	}
 
@@ -145,7 +145,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to list the secrets to clean for the secret deployment target (%s) %s: %w",
 			d.Target.GetType(),
-			client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+			d.Target.GetTargetObjectKey(),
 			err)
 	}
 
@@ -154,14 +154,14 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 			return fmt.Errorf("failed to determine if the service account (%s) is managed while processing the secret deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				d.Target.GetType(),
-				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				d.Target.GetTargetObjectKey(),
 				err)
 		} else if managed {
 			if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
 				return fmt.Errorf("failed to delete the managed service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
 					client.ObjectKeyFromObject(sa),
 					d.Target.GetType(),
-					client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+					d.Target.GetTargetObjectKey(),
 					err)
 			}
 		} else {
@@ -175,7 +175,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 					return fmt.Errorf("failed to remove the linked secrets from the service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
 						client.ObjectKeyFromObject(sa),
 						d.Target.GetType(),
-						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						d.Target.GetTargetObjectKey(),
 						err)
 				}
 			}
@@ -187,7 +187,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 			return fmt.Errorf("failed to delete the secret %s while cleaning up dependent objects of secret deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(s),
 				d.Target.GetType(),
-				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				d.Target.GetTargetObjectKey(),
 				err)
 		}
 	}
@@ -248,14 +248,14 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 					return nil, fmt.Errorf("failed to determine whether the service account %s is managed while processing the deployment target (%s) %s: %w",
 						client.ObjectKeyFromObject(sa),
 						d.Target.GetType(),
-						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						d.Target.GetTargetObjectKey(),
 						err)
 				} else if managed {
 					if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
 						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
 							sa.Name,
 							d.Target.GetType(),
-							client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+							d.Target.GetTargetObjectKey(),
 							err))
 					}
 					// we don't need to do anything more on the SA because we just deleted it :)
@@ -271,7 +271,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 					return nil, fmt.Errorf("failed to unmark the SA %s as referenced to the deployment target (%s) %s: %w",
 						client.ObjectKeyFromObject(sa),
 						d.Target.GetType(),
-						client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+						d.Target.GetTargetObjectKey(),
 						err)
 				}
 
@@ -291,7 +291,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 			return fmt.Errorf("failed to update the service account %s to revert it to prior state while recovering from failed secret deployment target (%s) %s reconciliation: %w",
 				sa.Name,
 				d.Target.GetType(),
-				client.ObjectKey{Name: d.Target.GetName(), Namespace: d.Target.GetNamespace()},
+				d.Target.GetTargetObjectKey(),
 				err)
 		}
 	}
