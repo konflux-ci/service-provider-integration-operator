@@ -201,7 +201,8 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &v1beta1.SPIAccessToken{}
-	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace))
+	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
+	k8sClient, err := c.ClientFactory.CreateClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
 	}

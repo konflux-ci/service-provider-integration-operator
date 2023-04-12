@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 	//[SELF_CONTAINED_TEST_ATTEMPT]
 	//// create the default state - we need to manually create the default service account in the default namespace
 	//// this is done by the kube-controller-manger but we don't have one in our test environment...
-	//cl, err := kubernetesclient.NewForConfig(IT.TestEnvironment.Config)
+	//cl, err := kubernetes.NewForConfig(IT.TestEnvironment.Config)
 	//Expect(err).NotTo(HaveOccurred())
 	//
 	//sec, err := cl.CoreV1().Secrets("default").Create(context.TODO(), &corev1.Secret{
@@ -174,8 +174,8 @@ var _ = BeforeSuite(func() {
 	//Expect(err).NotTo(HaveOccurred())
 	//Expect(sa)
 	//
-	//sec.Annotations["kubernetesclient.io/service-account.name"] = "default"
-	//sec.Annotations["kubernetesclient.io/service-account.uid"] = string(sa.UID)
+	//sec.Annotations["kubernetes.io/service-account.name"] = "default"
+	//sec.Annotations["kubernetes.io/service-account.uid"] = string(sa.UID)
 	//
 	//sec, err = cl.CoreV1().Secrets("default").Update(context.TODO(), sec, metav1.UpdateOptions{})
 	//Expect(err).NotTo(HaveOccurred())

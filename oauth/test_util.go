@@ -16,9 +16,7 @@
 
 package oauth
 
-import (
-	"net/http"
-)
+import "net/http"
 
 // fakeRoundTrip casts a function into a http.RoundTripper
 type fakeRoundTrip func(r *http.Request) (*http.Response, error)
