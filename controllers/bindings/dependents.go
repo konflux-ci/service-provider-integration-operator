@@ -80,7 +80,7 @@ func (d *DependentsHandler[K]) detectLinks(ctx context.Context, secretName strin
 	sa := &corev1.ServiceAccount{}
 	// we can ignore the error here, because this is essentially the same as the SA having no links. Sync will create it, if needed,
 	// and RevertTo will ignore it, because it doesn't exist (it only works with the SAs actually present in the cluster).
-	_ = d.Target.GetClient().Get(ctx, client.ObjectKey{Name: saName, Namespace: d.Target.GetNamespace()}, sa)
+	_ = d.Target.GetClient().Get(ctx, client.ObjectKey{Name: saName, Namespace: d.Target.GetTargetNamespace()}, sa)
 
 	for _, s := range sa.Secrets {
 		if s.Name == secretName {
