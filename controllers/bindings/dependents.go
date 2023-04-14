@@ -20,7 +20,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -99,7 +98,7 @@ func (d *DependentsHandler[K]) detectLinks(ctx context.Context, secretName strin
 	return link, nil
 }
 
-func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K, sp serviceprovider.ServiceProvider) (*Dependents, string, error) {
+func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents, string, error) {
 
 	// syncing the service accounts and secrets is a 3 step process.
 	// First, an empty service account needs to be created.
@@ -113,7 +112,7 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K, sp servicepr
 		return nil, errorReason, err
 	}
 
-	sec, errorReason, err := secretsHandler.Sync(ctx, dataKey, sp)
+	sec, errorReason, err := secretsHandler.Sync(ctx, dataKey)
 	if err != nil {
 		return nil, errorReason, err
 	}
@@ -150,7 +149,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 	}
 
 	for _, sa := range sal {
-		if managed, err := d.ObjectMarker.IsManaged(ctx, sa); err != nil {
+		if managed, err := d.ObjectMarker.IsManagedBy(ctx, d.Target.GetTargetObjectKey(), sa); err != nil {
 			return fmt.Errorf("failed to determine if the service account (%s) is managed while processing the secret deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				d.Target.GetType(),
@@ -243,7 +242,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 				// so the SA is marked as linked to the binding in the cluster, but it is not in the list of SAs in the state we are reverting to.
 				// if the SA is managed, we can just delete it, but if it is not managed, we need to make sure the linking of secrets is accurate.
 
-				if managed, err := d.ObjectMarker.IsManaged(ctx, sa); err != nil {
+				if managed, err := d.ObjectMarker.IsManagedBy(ctx, d.Target.GetTargetObjectKey(), sa); err != nil {
 					// let's retry, we just failed to check that labeling of the SA...
 					return nil, fmt.Errorf("failed to determine whether the service account %s is managed while processing the deployment target (%s) %s: %w",
 						client.ObjectKeyFromObject(sa),
@@ -266,7 +265,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 				serviceAccountHandler.unlinkSecretByName(checkPoint.secretName, sa)
 
 				// the SA should not be linked to the binding, so let's remove the annotation...
-				if _, err := d.ObjectMarker.UnmarkReferenced(ctx, sa); err != nil {
+				if _, err := d.ObjectMarker.UnmarkReferenced(ctx, d.Target.GetTargetObjectKey(), sa); err != nil {
 					// let's retry, we just failed to unmark the SA as referenced (this does not actually persist anything, so we should be safe to retry).
 					return nil, fmt.Errorf("failed to unmark the SA %s as referenced to the deployment target (%s) %s: %w",
 						client.ObjectKeyFromObject(sa),

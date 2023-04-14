@@ -19,27 +19,29 @@ package bindings
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type TestObjectMarker struct {
-	IsManagedImpl             func(context.Context, client.Object) (bool, error)
+	IsManagedByImpl           func(context.Context, client.ObjectKey, client.Object) (bool, error)
 	IsManagedByOtherImpl      func(context.Context, client.Object) (bool, error)
-	IsReferencedImpl          func(context.Context, client.Object) (bool, error)
-	ListManagedOptionsImpl    func(context.Context) ([]client.ListOption, error)
-	ListReferencedOptionsImpl func(context.Context) ([]client.ListOption, error)
-	MarkManagedImpl           func(context.Context, client.Object) (bool, error)
-	MarkReferencedImpl        func(context.Context, client.Object) (bool, error)
-	UnmarkManagedImpl         func(context.Context, client.Object) (bool, error)
-	UnmarkReferencedImpl      func(context.Context, client.Object) (bool, error)
+	IsReferencedByImpl        func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	ListManagedOptionsImpl    func(context.Context, client.ObjectKey) ([]client.ListOption, error)
+	ListReferencedOptionsImpl func(context.Context, client.ObjectKey) ([]client.ListOption, error)
+	MarkManagedImpl           func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	MarkReferencedImpl        func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	UnmarkManagedImpl         func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	UnmarkReferencedImpl      func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	GetReferencingTargetsImpl func(context.Context, client.Object) ([]client.ObjectKey, error)
 }
 
 var _ ObjectMarker = (*TestObjectMarker)(nil)
 
 // IsManaged implements ObjectMarker
-func (t *TestObjectMarker) IsManaged(ctx context.Context, obj client.Object) (bool, error) {
-	if t.IsManagedImpl != nil {
-		return t.IsManagedImpl(ctx, obj)
+func (t *TestObjectMarker) IsManagedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
+	if t.IsManagedByImpl != nil {
+		return t.IsManagedByImpl(ctx, target, obj)
 	}
 	return false, nil
 }
@@ -53,57 +55,65 @@ func (t *TestObjectMarker) IsManagedByOther(ctx context.Context, obj client.Obje
 }
 
 // IsReferenced implements ObjectMarker
-func (t *TestObjectMarker) IsReferenced(ctx context.Context, obj client.Object) (bool, error) {
-	if t.IsReferencedImpl != nil {
-		return t.IsReferencedImpl(ctx, obj)
+func (t *TestObjectMarker) IsReferencedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
+	if t.IsReferencedByImpl != nil {
+		return t.IsReferencedByImpl(ctx, target, obj)
 	}
 	return false, nil
 }
 
 // ListManagedOptions implements ObjectMarker
-func (t *TestObjectMarker) ListManagedOptions(ctx context.Context) ([]client.ListOption, error) {
+func (t *TestObjectMarker) ListManagedOptions(ctx context.Context, target client.ObjectKey) ([]client.ListOption, error) {
 	if t.ListManagedOptionsImpl != nil {
-		return t.ListManagedOptionsImpl(ctx)
+		return t.ListManagedOptionsImpl(ctx, target)
 	}
 	return []client.ListOption{}, nil
 }
 
 // ListReferencedOptions implements ObjectMarker
-func (t *TestObjectMarker) ListReferencedOptions(ctx context.Context) ([]client.ListOption, error) {
+func (t *TestObjectMarker) ListReferencedOptions(ctx context.Context, target client.ObjectKey) ([]client.ListOption, error) {
 	if t.ListReferencedOptionsImpl != nil {
-		return t.ListReferencedOptionsImpl(ctx)
+		return t.ListReferencedOptionsImpl(ctx, target)
 	}
 	return []client.ListOption{}, nil
 }
 
 // MarkManaged implements ObjectMarker
-func (t *TestObjectMarker) MarkManaged(ctx context.Context, obj client.Object) (bool, error) {
+func (t *TestObjectMarker) MarkManaged(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
 	if t.MarkManagedImpl != nil {
-		return t.MarkManagedImpl(ctx, obj)
+		return t.MarkManagedImpl(ctx, target, obj)
 	}
 	return false, nil
 }
 
 // MarkReferenced implements ObjectMarker
-func (t *TestObjectMarker) MarkReferenced(ctx context.Context, obj client.Object) (bool, error) {
+func (t *TestObjectMarker) MarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
 	if t.MarkReferencedImpl != nil {
-		return t.MarkReferencedImpl(ctx, obj)
+		return t.MarkReferencedImpl(ctx, target, obj)
 	}
 	return false, nil
 }
 
 // UnmarkManaged implements ObjectMarker
-func (t *TestObjectMarker) UnmarkManaged(ctx context.Context, obj client.Object) (bool, error) {
+func (t *TestObjectMarker) UnmarkManaged(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
 	if t.UnmarkManagedImpl != nil {
-		return t.UnmarkManagedImpl(ctx, obj)
+		return t.UnmarkManagedImpl(ctx, target, obj)
 	}
 	return false, nil
 }
 
 // UnmarkReferenced implements ObjectMarker
-func (t *TestObjectMarker) UnmarkReferenced(ctx context.Context, obj client.Object) (bool, error) {
+func (t *TestObjectMarker) UnmarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
 	if t.UnmarkReferencedImpl != nil {
-		return t.UnmarkReferencedImpl(ctx, obj)
+		return t.UnmarkReferencedImpl(ctx, target, obj)
 	}
 	return false, nil
+}
+
+// GetReferencingTarget implements ObjectMarker
+func (t *TestObjectMarker) GetReferencingTargets(ctx context.Context, obj client.Object) ([]types.NamespacedName, error) {
+	if t.GetReferencingTargetsImpl != nil {
+		return t.GetReferencingTargetsImpl(ctx, obj)
+	}
+	return nil, nil
 }

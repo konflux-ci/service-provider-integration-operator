@@ -135,7 +135,7 @@ func (h *serviceAccountHandler) linkSecretByName(sa *corev1.ServiceAccount, secr
 func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAccount, error) {
 	sal := &corev1.ServiceAccountList{}
 
-	opts, err := h.ObjectMarker.ListReferencedOptions(ctx)
+	opts, err := h.ObjectMarker.ListReferencedOptions(ctx, h.Target.GetTargetObjectKey())
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct list options: %w", err)
 	}
@@ -155,7 +155,7 @@ func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAcco
 
 	for i := range sal.Items {
 		sa := sal.Items[i]
-		if ok, err := h.ObjectMarker.IsReferenced(ctx, &sa); err != nil {
+		if ok, err := h.ObjectMarker.IsReferencedBy(ctx, h.Target.GetTargetObjectKey(), &sa); err != nil {
 			return []*corev1.ServiceAccount{}, fmt.Errorf("failed to determine if the service account %s is referenced while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(&sa),
 				h.Target.GetType(),
@@ -232,14 +232,14 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 	// We don't end up in a ping-pong situation where the bindings reconcilers would "fight" over the value of this
 	// annotation.
 	managedChanged := false
-	if managed, err := h.ObjectMarker.IsManaged(ctx, sa); err != nil {
+	if managed, err := h.ObjectMarker.IsManagedBy(ctx, h.Target.GetTargetObjectKey(), sa); err != nil {
 		return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to determine if the service account (%s) is managed while making it just referenced when processing the deployment target (%s) %s: %w",
 			key,
 			h.Target.GetType(),
 			h.Target.GetTargetObjectKey(),
 			err)
 	} else if managed {
-		if _, err := h.ObjectMarker.UnmarkManaged(ctx, sa); err != nil {
+		if _, err := h.ObjectMarker.UnmarkManaged(ctx, h.Target.GetTargetObjectKey(), sa); err != nil {
 			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to remove the managed mark from the service account (%s) while making it just referenced when processing the deployment target (%s) %s: %w",
 				key,
 				h.Target.GetType(),
@@ -248,7 +248,7 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 		}
 		managedChanged = true
 	}
-	changed, err := h.ObjectMarker.MarkReferenced(ctx, sa)
+	changed, err := h.ObjectMarker.MarkReferenced(ctx, h.Target.GetTargetObjectKey(), sa)
 	if err != nil {
 		return nil, string(ErrorReasonServiceAccountUpdate),
 			fmt.Errorf("failed to mark the service account (%s) as referenced when processing the deployment target (%s) %s: %w",
@@ -304,7 +304,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 					GenerateName: spec.GenerateName,
 				},
 			}
-			_, err = h.ObjectMarker.MarkManaged(ctx, sa)
+			_, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), sa)
 			if err == nil {
 				err = h.Target.GetClient().Create(ctx, sa)
 			}
@@ -313,7 +313,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 		// The service account already exists. We need to make sure that it is associated with this binding,
 		// otherwise we error out because we found a pre-existing SA that should be managed.
 		// Note that the managed SAs always also have the link annotation pointing to the managing binding.
-		if ok, rerr := h.ObjectMarker.IsReferenced(ctx, sa); rerr != nil {
+		if ok, rerr := h.ObjectMarker.IsReferencedBy(ctx, h.Target.GetTargetObjectKey(), sa); rerr != nil {
 			err = fmt.Errorf("failed to determine if service account %s is referenced by the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
 				h.Target.GetType(),
@@ -324,14 +324,21 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 		}
 
 		// we also check that if the SA is managed, it is managed by us and not by some other binding.
-		if ok, merr := h.ObjectMarker.IsManagedByOther(ctx, sa); merr != nil {
-			err = fmt.Errorf("failed to determine if service account %s is managed by the deployment target (%s) %s: %w",
-				client.ObjectKeyFromObject(sa),
-				h.Target.GetType(),
-				h.Target.GetTargetObjectKey(),
-				merr)
-		} else if ok {
-			err = managedServiceAccountManagedByAnotherBinding
+		refed, gerr := h.ObjectMarker.GetReferencingTargets(ctx, sa)
+		if gerr != nil {
+			err = fmt.Errorf("failed to determine the target that is referencing the SA %s:%w", client.ObjectKeyFromObject(sa), gerr)
+		} else if len(refed) > 0 {
+			for _, ref := range refed {
+				if managed, merr := h.ObjectMarker.IsManagedBy(ctx, ref, sa); merr != nil {
+					err = fmt.Errorf("failed to determine if service account %s is managed by the deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(sa),
+						h.Target.GetType(),
+						ref,
+						merr)
+				} else if managed && ref != h.Target.GetTargetObjectKey() {
+					err = managedServiceAccountManagedByAnotherBinding
+				}
+			}
 		}
 	}
 
@@ -364,7 +371,7 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 		}
 
 		var changed bool
-		changed, err = h.ObjectMarker.MarkManaged(ctx, sa)
+		changed, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), sa)
 		if err != nil {
 			return nil, string(ErrorReasonServiceAccountUpdate),
 				fmt.Errorf("failed to sync the configured service account %s to the deployment target (%s) %s: %w",

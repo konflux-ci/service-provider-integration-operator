@@ -21,7 +21,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +70,7 @@ type secretHandler[K any] struct {
 	SecretBuilder SecretBuilder[K]
 }
 
-func (h *secretHandler[K]) Sync(ctx context.Context, key K, sp serviceprovider.ServiceProvider) (*corev1.Secret, string, error) {
+func (h *secretHandler[K]) Sync(ctx context.Context, key K) (*corev1.Secret, string, error) {
 	data, errorReason, err := h.SecretBuilder.GetData(ctx, key)
 	if err != nil {
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
@@ -108,7 +107,7 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, sp serviceprovider.S
 		secret.GenerateName = h.Target.GetTargetObjectKey().Name + "-secret-"
 	}
 
-	_, err = h.ObjectMarker.MarkManaged(ctx, secret)
+	_, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), secret)
 	if err != nil {
 		return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to mark the secret as managed in the deployment target (%s): %w", h.Target.GetType(), err)
 	}
@@ -127,7 +126,7 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, sp serviceprovider.S
 
 func (h *secretHandler[K]) List(ctx context.Context) ([]*corev1.Secret, error) {
 	sl := &corev1.SecretList{}
-	opts, err := h.ObjectMarker.ListManagedOptions(ctx)
+	opts, err := h.ObjectMarker.ListManagedOptions(ctx, h.Target.GetTargetObjectKey())
 	if err != nil {
 		return nil, fmt.Errorf("failed to formulate the options to list the secrets in the deployment target (%s): %w", h.Target.GetType(), err)
 	}
@@ -143,7 +142,7 @@ func (h *secretHandler[K]) List(ctx context.Context) ([]*corev1.Secret, error) {
 
 	ret := []*corev1.Secret{}
 	for i := range sl.Items {
-		if ok, err := h.ObjectMarker.IsManaged(ctx, &sl.Items[i]); err != nil {
+		if ok, err := h.ObjectMarker.IsManagedBy(ctx, h.Target.GetTargetObjectKey(), &sl.Items[i]); err != nil {
 			return []*corev1.Secret{}, fmt.Errorf("failed to determine if the secret %s is managed while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(&sl.Items[i]),
 				h.Target.GetType(),

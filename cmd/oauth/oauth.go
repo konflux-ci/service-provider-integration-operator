@@ -36,6 +36,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -85,8 +86,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
+	storage, err := cmd.UninitializedSecretStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
+		setupLog.Error(err, "failed to construct the secret storage")
+		os.Exit(1)
+	}
+
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(&secretstorage.NotifyingSecretStorage{
+		Client:        userAuthClient,
+		SecretStorage: storage,
+	})
+
+	if err := tokenStorage.Initialize(ctx); err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
@@ -95,7 +106,7 @@ func main() {
 		K8sClient: userAuthClient,
 		Storage: tokenstorage.NotifyingTokenStorage{
 			Client:       userAuthClient,
-			TokenStorage: strg,
+			TokenStorage: tokenStorage,
 		},
 	}
 
@@ -134,7 +145,7 @@ func main() {
 		StateStorage:              stateStorage,
 		UserAuthK8sClient:         userAuthClient,
 		InClusterK8sClient:        inClusterK8sClient,
-		TokenStorage:              strg,
+		TokenStorage:              tokenStorage,
 		RedirectTemplate:          redirectTpl,
 	}
 	oauthRouter, routerErr := oauth.NewRouter(ctx, routerCfg, config.SupportedServiceProviderTypes)

@@ -20,17 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const ManagedByRemoteSecretNameAnnotation = "spi.appstudio.redhat.com/managing-remote-secret-name"                //#nosec G101 -- false positive, this is just a label
-const ManagedByRemoteSecretNamespaceAnnotation = "spi.appstudio.redhat.com/managing-remote-secret-ns"             //#nosec G101 -- false positive, this is just a label
-const ManagedByRemoteSecretSpiInstanceAnnotation = "spi.appstudio.redhat.com/managing-remote-secret-spi-instance" //#nosec G101 -- false positive, this is just a label
-
 // NamespaceTarget is the SecretDeploymentTarget that deploys the secrets and service accounts to some namespace on the cluster.
 type NamespaceTarget struct {
-	Client              client.Client
-	RemoteSecret        *api.RemoteSecret
-	Namespace           string
-	SecretName          string
-	ServiceAccountNames []string
+	Client       client.Client
+	RemoteSecret *api.RemoteSecret
 }
 
 var _ bindings.SecretDeploymentTarget = (*NamespaceTarget)(nil)
@@ -54,17 +47,17 @@ func (t *NamespaceTarget) GetNamespace() string {
 }
 
 func (t *NamespaceTarget) GetTargetNamespace() string {
-	return t.Namespace
+	return t.RemoteSecret.Spec.Target.Namespace
 }
 
 // GetSecretName implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualSecretName() string {
-	return t.SecretName
+	return t.RemoteSecret.Status.Target.Namespace.SecretName
 }
 
 // GetServiceAccountNames implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
-	return t.ServiceAccountNames
+	return t.RemoteSecret.Status.Target.Namespace.ServiceAccountNames
 }
 
 // GetType implements SecretDeploymentTarget

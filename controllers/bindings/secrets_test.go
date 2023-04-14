@@ -77,7 +77,7 @@ func TestSync(t *testing.T) {
 			deploymentTarget.GetClientImpl = func() client.Client { return clBld.Build() }
 
 			// TODO: use this in the tests below
-			_, reason, err := h.Sync(context.TODO(), token, &sp)
+			_, reason, err := h.Sync(context.TODO(), token)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 			deploymentTarget.GetClientImpl = func() client.Client { return clBld.Build() }
 
 			// TODO: use this in the tests below
-			_, reason, err := h.Sync(context.TODO(), token, &sp)
+			_, reason, err := h.Sync(context.TODO(), token)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 

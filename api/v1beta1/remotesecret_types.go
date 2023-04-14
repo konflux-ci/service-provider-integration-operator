@@ -33,7 +33,20 @@ type RemoteSecretTarget struct {
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
 type RemoteSecretStatus struct {
-	Conditions []metav1.Condition `json:"conditions"`
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Target     TargetStatus       `json:"target,omitempty"`
+}
+
+type TargetStatus struct {
+	Namespace NamespaceTargetStatus `json:"namespace,omitempty"`
+}
+
+type NamespaceTargetStatus struct {
+	Namespace  string `json:"namespace"`
+	SecretName string `json:"secretName"`
+	// +optional
+	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
 }
 
 // RemoteSecretReason is the reconciliation status of the RemoteSecret object

@@ -15,12 +15,16 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/remotesecretstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -28,13 +32,25 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers *serviceprovider.Initializers) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage secretstorage.SecretStorage, initializers *serviceprovider.Initializers) error {
+	ctx := context.Background()
+
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
+	if err := tokenStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the token storage: %w", err)
+	}
+
+	remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
+	if err := remoteSecretStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
+	}
+
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
 		HttpClient:       &http.Client{Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: http.DefaultTransport}},
 		Initializers:     initializers,
-		TokenStorage:     ts,
+		TokenStorage:     tokenStorage,
 	}
 
 	var err error
@@ -46,7 +62,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if err = (&SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ts,
+		TokenStorage:           tokenStorage,
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
 	}).SetupWithManager(mgr); err != nil {
@@ -56,7 +72,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if err = (&SPIAccessTokenBindingReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ts,
+		TokenStorage:           tokenStorage,
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
 	}).SetupWithManager(mgr); err != nil {
@@ -88,18 +104,43 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
+	if err = (&RemoteSecretReconciler{
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Configuration:       cfg,
+		RemoteSecretStorage: remoteSecretStorage,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	if cfg.EnableTokenUpload {
 		// Setup tokenUpload controller if configured
-		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
-		notifyingStorage := tokenstorage.NotifyingTokenStorage{
-			Client:       mgr.GetClient(),
-			TokenStorage: ts,
+		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken and RemoteSecret
+		notifTokenStorage := tokenstorage.NewJSONSerializingTokenStorage(&secretstorage.NotifyingSecretStorage{
+			Client:        mgr.GetClient(),
+			SecretStorage: secretStorage,
+			Group:         api.GroupVersion.Group,
+			Kind:          "SPIAccessToken",
+		})
+		if err = notifTokenStorage.Initialize(ctx); err != nil {
+			return fmt.Errorf("failed to initialize the notifying token storage: %w", err)
+		}
+
+		notifRemoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&secretstorage.NotifyingSecretStorage{
+			Client:        mgr.GetClient(),
+			SecretStorage: secretStorage,
+			Group:         api.GroupVersion.Group,
+			Kind:          "RemoteSecret",
+		})
+		if err = notifRemoteSecretStorage.Initialize(ctx); err != nil {
+			return fmt.Errorf("failed to initialize the notifying remote secret storage: %w", err)
 		}
 
 		if err = (&TokenUploadReconciler{
-			Client:       mgr.GetClient(),
-			Scheme:       mgr.GetScheme(),
-			TokenStorage: notifyingStorage,
+			Client:              mgr.GetClient(),
+			Scheme:              mgr.GetScheme(),
+			TokenStorage:        notifTokenStorage,
+			RemoteSecretStorage: notifRemoteSecretStorage,
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}

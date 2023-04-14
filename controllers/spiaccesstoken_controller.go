@@ -101,7 +101,11 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return ""
 				}
 
-				return update.Spec.TokenName
+				if update.Spec.DataOwner.APIGroup != &api.GroupVersion.Group || update.Spec.DataOwner.Kind != "SPIAccessToken" {
+					return ""
+				}
+
+				return update.Spec.DataOwner.Name
 			})
 		})).
 		Complete(r)

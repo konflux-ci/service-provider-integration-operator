@@ -29,7 +29,7 @@ type SecretDeploymentTarget interface {
 	GetClient() client.Client
 	// GetType returns the type of the secret deployment target object.
 	GetType() string
-	// GetTargetObjectKey is the location of the object that describes the target. This is mainly used in error reporting.
+	// GetTargetObjectKey is the location of the object that describes the target.
 	GetTargetObjectKey() client.ObjectKey
 	// GetTargetNamespace specifies the namespace to which the secret and service accounts
 	// should be deployed to.
@@ -53,18 +53,17 @@ type SecretBuilder[K any] interface {
 	GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error)
 }
 
-// ObjectMarker is used to mark or unmark some object with a link to the target with which this instance is initialized.
-// What constitutes a target and how to mark/unmark it is dependent on the type of the deployment target.
+// ObjectMarker is used to mark or unmark some object with a link to the target.
 type ObjectMarker interface {
-	MarkManaged(ctx context.Context, obj client.Object) (bool, error)
-	UnmarkManaged(ctx context.Context, obj client.Object) (bool, error)
-	MarkReferenced(ctx context.Context, obj client.Object) (bool, error)
-	UnmarkReferenced(ctx context.Context, obj client.Object) (bool, error)
-	IsManaged(ctx context.Context, obj client.Object) (bool, error)
-	IsManagedByOther(ctx context.Context, obj client.Object) (bool, error)
-	IsReferenced(ctx context.Context, obj client.Object) (bool, error)
-	ListManagedOptions(ctx context.Context) ([]client.ListOption, error)
-	ListReferencedOptions(ctx context.Context) ([]client.ListOption, error)
+	MarkManaged(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	UnmarkManaged(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	MarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	UnmarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	IsManagedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	IsReferencedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	ListManagedOptions(ctx context.Context, taget client.ObjectKey) ([]client.ListOption, error)
+	ListReferencedOptions(ctx context.Context, target client.ObjectKey) ([]client.ListOption, error)
+	GetReferencingTargets(ctx context.Context, obj client.Object) ([]client.ObjectKey, error)
 }
 
 type TestDeploymentTarget struct {

@@ -17,60 +17,57 @@ package bindingtarget
 import (
 	"context"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	dependents "github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/commaseparated"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type BindingTargetObjectMarker struct {
-	Client  client.Client
-	Binding *api.SPIAccessTokenBinding
 }
 
-var _ dependents.ObjectMarker = (*BindingTargetObjectMarker)(nil)
+var _ bindings.ObjectMarker = (*BindingTargetObjectMarker)(nil)
 
 // IsManaged implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) IsManaged(ctx context.Context, obj client.Object) (bool, error) {
-	refed, _ := m.IsReferenced(ctx, obj)
-	return refed && obj.GetLabels()[dependents.ManagedByBindingLabel] == m.Binding.Name, nil
+func (m *BindingTargetObjectMarker) IsManagedBy(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
+	refed, _ := m.IsReferencedBy(ctx, binding, obj)
+	return refed && obj.GetLabels()[bindings.ManagedByBindingLabel] == binding.Name, nil
 }
 
 // IsReferenced implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) IsReferenced(ctx context.Context, obj client.Object) (bool, error) {
+func (m *BindingTargetObjectMarker) IsReferencedBy(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
 	annos := obj.GetAnnotations()
 	if len(annos) == 0 {
 		return false, nil
 	}
-	anno := annos[dependents.LinkAnnotation]
-	return commaseparated.Value(anno).Contains(m.Binding.Name), nil
+	anno := annos[bindings.LinkAnnotation]
+	return commaseparated.Value(anno).Contains(binding.Name), nil
 }
 
 // ListManagedOptions implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) ListManagedOptions(ctx context.Context) ([]client.ListOption, error) {
-	return []client.ListOption{client.MatchingLabels{dependents.ManagedByBindingLabel: m.Binding.Name}}, nil
+func (m *BindingTargetObjectMarker) ListManagedOptions(ctx context.Context, binding client.ObjectKey) ([]client.ListOption, error) {
+	return []client.ListOption{client.MatchingLabels{bindings.ManagedByBindingLabel: binding.Name}}, nil
 }
 
 // ListReferencedOptions implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) ListReferencedOptions(ctx context.Context) ([]client.ListOption, error) {
+func (m *BindingTargetObjectMarker) ListReferencedOptions(ctx context.Context, binding client.ObjectKey) ([]client.ListOption, error) {
 	// the link is represented using an annotation, so we cannot produce any list options
 	return []client.ListOption{}, nil
 }
 
 // MarkManaged implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) MarkManaged(ctx context.Context, obj client.Object) (bool, error) {
-	changed, _ := m.MarkReferenced(ctx, obj)
+func (m *BindingTargetObjectMarker) MarkManaged(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
+	changed, _ := m.MarkReferenced(ctx, binding, obj)
 
 	labels := obj.GetLabels()
 
-	val := labels[dependents.ManagedByBindingLabel]
+	val := labels[bindings.ManagedByBindingLabel]
 
-	if val != m.Binding.Name {
+	if val != binding.Name {
 		changed = true
 		if labels == nil {
 			labels = map[string]string{}
 		}
-		labels[dependents.ManagedByBindingLabel] = m.Binding.Name
+		labels[bindings.ManagedByBindingLabel] = binding.Name
 		obj.SetLabels(labels)
 	}
 
@@ -78,41 +75,64 @@ func (m *BindingTargetObjectMarker) MarkManaged(ctx context.Context, obj client.
 }
 
 // MarkReferenced implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) MarkReferenced(ctx context.Context, obj client.Object) (bool, error) {
+func (m *BindingTargetObjectMarker) MarkReferenced(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
 	changed := false
 	annos := obj.GetAnnotations()
 
-	val := commaseparated.Value(annos[dependents.LinkAnnotation])
+	val := commaseparated.Value(annos[bindings.LinkAnnotation])
 
-	if !val.Contains(m.Binding.Name) {
+	if !val.Contains(binding.Name) {
 		changed = true
 		if annos == nil {
 			annos = map[string]string{}
 		}
-		val.Add(m.Binding.Name)
-		annos[dependents.LinkAnnotation] = val.String()
+		val.Add(binding.Name)
+		annos[bindings.LinkAnnotation] = val.String()
 		obj.SetAnnotations(annos)
 	}
 
 	return changed, nil
 }
 
-// IsManagedByOther implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) IsManagedByOther(ctx context.Context, obj client.Object) (bool, error) {
-	managedBy := obj.GetLabels()[dependents.ManagedByBindingLabel]
-	return managedBy != m.Binding.Name, nil
-}
-
 // UnmarkManaged implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) UnmarkManaged(ctx context.Context, obj client.Object) (bool, error) {
-	_, contains := obj.GetLabels()[dependents.ManagedByBindingLabel]
-	delete(obj.GetLabels(), dependents.ManagedByBindingLabel)
+func (m *BindingTargetObjectMarker) UnmarkManaged(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
+	name, contains := obj.GetLabels()[bindings.ManagedByBindingLabel]
+	if name == binding.Name {
+		delete(obj.GetLabels(), bindings.ManagedByBindingLabel)
+	}
 	return contains, nil
 }
 
 // UnmarkReferenced implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) UnmarkReferenced(ctx context.Context, obj client.Object) (bool, error) {
-	_, contains := obj.GetAnnotations()[dependents.LinkAnnotation]
-	delete(obj.GetAnnotations(), dependents.LinkAnnotation)
-	return contains, nil
+func (m *BindingTargetObjectMarker) UnmarkReferenced(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
+	v, contains := obj.GetAnnotations()[bindings.LinkAnnotation]
+	if !contains {
+		return false, nil
+	}
+
+	names := commaseparated.Value(v)
+	if names.Contains(binding.Name) {
+		names.Remove(binding.Name)
+		if names.Len() == 0 {
+			delete(obj.GetAnnotations(), bindings.LinkAnnotation)
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (m *BindingTargetObjectMarker) GetReferencingTargets(ctx context.Context, obj client.Object) ([]client.ObjectKey, error) {
+	v, contains := obj.GetAnnotations()[bindings.LinkAnnotation]
+	if !contains {
+		return []client.ObjectKey{}, nil
+	}
+
+	names := commaseparated.Value(v)
+	keys := make([]client.ObjectKey, names.Len())
+	for i, n := range names.Values() {
+		keys[i].Name = n
+		keys[i].Namespace = obj.GetNamespace()
+	}
+	return keys, nil
 }

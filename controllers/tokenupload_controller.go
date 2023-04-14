@@ -32,6 +32,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/remotesecretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -50,14 +51,15 @@ const (
 	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
 	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
 	providerUrlField           = "providerUrl"
-	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remote-secret-name" //#nosec G101 -- false positive, this is not a token
-	targetTypeAnnotation       = "spi.appstudio.redhat.com/remote-secret-target-type"
-	targetNameAnnotation       = "spi.appstudio.redhat.com/remote-secret-target-name"
+	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
+	targetTypeAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-type"
+	targetNameAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-name"
 )
 
 var (
-	targetTypeNotSetError = stdErrors.New("target type not set")
-	targetNameNotSetError = stdErrors.New("target name not set")
+	invalidSecretTypeError = stdErrors.New("invalid secret type")
+	targetTypeNotSetError  = stdErrors.New("target type not set")
+	targetNameNotSetError  = stdErrors.New("target name not set")
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
@@ -66,8 +68,13 @@ var (
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	TokenStorage tokenstorage.NotifyingTokenStorage
+	Scheme *runtime.Scheme
+	// TokenStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
+	// secret storage mechanism
+	TokenStorage tokenstorage.TokenStorage
+	// RemoteSecretStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
+	// secret storage mechanism
+	RemoteSecretStorage remotesecretstorage.RemoteSecretStorage
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -80,6 +87,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.Get(ctx, req.NamespacedName, uploadSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("upload secret already gone from the cluster. skipping reconciliation")
+			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to load the upload secret from the cluster: %w", err)
 	}
@@ -106,8 +114,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	switch secretType {
 	case "token":
 		err = r.reconcileToken(ctx, uploadSecret)
-	case "secret":
+	case "remotesecret":
 		err = r.reconcileRemoteSecret(ctx, uploadSecret)
+	default:
+		err = fmt.Errorf("%w: %s", invalidSecretTypeError, secretType)
+		lg.Error(err, "invalid secret type")
 	}
 
 	if err != nil {
@@ -155,6 +166,7 @@ func (r *TokenUploadReconciler) reconcileToken(ctx context.Context, uploadSecret
 
 func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
 	lg := log.FromContext(ctx)
+
 	// try to find  RemoteSecret
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
 	if err != nil {
@@ -169,7 +181,14 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
 	auditLog.Info("manual secret upload initiated")
+	err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
+	if err != nil {
+		err = fmt.Errorf("failed to store the remote secret data: %w", err)
+		auditLog.Error(err, "manual secret upload failed")
+		return err
+	}
 	auditLog.Info("manual secret upload completed")
+
 	return nil
 }
 

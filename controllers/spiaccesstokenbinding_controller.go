@@ -125,11 +125,8 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 		})).
 		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				marker := bindingtarget.BindingTargetObjectMarker{
-					Client:  nil,
-					Binding: &binding,
-				}
-				refed, err := marker.IsReferenced(context.Background(), o)
+				marker := bindingtarget.BindingTargetObjectMarker{}
+				refed, err := marker.IsReferencedBy(context.Background(), client.ObjectKeyFromObject(&binding), o)
 				if err != nil {
 					enqueueLog.Error(err, "failed to check if SA is referenced by binding", "serviceAccount", client.ObjectKeyFromObject(o), "binding", client.ObjectKeyFromObject(&binding))
 				}
@@ -316,10 +313,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			TokenStorage:    r.TokenStorage,
 			ServiceProvider: sp,
 		},
-		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{
-			Client:  r.Client,
-			Binding: &binding,
-		},
+		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{},
 	}
 
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
@@ -334,7 +328,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
-		deps, errorReason, err := dependentsHandler.Sync(ctx, token, sp)
+		deps, errorReason, err := dependentsHandler.Sync(ctx, token)
 		if err != nil && stderrors.Is(err, bindings.AccessTokenDataNotFoundError) {
 			// token data suddenly disappeared, that's not an error generally, so flipping back to Awaiting state
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
@@ -730,10 +724,7 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 			TokenStorage:    f.tokenstorage,
 			ServiceProvider: sp,
 		},
-		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{
-			Client:  f.client,
-			Binding: binding,
-		},
+		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{},
 	}
 
 	if err := dep.Cleanup(ctx); err != nil {

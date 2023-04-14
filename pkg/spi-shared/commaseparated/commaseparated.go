@@ -93,3 +93,7 @@ func (cs *CommaSeparated) Contains(str string) bool {
 func (cs *CommaSeparated) String() string {
 	return strings.Join(cs.value, ",")
 }
+
+func (cs *CommaSeparated) Values() []string {
+	return cs.value
+}

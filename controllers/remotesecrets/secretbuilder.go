@@ -16,51 +16,30 @@ package remotesecrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
-	dependents "github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/remotesecretstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 )
 
 type SecretBuilder struct {
-	Binding         *api.SPIAccessTokenBinding
-	TokenStorage    tokenstorage.TokenStorage
-	ServiceProvider serviceprovider.ServiceProvider
+	RemoteSecret *api.RemoteSecret
+	Storage      remotesecretstorage.RemoteSecretStorage
 }
 
-// GetData implements dependents.SecretBuilder
-func (sb *SecretBuilder) GetData(ctx context.Context, tokenObject *api.SPIAccessToken) (map[string][]byte, string, error) {
-	token, err := sb.TokenStorage.Get(ctx, tokenObject)
+func (sb *SecretBuilder) GetData(ctx context.Context, obj *api.RemoteSecret) (map[string][]byte, string, error) {
+	data, err := sb.Storage.Get(ctx, obj)
 	if err != nil {
+		if errors.Is(err, secretstorage.NotFoundError) {
+			return map[string][]byte{}, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), fmt.Errorf("%w: %s", bindings.AccessTokenDataNotFoundError, err.Error())
+		}
 		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), fmt.Errorf("failed to get the token data from token storage: %w", err)
 	}
 
-	if token == nil {
-		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), bindings.AccessTokenDataNotFoundError
-	}
-
-	at, err := sb.ServiceProvider.MapToken(ctx, sb.Binding, tokenObject, token)
-	if err != nil {
-		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenAnalysis), fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
-	}
-
-	stringData, err := at.ToSecretType(sb.Binding.Spec.Secret.Type, &sb.Binding.Spec.Secret.Fields)
-	if err != nil {
-		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenAnalysis), fmt.Errorf("failed to create data to be injected into the secret: %w", err)
-	}
-
-	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
-	// used the Secret.StringData, but Sync gives us other goodies.
-	// So let's bite the bullet and convert manually here.
-	data := make(map[string][]byte, len(stringData))
-	for k, v := range stringData {
-		data[k] = []byte(v)
-	}
-
-	return data, string(api.SPIAccessTokenBindingErrorReasonNoError), nil
+	return *data, string(api.SPIAccessTokenBindingErrorReasonNoError), nil
 }
 
-var _ dependents.SecretBuilder[*api.SPIAccessToken] = (*SecretBuilder)(nil)
+var _ bindings.SecretBuilder[*api.RemoteSecret] = (*SecretBuilder)(nil)
