@@ -136,11 +136,41 @@ func TestEncodeDockerConfig(t *testing.T) {
 }`, encoded)
 	})
 
+	t.Run("k8s type json", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeKubernetes},
+			"https://url.com/repo/image")
+		assert.NoError(t, err)
+		assert.Equal(t,
+			`{
+	"auths": {
+		"url.com/repo/image": {
+			"auth": "am9lbDphY2Nlc3MtdG9rZW4="
+		}
+	}
+}`, encoded)
+	})
+
+	t.Run("explicit annotation wins", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeKubernetes,
+			dockerConfigJsonExplicitAnnotationKey: "some.*.pattern"},
+			"https://url.com/repo/image")
+		assert.NoError(t, err)
+		assert.Equal(t,
+			`{
+	"auths": {
+		"some.*.pattern": {
+			"auth": "am9lbDphY2Nlc3MtdG9rZW4="
+		}
+	}
+}`, encoded)
+	})
+
 	t.Run("url-parse-failure", func(t *testing.T) {
 		encoded, err := at.encodeDockerConfig(map[string]string{}, "::bad.url")
 		assert.Error(t, err)
 		assert.Empty(t, encoded)
 	})
+
 }
 
 func TestMapping(t *testing.T) {
