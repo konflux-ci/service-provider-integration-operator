@@ -19,6 +19,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -26,7 +30,7 @@ import (
 )
 
 type Authenticator struct {
-	K8sClient      AuthenticatingClient
+	ClientFactory  kubernetesclient.K8sClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -78,7 +82,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("k8s_token")
 
 	if token == "" {
-		token = ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
+		token = clientfactory.ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
 	}
 
 	if token == "" {
@@ -120,9 +124,9 @@ func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, cl AuthenticatingClient) *Authenticator {
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory kubernetesclient.K8sClientFactory) *Authenticator {
 	return &Authenticator{
-		K8sClient:      cl,
+		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,
 	}
 }
