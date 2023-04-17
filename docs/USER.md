@@ -4,7 +4,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 - [Use Cases](#use-cases)
     - [Accessing the private repository](#accessing-the-private-repository) - TODO
     - [Checking permission to the particular repository](#checking-permission-to-the-particular-repository) - TODO
-    - [Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson](#dockerconfig)
+    - [Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson](#creating-spiaccesstokenbinding-with-secret-type-kubernetesiodockerconfigjson)
     - [Retrieving file content from SCM repository](#retrieving-file-content-from-scm-repository)
     - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
     - [Uploading Access Token to SPI using Kubernetes Secret](#uploading-access-token-to-spi-using-kubernetes-secret)
@@ -37,10 +37,11 @@ TODO
 
 TODO
 
-## Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson {#dockerconfig}
+## Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson
 An SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson is used when the user requires a Secret that 
 enables Pods to pull images from private image registry to Kubernetes. This Secret contains so-called
-Docker config.json. Kubernetes' interpretation differs from Docker's in that Kubernetes is more permissive.
+Docker config.json. Kubernetes' interpretation of config.json differs from Docker's in that Kubernetes is more permissive.
+That is why SPI provides options to alter the content of config.json.
 You can read more about this topic [here](https://kubernetes.io/docs/concepts/containers/images/#config-json).
 
 By default, SPI creates the Secret with config.json in this format where the value of `_host_` depends on the specific service
@@ -78,7 +79,7 @@ will produce this json:
     }
 }
 ```
-For concrete example can take a look at this [sample](samples/binding-kubetype-dockerconfigjson.yaml).
+For concrete example SPIAccessTokenBinding can take a look at this [sample](../samples/binding-kubetype-dockerconfigjson.yaml).
 
 __spi.appstudio.redhat.com/config-json-auth-key: anything__ specifies that `_host_` should have the value "anything".
   For example Binding with this spec (ignoring other fields for simplicity):
