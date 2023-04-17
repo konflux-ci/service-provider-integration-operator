@@ -33,7 +33,7 @@ const tokenKey = "token"
 const (
 	dockerConfigJsonTypeAnnotationKey     = "spi.appstudio.redhat.com/config-json-type"
 	dockerConfigJsonExplicitAnnotationKey = "spi.appstudio.redhat.com/config-json-auth-key"
-	dockerConfigJsonTypeKubernetes        = "kubernetes"
+	dockerConfigJsonTypeKubernetes        = "Kubernetes"
 )
 
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in

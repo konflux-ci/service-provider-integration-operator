@@ -4,6 +4,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 - [Use Cases](#use-cases)
     - [Accessing the private repository](#accessing-the-private-repository) - TODO
     - [Checking permission to the particular repository](#checking-permission-to-the-particular-repository) - TODO
+    - [Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson](#dockerconfig)
     - [Retrieving file content from SCM repository](#retrieving-file-content-from-scm-repository)
     - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
     - [Uploading Access Token to SPI using Kubernetes Secret](#uploading-access-token-to-spi-using-kubernetes-secret)
@@ -35,6 +36,70 @@ TODO
 ## Checking permission to the particular repository
 
 TODO
+
+## Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson {#dockerconfig}
+An SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson is used when the user requires a Secret that 
+enables Pods to pull images from private image registry to Kubernetes. This Secret contains so-called
+Docker config.json. Kubernetes' interpretation differs from Docker's in that Kubernetes is more permissive.
+You can read more about this topic [here](https://kubernetes.io/docs/concepts/containers/images/#config-json).
+
+By default, SPI creates the Secret with config.json in this format where the value of `_host_` depends on the specific service
+provider, e.g. `quay.io` for Quay.: 
+```json
+{
+    "auths": {
+        "_host_": {
+            "auth": "…"
+        }
+    }
+}
+```
+Users can configure the specific value of `_host_` in config.json through two annotations which can be set
+in the SPIAccessTokenBinding's `spec.secret.annotations` field.
+
+__spi.appstudio.redhat.com/config-json-type: Kubernetes__ specifies that the `_host_` should be filled
+with URL host and path from the `repoUrl` of SPIAccessTokenBinding.
+For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  repoUrl: https://quay.io/repo/spi-test
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-type: Kubernetes
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "quay.io/repo/spi-test": {
+            "auth": "…"
+        }
+    }
+}
+```
+For concrete example can take a look at this [sample](samples/binding-kubetype-dockerconfigjson.yaml).
+
+__spi.appstudio.redhat.com/config-json-auth-key: anything__ specifies that `_host_` should have the value "anything".
+  For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-auth-key: my.custom.host/test
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "my.custom.host/test": {
+            "auth": "…"
+        }
+    }
+}
+```
+When both annotations are set, `spi.appstudio.redhat.com/config-json-auth-key` takes precedence.
 
 ## Retrieving file content from SCM repository
 There is dedicated controller for file content requests, which can be performed by putting
