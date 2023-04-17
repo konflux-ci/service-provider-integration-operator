@@ -38,6 +38,10 @@ const (
 	dockerConfigJsonTypeExplicit          = "explicit"
 )
 
+var noExplicitAnnotationKeyError = fmt.Errorf("annotation %s is required when %s is set to %s",
+	dockerConfigJsonExplicitAnnotationKey, dockerConfigJsonTypeAnnotationKey, dockerConfigJsonTypeExplicit)
+var unknownTypeAnnotationKeyError = fmt.Errorf("unknown value for annotation %s", dockerConfigJsonTypeAnnotationKey)
+
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
 // secrets according to the secret type.
 type AccessTokenMapper struct {
@@ -94,16 +98,11 @@ func (at AccessTokenMapper) encodeDockerConfig(annotations map[string]string, re
 	case dockerConfigJsonTypeExplicit:
 		val, ok := annotations[dockerConfigJsonExplicitAnnotationKey]
 		if !ok {
-			return "", fmt.Errorf("annotation '%s' is required when '%s' is set to '%s'",
-				dockerConfigJsonExplicitAnnotationKey,
-				dockerConfigJsonTypeAnnotationKey,
-				dockerConfigJsonTypeExplicit)
+			return "", noExplicitAnnotationKeyError
 		}
 		authKey = val
 	default:
-		return "", fmt.Errorf("unknown value '%s' for annotation '%s'",
-			annotations[dockerConfigJsonTypeAnnotationKey],
-			dockerConfigJsonTypeAnnotationKey)
+		return "", fmt.Errorf("%w: %s", unknownTypeAnnotationKeyError, annotations[dockerConfigJsonTypeAnnotationKey])
 	}
 
 	type Auths map[string]struct {
