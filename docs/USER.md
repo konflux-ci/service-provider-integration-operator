@@ -44,8 +44,17 @@ Docker config.json. Kubernetes' interpretation of config.json differs from Docke
 That is why SPI provides options to alter the content of config.json.
 You can read more about this topic [here](https://kubernetes.io/docs/concepts/containers/images/#config-json).
 
-By default, SPI creates the Secret with config.json in this format where the value of `_host_` depends on the specific service
-provider, e.g. `quay.io` for Quay.: 
+Users can configure the specific value of `_host_` (see example json bellow) in config.json through two annotations which can be set
+in the SPIAccessTokenBinding's `spec.secret.annotations` field.
+
+### Annotation 'spi.appstudio.redhat.com/config-json-type'
+
+This annotation can have three values: `docker`, `kubernetes`, and `explicit`.
+
+#### 'docker'
+Specifying `docker` is the same as
+not specifying any annotation at all. In this case, SPI creates the Secret with config.json in this format where the 
+value of `_host_` is the URL host of the specific service provider, e.g. `quay.io` for Quay.:
 ```json
 {
     "auths": {
@@ -55,19 +64,17 @@ provider, e.g. `quay.io` for Quay.:
     }
 }
 ```
-Users can configure the specific value of `_host_` in config.json through two annotations which can be set
-in the SPIAccessTokenBinding's `spec.secret.annotations` field.
+#### 'kubernetes'
 
-__spi.appstudio.redhat.com/config-json-type: Kubernetes__ specifies that the `_host_` should be filled
-with URL host and path from the `repoUrl` of SPIAccessTokenBinding.
-For example Binding with this spec (ignoring other fields for simplicity):
+Setting the annotation value to`kubernetes` means that the `_host_` will be filled with URL host and path from the
+`repoUrl` of SPIAccessTokenBinding. For example Binding with this spec (ignoring other fields for simplicity):
 ```yaml
 spec:
   repoUrl: https://quay.io/repo/spi-test
   secret:
     type: kubernetes.io/dockerconfigjson
     annotations:
-      spi.appstudio.redhat.com/config-json-type: Kubernetes
+      spi.appstudio.redhat.com/config-json-type: kubernetes
 ```
 will produce this json:
 ```json
@@ -81,13 +88,18 @@ will produce this json:
 ```
 For concrete example SPIAccessTokenBinding can take a look at this [sample](../samples/binding-kubetype-dockerconfigjson.yaml).
 
-__spi.appstudio.redhat.com/config-json-auth-key: anything__ specifies that `_host_` should have the value "anything".
+#### 'explicit' and annotation spi.appstudio.redhat.com/config-json-auth-key
+This is where the second annotation comes into play.
+Adding the annotation `spi.appstudio.redhat.com/config-json-type: explicit` means that the `_host_` will be filled with 
+explicit value specified in the `spi.appstudio.redhat.com/config-json-auth-key` annotation.
+
   For example Binding with this spec (ignoring other fields for simplicity):
 ```yaml
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
     annotations:
+      spi.appstudio.redhat.com/config-json-type: explicit
       spi.appstudio.redhat.com/config-json-auth-key: my.custom.host/test
 ```
 will produce this json:
@@ -100,7 +112,6 @@ will produce this json:
     }
 }
 ```
-When both annotations are set, `spi.appstudio.redhat.com/config-json-auth-key` takes precedence.
 
 ## Retrieving file content from SCM repository
 There is dedicated controller for file content requests, which can be performed by putting

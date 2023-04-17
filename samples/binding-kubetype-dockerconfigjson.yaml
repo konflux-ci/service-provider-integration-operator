@@ -13,4 +13,4 @@ spec:
     type: kubernetes.io/dockerconfigjson
     name: test-secret-dockerconfigjson
     annotations:
-      spi.appstudio.redhat.com/config-json-type: Kubernetes
+      spi.appstudio.redhat.com/config-json-type: kubernetes

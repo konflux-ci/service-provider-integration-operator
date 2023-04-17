@@ -33,7 +33,9 @@ const tokenKey = "token"
 const (
 	dockerConfigJsonTypeAnnotationKey     = "spi.appstudio.redhat.com/config-json-type"
 	dockerConfigJsonExplicitAnnotationKey = "spi.appstudio.redhat.com/config-json-auth-key"
-	dockerConfigJsonTypeKubernetes        = "Kubernetes"
+	dockerConfigJsonTypeKubernetes        = "kubernetes"
+	dockerConfigJsonTypeDocker            = "docker"
+	dockerConfigJsonTypeExplicit          = "explicit"
 )
 
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
@@ -84,12 +86,24 @@ func (at AccessTokenMapper) encodeDockerConfig(annotations map[string]string, re
 	encoded := base64.StdEncoding.EncodeToString([]byte(at.ServiceProviderUserName + ":" + at.Token))
 
 	var authKey string
-	if val, ok := annotations[dockerConfigJsonExplicitAnnotationKey]; ok {
-		authKey = val
-	} else if annotations[dockerConfigJsonTypeAnnotationKey] == dockerConfigJsonTypeKubernetes {
-		authKey = parsed.Host + parsed.Path
-	} else {
+	switch annotations[dockerConfigJsonTypeAnnotationKey] {
+	case dockerConfigJsonTypeDocker, "":
 		authKey = parsed.Host
+	case dockerConfigJsonTypeKubernetes:
+		authKey = parsed.Host + parsed.Path
+	case dockerConfigJsonTypeExplicit:
+		val, ok := annotations[dockerConfigJsonExplicitAnnotationKey]
+		if !ok {
+			return "", fmt.Errorf("annotation '%s' is required when '%s' is set to '%s'",
+				dockerConfigJsonExplicitAnnotationKey,
+				dockerConfigJsonTypeAnnotationKey,
+				dockerConfigJsonTypeExplicit)
+		}
+		authKey = val
+	default:
+		return "", fmt.Errorf("unknown value '%s' for annotation '%s'",
+			annotations[dockerConfigJsonTypeAnnotationKey],
+			dockerConfigJsonTypeAnnotationKey)
 	}
 
 	type Auths map[string]struct {

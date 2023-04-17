@@ -136,6 +136,16 @@ func TestEncodeDockerConfig(t *testing.T) {
 }`, encoded)
 	})
 
+	t.Run("docker type json is same as default", func(t *testing.T) {
+		repoUrl := "https://url.com/repo/image"
+		encodedDefault, errDefault := at.encodeDockerConfig(map[string]string{}, repoUrl)
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeDocker},
+			repoUrl)
+		assert.NoError(t, errDefault)
+		assert.NoError(t, err)
+		assert.Equal(t, encoded, encodedDefault)
+	})
+
 	t.Run("k8s type json", func(t *testing.T) {
 		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeKubernetes},
 			"https://url.com/repo/image")
@@ -150,8 +160,8 @@ func TestEncodeDockerConfig(t *testing.T) {
 }`, encoded)
 	})
 
-	t.Run("explicit annotation wins", func(t *testing.T) {
-		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeKubernetes,
+	t.Run("explicit json", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeExplicit,
 			dockerConfigJsonExplicitAnnotationKey: "some.*.pattern"},
 			"https://url.com/repo/image")
 		assert.NoError(t, err)
@@ -163,6 +173,18 @@ func TestEncodeDockerConfig(t *testing.T) {
 		}
 	}
 }`, encoded)
+	})
+
+	t.Run("explicit without value fails", func(t *testing.T) {
+		_, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeExplicit},
+			"https://url.com/repo/image")
+		assert.Error(t, err)
+	})
+
+	t.Run("unknown type json value fails", func(t *testing.T) {
+		_, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: "unknown"},
+			"https://url.com/repo/image")
+		assert.Error(t, err)
 	})
 
 	t.Run("url-parse-failure", func(t *testing.T) {
