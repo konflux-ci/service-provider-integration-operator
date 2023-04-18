@@ -98,9 +98,9 @@ function generateRootToken() {
   echo "generating root token ..."
 
   vaultExec "vault operator generate-root -cancel" > /dev/null
-  INIT_STATE=$( vaultExec "vault operator generate-root -init -format=yaml" )
-  NONCE=$( echo "${INIT_STATE}" | grep "nonce:" | awk '{split($0,a,": "); print a[2]}' )
-  OTP=$( echo "${INIT_STATE}" | grep "otp:" | awk '{split($0,a,": "); print a[2]}' )
+  INIT=$( vaultExec "vault operator generate-root -init -format=yaml" )
+  NONCE=$( echo "${INIT}" | grep "nonce:" | awk '{split($0,a,": "); print a[2]}' )
+  OTP=$( echo "${INIT}" | grep "otp:" | awk '{split($0,a,": "); print a[2]}' )
 
   KEYI=1
   COMPLETE="false"
