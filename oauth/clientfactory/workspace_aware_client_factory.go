@@ -59,13 +59,13 @@ func (w WorkspaceAwareK8sClientFactory) CreateClient(ctx context.Context) (clien
 		return nil, fmt.Errorf("unable to fetch workspace name via API: %w", err)
 	}
 	// make local copy to avoid global config modification
-	restConfig := *w.RestConfig
+	restConfig := rest.CopyConfig(w.RestConfig)
 	restConfig.Host, err = url.JoinPath(w.RestConfig.Host, "workspaces", wsName)
 	if err != nil {
 		lg.Error(err, "failed to create the K8S API path", "api", w.RestConfig.Host, "workspace", wsName)
 		return nil, fmt.Errorf("failed to create the K8S API path from URL %s and workspace %s: %w", w.RestConfig.Host, wsName, err)
 	}
-	return doCreateClient(&restConfig, *w.ClientOptions)
+	return doCreateClient(restConfig, *w.ClientOptions)
 }
 
 // fetchWorkspaceName finds the workspace to which the given namespace is belongs
