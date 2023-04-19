@@ -123,6 +123,25 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 			return requests
 		})).
+		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				dataUpdate, ok := o.(*api.SPIAccessTokenDataUpdate)
+				if !ok {
+					return false
+				}
+				return binding.Status.LinkedAccessTokenName == dataUpdate.Spec.TokenName
+
+			})
+			if err != nil {
+				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to DataUpdate",
+					"SecretName", o.GetName(), "SecretNamespace", o.GetNamespace())
+				return []reconcile.Request{}
+			}
+
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "Secret")
+
+			return requests
+		})).
 		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				marker := bindingtarget.BindingTargetObjectMarker{
