@@ -25,21 +25,21 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
-type SecretBuilder struct {
+type SecretDataGetter struct {
 	Binding         *api.SPIAccessTokenBinding
 	TokenStorage    tokenstorage.TokenStorage
 	ServiceProvider serviceprovider.ServiceProvider
 }
 
 // GetData implements dependents.SecretBuilder
-func (sb *SecretBuilder) GetData(ctx context.Context, tokenObject *api.SPIAccessToken) (map[string][]byte, string, error) {
+func (sb *SecretDataGetter) GetData(ctx context.Context, tokenObject *api.SPIAccessToken) (map[string][]byte, string, error) {
 	token, err := sb.TokenStorage.Get(ctx, tokenObject)
 	if err != nil {
 		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), fmt.Errorf("failed to get the token data from token storage: %w", err)
 	}
 
 	if token == nil {
-		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), bindings.AccessTokenDataNotFoundError
+		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), bindings.SecretDataNotFoundError
 	}
 
 	at, err := sb.ServiceProvider.MapToken(ctx, sb.Binding, tokenObject, token)
@@ -63,4 +63,4 @@ func (sb *SecretBuilder) GetData(ctx context.Context, tokenObject *api.SPIAccess
 	return data, string(api.SPIAccessTokenBindingErrorReasonNoError), nil
 }
 
-var _ dependents.SecretBuilder[*api.SPIAccessToken] = (*SecretBuilder)(nil)
+var _ dependents.SecretDataGetter[*api.SPIAccessToken] = (*SecretDataGetter)(nil)

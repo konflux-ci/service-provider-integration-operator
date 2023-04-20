@@ -45,11 +45,11 @@ type SecretDeploymentTarget interface {
 	GetActualServiceAccountNames() []string
 }
 
-// SecretBuilder is an abstraction that, given the provided key, is able to obtain the secret data from some kind of backing
-// secret storage.
-type SecretBuilder[K any] interface {
+// SecretDataGetter is an abstraction that, given the provided key, is able to obtain the secret data from some kind of backing
+// secret storage and prepare it in some way or fashion to be ready for persisting as the Data field of a Kubernetes secret.
+type SecretDataGetter[K any] interface {
 	// GetData returns the secret data from the backend storage given the key. If the data is not found, this method
-	// MUST return the AccessTokenDataNotFoundError.
+	// MUST return the SecretDataNotFoundError.
 	GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error)
 }
 

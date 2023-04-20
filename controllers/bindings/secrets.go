@@ -65,13 +65,13 @@ var (
 )
 
 type secretHandler[K any] struct {
-	Target        SecretDeploymentTarget
-	ObjectMarker  ObjectMarker
-	SecretBuilder SecretBuilder[K]
+	Target           SecretDeploymentTarget
+	ObjectMarker     ObjectMarker
+	SecretDataGetter SecretDataGetter[K]
 }
 
 func (h *secretHandler[K]) Sync(ctx context.Context, key K) (*corev1.Secret, string, error) {
-	data, errorReason, err := h.SecretBuilder.GetData(ctx, key)
+	data, errorReason, err := h.SecretDataGetter.GetData(ctx, key)
 	if err != nil {
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}

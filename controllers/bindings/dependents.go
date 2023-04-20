@@ -24,14 +24,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DependentsHandler is taking care of the dependent objects of the binding
+// DependentsHandler is taking care of the dependent objects of the provided target.
 type DependentsHandler[K any] struct {
-	Target        SecretDeploymentTarget
-	SecretBuilder SecretBuilder[K]
-	ObjectMarker  ObjectMarker
+	Target           SecretDeploymentTarget
+	SecretDataGetter SecretDataGetter[K]
+	ObjectMarker     ObjectMarker
 }
 
-// Dependents represent the secret and the list of the servicea accounts that are linked to a binding.
+// Dependents represent the secret and the list of the service accounts that are
+// linked to a deployment target of a dependents handler.
 type Dependents struct {
 	Secret          *corev1.Secret
 	ServiceAccounts []*corev1.ServiceAccount
@@ -54,7 +55,8 @@ type CheckPoint struct {
 }
 
 // CheckPoint creates an instance of CheckPoint struct that captures the secret name and the list of known service account
-// names from the Binding associated with the DependentsHandler. This can later be used to revert back to that state again.
+// names from the deployment target associated with the DependentsHandler. This can later be used to revert back to that
+// state again.
 // See RevertTo for more details.
 func (d *DependentsHandler[K]) CheckPoint(ctx context.Context) (CheckPoint, error) {
 	secretName := d.Target.GetActualSecretName()
@@ -196,7 +198,7 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 
 // RevertTo reverts the reconciliation "transaction". I.e. this should be called after Sync in case the subsequent steps in the reconciliation
 // fail and the operator needs to revert the changes made in sync so that the changes remain idempontent. The provided checkpoint represents
-// the state obtained from the DependentsHandler.Binding prior to making any changes by Sync().
+// the state obtained from the DependentsHandler.Target prior to making any changes by Sync().
 // Note that currently this method is only able to delete secrets/service accounts that should not be in the cluster. It cannot "undelete"
 // what has been deleted from the cluster. That should be OK though because we don't delete stuff during the Sync call.
 func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoint) error {
@@ -239,7 +241,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 					needsUpdate = serviceAccountHandler.linkSecretByName(sa, checkPoint.secretName, api.ServiceAccountLinkTypeImagePullSecret) || needsUpdate
 				}
 			} else {
-				// so the SA is marked as linked to the binding in the cluster, but it is not in the list of SAs in the state we are reverting to.
+				// so the SA is marked as linked to the target in the cluster, but it is not in the list of SAs in the state we are reverting to.
 				// if the SA is managed, we can just delete it, but if it is not managed, we need to make sure the linking of secrets is accurate.
 
 				if managed, err := d.ObjectMarker.IsManagedBy(ctx, d.Target.GetTargetObjectKey(), sa); err != nil {
@@ -264,7 +266,7 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 				serviceAccountHandler.unlinkSecretByName(d.Target.GetActualSecretName(), sa)
 				serviceAccountHandler.unlinkSecretByName(checkPoint.secretName, sa)
 
-				// the SA should not be linked to the binding, so let's remove the annotation...
+				// the SA should not be linked to the target, so let's mark it as such...
 				if _, err := d.ObjectMarker.UnmarkReferenced(ctx, d.Target.GetTargetObjectKey(), sa); err != nil {
 					// let's retry, we just failed to unmark the SA as referenced (this does not actually persist anything, so we should be safe to retry).
 					return nil, fmt.Errorf("failed to unmark the SA %s as referenced to the deployment target (%s) %s: %w",
@@ -301,9 +303,9 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 // childHandlers is a utility function instantiating the auxilliary handlers for secrets and service accounts.
 func (d *DependentsHandler[K]) childHandlers() (*secretHandler[K], *serviceAccountHandler) {
 	secretsHandler := &secretHandler[K]{
-		Target:        d.Target,
-		ObjectMarker:  d.ObjectMarker,
-		SecretBuilder: d.SecretBuilder,
+		Target:           d.Target,
+		ObjectMarker:     d.ObjectMarker,
+		SecretDataGetter: d.SecretDataGetter,
 	}
 
 	saHandler := &serviceAccountHandler{

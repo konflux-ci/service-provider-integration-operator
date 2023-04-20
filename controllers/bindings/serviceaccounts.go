@@ -141,8 +141,8 @@ func (h *serviceAccountHandler) List(ctx context.Context) ([]*corev1.ServiceAcco
 	}
 
 	opts = append(opts, client.InNamespace(h.Target.GetTargetNamespace()))
-	// unlike secrets that are always exclusive to the binding, there can be more service accounts
-	// associated with the binding. Therefore we need to manually filter them.
+	// unlike secrets that are always exclusive to the deployment target, there can be more service accounts
+	// associated with the target. Therefore we need to manually filter them.
 	if err := h.Target.GetClient().List(ctx, sal, opts...); err != nil {
 		return []*corev1.ServiceAccount{}, fmt.Errorf("failed to list the service accounts in the namespace '%s' while processing the deployment target (%s) %s: %w",
 			h.Target.GetTargetNamespace(),
@@ -207,7 +207,7 @@ func (h *serviceAccountHandler) unlinkSecretByName(secretName string, serviceAcc
 	return updated
 }
 
-// ensureServiceAccount loads the service account configured in the binding from the cluster or creates a new one if needed.
+// ensureServiceAccount loads the service account configured in the deployment target from the cluster or creates a new one if needed.
 // It also makes sure that the service account is correctly labeled.
 func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specIdx int, spec *api.ServiceAccountLink) (*corev1.ServiceAccount, string, error) {
 
@@ -227,10 +227,9 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 		return nil, string(ErrorReasonServiceAccountUnavailable), fmt.Errorf("failed to get the referenced service account (%s): %w", key, err)
 	}
 
-	// Only delete the managed binding label from the SA if it is our binding that was previously managing it.
-	// This makes sure that if there are multiple bindings associated with an SA that is also managed by one of them
-	// We don't end up in a ping-pong situation where the bindings reconcilers would "fight" over the value of this
-	// annotation.
+	// Only unmark the SA as managed if it is our target that was previously managing it.
+	// This makes sure that if there are multiple targets associated with an SA that is also managed by one of them
+	// We don't end up in a ping-pong situation where the reconcilers would "fight" over which target is the managing one.
 	managedChanged := false
 	if managed, err := h.ObjectMarker.IsManagedBy(ctx, h.Target.GetTargetObjectKey(), sa); err != nil {
 		return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to determine if the service account (%s) is managed while making it just referenced when processing the deployment target (%s) %s: %w",
@@ -259,7 +258,7 @@ func (h *serviceAccountHandler) ensureReferencedServiceAccount(ctx context.Conte
 	}
 
 	if changed || managedChanged {
-		// we need to update the service account with the new link to the binding
+		// we need to update the service account with the new link to the target
 		if err := h.Target.GetClient().Update(ctx, sa); err != nil {
 			return nil, string(ErrorReasonServiceAccountUpdate), fmt.Errorf("failed to update the annotations in the referenced service account %s while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),
@@ -310,9 +309,9 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 			}
 		}
 	} else {
-		// The service account already exists. We need to make sure that it is associated with this binding,
+		// The service account already exists. We need to make sure that it is associated with this target,
 		// otherwise we error out because we found a pre-existing SA that should be managed.
-		// Note that the managed SAs always also have the link annotation pointing to the managing binding.
+		// Note that the managed SAs always also are marked as referenced by contract of the object marker.
 		if ok, rerr := h.ObjectMarker.IsReferencedBy(ctx, h.Target.GetTargetObjectKey(), sa); rerr != nil {
 			err = fmt.Errorf("failed to determine if service account %s is referenced by the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(sa),

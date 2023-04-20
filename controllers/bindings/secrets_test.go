@@ -43,11 +43,11 @@ func TestSync(t *testing.T) {
 	}
 
 	deploymentTarget := &TestDeploymentTarget{}
-	secretBuilder := &TestSecretBuilder[*api.SPIAccessToken]{}
+	secretBuilder := &TestSecretDataGetter[*api.SPIAccessToken]{}
 	h := secretHandler[*api.SPIAccessToken]{
-		Target:        deploymentTarget,
-		ObjectMarker:  &TestObjectMarker{},
-		SecretBuilder: secretBuilder,
+		Target:           deploymentTarget,
+		ObjectMarker:     &TestObjectMarker{},
+		SecretDataGetter: secretBuilder,
 	}
 
 	t.Run("empty-cluster", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestList(t *testing.T) {
 				return o.GetLabels()["thus-laybeled"] == "you-should-be", nil
 			},
 		},
-		SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
+		SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
 	}
 
 	scs, err := h.List(context.TODO())

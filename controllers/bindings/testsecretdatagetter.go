@@ -16,14 +16,14 @@ package bindings
 
 import "context"
 
-type TestSecretBuilder[K any] struct {
+type TestSecretDataGetter[K any] struct {
 	GetDataImpl func(context.Context, K) (map[string][]byte, string, error)
 }
 
-var _ SecretBuilder[bool] = (*TestSecretBuilder[bool])(nil)
+var _ SecretDataGetter[bool] = (*TestSecretDataGetter[bool])(nil)
 
 // GetData implements SecretBuilder
-func (b *TestSecretBuilder[K]) GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error) {
+func (b *TestSecretDataGetter[K]) GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error) {
 	if b.GetDataImpl != nil {
 		return b.GetDataImpl(ctx, secretDataKey)
 	}

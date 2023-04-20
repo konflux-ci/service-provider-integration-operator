@@ -227,7 +227,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 			Client:       r.Client,
 			RemoteSecret: remoteSecret,
 		},
-		SecretBuilder: &remotesecrets.SecretBuilder{
+		SecretDataGetter: &remotesecrets.SecretDataGetter{
 			RemoteSecret: remoteSecret,
 			Storage:      r.RemoteSecretStorage,
 		},
@@ -334,7 +334,7 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 			Client:       f.client,
 			RemoteSecret: remoteSecret,
 		},
-		SecretBuilder: &remotesecrets.SecretBuilder{
+		SecretDataGetter: &remotesecrets.SecretDataGetter{
 			RemoteSecret: remoteSecret,
 			Storage:      f.storage,
 		},

@@ -34,5 +34,5 @@ const (
 )
 
 var (
-	AccessTokenDataNotFoundError = errors.New("access token data not found")
+	SecretDataNotFoundError = errors.New("data not found")
 )

@@ -330,7 +330,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 			Client:  r.Client,
 			Binding: &binding,
 		},
-		SecretBuilder: &tokens.SecretBuilder{
+		SecretDataGetter: &tokens.SecretDataGetter{
 			Binding:         &binding,
 			TokenStorage:    r.TokenStorage,
 			ServiceProvider: sp,
@@ -351,7 +351,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
 		deps, errorReason, err := dependentsHandler.Sync(ctx, token)
-		if err != nil && stderrors.Is(err, bindings.AccessTokenDataNotFoundError) {
+		if err != nil && stderrors.Is(err, bindings.SecretDataNotFoundError) {
 			// token data suddenly disappeared, that's not an error generally, so flipping back to Awaiting state
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
 			binding.Status.SyncedObjectRef = api.TargetObjectRef{}
@@ -741,7 +741,7 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 			Client:  f.client,
 			Binding: binding,
 		},
-		SecretBuilder: &tokens.SecretBuilder{
+		SecretDataGetter: &tokens.SecretDataGetter{
 			Binding:         binding,
 			TokenStorage:    f.tokenstorage,
 			ServiceProvider: sp,

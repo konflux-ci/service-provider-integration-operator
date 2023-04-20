@@ -101,7 +101,7 @@ func TestDependentsCleanup(t *testing.T) {
 				return "default"
 			},
 		},
-		SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
+		SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
 		ObjectMarker: &TestObjectMarker{
 			IsManagedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
 				return o.GetLabels()["managed"] == "obj", nil
@@ -225,8 +225,8 @@ func TestDependentsRevertTo(t *testing.T) {
 			Target: &TestDeploymentTarget{
 				GetClientImpl: func() client.Client { return cl },
 			},
-			SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
-			ObjectMarker:  objectMarker,
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		// now create a checkpoint in the empty cluster
@@ -283,8 +283,8 @@ func TestDependentsRevertTo(t *testing.T) {
 					}
 				},
 			},
-			SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
-			ObjectMarker:  objectMarker,
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
@@ -339,8 +339,8 @@ func TestDependentsRevertTo(t *testing.T) {
 					}
 				},
 			},
-			SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
-			ObjectMarker:  objectMarker,
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
@@ -399,8 +399,8 @@ func TestDependentsRevertTo(t *testing.T) {
 					return linkedSAs
 				},
 			},
-			SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
-			ObjectMarker:  objectMarker,
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
