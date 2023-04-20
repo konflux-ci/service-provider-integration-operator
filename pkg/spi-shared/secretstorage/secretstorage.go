@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,13 +30,14 @@ import (
 // be more explicit and forward-compatible should any changes to this struct arise in
 // the future.
 type SecretID struct {
+	Uid       types.UID
 	Name      string
 	Namespace string
 }
 
 // String returns the string representation of the SecretID.
 func (s SecretID) String() string {
-	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
+	return fmt.Sprintf("%s/%s [uid=%s]", s.Namespace, s.Name, s.Uid)
 }
 
 var NotFoundError = errors.New("not found")
@@ -77,7 +80,7 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 	SecretStorage SecretStorage
 
 	// ToID is a function that converts the strongly typed ID to the generic SecretID used by the SecretStorage.
-	ToID func(*ID) SecretID
+	ToID func(*ID) (*SecretID, error)
 
 	// Serialize is a function to convert the strongly type data into a byte array. You can use
 	// for example the SerializeJSON function.
@@ -89,11 +92,17 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 }
 
 // ObjectToID converts given Kubernetes object to SecretID based on the name and namespace.
-func ObjectToID[O client.Object](obj O) SecretID {
-	return SecretID{
+func ObjectToID[O client.Object](obj O) (*SecretID, error) {
+	logs.AuditLog(context.TODO()).Info("creating secret id", "object", obj, "uid", obj.GetUID())
+	if obj.GetUID() == "" {
+		// log.FromContext(context.TODO()).Error(fmt.Errorf("object does not have uid"), "object does not have uid", "obj", obj)
+		return nil, fmt.Errorf("object does not have uid: %+v", obj)
+	}
+	return &SecretID{
+		Uid:       obj.GetUID(),
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
-	}
+	}, nil
 }
 
 // SerializeJSON is a thin wrapper around Marshal function of encoding/json.
@@ -117,7 +126,11 @@ var _ TypedSecretStorage[string, string] = (*DefaultTypedSecretStorage[string, s
 
 // Delete implements TypedSecretStorage
 func (s *DefaultTypedSecretStorage[ID, D]) Delete(ctx context.Context, id *ID) error {
-	if err := s.SecretStorage.Delete(ctx, s.ToID(id)); err != nil {
+	realId, errId := s.ToID(id)
+	if errId != nil {
+		return fmt.Errorf("failed to create object id during deleting the secret: %w", errId)
+	}
+	if err := s.SecretStorage.Delete(ctx, *realId); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", s.DataTypeName, err)
 	}
 	return nil
@@ -125,7 +138,12 @@ func (s *DefaultTypedSecretStorage[ID, D]) Delete(ctx context.Context, id *ID) e
 
 // Get implements TypedSecretStorage
 func (s *DefaultTypedSecretStorage[ID, D]) Get(ctx context.Context, id *ID) (*D, error) {
-	d, err := s.SecretStorage.Get(ctx, s.ToID(id))
+	realId, errId := s.ToID(id)
+	if errId != nil {
+		return nil, fmt.Errorf("failed to create object id during getting the secret: %w", errId)
+	}
+
+	d, err := s.SecretStorage.Get(ctx, *realId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the %s: %w", s.DataTypeName, err)
 	}
@@ -144,13 +162,17 @@ func (s *DefaultTypedSecretStorage[ID, D]) Initialize(ctx context.Context) error
 
 // Store implements TypedSecretStorage
 func (s *DefaultTypedSecretStorage[ID, D]) Store(ctx context.Context, id *ID, data *D) error {
-	secretId := s.ToID(id)
+	secretId, errId := s.ToID(id)
+	if errId != nil {
+		return fmt.Errorf("failed to create object id during storing the secret: %w", errId)
+	}
+
 	bytes, err := s.Serialize(data)
 	if err != nil {
 		return fmt.Errorf("failed to serialize the %s for storage: %w", s.DataTypeName, err)
 	}
 
-	if err = s.SecretStorage.Store(ctx, secretId, bytes); err != nil {
+	if err = s.SecretStorage.Store(ctx, *secretId, bytes); err != nil {
 		return fmt.Errorf("failed to store %s: %w", s.DataTypeName, err)
 	}
 

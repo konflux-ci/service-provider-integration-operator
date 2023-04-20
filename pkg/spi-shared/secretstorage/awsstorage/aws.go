@@ -202,13 +202,13 @@ func lg(ctx context.Context) logr.Logger {
 }
 
 func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretID) *string {
-	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Namespace, secretId.Name))
+	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Uid))
 }
 
 func (s *AwsSecretStorage) initSecretNameFormat() string {
 	if s.SpiInstanceId == "" {
-		return "%s/%s"
+		return "%s"
 	} else {
-		return s.SpiInstanceId + "/%s/%s"
+		return s.SpiInstanceId + "/%s"
 	}
 }
