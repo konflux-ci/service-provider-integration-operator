@@ -336,11 +336,8 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
 
 	targetSpec := spi.RemoteSecretTarget{}
-	switch targetType {
-	case "namespace":
+	if targetType == "namespace" {
 		targetSpec.Namespace = targetName
-	case "environment":
-		targetSpec.Environment = targetName
 	}
 
 	remoteSecret := spi.RemoteSecret{

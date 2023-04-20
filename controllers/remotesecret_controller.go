@@ -88,9 +88,6 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
-	// XXX: here, we need to use the object markers of ALL SUPPORTED TARGETS to check if the secret doesn't contain a reference in their
-	// format.
-
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
 
 	refs, err := nsMarker.GetReferencingTargets(context.Background(), o)
@@ -161,8 +158,6 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 	if remoteSecret.Spec.Target.Namespace != "" {
 		err = r.deployToNamespace(ctx, remoteSecret, secretData)
-	} else if remoteSecret.Spec.Target.Environment != "" {
-		err = r.deployToEnvironment(ctx, remoteSecret, secretData)
 	}
 
 	return ctrl.Result{}, err
@@ -279,19 +274,6 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	return nil
 }
 
-func (r *RemoteSecretReconciler) deployToEnvironment(ctx context.Context, remoteSecret *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
-	meta.SetStatusCondition(&remoteSecret.Status.Conditions, metav1.Condition{
-		Type:    string(api.RemoteSecretConditionTypeDeployed),
-		Status:  metav1.ConditionFalse,
-		Reason:  string(api.RemoteSecretReasonUnsupported),
-		Message: "The enviroment remote secret target is not supported yet",
-	})
-	if err := r.saveSuccessStatus(ctx, remoteSecret); err != nil {
-		return err
-	}
-	return nil
-}
-
 type remoteSecretStorageFinalizer struct {
 	storage remotesecretstorage.RemoteSecretStorage
 }
@@ -326,8 +308,6 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 	key := client.ObjectKeyFromObject(remoteSecret)
 
 	lg.Info("linked objects finalizer starting to clean up dependent objects", "remoteSecret", key)
-
-	// XXX: all support targets need to do this cleanup... For now we only support the namespace target.
 
 	dep := bindings.DependentsHandler[*api.RemoteSecret]{
 		Target: &namespacetarget.NamespaceTarget{
