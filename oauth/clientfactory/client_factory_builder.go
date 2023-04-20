@@ -120,7 +120,7 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory ku
 		RestConfig:    cfg,
 		ApiServer:     r.Args.ApiServer,
 		HTTPClient: &http.Client{
-			Transport: httptransport.HttpMetricCollectingRoundTripper{
+			Transport: httptransport.AuthenticatingRoundTripper{
 				RoundTripper: http.DefaultTransport}}}, nil
 }
 
