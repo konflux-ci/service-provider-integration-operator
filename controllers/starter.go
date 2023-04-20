@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -117,7 +119,9 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		// Setup tokenUpload controller if configured
 		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken and RemoteSecret
 		notifTokenStorage := tokenstorage.NewJSONSerializingTokenStorage(&secretstorage.NotifyingSecretStorage{
-			Client:        mgr.GetClient(),
+			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
+				Client: mgr.GetClient(),
+			},
 			SecretStorage: secretStorage,
 			Group:         api.GroupVersion.Group,
 			Kind:          "SPIAccessToken",
@@ -127,7 +131,9 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		}
 
 		notifRemoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&secretstorage.NotifyingSecretStorage{
-			Client:        mgr.GetClient(),
+			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
+				Client: mgr.GetClient(),
+			},
 			SecretStorage: secretStorage,
 			Group:         api.GroupVersion.Group,
 			Kind:          "RemoteSecret",

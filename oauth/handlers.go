@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
@@ -88,7 +90,7 @@ func CallbackErrorHandler() http.Handler {
 // for some concrete SPIAccessToken.
 func HandleUpload(uploader TokenUploader) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, err := WithAuthFromRequestIntoContext(r, r.Context())
+		ctx, err := clientfactory.WithAuthFromRequestIntoContext(r, r.Context())
 		if err != nil {
 			LogErrorAndWriteResponse(r.Context(), w, http.StatusUnauthorized, "failed extract authorization information from headers", err)
 			return

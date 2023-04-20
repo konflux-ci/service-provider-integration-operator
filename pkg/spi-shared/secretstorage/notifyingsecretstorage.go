@@ -19,13 +19,13 @@ import (
 	"fmt"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type NotifyingSecretStorage struct {
-	Client        client.Client
+	ClientFactory kubernetesclient.K8sClientFactory
 	SecretStorage SecretStorage
 	Group         string
 	Kind          string
@@ -85,7 +85,12 @@ func (s *NotifyingSecretStorage) createDataUpdate(ctx context.Context, id Secret
 		},
 	}
 
-	err := s.Client.Create(ctx, update)
+	cl, err := s.ClientFactory.CreateClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create the k8s client to use: %w", err)
+	}
+
+	err = cl.Create(ctx, update)
 	if err != nil {
 		return fmt.Errorf("error creating data update: %w", err)
 	}

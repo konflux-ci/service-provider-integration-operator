@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	"github.com/alexedwards/scs/v2"
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
@@ -36,7 +38,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -72,15 +73,17 @@ func main() {
 	go metrics.ServeMetrics(ctx, args.MetricsAddr)
 	router := mux.NewRouter()
 
-	clientFactoryConfig := createClientFactoryConfig(args)
+	builder := clientfactory.K8sClientFactoryBuilder{
+		Args: args,
+	}
 
-	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
-	if errUserAuthClient != nil {
-		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
+	inClusterK8sClientFactory, errK8sClient := builder.CreateInClusterClientFactory()
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client factory")
 		os.Exit(1)
 	}
 
-	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&clientFactoryConfig)
+	inClusterK8sClient, errK8sClient := inClusterK8sClientFactory.CreateClient(ctx)
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
@@ -92,21 +95,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(&secretstorage.NotifyingSecretStorage{
-		Client:        userAuthClient,
-		SecretStorage: storage,
-	})
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(storage)
 
 	if err := tokenStorage.Initialize(ctx); err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
 
+	userAuthK8sClientFactory, errK8sClient := builder.CreateUserAuthClientFactory()
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create user auth k8s client factory")
+		os.Exit(1)
+	}
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: userAuthClient,
+		ClientFactory: userAuthK8sClientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       userAuthClient,
-			TokenStorage: tokenStorage,
+			ClientFactory: userAuthK8sClientFactory,
+			TokenStorage:  tokenStorage,
 		},
 	}
 
@@ -119,7 +124,7 @@ func main() {
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
-	authenticator := oauth.NewAuthenticator(sessionManager, userAuthClient)
+	authenticator := oauth.NewAuthenticator(sessionManager, userAuthK8sClientFactory)
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
@@ -143,7 +148,7 @@ func main() {
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
-		UserAuthK8sClient:         userAuthClient,
+		ClientFactory:             userAuthK8sClientFactory,
 		InClusterK8sClient:        inClusterK8sClient,
 		TokenStorage:              tokenStorage,
 		RedirectTemplate:          redirectTpl,
@@ -207,13 +212,4 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	}
 
 	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
-}
-
-func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
-	return oauth.ClientFactoryConfig{
-		KubeConfig:      args.KubeConfig,
-		KubeInsecureTLS: args.KubeInsecureTLS,
-		ApiServer:       args.ApiServer,
-		ApiServerCAPath: args.ApiServerCAPath,
-	}
 }

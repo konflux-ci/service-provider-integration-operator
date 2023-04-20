@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,8 +31,9 @@ func TestSync(t *testing.T) {
 	scheme := runtime.NewScheme()
 	assert.NoError(t, corev1.AddToScheme(scheme))
 
-	// TODO: make use of this again
-	clBld := fake.NewClientBuilder().WithScheme(scheme)
+	clBld := func() *fake.ClientBuilder {
+		return fake.NewClientBuilder().WithScheme(scheme)
+	}
 
 	token := &api.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,73 +42,149 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	binding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "binding",
-			Namespace: "default",
-		},
-		Spec: api.SPIAccessTokenBindingSpec{
-			Secret: api.SecretSpec{},
-		},
-	}
-
-	tokenStorage := &memorystorage.MemoryTokenStorage{}
 	deploymentTarget := &TestDeploymentTarget{}
+	secretBuilder := &TestSecretBuilder[*api.SPIAccessToken]{}
 	h := secretHandler[*api.SPIAccessToken]{
 		Target:        deploymentTarget,
 		ObjectMarker:  &TestObjectMarker{},
-		SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
-	}
-
-	assert.NoError(t, tokenStorage.Store(context.TODO(), token, &api.Token{
-		Username:    "alois",
-		AccessToken: "token",
-	}))
-
-	sp := serviceprovider.TestServiceProvider{}
-	sp.MapTokenImpl = func(ctx context.Context, stb *api.SPIAccessTokenBinding, st *api.SPIAccessToken, t *api.Token) (serviceprovider.AccessTokenMapper, error) {
-		return serviceprovider.DefaultMapToken(st, t), nil
+		SecretBuilder: secretBuilder,
 	}
 
 	t.Run("empty-cluster", func(t *testing.T) {
 		t.Run("service-account-token secret type", func(t *testing.T) {
-			binding.Spec.Secret.Type = corev1.SecretTypeServiceAccountToken
-			deploymentTarget.GetClientImpl = func() client.Client { return clBld.Build() }
+			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+				return api.LinkableSecretSpec{
+					Name: "secret",
+					Type: corev1.SecretTypeServiceAccountToken,
+				}
+			}
+			deploymentTarget.GetClientImpl = func() client.Client { return clBld().Build() }
+			deploymentTarget.GetTargetNamespaceImpl = func() string {
+				return "ns"
+			}
 
-			// TODO: use this in the tests below
-			_, reason, err := h.Sync(context.TODO(), token)
+			secretBuilder.GetDataImpl = func(ctx context.Context, st *api.SPIAccessToken) (map[string][]byte, string, error) {
+				return map[string][]byte{
+					"extra": []byte("token"),
+				}, "", nil
+			}
+
+			secret, reason, err := h.Sync(context.TODO(), token)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
-			// TODO: fix the tests
-			// assert.NotNil(t, secret)
-			// assert.Contains(t, secret.Data, "extra")
-			// assert.Equal(t, secret.Data["extra"], []byte("token"))
+			assert.NotNil(t, secret)
+			assert.Contains(t, secret.Data, "extra")
+			assert.Equal(t, secret.Data["extra"], []byte("token"))
 		})
 
 		t.Run("other secret types", func(t *testing.T) {
-			binding.Spec.Secret.Type = corev1.SecretTypeOpaque
-			deploymentTarget.GetClientImpl = func() client.Client { return clBld.Build() }
+			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+				return api.LinkableSecretSpec{
+					Name: "secret",
+					Type: corev1.SecretTypeBasicAuth,
+				}
+			}
+			deploymentTarget.GetClientImpl = func() client.Client { return clBld().Build() }
+			deploymentTarget.GetTargetNamespaceImpl = func() string {
+				return "ns"
+			}
 
-			// TODO: use this in the tests below
-			_, reason, err := h.Sync(context.TODO(), token)
+			secretBuilder.GetDataImpl = func(ctx context.Context, st *api.SPIAccessToken) (map[string][]byte, string, error) {
+				return map[string][]byte{
+					"token": []byte("token"),
+				}, "", nil
+			}
+
+			secret, reason, err := h.Sync(context.TODO(), token)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
-			// TODO: fix the tests
-			// assert.NotNil(t, secret)
-			// assert.Contains(t, secret.Data, "token")
-			// assert.Equal(t, secret.Data["token"], []byte("token"))
+			assert.NotNil(t, secret)
+			assert.Contains(t, secret.Data, "token")
+			assert.Equal(t, secret.Data["token"], []byte("token"))
 		})
 	})
 
 	t.Run("secret-in-cluster", func(t *testing.T) {
 		t.Run("service-account-token secret type", func(t *testing.T) {
-			binding.Spec.Secret.Type = corev1.SecretTypeServiceAccountToken
+			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+				return api.LinkableSecretSpec{
+					Name: "secret",
+					Type: corev1.SecretTypeServiceAccountToken,
+				}
+			}
+			deploymentTarget.GetClientImpl = func() client.Client {
+				return clBld().
+					WithObjects(&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "ns",
+						},
+						Data: map[string][]byte{
+							"a": []byte("b"),
+						},
+					}).
+					Build()
+			}
+			deploymentTarget.GetTargetNamespaceImpl = func() string {
+				return "ns"
+			}
+
+			secretBuilder.GetDataImpl = func(ctx context.Context, st *api.SPIAccessToken) (map[string][]byte, string, error) {
+				return map[string][]byte{
+					"extra": []byte("token"),
+				}, "", nil
+			}
+
+			secret, reason, err := h.Sync(context.TODO(), token)
+			assert.Equal(t, "", reason)
+			assert.NoError(t, err)
+
+			assert.NotNil(t, secret)
+			assert.Contains(t, secret.Data, "extra")
+			assert.Equal(t, secret.Data["extra"], []byte("token"))
+			assert.NotContains(t, secret.Data, "a")
 		})
 
 		t.Run("other secret types", func(t *testing.T) {
-			binding.Spec.Secret.Type = corev1.SecretTypeOpaque
+			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+				return api.LinkableSecretSpec{
+					Name: "secret",
+					Type: corev1.SecretTypeBasicAuth,
+				}
+			}
+			deploymentTarget.GetClientImpl = func() client.Client {
+				return clBld().
+					WithObjects(&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "ns",
+						},
+						Data: map[string][]byte{
+							"a": []byte("b"),
+						},
+					}).
+					Build()
+			}
+			deploymentTarget.GetTargetNamespaceImpl = func() string {
+				return "ns"
+			}
+
+			secretBuilder.GetDataImpl = func(ctx context.Context, st *api.SPIAccessToken) (map[string][]byte, string, error) {
+				return map[string][]byte{
+					"token": []byte("token"),
+				}, "", nil
+			}
+
+			secret, reason, err := h.Sync(context.TODO(), token)
+			assert.Equal(t, "", reason)
+			assert.NoError(t, err)
+
+			assert.NotNil(t, secret)
+			assert.Contains(t, secret.Data, "token")
+			assert.Equal(t, secret.Data["token"], []byte("token"))
+			assert.NotContains(t, secret.Data, "a")
 		})
 	})
 }
@@ -125,7 +200,7 @@ func TestList(t *testing.T) {
 					Name:      "a",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByBindingLabel: "not-our-binding",
+						"thus-laybeled": "you-should-be, but you're not",
 					},
 				},
 			},
@@ -149,37 +224,33 @@ func TestList(t *testing.T) {
 					Name:      "shes-the-one",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByBindingLabel: "binding",
+						"thus-laybeled": "you-should-be",
 					},
 				},
 			},
 		).
 		Build()
 
-	// TODO: use this in the secretHandler below
-	_ = &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "binding",
-			Namespace: "default",
-		},
-		Spec: api.SPIAccessTokenBindingSpec{
-			Secret: api.SecretSpec{},
-		},
-	}
-
 	h := secretHandler[*api.SPIAccessToken]{
 		Target: &TestDeploymentTarget{
 			GetClientImpl: func() client.Client { return cl },
 		},
-		ObjectMarker:  &TestObjectMarker{},
+		ObjectMarker: &TestObjectMarker{
+			ListManagedOptionsImpl: func(ctx context.Context, _ client.ObjectKey) ([]client.ListOption, error) {
+				return []client.ListOption{
+					client.MatchingLabels{"thus-laybeled": "you-should-be"},
+				}, nil
+			},
+			IsManagedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+				return o.GetLabels()["thus-laybeled"] == "you-should-be", nil
+			},
+		},
 		SecretBuilder: &TestSecretBuilder[*api.SPIAccessToken]{},
 	}
 
-	// TODO use this in the tests below
-	_, err := h.List(context.TODO())
+	scs, err := h.List(context.TODO())
 	assert.NoError(t, err)
 
-	// TODO: fix the tests
-	// assert.Len(t, scs, 1)
-	// assert.Equal(t, scs[0].Name, "shes-the-one")
+	assert.Len(t, scs, 1)
+	assert.Equal(t, scs[0].Name, "shes-the-one")
 }

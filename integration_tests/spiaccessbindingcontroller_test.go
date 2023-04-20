@@ -486,7 +486,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 					secret.Data["password"] = []byte("wrong")
 					g.Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
-				})
+				}).Should(Succeed())
 
 				By("waiting for the secret data to be reverted back to the correct values")
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -495,6 +495,22 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 					g.Expect(string(secret.Data["password"])).To(Equal("access"))
 				})
+
+				By("changing token data")
+				err = ITest.TokenStorage.Store(ITest.Context, testSetup.InCluster.Tokens[0], &api.Token{
+					AccessToken:  "access-new",
+					RefreshToken: "refresh",
+					TokenType:    "awesome",
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("waiting for the secret data to be updated to the correct values")
+				Eventually(func(g Gomega) {
+					binding := testSetup.InCluster.Bindings[0]
+					secret := &corev1.Secret{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+					g.Expect(string(secret.Data["password"])).To(Equal("access-new"))
+				}).Should(Succeed())
 			})
 		})
 

@@ -16,6 +16,7 @@ package integrationtests
 
 import (
 	"github.com/onsi/ginkgo"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -250,8 +251,8 @@ var _ = BeforeSuite(func() {
 	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(strg)
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
-		Client:       ITest.Client,
-		TokenStorage: tokenStorage,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: ITest.Client},
+		TokenStorage:  tokenStorage,
 	}
 
 	Expect(ITest.TokenStorage.Initialize(ctx)).To(Succeed())
