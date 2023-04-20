@@ -30,6 +30,17 @@ import (
 
 // Key for token using in Opaque Secret
 const tokenKey = "token"
+const (
+	dockerConfigJsonTypeAnnotationKey     = "spi.appstudio.redhat.com/config-json-type"
+	dockerConfigJsonExplicitAnnotationKey = "spi.appstudio.redhat.com/config-json-auth-key"
+	dockerConfigJsonTypeKubernetes        = "kubernetes"
+	dockerConfigJsonTypeDocker            = "docker"
+	dockerConfigJsonTypeExplicit          = "explicit"
+)
+
+var noExplicitAnnotationKeyError = fmt.Errorf("annotation %s is required when %s is set to %s",
+	dockerConfigJsonExplicitAnnotationKey, dockerConfigJsonTypeAnnotationKey, dockerConfigJsonTypeExplicit)
+var unknownTypeAnnotationKeyError = fmt.Errorf("unknown value for annotation %s", dockerConfigJsonTypeAnnotationKey)
 
 // AccessTokenMapper is a helper to convert token (together with its metadata) into maps suitable for storing in
 // secrets according to the secret type.
@@ -45,9 +56,9 @@ type AccessTokenMapper struct {
 }
 
 // ToSecretType converts the data in the mapper to a map with fields corresponding to the provided secret type.
-func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *api.TokenFieldMapping) (map[string]string, error) {
+func (at AccessTokenMapper) ToSecretType(bindingSpec *api.SPIAccessTokenBindingSpec) (map[string]string, error) {
 	ret := map[string]string{}
-	switch secretType {
+	switch bindingSpec.Secret.Type {
 	case corev1.SecretTypeBasicAuth:
 		ret[corev1.BasicAuthUsernameKey] = at.ServiceProviderUserName
 		ret[corev1.BasicAuthPasswordKey] = at.Token
@@ -56,7 +67,7 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 	case corev1.SecretTypeDockercfg:
 		ret[corev1.DockerConfigKey] = at.Token
 	case corev1.SecretTypeDockerConfigJson:
-		dockerConfig, err := at.encodeDockerConfig()
+		dockerConfig, err := at.encodeDockerConfig(bindingSpec.Secret.Annotations, bindingSpec.RepoUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -64,19 +75,35 @@ func (at AccessTokenMapper) ToSecretType(secretType corev1.SecretType, mapping *
 	case corev1.SecretTypeSSHAuth:
 		ret[corev1.SSHAuthPrivateKey] = at.Token
 	default:
-		at.fillByMapping(mapping, ret)
+		at.fillByMapping(&bindingSpec.Secret.Fields, ret)
 	}
 
 	return ret, nil
 }
 
 // encodeDockerConfig constructs docker config json which can be used to pull private images from remote image registry.
-func (at AccessTokenMapper) encodeDockerConfig() (string, error) {
-	parsed, err := url.Parse(at.ServiceProviderUrl)
+func (at AccessTokenMapper) encodeDockerConfig(annotations map[string]string, repoUrl string) (string, error) {
+	parsed, err := url.Parse(repoUrl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse service provider url: %w", err)
 	}
 	encoded := base64.StdEncoding.EncodeToString([]byte(at.ServiceProviderUserName + ":" + at.Token))
+
+	var authKey string
+	switch annotations[dockerConfigJsonTypeAnnotationKey] {
+	case dockerConfigJsonTypeDocker, "":
+		authKey = parsed.Host
+	case dockerConfigJsonTypeKubernetes:
+		authKey = parsed.Host + parsed.Path
+	case dockerConfigJsonTypeExplicit:
+		val, ok := annotations[dockerConfigJsonExplicitAnnotationKey]
+		if !ok {
+			return "", noExplicitAnnotationKeyError
+		}
+		authKey = val
+	default:
+		return "", fmt.Errorf("%w: %s", unknownTypeAnnotationKeyError, annotations[dockerConfigJsonTypeAnnotationKey])
+	}
 
 	type Auths map[string]struct {
 		Auth string `json:"auth"`
@@ -85,7 +112,7 @@ func (at AccessTokenMapper) encodeDockerConfig() (string, error) {
 		Auths Auths `json:"auths"`
 	}{
 		Auths: Auths{
-			parsed.Host: {
+			authKey: {
 				Auth: encoded,
 			},
 		},
