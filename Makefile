@@ -167,7 +167,7 @@ go.mod:
 
 check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
 
-ready: fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
+ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
 
 test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
