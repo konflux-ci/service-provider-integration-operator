@@ -152,6 +152,7 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 	ret.DeletionGracePeriod = args.DeletionGracePeriod
 	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
 	ret.EnableTokenUpload = args.EnableTokenUpload
+	ret.EnableRemoteSecrets = args.EnableRemoteSecrets
 
 	return ret, nil
 }

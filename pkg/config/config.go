@@ -57,4 +57,7 @@ type OperatorConfiguration struct {
 
 	// Enable Token Upload controller
 	EnableTokenUpload bool
+
+	// Enable RemoteSecret controller
+	EnableRemoteSecrets bool
 }

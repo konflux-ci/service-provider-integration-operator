@@ -220,6 +220,7 @@ var _ = BeforeSuite(func() {
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
 		EnableTokenUpload:     true,
+		EnableRemoteSecrets:   true,
 	}
 
 	// start webhook server using Manager

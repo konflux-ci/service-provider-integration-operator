@@ -106,13 +106,15 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
-	if err = (&RemoteSecretReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		Configuration:       cfg,
-		RemoteSecretStorage: remoteSecretStorage,
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	if cfg.EnableRemoteSecrets {
+		if err = (&RemoteSecretReconciler{
+			Client:              mgr.GetClient(),
+			Scheme:              mgr.GetScheme(),
+			Configuration:       cfg,
+			RemoteSecretStorage: remoteSecretStorage,
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	if cfg.EnableTokenUpload {
