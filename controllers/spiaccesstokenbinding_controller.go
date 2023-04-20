@@ -123,14 +123,17 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 			return requests
 		})).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				dataUpdate, ok := o.(*api.SPIAccessTokenDataUpdate)
-				if !ok {
-					return false
-				}
-				return binding.Status.LinkedAccessTokenName == dataUpdate.Spec.TokenName
+		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) (reqs []reconcile.Request) {
+			// let's see if this data update is even related to tokens and bail quickly if it is not.
+			tmpRequests := requestForDataUpdateOwner(o, "SPIAccessToken", false)
+			if len(tmpRequests) == 0 {
+				return tmpRequests
+			}
+			// the array has by contract at most 1 element
+			tokenRequest := tmpRequests[0]
 
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				return tokenRequest.Name == binding.Status.LinkedAccessTokenName
 			})
 			if err != nil {
 				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to DataUpdate",
@@ -138,7 +141,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 				return []reconcile.Request{}
 			}
 
-			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "Secret")
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "SPIAccessTokenDataUpdate")
 
 			return requests
 		})).

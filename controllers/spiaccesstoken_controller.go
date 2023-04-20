@@ -95,18 +95,7 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			})
 		})).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenDataUpdate", func() string {
-				update, ok := object.(*api.SPIAccessTokenDataUpdate)
-				if !ok {
-					return ""
-				}
-
-				if update.Spec.DataOwner.APIGroup != &api.GroupVersion.Group || update.Spec.DataOwner.Kind != "SPIAccessToken" {
-					return ""
-				}
-
-				return update.Spec.DataOwner.Name
-			})
+			return requestForDataUpdateOwner(object, "SPIAccessToken", true)
 		})).
 		Complete(r)
 

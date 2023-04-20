@@ -35,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
@@ -73,25 +72,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
 		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
-			update, ok := object.(*api.SPIAccessTokenDataUpdate)
-			if !ok {
-				return []reconcile.Request{}
-			}
-
-			if update.Spec.DataOwner.APIGroup != &api.GroupVersion.Group || update.Spec.DataOwner.Kind != "RemoteSecret" {
-				return []reconcile.Request{}
-			}
-
-			rsName := update.Spec.DataOwner.Name
-
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      rsName,
-						Namespace: object.GetNamespace(),
-					},
-				},
-			}
+			return requestForDataUpdateOwner(object, "RemoteSecret", true)
 		})).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
