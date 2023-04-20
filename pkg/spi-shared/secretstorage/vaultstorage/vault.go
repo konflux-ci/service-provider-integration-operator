@@ -42,9 +42,9 @@ type VaultSecretStorage struct {
 	// Config holds the configuration of the storage. After the Initialize method is called, no changes
 	// to this configuration object are reflected even if Initialize is called again.
 	Config *VaultStorageConfig
-}
 
-const vaultDataPathFormat = "%s/data/%s/%s"
+	vaultDataPathFormat string
+}
 
 var (
 	VaultError             = errors.New("error in Vault")
@@ -118,6 +118,8 @@ func (v *VaultSecretStorage) Initialize(ctx context.Context) error {
 		return err
 	}
 
+	v.vaultDataPathFormat = v.initSecretNameFormat(ctx)
+
 	return nil
 }
 
@@ -129,7 +131,7 @@ func (v *VaultSecretStorage) Store(ctx context.Context, id secretstorage.SecretI
 		},
 	}
 	lg := log.FromContext(ctx)
-	path := fmt.Sprintf(vaultDataPathFormat, v.Config.DataPathPrefix, id.Namespace, id.Name)
+	path := v.generateVaultSecretPath(id)
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 	s, err := v.client.Logical().WriteWithContext(ctx, path, data)
@@ -151,7 +153,7 @@ func (v *VaultSecretStorage) Get(ctx context.Context, id secretstorage.SecretID)
 
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := fmt.Sprintf(vaultDataPathFormat, v.Config.DataPathPrefix, id.Namespace, id.Name)
+	path := v.generateVaultSecretPath(id)
 	secret, err := v.client.Logical().ReadWithContext(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the data: %w", err)
@@ -186,7 +188,7 @@ func (v *VaultSecretStorage) Get(ctx context.Context, id secretstorage.SecretID)
 func (v *VaultSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
 	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
 
-	path := fmt.Sprintf(vaultDataPathFormat, v.Config.DataPathPrefix, id.Namespace, id.Name)
+	path := v.generateVaultSecretPath(id)
 	s, err := v.client.Logical().DeleteWithContext(ctx, path)
 	if err != nil {
 		return fmt.Errorf("error deleting the data: %w", err)
@@ -266,6 +268,18 @@ func (v *VaultSecretStorage) initMetrics(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (v *VaultSecretStorage) generateVaultSecretPath(id secretstorage.SecretID) string {
+	return fmt.Sprintf(v.vaultDataPathFormat, id.Uid)
+}
+
+func (v *VaultSecretStorage) initSecretNameFormat(ctx context.Context) string {
+	if spiInstanceId := ctx.Value(config.SPIInstanceIdContextKey); spiInstanceId == nil {
+		return v.Config.DataPathPrefix + "/data/%s" // <prefix>/data/<secret-id>
+	} else {
+		return v.Config.DataPathPrefix + "/data/" + fmt.Sprint(spiInstanceId) + "/%s" // <prefix>/data/<cluster-id>/<secret-id>
+	}
 }
 
 // extractData trie to extract the data from the Vault response. It supports the new byte-array-based
