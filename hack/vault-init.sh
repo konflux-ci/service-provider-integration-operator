@@ -19,19 +19,24 @@ function vaultExec() {
 }
 
 function init() {
-  if [ "$( isInitialized )" == "false" ]; then
+  INIT_STATE=$( isInitialized )
+  if [ "$INIT_STATE" == "false" ]; then
     vaultExec "vault operator init" > "${KEYS_FILE}"
     echo "Keys written at ${KEYS_FILE}"
+  elif [ "$INIT_STATE" == "true" ]; then
+    echo "Vault already initialized"
   else
-    echo "Already initialized"
+    echo "$INIT_STATE"
+    exit 1
   fi
 }
 
 function isInitialized() {
-  INITIALIZED=$( vaultExec "vault status -format=yaml | grep initialized" )
+  STATUS=$( vaultExec "vault status -format=yaml 2>&1")
+  INITIALIZED=$( echo "$STATUS" | grep "initialized" )
   if [ -z "${INITIALIZED}" ]; then
-    echo "failed to obtain initialized status"
-    exit 1
+    echo "failed to obtain initialization status; vault may be in an irrecoverable error state"
+    echo "vault status output: ${STATUS}"
   fi
   echo "${INITIALIZED}" | awk '{split($0,a,": "); print a[2]}'
 }
