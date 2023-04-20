@@ -59,7 +59,7 @@ value of `_host_` is the URL host of the specific service provider, e.g. `quay.i
 {
     "auths": {
         "_host_": {
-            "auth": "…"
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM=" // base64 encoded username:token123
         }
     }
 }
@@ -81,12 +81,15 @@ will produce this json:
 {
     "auths": {
         "quay.io/repo/spi-test": {
-            "auth": "…"
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
         }
     }
 }
 ```
 For concrete example SPIAccessTokenBinding can take a look at this [sample](../samples/binding-kubetype-dockerconfigjson.yaml).
+
+WARNING: Avoid using the `kubernetes` value when your SPIAccessTokenBinding's `repoUrl` contains a tag of an image, as the tag
+will also be present in the `_host_` and Kubernetes may not be able to pull the image with such config.json.
 
 #### 'explicit' and annotation spi.appstudio.redhat.com/config-json-auth-key
 This is where the second annotation comes into play.
@@ -107,7 +110,7 @@ will produce this json:
 {
     "auths": {
         "my.custom.host/test": {
-            "auth": "…"
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
         }
     }
 }
