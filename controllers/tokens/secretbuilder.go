@@ -47,7 +47,7 @@ func (sb *SecretBuilder) GetData(ctx context.Context, tokenObject *api.SPIAccess
 		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenAnalysis), fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
 	}
 
-	stringData, err := at.ToSecretType(sb.Binding.Spec.Secret.Type, &sb.Binding.Spec.Secret.Fields)
+	stringData, err := at.ToSecretType(&sb.Binding.Spec)
 	if err != nil {
 		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenAnalysis), fmt.Errorf("failed to create data to be injected into the secret: %w", err)
 	}
