@@ -86,7 +86,7 @@ func (h *secretHandler) Sync(ctx context.Context, tokenObject *api.SPIAccessToke
 		return nil, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
 	}
 
-	stringData, err := at.ToSecretType(h.Binding.Spec.Secret.Type, &h.Binding.Spec.Secret.Fields)
+	stringData, err := at.ToSecretType(&h.Binding.Spec)
 	if err != nil {
 		return nil, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, fmt.Errorf("failed to create data to be injected into the secret: %w", err)
 	}

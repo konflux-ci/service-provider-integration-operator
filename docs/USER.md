@@ -4,6 +4,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 - [Use Cases](#use-cases)
     - [Accessing the private repository](#accessing-the-private-repository) - TODO
     - [Checking permission to the particular repository](#checking-permission-to-the-particular-repository) - TODO
+    - [Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson](#creating-spiaccesstokenbinding-with-secret-type-kubernetesiodockerconfigjson)
     - [Retrieving file content from SCM repository](#retrieving-file-content-from-scm-repository)
     - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
     - [Uploading Access Token to SPI using Kubernetes Secret](#uploading-access-token-to-spi-using-kubernetes-secret)
@@ -35,6 +36,85 @@ TODO
 ## Checking permission to the particular repository
 
 TODO
+
+## Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson
+An SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson is used when the user requires a Secret that 
+enables Pods to pull images from private image registry to Kubernetes. This Secret contains so-called
+Docker config.json. Kubernetes' interpretation of config.json differs from Docker's in that Kubernetes is more permissive.
+That is why SPI provides options to alter the content of config.json.
+You can read more about this topic [here](https://kubernetes.io/docs/concepts/containers/images/#config-json).
+
+Users can configure the specific value of `_host_` (see example json bellow) in config.json through two annotations which can be set
+in the SPIAccessTokenBinding's `spec.secret.annotations` field.
+
+### Annotation 'spi.appstudio.redhat.com/config-json-type'
+
+This annotation can have three values: `docker`, `kubernetes`, and `explicit`.
+
+#### 'docker'
+Specifying `docker` is the same as
+not specifying any annotation at all. In this case, SPI creates the Secret with config.json in this format where the 
+value of `_host_` is the URL host of the specific service provider, e.g. `quay.io` for Quay.:
+```json
+{
+    "auths": {
+        "_host_": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM=" // base64 encoded username:token123
+        }
+    }
+}
+```
+#### 'kubernetes'
+
+Setting the annotation value to`kubernetes` means that the `_host_` will be filled with URL host and path from the
+`repoUrl` of SPIAccessTokenBinding. For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  repoUrl: https://quay.io/repo/spi-test
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-type: kubernetes
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "quay.io/repo/spi-test": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
+        }
+    }
+}
+```
+For concrete example SPIAccessTokenBinding can take a look at this [sample](../samples/binding-kubetype-dockerconfigjson.yaml).
+
+WARNING: Avoid using the `kubernetes` value when your SPIAccessTokenBinding's `repoUrl` contains a tag of an image, as the tag
+will also be present in the `_host_` and Kubernetes may not be able to pull the image with such config.json.
+
+#### 'explicit' and annotation spi.appstudio.redhat.com/config-json-auth-key
+This is where the second annotation comes into play.
+Adding the annotation `spi.appstudio.redhat.com/config-json-type: explicit` means that the `_host_` will be filled with 
+explicit value specified in the `spi.appstudio.redhat.com/config-json-auth-key` annotation.
+
+  For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-type: explicit
+      spi.appstudio.redhat.com/config-json-auth-key: my.custom.host/test
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "my.custom.host/test": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
+        }
+    }
+}
+```
 
 ## Retrieving file content from SCM repository
 There is dedicated controller for file content requests, which can be performed by putting
