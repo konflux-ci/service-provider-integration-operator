@@ -112,10 +112,6 @@ func main() {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
 	}
-	if err := secretStorage.Initialize(ctx); err != nil {
-		setupLog.Error(err, "failed to initialize the secret storage")
-		os.Exit(1)
-	}
 
 	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, initializers); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
