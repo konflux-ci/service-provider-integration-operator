@@ -24,6 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// This is a wrapper around the provided SecretStorage that creates the SPIAccessTokenDataUpdate
+// objects on data modifications.
+// The supplied secret storage must be initialized explicitly before it can be used by this storage.
 type NotifyingSecretStorage struct {
 	ClientFactory kubernetesclient.K8sClientFactory
 	SecretStorage SecretStorage
@@ -53,11 +56,8 @@ func (s *NotifyingSecretStorage) Get(ctx context.Context, id SecretID) ([]byte, 
 	return data, nil
 }
 
-// Initialize implements SecretStorage
+// Initialize implements SecretStorage. It is a noop.
 func (s *NotifyingSecretStorage) Initialize(ctx context.Context) error {
-	if err := s.SecretStorage.Initialize(ctx); err != nil {
-		return fmt.Errorf("wrapped storage error: %w", err)
-	}
 	return nil
 }
 

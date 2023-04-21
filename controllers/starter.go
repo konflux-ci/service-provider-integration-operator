@@ -37,6 +37,11 @@ import (
 func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage secretstorage.SecretStorage, initializers *serviceprovider.Initializers) error {
 	ctx := context.Background()
 
+	// note that calling the initialize method on the different storages constructed here is essentially useless
+	// at the moment because they require an already initialized secret storage and the returned token
+	// storage doesn't hold any state of its own at the moment. But let's stick to the protocol so that this
+	// doesn't bite us in the future where we may add some state.
+
 	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
 	if err := tokenStorage.Initialize(ctx); err != nil {
 		return fmt.Errorf("failed to initialize the token storage: %w", err)

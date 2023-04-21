@@ -22,6 +22,11 @@ import (
 type SecretData map[string][]byte
 type RemoteSecretStorage secretstorage.TypedSecretStorage[api.RemoteSecret, SecretData]
 
+// NewJSONSerializingRemoteSecretStorage is a convenience function to construct a RemoteSecretStorage instance
+// based on the provided SecretStorage and serializing the data to JSON for persistence.
+// The returned object is an instance of DefaultTypedSecretStorage set up to work with RemoteSecret
+// objects as data keys and returning the SecretData instances.
+// NOTE that the provided secret storage MUST BE initialized before this call.
 func NewJSONSerializingRemoteSecretStorage(secretStorage secretstorage.SecretStorage) RemoteSecretStorage {
 	return &secretstorage.DefaultTypedSecretStorage[api.RemoteSecret, SecretData]{
 		DataTypeName:  "remote secret",

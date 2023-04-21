@@ -28,7 +28,7 @@ func TestCreateTokenStorage(t *testing.T) {
 	t.Run("unsupported type", func(t *testing.T) {
 		var blabol TokenStorageType = "eh"
 
-		ss, err := UninitializedSecretStorage(context.TODO(), &CommonCliArgs{TokenStorage: blabol})
+		ss, err := CreateInitializedSecretStorage(context.TODO(), &CommonCliArgs{TokenStorage: blabol})
 
 		assert.Nil(t, ss)
 		assert.Error(t, err)
@@ -37,7 +37,7 @@ func TestCreateTokenStorage(t *testing.T) {
 
 	t.Run("fail AWS new", func(t *testing.T) {
 		// this fails, because it lacks the proper AWS client configuration
-		ss, err := UninitializedSecretStorage(context.TODO(), &CommonCliArgs{TokenStorage: AWSTokenStorage})
+		ss, err := CreateInitializedSecretStorage(context.TODO(), &CommonCliArgs{TokenStorage: AWSTokenStorage})
 
 		assert.Nil(t, ss)
 		assert.Error(t, err)

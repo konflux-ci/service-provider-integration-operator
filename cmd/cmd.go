@@ -29,25 +29,29 @@ var (
 	errNilSecretStorage         = errors.New("nil secret storage")
 )
 
-func UninitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
+func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
 	var storage secretstorage.SecretStorage
-	var errStorage error
+	var err error
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		storage, errStorage = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
+		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
-		storage, errStorage = awscli.NewAwsSecretStorage(ctx, &args.AWSCliArgs)
+		storage, err = awscli.NewAwsSecretStorage(ctx, &args.AWSCliArgs)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedSecretStorage, args.TokenStorage)
 	}
 
-	if errStorage != nil {
-		return nil, fmt.Errorf("failed to create the secret storage '%s': %w", args.TokenStorage, errStorage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the secret storage '%s': %w", args.TokenStorage, err)
 	}
 
 	if storage == nil {
 		return nil, fmt.Errorf("%w: '%s'", errNilSecretStorage, args.TokenStorage)
+	}
+
+	if err = storage.Initialize(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize the secret storage '%s': %w", args.TokenStorage, err)
 	}
 
 	return storage, nil
