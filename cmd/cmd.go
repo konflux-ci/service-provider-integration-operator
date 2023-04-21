@@ -37,7 +37,7 @@ func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (s
 	case VaultTokenStorage:
 		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
-		storage, err = awscli.NewAwsSecretStorage(ctx, &args.AWSCliArgs)
+		storage, err = awscli.NewAwsSecretStorage(ctx, args.SPIInstanceId, &args.AWSCliArgs)
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedSecretStorage, args.TokenStorage)
 	}

@@ -31,14 +31,14 @@ func TestNewAwsSecretStorage(t *testing.T) {
 	credsFile := createFile(t, "awscreds", "")
 	defer os.Remove(credsFile)
 
-	storage, err := NewAwsSecretStorage(context.TODO(), &AWSCliArgs{ConfigFile: configFile, CredentialsFile: credsFile})
+	storage, err := NewAwsSecretStorage(context.TODO(), "spi-test", &AWSCliArgs{ConfigFile: configFile, CredentialsFile: credsFile})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, storage)
 }
 
 func TestNewAwsSecretStorageWithInvalidConfig(t *testing.T) {
-	storage, err := NewAwsSecretStorage(context.TODO(), &AWSCliArgs{})
+	storage, err := NewAwsSecretStorage(context.TODO(), "spi-test", &AWSCliArgs{})
 
 	assert.Error(t, err)
 	assert.Nil(t, storage)
