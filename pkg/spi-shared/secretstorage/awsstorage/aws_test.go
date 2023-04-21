@@ -23,7 +23,6 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/stretchr/testify/assert"
 )
@@ -50,8 +49,10 @@ func TestInitialize(t *testing.T) {
 }
 
 func TestInitSecretNameFormat(t *testing.T) {
-	ctx := context.WithValue(context.TODO(), config.SPIInstanceIdContextKey, "blabol")
-	assert.Contains(t, initSecretNameFormat(ctx), "blabol")
+	s := AwsSecretStorage{
+		SpiInstanceId: "blabol",
+	}
+	assert.Contains(t, s.initSecretNameFormat(), "blabol")
 }
 
 func TestGenerateSecretName(t *testing.T) {
