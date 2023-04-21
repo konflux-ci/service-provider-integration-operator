@@ -211,6 +211,11 @@ func (r *RemoteSecretReconciler) findSecretData(ctx context.Context, remoteSecre
 		return nil, false, fmt.Errorf("failed to find the secret associated with the remote secret %s: %w", client.ObjectKeyFromObject(remoteSecret), err)
 	}
 
+	meta.RemoveStatusCondition(&remoteSecret.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))
+	if err := r.saveSuccessStatus(ctx, remoteSecret); err != nil {
+		return nil, false, err
+	}
+
 	return secretData, true, nil
 }
 
@@ -248,7 +253,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	remoteSecret.Status.Target.Namespace.Namespace = deps.Secret.Namespace
 	remoteSecret.Status.Target.Namespace.SecretName = deps.Secret.Name
 
-	remoteSecret.Status.Target.Namespace.ServiceAccountNames = make([]string, 0, len(deps.ServiceAccounts))
+	remoteSecret.Status.Target.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 	for i, sa := range deps.ServiceAccounts {
 		remoteSecret.Status.Target.Namespace.ServiceAccountNames[i] = sa.Name
 	}

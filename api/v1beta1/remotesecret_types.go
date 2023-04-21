@@ -35,6 +35,7 @@ type RemoteSecretTarget struct {
 type RemoteSecretStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// +optional
 	Target     TargetStatus       `json:"target,omitempty"`
 }
 
