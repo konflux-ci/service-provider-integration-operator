@@ -65,28 +65,27 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestSecretTypeDefaultFields(t *testing.T) {
-	mapping := &api.TokenFieldMapping{}
 	t.Run("basicAuth", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeBasicAuth, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeBasicAuth}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.ServiceProviderUserName, converted[corev1.BasicAuthUsernameKey])
 		assert.Equal(t, at.Token, converted[corev1.BasicAuthPasswordKey])
 	})
 
 	t.Run("serviceAccountToken", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeServiceAccountToken, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeServiceAccountToken}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted["extra"])
 	})
 
 	t.Run("dockercfg", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeDockercfg, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeDockercfg}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigKey])
 	})
 
 	t.Run("dockerconfigjson", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeDockerConfigJson, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{RepoUrl: "https://spurl", Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeDockerConfigJson}}})
 		assert.NoError(t, err)
 		assert.Equal(t,
 			`{
@@ -99,19 +98,19 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 	})
 
 	t.Run("ssh-privatekey", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeSSHAuth, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeSSHAuth}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
 	})
 
 	t.Run("default", func(t *testing.T) {
-		converted, err := at.ToSecretType("", mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
 	})
 
 	t.Run("opaque", func(t *testing.T) {
-		converted, err := at.ToSecretType(corev1.SecretTypeOpaque, mapping)
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeOpaque}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
 	})
@@ -125,7 +124,7 @@ func TestEncodeDockerConfig(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		encoded, err := at.encodeDockerConfig()
+		encoded, err := at.encodeDockerConfig(map[string]string{}, "https://url.com")
 		assert.NoError(t, err)
 		assert.Equal(t,
 			`{
@@ -137,13 +136,63 @@ func TestEncodeDockerConfig(t *testing.T) {
 }`, encoded)
 	})
 
+	t.Run("docker type json is same as default", func(t *testing.T) {
+		repoUrl := "https://url.com/repo/image"
+		encodedDefault, errDefault := at.encodeDockerConfig(map[string]string{}, repoUrl)
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeDocker},
+			repoUrl)
+		assert.NoError(t, errDefault)
+		assert.NoError(t, err)
+		assert.Equal(t, encoded, encodedDefault)
+	})
+
+	t.Run("k8s type json", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeKubernetes},
+			"https://url.com/repo/image")
+		assert.NoError(t, err)
+		assert.Equal(t,
+			`{
+	"auths": {
+		"url.com/repo/image": {
+			"auth": "am9lbDphY2Nlc3MtdG9rZW4="
+		}
+	}
+}`, encoded)
+	})
+
+	t.Run("explicit json", func(t *testing.T) {
+		encoded, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeExplicit,
+			dockerConfigJsonExplicitAnnotationKey: "some.*.pattern"},
+			"https://url.com/repo/image")
+		assert.NoError(t, err)
+		assert.Equal(t,
+			`{
+	"auths": {
+		"some.*.pattern": {
+			"auth": "am9lbDphY2Nlc3MtdG9rZW4="
+		}
+	}
+}`, encoded)
+	})
+
+	t.Run("explicit without value fails", func(t *testing.T) {
+		_, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: dockerConfigJsonTypeExplicit},
+			"https://url.com/repo/image")
+		assert.Error(t, err)
+	})
+
+	t.Run("unknown type json value fails", func(t *testing.T) {
+		_, err := at.encodeDockerConfig(map[string]string{dockerConfigJsonTypeAnnotationKey: "unknown"},
+			"https://url.com/repo/image")
+		assert.Error(t, err)
+	})
+
 	t.Run("url-parse-failure", func(t *testing.T) {
-		newAt := at
-		newAt.ServiceProviderUrl = "::bad.url"
-		encoded, err := newAt.encodeDockerConfig()
+		encoded, err := at.encodeDockerConfig(map[string]string{}, "::bad.url")
 		assert.Error(t, err)
 		assert.Empty(t, encoded)
 	})
+
 }
 
 func TestMapping(t *testing.T) {

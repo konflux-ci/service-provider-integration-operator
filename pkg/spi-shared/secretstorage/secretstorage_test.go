@@ -72,7 +72,9 @@ func TestDefaultTypedSecretStorage_Initialize(t *testing.T) {
 		dtss.Initialize(context.TODO())
 	})
 
-	assert.True(t, record.InitializeCalled)
+	// this is explicitly a noop, so test that it doesn't meddle
+	// with the underlying storage.
+	assert.False(t, record.InitializeCalled)
 
 	assert.False(t, record.ToIDCalled)
 	assert.False(t, record.DeleteCalled)

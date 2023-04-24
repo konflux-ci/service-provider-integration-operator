@@ -108,6 +108,13 @@ are also applicable to the oauth service. The configmap for oauth-service-specif
 | --kube-insecure-tls | KUBEINSECURETLS      | false                                                                                                                       | Whether is allowed or not insecure kubernetes tls connection.                       |
 | --api-server        | API_SERVER           |                                                                                                                             | Host:port of the Kubernetes API server to use when handling HTTP requests.          |
 | --ca-path           | API_SERVER_CA_PATH   |                                                                                                                             | The path to the CA certificate to use when connecting to the Kubernetes API server. |
+ 
+Note that `--api-server` parameter is expected to be set only on managed environments, such as RHTAP staging or production clusters.
+Its presence also supposes that the environment is supports the workspace model, i.e. having the RBAC proxy installed upfront the control plane, 
+and having the workspace API deployed on a special known path on the api server URL. 
+This API is used to determine correct proxy path for making the user-authenticated requests,
+by requesting all accessible workspaces for the given user based on his authentication token, and finding the correct one using the namespace
+name where the current operation is performed.
 
 ## [Configuring Service Providers](#configuring-service-providers)
 

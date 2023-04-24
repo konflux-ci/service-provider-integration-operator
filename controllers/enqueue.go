@@ -15,13 +15,20 @@
 package controllers
 
 import (
+	"errors"
+	"reflect"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var enqueueLog = log.Log.WithName("enqueue-logger")
+var dataUpdateObjectExpected = errors.New("expected an SPIAccessTokenDataUpdate object")
 
 func logReconciliationRequests(requests []ctrl.Request, requestKind string, cause client.Object, objectKind string) {
 	if len(requests) > 0 {
@@ -31,4 +38,32 @@ func logReconciliationRequests(requests []ctrl.Request, requestKind string, caus
 			"requests", requests,
 			"requestKind", requestKind)
 	}
+}
+
+// requestForDataUpdateOwner returns an array of reconcile requests. This array has at most 1 element that is the owner of the
+// supplied data update object with the provided kind from the SPI Kubernetes API group.
+func requestForDataUpdateOwner(dataUpdateObject client.Object, ownerKind string, logRequest bool) []reconcile.Request {
+	update, ok := dataUpdateObject.(*api.SPIAccessTokenDataUpdate)
+	if !ok {
+		enqueueLog.Error(dataUpdateObjectExpected, dataUpdateObjectExpected.Error(), "actualType", reflect.TypeOf(dataUpdateObject).Name())
+		return []reconcile.Request{}
+	}
+
+	if update.Spec.DataOwner.APIGroup == nil || *update.Spec.DataOwner.APIGroup != api.GroupVersion.Group || update.Spec.DataOwner.Kind != ownerKind {
+		return []reconcile.Request{}
+	}
+
+	reqs := []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: dataUpdateObject.GetNamespace(),
+				Name:      update.Spec.DataOwner.Name,
+			},
+		},
+	}
+
+	if logRequest {
+		logReconciliationRequests(reqs, ownerKind, dataUpdateObject, "SPIAccessTokenDataUpdate")
+	}
+	return reqs
 }

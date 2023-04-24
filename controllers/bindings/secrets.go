@@ -20,13 +20,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -65,50 +64,26 @@ var (
 	}
 )
 
-type secretHandler struct {
-	Binding      *api.SPIAccessTokenBinding
-	Client       client.Client
-	TokenStorage tokenstorage.TokenStorage
+type secretHandler[K any] struct {
+	Target           SecretDeploymentTarget
+	ObjectMarker     ObjectMarker
+	SecretDataGetter SecretDataGetter[K]
 }
 
-func (h *secretHandler) Sync(ctx context.Context, tokenObject *api.SPIAccessToken, sp serviceprovider.ServiceProvider) (*corev1.Secret, api.SPIAccessTokenBindingErrorReason, error) {
-	token, err := h.TokenStorage.Get(ctx, tokenObject)
+func (h *secretHandler[K]) Sync(ctx context.Context, key K) (*corev1.Secret, string, error) {
+	data, errorReason, err := h.SecretDataGetter.GetData(ctx, key)
 	if err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, fmt.Errorf("failed to get the token data from token storage: %w", err)
+		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}
 
-	if token == nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenRetrieval, AccessTokenDataNotFoundError
-	}
-
-	at, err := sp.MapToken(ctx, h.Binding, tokenObject, token)
-	if err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, fmt.Errorf("failed to analyze the token to produce the mapping to the secret: %w", err)
-	}
-
-	stringData, err := at.ToSecretType(h.Binding.Spec.Secret.Type, &h.Binding.Spec.Secret.Fields)
-	if err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenAnalysis, fmt.Errorf("failed to create data to be injected into the secret: %w", err)
-	}
-
-	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
-	// used the Secret.StringData, but Sync gives us other goodies.
-	// So let's bite the bullet and convert manually here.
-	data := make(map[string][]byte, len(stringData))
-	for k, v := range stringData {
-		data[k] = []byte(v)
-	}
-
-	secretName := h.Binding.Status.SyncedObjectRef.Name
+	secretName := h.Target.GetActualSecretName()
 	if secretName == "" {
-		secretName = h.Binding.Spec.Secret.Name
+		secretName = h.Target.GetSpec().Name
 	}
-
-	annos := h.Binding.Spec.Secret.Annotations
 
 	diffOpts := secretDiffOpts
 
-	if h.Binding.Spec.Secret.Type == corev1.SecretTypeServiceAccountToken {
+	if h.Target.GetSpec().Type == corev1.SecretTypeServiceAccountToken {
 		diffOpts = serviceAccountSecretDiffOpts
 	}
 
@@ -118,43 +93,64 @@ func (h *secretHandler) Sync(ctx context.Context, tokenObject *api.SPIAccessToke
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        secretName,
-			Namespace:   h.Binding.GetNamespace(),
-			Labels:      h.Binding.Spec.Secret.Labels,
-			Annotations: annos,
+			Name:         secretName,
+			GenerateName: h.Target.GetSpec().GenerateName,
+			Namespace:    h.Target.GetTargetNamespace(),
+			Labels:       h.Target.GetSpec().Labels,
+			Annotations:  h.Target.GetSpec().Annotations,
 		},
 		Data: data,
-		Type: h.Binding.Spec.Secret.Type,
+		Type: h.Target.GetSpec().Type,
 	}
 
-	if secret.Name == "" {
-		secret.GenerateName = h.Binding.Name + "-secret-"
+	if secret.GenerateName == "" {
+		secret.GenerateName = h.Target.GetTargetObjectKey().Name + "-secret-"
 	}
 
-	if secret.Labels == nil {
-		secret.Labels = map[string]string{}
+	_, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), secret)
+	if err != nil {
+		return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to mark the secret as managed in the deployment target (%s): %w", h.Target.GetType(), err)
 	}
 
-	secret.Labels[ManagedByLabel] = h.Binding.Name
+	syncer := sync.New(h.Target.GetClient())
 
-	syncer := sync.New(h.Client)
+	lg := log.FromContext(ctx).V(logs.DebugLevel)
+	lg.Info("syncing binding secret", "secret", secret, "secretMetadata", &secret.ObjectMeta)
 
 	_, obj, err := syncer.Sync(ctx, nil, secret, diffOpts)
 	if err != nil {
-		return nil, api.SPIAccessTokenBindingErrorReasonTokenSync, fmt.Errorf("failed to sync the secret with the token data: %w", err)
+		return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to sync the secret with the token data: %w", err)
 	}
-	return obj.(*corev1.Secret), api.SPIAccessTokenBindingErrorReasonNoError, nil
+	return obj.(*corev1.Secret), "", nil
 }
 
-func (h *secretHandler) List(ctx context.Context) ([]*corev1.Secret, error) {
+func (h *secretHandler[K]) List(ctx context.Context) ([]*corev1.Secret, error) {
 	sl := &corev1.SecretList{}
-	if err := h.Client.List(ctx, sl, client.MatchingLabels{ManagedByLabel: h.Binding.Name}, client.InNamespace(h.Binding.Namespace)); err != nil {
-		return []*corev1.Secret{}, fmt.Errorf("failed to list the secrets associated with the binding %+v: %w", client.ObjectKeyFromObject(h.Binding), err)
+	opts, err := h.ObjectMarker.ListManagedOptions(ctx, h.Target.GetTargetObjectKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to formulate the options to list the secrets in the deployment target (%s): %w", h.Target.GetType(), err)
 	}
+
+	opts = append(opts, client.InNamespace(h.Target.GetTargetNamespace()))
+
+	lg := log.FromContext(ctx).V(logs.DebugLevel)
+	if err := h.Target.GetClient().List(ctx, sl, opts...); err != nil {
+		return []*corev1.Secret{}, fmt.Errorf("failed to list the secrets associated with the deployment target (%s) %+v: %w", h.Target.GetType(), h.Target.GetTargetObjectKey(), err)
+	}
+
+	lg.Info("listing secrets managed by target", "targetType", h.Target.GetType(), "targetKey", h.Target.GetTargetObjectKey(), "targetNamespace", h.Target.GetTargetNamespace(), "opts", opts, "secretCount", len(sl.Items))
 
 	ret := []*corev1.Secret{}
 	for i := range sl.Items {
-		ret = append(ret, &sl.Items[i])
+		if ok, err := h.ObjectMarker.IsManagedBy(ctx, h.Target.GetTargetObjectKey(), &sl.Items[i]); err != nil {
+			return []*corev1.Secret{}, fmt.Errorf("failed to determine if the secret %s is managed while processing the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(&sl.Items[i]),
+				h.Target.GetType(),
+				h.Target.GetTargetObjectKey(),
+				err)
+		} else if ok {
+			ret = append(ret, &sl.Items[i])
+		}
 	}
 
 	return ret, nil

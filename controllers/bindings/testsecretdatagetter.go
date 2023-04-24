@@ -14,9 +14,19 @@
 
 package bindings
 
-// LinkAnnotation is used to associate the binding to the service account (even the referenced service accounts get annotated by this so that we can clean up their secret lists when the binding is deleted).
-const LinkAnnotation = "spi.appstudio.redhat.com/linked-access-token-binding" //#nosec G101 -- false positive, this is just a label
+import "context"
 
-// ManagedByLabel marks the other objects as managed by SPI. Meaning that their lifecycle is bound
-// to the lifecycle of some SPI binding.
-const ManagedByLabel = "spi.appstudio.redhat.com/managed-by-binding"
+type TestSecretDataGetter[K any] struct {
+	GetDataImpl func(context.Context, K) (map[string][]byte, string, error)
+}
+
+var _ SecretDataGetter[bool] = (*TestSecretDataGetter[bool])(nil)
+
+// GetData implements SecretBuilder
+func (b *TestSecretDataGetter[K]) GetData(ctx context.Context, secretDataKey K) (data map[string][]byte, errorReason string, err error) {
+	if b.GetDataImpl != nil {
+		return b.GetDataImpl(ctx, secretDataKey)
+	}
+
+	return map[string][]byte{}, "", nil
+}

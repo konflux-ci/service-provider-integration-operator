@@ -76,7 +76,7 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 	DataTypeName string
 
 	// SecretStorage is the underlying secret storage used for the actual operations against the persistent
-	// storage.
+	// storage. This must be initialized explicitly before it is used in this token storage instance.
 	SecretStorage SecretStorage
 
 	// ToID is a function that converts the strongly typed ID to the generic SecretID used by the SecretStorage.
@@ -155,11 +155,8 @@ func (s *DefaultTypedSecretStorage[ID, D]) Get(ctx context.Context, id *ID) (*D,
 	return &parsed, nil
 }
 
-// Initialize implements TypedSecretStorage
+// Initialize implements TypedSecretStorage. It is a noop.
 func (s *DefaultTypedSecretStorage[ID, D]) Initialize(ctx context.Context) error {
-	if err := s.SecretStorage.Initialize(ctx); err != nil {
-		return fmt.Errorf("underlying secret storage failed to initialize: %w", err)
-	}
 	return nil
 }
 

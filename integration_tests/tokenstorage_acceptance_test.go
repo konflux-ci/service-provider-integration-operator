@@ -82,7 +82,7 @@ func TestAws(t *testing.T) {
 		return
 	}
 
-	storage, error := tokenstorage.NewAwsTokenStorage(ctx, &awscli.AWSCliArgs{
+	storage, error := tokenstorage.NewAwsTokenStorage(ctx, "spi-test", &awscli.AWSCliArgs{
 		ConfigFile:      awsConfig,
 		CredentialsFile: awsCreds,
 	})

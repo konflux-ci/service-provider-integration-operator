@@ -302,7 +302,9 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 				},
 			},
 			Secret: api.SecretSpec{
-				Type: corev1.SecretTypeBasicAuth,
+				LinkableSecretSpec: api.LinkableSecretSpec{
+					Type: corev1.SecretTypeBasicAuth,
+				},
 			},
 		},
 	}
