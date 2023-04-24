@@ -94,14 +94,10 @@ func main() {
 		setupLog.Error(err, "failed to construct the secret storage")
 		os.Exit(1)
 	}
-	if err := storage.Initialize(ctx); err != nil {
-		setupLog.Error(err, "failed to initialize the secret storage")
-		os.Exit(1)
-	}
 
 	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(storage)
 	// The initialization of the token storage is currently a noop, but let's stick
-	// to the protocol in case it actually does smething in the future.
+	// to the protocol in case it actually does something in the future.
 	if err := tokenStorage.Initialize(ctx); err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
