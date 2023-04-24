@@ -180,7 +180,7 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 	}
 
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
-	auditLog.Info("manual secret upload initiated")
+	auditLog.Info("manual secret upload initiated", "action", "UPDATE")
 	err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
 	if err != nil {
 		err = fmt.Errorf("failed to store the remote secret data: %w", err)
