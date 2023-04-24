@@ -167,12 +167,12 @@ func (r *TokenUploadReconciler) reconcileToken(ctx context.Context, uploadSecret
 func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
 	lg := log.FromContext(ctx)
 
-	// try to find  RemoteSecret
+	// try to find the remote secret
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
 	if err != nil {
 		return fmt.Errorf("can not find RemoteSecret: %w ", err)
 	} else if remoteSecret == nil {
-		// SPIAccessToken does not exist, so create it
+		// The remote secret does not exist, so create it
 		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
 		if err != nil {
 			return fmt.Errorf("can not create RemoteSecret: %w ", err)

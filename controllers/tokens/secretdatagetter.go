@@ -52,9 +52,6 @@ func (sb *SecretDataGetter) GetData(ctx context.Context, tokenObject *api.SPIAcc
 		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenAnalysis), fmt.Errorf("failed to create data to be injected into the secret: %w", err)
 	}
 
-	// copy the string data into the byte-array data so that sync works reliably. If we didn't sync, we could have just
-	// used the Secret.StringData, but Sync gives us other goodies.
-	// So let's bite the bullet and convert manually here.
 	data := make(map[string][]byte, len(stringData))
 	for k, v := range stringData {
 		data[k] = []byte(v)
