@@ -167,7 +167,7 @@ func (m *NamespaceObjectMarker) UnmarkReferenced(ctx context.Context, rs client.
 			delete(labels, LinkedByRemoteSecretLabel)
 			unlabeled = true
 		}
-			delete(annos, LinkedRemoteSecretsAnnotation)
+		delete(annos, LinkedRemoteSecretsAnnotation)
 	} else {
 		annos[LinkedRemoteSecretsAnnotation] = val.String()
 	}
