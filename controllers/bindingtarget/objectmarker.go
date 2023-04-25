@@ -122,6 +122,8 @@ func (m *BindingTargetObjectMarker) UnmarkReferenced(ctx context.Context, bindin
 		names.Remove(binding.Name)
 		if names.Len() == 0 {
 			delete(obj.GetAnnotations(), LinkAnnotation)
+		} else {
+			obj.GetAnnotations()[LinkAnnotation] = names.String()
 		}
 		return true, nil
 	}
