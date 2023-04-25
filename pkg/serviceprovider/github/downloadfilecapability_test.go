@@ -256,3 +256,20 @@ func TestGetUnexistingFile(t *testing.T) {
 	}
 	assert.Equal(t, "unexpected status code from GitHub API: 404. Response: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/reference/repos#get-repository-content\"}", err.Error())
 }
+
+func TestInvalidRepoUrl(t *testing.T) {
+	test := func(t *testing.T, repoUrl string) {
+		githubClientBuilder := githubClientBuilder{}
+
+		fileCapability := downloadFileCapability{&http.Client{}, githubClientBuilder}
+		c, err := fileCapability.DownloadFile(context.TODO(), repoUrl, "myfile", "bla", &api.SPIAccessToken{}, 1024)
+
+		assert.Error(t, err)
+		assert.Empty(t, c)
+	}
+
+	test(t, "https://github.com")
+	test(t, "https://github.com/")
+	test(t, "https://github.com/org-withou-repo")
+	test(t, "https://github.com/org-withou-repo/")
+}

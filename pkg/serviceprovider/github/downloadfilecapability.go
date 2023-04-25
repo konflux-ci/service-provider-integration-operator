@@ -39,6 +39,7 @@ var (
 	unexpectedStatusCodeError  = errors.New("unexpected status code from GitHub API")
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
 	pathIsADirectoryError      = errors.New("provided path refers to a directory, not file")
+	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
 var _URLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)(.git)?$`)
@@ -46,6 +47,10 @@ var _URLRegexpNames = _URLRegexp.SubexpNames()
 
 func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
 	submatches := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
+	if len(submatches) == 0 {
+		return "", fmt.Errorf("failed to match github repository: %w", unexpectedRepoUrlError)
+	}
+
 	matchesMap := map[string]string{}
 	for i, n := range submatches[0] {
 		matchesMap[_URLRegexpNames[i]] = n
