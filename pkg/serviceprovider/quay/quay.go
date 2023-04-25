@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -378,8 +379,14 @@ type quayProbe struct{}
 
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
-func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, config.ServiceProviderTypeQuay.DefaultBaseUrl) || strings.HasPrefix(url, config.ServiceProviderTypeQuay.DefaultHost) {
+func (q quayProbe) Examine(_ *http.Client, repoBaseurl string) (string, error) {
+	baseUrl, err := url.Parse(repoBaseurl)
+	if err != nil {
+		return "", fmt.Errorf("%w '%s'", failedToParseRepoUrlError, repoBaseurl)
+	}
+	if (baseUrl.Host != "" && fmt.Sprintf("%s://%s", baseUrl.Scheme, baseUrl.Host) == config.ServiceProviderTypeQuay.DefaultBaseUrl) ||
+		// no proto, so considering host as a first part until "/"
+		(baseUrl.Host == "" && strings.Split(repoBaseurl, "/")[0] == config.ServiceProviderTypeQuay.DefaultHost) {
 		return config.ServiceProviderTypeQuay.DefaultBaseUrl, nil
 	} else {
 		return "", nil
