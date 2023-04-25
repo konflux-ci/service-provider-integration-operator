@@ -457,7 +457,7 @@ func TestGitHubUnexpectedStatusMetric(t *testing.T) {
 	assert.True(t, metricPresent)
 }
 
-func TestQuayProbe_Examine(t *testing.T) {
+func TestGithubProbe_Examine(t *testing.T) {
 	probe := githubProbe{}
 	test := func(t *testing.T, url string, expectedMatch bool) {
 		baseUrl, err := probe.Examine(nil, url)
