@@ -41,11 +41,6 @@ func (t *NamespaceTarget) GetTargetObjectKey() client.ObjectKey {
 	return client.ObjectKeyFromObject(t.RemoteSecret)
 }
 
-// GetNamespace implements SecretDeploymentTarget
-func (t *NamespaceTarget) GetNamespace() string {
-	return t.RemoteSecret.Namespace
-}
-
 func (t *NamespaceTarget) GetTargetNamespace() string {
 	return t.RemoteSecret.Spec.Target.Namespace
 }
