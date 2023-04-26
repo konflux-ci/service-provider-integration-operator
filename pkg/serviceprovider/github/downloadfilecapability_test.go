@@ -272,4 +272,5 @@ func TestInvalidRepoUrl(t *testing.T) {
 	test(t, "https://github.com/")
 	test(t, "https://github.com/org-withou-repo")
 	test(t, "https://github.com/org-withou-repo/")
+	test(t, "bla-bol")
 }
