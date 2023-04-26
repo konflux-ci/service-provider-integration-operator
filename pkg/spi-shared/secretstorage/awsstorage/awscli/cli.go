@@ -38,7 +38,7 @@ var (
 	errInvalidCliArgs = errors.New("invalid cli args")
 )
 
-func NewAwsSecretStorage(ctx context.Context, args *AWSCliArgs) (secretstorage.SecretStorage, error) {
+func NewAwsSecretStorage(ctx context.Context, spiInstanceId string, args *AWSCliArgs) (secretstorage.SecretStorage, error) {
 	log.FromContext(ctx).Info("creating aws client")
 	cfg, err := configFromCliArgs(ctx, args)
 	if err != nil {
@@ -46,7 +46,8 @@ func NewAwsSecretStorage(ctx context.Context, args *AWSCliArgs) (secretstorage.S
 	}
 
 	return &awsstorage.AwsSecretStorage{
-		Config: cfg,
+		Config:        cfg,
+		SpiInstanceId: spiInstanceId,
 	}, nil
 }
 

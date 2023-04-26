@@ -89,8 +89,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
+	storage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
+		setupLog.Error(err, "failed to construct the secret storage")
+		os.Exit(1)
+	}
+
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(storage)
+	// The initialization of the token storage is currently a noop, but let's stick
+	// to the protocol in case it actually does something in the future.
+	if err := tokenStorage.Initialize(ctx); err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
@@ -104,7 +112,7 @@ func main() {
 		ClientFactory: userAuthK8sClientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
 			ClientFactory: userAuthK8sClientFactory,
-			TokenStorage:  strg,
+			TokenStorage:  tokenStorage,
 		},
 	}
 
@@ -143,7 +151,7 @@ func main() {
 		StateStorage:              stateStorage,
 		ClientFactory:             userAuthK8sClientFactory,
 		InClusterK8sClient:        inClusterK8sClient,
-		TokenStorage:              strg,
+		TokenStorage:              tokenStorage,
 		RedirectTemplate:          redirectTpl,
 	}
 	oauthRouter, routerErr := oauth.NewRouter(ctx, routerCfg, config.SupportedServiceProviderTypes)

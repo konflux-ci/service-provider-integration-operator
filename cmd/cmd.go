@@ -19,38 +19,40 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage/awscli"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage/vaultcli"
 )
 
 var (
-	errUnsupportedTokenStorage = errors.New("unsupported token storage type")
-	errNilTokenStorage         = errors.New("nil token storage")
+	errUnsupportedSecretStorage = errors.New("unsupported secret storage type")
+	errNilSecretStorage         = errors.New("nil secret storage")
 )
 
-func InitTokenStorage(ctx context.Context, args *CommonCliArgs) (tokenstorage.TokenStorage, error) {
-	var tokenStorage tokenstorage.TokenStorage
-	var errTokenStorage error
+func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
+	var storage secretstorage.SecretStorage
+	var err error
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		tokenStorage, errTokenStorage = tokenstorage.NewVaultStorage(ctx, &args.VaultCliArgs)
+		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
-		tokenStorage, errTokenStorage = tokenstorage.NewAwsTokenStorage(ctx, &args.AWSCliArgs)
+		storage, err = awscli.NewAwsSecretStorage(ctx, args.SPIInstanceId, &args.AWSCliArgs)
 	default:
-		return nil, fmt.Errorf("%w '%s'", errUnsupportedTokenStorage, args.TokenStorage)
+		return nil, fmt.Errorf("%w '%s'", errUnsupportedSecretStorage, args.TokenStorage)
 	}
 
-	if errTokenStorage != nil {
-		return nil, fmt.Errorf("failed to create the token storage '%s': %w", args.TokenStorage, errTokenStorage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the secret storage '%s': %w", args.TokenStorage, err)
 	}
 
-	if tokenStorage == nil {
-		return nil, fmt.Errorf("%w: '%s'", errNilTokenStorage, args.TokenStorage)
+	if storage == nil {
+		return nil, fmt.Errorf("%w: '%s'", errNilSecretStorage, args.TokenStorage)
 	}
 
-	if err := tokenStorage.Initialize(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize token storage: %w", err)
+	if err = storage.Initialize(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize the secret storage '%s': %w", args.TokenStorage, err)
 	}
 
-	return tokenStorage, nil
+	return storage, nil
 }

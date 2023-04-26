@@ -127,6 +127,8 @@ spec:
                           might or might not correspond to the Kubernetes user id).
                         type: string
                     type: object
+                  generateName:
+                    type: string
                   labels:
                     additionalProperties:
                       type: string
