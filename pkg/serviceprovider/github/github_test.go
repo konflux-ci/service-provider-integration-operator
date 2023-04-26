@@ -473,6 +473,7 @@ func TestGithubProbe_Examine(t *testing.T) {
 	test(t, "https://github.com/name/repo", true)
 	test(t, "https://github.com.foo.bar/name/repo", false)
 	test(t, "github.com/name/repo", false)
+	test(t, "https://www.github.com/name/repo", false)
 	test(t, "quay.io.foo.bar/name/repo", false)
 }
 
