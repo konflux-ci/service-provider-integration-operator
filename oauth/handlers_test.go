@@ -276,12 +276,12 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.Contains(t, string(data), errorMsg)
+		assert.Equal(t, string(data), errorMsg)
 	}
-	testResponse(uploaderNotFound, http.StatusNotFound, "mocking a missing SPIAccessToken")
-	testResponse(uploaderForbidden, http.StatusForbidden, "mocking a token with forbidden access")
-	testResponse(uploaderUnauthorized, http.StatusUnauthorized, "mocking an invalid token")
-	testResponse(uploaderInternal, http.StatusInternalServerError, "mocking internal unrelated error")
+	testResponse(uploaderNotFound, http.StatusNotFound, "specified SPIAccessToken does not exist")
+	testResponse(uploaderForbidden, http.StatusForbidden, "authorization token does not have permission to update SPIAccessToken")
+	testResponse(uploaderUnauthorized, http.StatusUnauthorized, "invalid authorization token, cannot update SPIAccessToken")
+	testResponse(uploaderInternal, http.StatusInternalServerError, "failed to upload the token")
 }
 
 func TestUploader_FailWithoutAuthorization(t *testing.T) {
@@ -316,7 +316,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed extract authorization information from headers: no bearer token found"
+	var expected = "failed extract authorization information from headers"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
@@ -354,7 +354,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed to decode request body as token JSON: invalid character 'h' in literal true (expecting 'r')"
+	var expected = "failed to decode request body as token JSON"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
@@ -469,7 +469,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed to upload the token: failed to store the token data into storage"
+	var expected = "failed to upload the token"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
