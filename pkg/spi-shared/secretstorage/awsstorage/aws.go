@@ -25,7 +25,6 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -48,7 +47,9 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	Config           *aws.Config
+	SpiInstanceId string
+	Config        *aws.Config
+
 	secretNameFormat string
 	client           awsClient
 }
@@ -57,7 +58,7 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 	lg(ctx).Info("initializing AWS token storage")
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
-	s.secretNameFormat = initSecretNameFormat(ctx)
+	s.secretNameFormat = s.initSecretNameFormat()
 
 	if errCheck := s.checkCredentials(ctx); errCheck != nil {
 		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
@@ -85,9 +86,9 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
 	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
-	dbgLog.Info("getting the token")
 
 	secretName := s.generateAwsSecretName(&id)
+	dbgLog.Info("getting the token", "secretname", secretName, "secretId", id)
 	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
@@ -180,7 +181,7 @@ func (s *AwsSecretStorage) updateAwsSecret(ctx context.Context, name *string, da
 }
 
 func (s *AwsSecretStorage) getAwsSecret(ctx context.Context, secretName *string) (*secretsmanager.GetSecretValueOutput, error) {
-	lg(ctx).Info("getting AWS secret")
+	lg(ctx).Info("getting AWS secret", "secretname", secretName)
 
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: secretName,
@@ -204,10 +205,10 @@ func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretI
 	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Namespace, secretId.Name))
 }
 
-func initSecretNameFormat(ctx context.Context) string {
-	if spiInstanceId := ctx.Value(config.SPIInstanceIdContextKey); spiInstanceId == nil {
+func (s *AwsSecretStorage) initSecretNameFormat() string {
+	if s.SpiInstanceId == "" {
 		return "%s/%s"
 	} else {
-		return fmt.Sprint(spiInstanceId) + "/%s/%s"
+		return s.SpiInstanceId + "/%s/%s"
 	}
 }

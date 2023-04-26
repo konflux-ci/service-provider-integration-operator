@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -71,7 +72,11 @@ func (n NotifyingTokenStorage) createDataUpdate(ctx context.Context, owner *api.
 			Namespace:    owner.Namespace,
 		},
 		Spec: api.SPIAccessTokenDataUpdateSpec{
-			TokenName: owner.Name,
+			DataOwner: corev1.TypedLocalObjectReference{
+				APIGroup: &api.GroupVersion.Group,
+				Kind:     "SPIAccessToken",
+				Name:     owner.Name,
+			},
 		},
 	}
 	client, err := n.ClientFactory.CreateClient(ctx)

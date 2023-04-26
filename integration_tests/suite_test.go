@@ -38,8 +38,8 @@ import (
 
 	config2 "github.com/onsi/ginkgo/config"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -220,6 +220,7 @@ var _ = BeforeSuite(func() {
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
 		EnableTokenUpload:     true,
+		EnableRemoteSecrets:   true,
 	}
 
 	// start webhook server using Manager
@@ -247,11 +248,12 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	strg := &memorystorage.MemoryTokenStorage{}
+	strg := &memorystorage.MemoryStorage{}
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(strg)
 
 	ITest.TokenStorage = &tokenstorage.NotifyingTokenStorage{
 		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: ITest.Client},
-		TokenStorage:  strg,
+		TokenStorage:  tokenStorage,
 	}
 
 	Expect(ITest.TokenStorage.Initialize(ctx)).To(Succeed())

@@ -391,8 +391,10 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 	Describe("Syncing", func() {
 		binding := StandardTestBinding("sync-test")
 		binding.Spec.Secret = api.SecretSpec{
-			Name: "binding-secret",
-			Type: corev1.SecretTypeBasicAuth,
+			LinkableSecretSpec: api.LinkableSecretSpec{
+				Name: "binding-secret",
+				Type: corev1.SecretTypeBasicAuth,
+			},
 		}
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
@@ -611,7 +613,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://acme/acme",
 						Secret: api.SecretSpec{
-							Type: corev1.SecretTypeBasicAuth,
+							LinkableSecretSpec: api.LinkableSecretSpec{
+								Type: corev1.SecretTypeBasicAuth,
+							},
 						},
 					},
 				}
@@ -788,7 +792,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				Spec: api.SPIAccessTokenBindingSpec{
 					RepoUrl: "test-provider://acme/acme",
 					Secret: api.SecretSpec{
-						Type: corev1.SecretTypeBasicAuth,
+						LinkableSecretSpec: api.LinkableSecretSpec{
+							Type: corev1.SecretTypeBasicAuth,
+						},
 					},
 				},
 			}
@@ -877,16 +883,18 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
-									Type: corev1.SecretTypeServiceAccountToken,
-									Annotations: map[string]string{
-										corev1.ServiceAccountNameKey: "sa-token",
-									},
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Reference: corev1.LocalObjectReference{
-													Name: "sa-token",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
+										Type: corev1.SecretTypeServiceAccountToken,
+										Annotations: map[string]string{
+											corev1.ServiceAccountNameKey: "sa-token",
+										},
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													Reference: corev1.LocalObjectReference{
+														Name: "sa-token",
+													},
 												},
 											},
 										},
@@ -902,12 +910,14 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeOpaque,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-secret-sa-",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										Type: corev1.SecretTypeOpaque,
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													Managed: api.ManagedServiceAccountSpec{
+														GenerateName: "sa-secret-sa-",
+													},
 												},
 											},
 										},
@@ -923,13 +933,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-image-pull-secret-sa-",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													As: api.ServiceAccountLinkTypeImagePullSecret,
+													Managed: api.ManagedServiceAccountSpec{
+														GenerateName: "sa-image-pull-secret-sa-",
+													},
 												},
 											},
 										},
@@ -1078,13 +1090,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://test/",
 						Secret: api.SecretSpec{
-							Type: corev1.SecretTypeOpaque,
-							LinkedTo: []api.SecretLink{
-								{
-									ServiceAccount: api.ServiceAccountLink{
-										As: api.ServiceAccountLinkTypeImagePullSecret,
-										Managed: api.ManagedServiceAccountSpec{
-											GenerateName: "sa-secret-sa-",
+							LinkableSecretSpec: api.LinkableSecretSpec{
+								Type: corev1.SecretTypeOpaque,
+								LinkedTo: []api.SecretLink{
+									{
+										ServiceAccount: api.ServiceAccountLink{
+											As: api.ServiceAccountLinkTypeImagePullSecret,
+											Managed: api.ManagedServiceAccountSpec{
+												GenerateName: "sa-secret-sa-",
+											},
 										},
 									},
 								},
@@ -1147,12 +1161,14 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeBasicAuth,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Reference: corev1.LocalObjectReference{
-													Name: "test-service-account",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										Type: corev1.SecretTypeBasicAuth,
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													Reference: corev1.LocalObjectReference{
+														Name: "test-service-account",
+													},
 												},
 											},
 										},
@@ -1168,13 +1184,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Reference: corev1.LocalObjectReference{
-													Name: "test-service-account",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													As: api.ServiceAccountLinkTypeImagePullSecret,
+													Reference: corev1.LocalObjectReference{
+														Name: "test-service-account",
+													},
 												},
 											},
 										},
@@ -1372,13 +1390,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-managed-sa-",
+									LinkableSecretSpec: api.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []api.SecretLink{
+											{
+												ServiceAccount: api.ServiceAccountLink{
+													As: api.ServiceAccountLinkTypeImagePullSecret,
+													Managed: api.ManagedServiceAccountSpec{
+														GenerateName: "sa-managed-sa-",
+													},
 												},
 											},
 										},

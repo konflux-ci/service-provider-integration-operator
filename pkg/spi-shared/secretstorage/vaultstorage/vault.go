@@ -255,11 +255,15 @@ func (v *VaultSecretStorage) login(ctx context.Context) error {
 func (v *VaultSecretStorage) initMetrics(ctx context.Context) error {
 	if v.Config.MetricsRegisterer != nil {
 		if err := v.Config.MetricsRegisterer.Register(vaultRequestCountMetric); err != nil {
-			return fmt.Errorf("failed to register request count metric: %w", err)
+			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
+				return fmt.Errorf("failed to register request count metric: %w", err)
+			}
 		}
 
 		if err := v.Config.MetricsRegisterer.Register(vaultResponseTimeMetric); err != nil {
-			return fmt.Errorf("failed to register response time metric: %w", err)
+			if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
+				return fmt.Errorf("failed to register response time metric: %w", err)
+			}
 		}
 	} else {
 		log.FromContext(ctx).Info("no metrics registry configured - metrics collection for Vault access is disabled")
