@@ -36,6 +36,7 @@ type TokenStorage interface {
 // NewJSONSerializingTokenStorage is a convenience function to construct a TokenStorage instance
 // based on the provided SecretStorage and serializing the data to JSON for persistence.
 // The returned object is an instance of DefaultTokenStorage.
+// NOTE that the provided secret storage MUST BE initialized before this call.
 func NewJSONSerializingTokenStorage(secretStorage secretstorage.SecretStorage) TokenStorage {
 	return &DefaultTokenStorage{
 		SecretStorage: &secretstorage.DefaultTypedSecretStorage[api.SPIAccessToken, api.Token]{
@@ -53,7 +54,8 @@ func NewJSONSerializingTokenStorage(secretStorage secretstorage.SecretStorage) T
 // It honors the original behavior of the TokenStorage interface that used to return nil instead
 // of throwing NotFoundError when encountering non-existent records in Get and Delete.
 type DefaultTokenStorage struct {
-	// SecretStorage is the underlying storage that handled the storing of the tokens
+	// SecretStorage is the underlying storage that handled the storing of the tokens. This must be initialized explicitly
+	// before it is used in this token storage instance.
 	SecretStorage secretstorage.TypedSecretStorage[api.SPIAccessToken, api.Token]
 }
 
@@ -77,12 +79,8 @@ func (s *DefaultTokenStorage) Get(ctx context.Context, owner *api.SPIAccessToken
 	return t, nil
 }
 
-// Initialize implements TokenStorage
+// Initialize implements TokenStorage. It is a noop in the case of the DefaultTokenStorage.
 func (s *DefaultTokenStorage) Initialize(ctx context.Context) error {
-	if err := s.SecretStorage.Initialize(ctx); err != nil {
-		return fmt.Errorf("failed to initialize the underlying secret storage: %w", err)
-	}
-
 	return nil
 }
 

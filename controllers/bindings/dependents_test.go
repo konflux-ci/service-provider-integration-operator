@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +48,7 @@ func TestDependentsCleanup(t *testing.T) {
 					Name:      "secret",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByLabel: "binding",
+						"managed": "obj",
 					},
 				},
 			},
@@ -58,7 +57,7 @@ func TestDependentsCleanup(t *testing.T) {
 					Name:      "sa-refed",
 					Namespace: "default",
 					Annotations: map[string]string{
-						LinkAnnotation: "binding",
+						"linked": "obj",
 					},
 				},
 				Secrets: []corev1.ObjectReference{
@@ -83,27 +82,34 @@ func TestDependentsCleanup(t *testing.T) {
 					Name:      "sa-managed",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByLabel: "binding",
+						"managed": "obj",
 					},
 					Annotations: map[string]string{
-						LinkAnnotation: "binding",
+						"linked": "obj",
 					},
 				},
 			},
 		).
 		Build()
 
-	binding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "binding",
-			Namespace: "default",
+	h := DependentsHandler[*api.SPIAccessToken]{
+		Target: &TestDeploymentTarget{
+			GetClientImpl: func() client.Client {
+				return cl
+			},
+			GetTargetNamespaceImpl: func() string {
+				return "default"
+			},
 		},
-	}
-
-	h := DependentsHandler{
-		Client:       cl,
-		Binding:      binding,
-		TokenStorage: &memorystorage.MemoryTokenStorage{},
+		SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+		ObjectMarker: &TestObjectMarker{
+			IsManagedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+				return o.GetLabels()["managed"] == "obj", nil
+			},
+			IsReferencedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+				return o.GetAnnotations()["linked"] == "obj", nil
+			},
+		},
 	}
 
 	assert.NoError(t, h.Cleanup(context.TODO()))
@@ -112,7 +118,6 @@ func TestDependentsCleanup(t *testing.T) {
 	sa := &corev1.ServiceAccount{}
 
 	t.Run("deletes managed SAs", func(t *testing.T) {
-
 		err := cl.Get(context.TODO(), client.ObjectKey{Name: "sa-managed", Namespace: "default"}, sa)
 		assert.True(t, errors.IsNotFound(err))
 	})
@@ -143,7 +148,7 @@ func TestDependentsRevertTo(t *testing.T) {
 					Name:      "secret",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByLabel: "binding",
+						"managed": "obj",
 					},
 				},
 			},
@@ -152,7 +157,7 @@ func TestDependentsRevertTo(t *testing.T) {
 					Name:      "sa-refed",
 					Namespace: "default",
 					Annotations: map[string]string{
-						LinkAnnotation: "binding",
+						"linked": "obj",
 					},
 				},
 				Secrets: []corev1.ObjectReference{
@@ -177,10 +182,10 @@ func TestDependentsRevertTo(t *testing.T) {
 					Name:      "sa-managed",
 					Namespace: "default",
 					Labels: map[string]string{
-						ManagedByLabel: "binding",
+						"managed": "obj",
 					},
 					Annotations: map[string]string{
-						LinkAnnotation: "binding",
+						"linked": "obj",
 					},
 				},
 				Secrets: []corev1.ObjectReference{
@@ -199,21 +204,29 @@ func TestDependentsRevertTo(t *testing.T) {
 			Build()
 	}
 
-	t.Run("deletes the secret when there wasn't any originally", func(t *testing.T) {
-		binding := &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding",
-				Namespace: "default",
-			},
-		}
+	objectMarker := &TestObjectMarker{
+		IsManagedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			return o.GetLabels()["managed"] == "obj", nil
+		},
+		IsReferencedByImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			return o.GetAnnotations()["linked"] == "obj", nil
+		},
+		UnmarkReferencedImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			delete(o.GetAnnotations(), "linked")
+			return true, nil
+		},
+	}
 
+	t.Run("deletes the secret when there wasn't any originally", func(t *testing.T) {
 		// create the objects in the cluster as if the reconciler did it.
 		cl := newCl(origState()...)
 
-		h := DependentsHandler{
-			Client:       cl,
-			Binding:      binding,
-			TokenStorage: &memorystorage.MemoryTokenStorage{},
+		h := DependentsHandler[*api.SPIAccessToken]{
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		// now create a checkpoint in the empty cluster
@@ -235,8 +248,7 @@ func TestDependentsRevertTo(t *testing.T) {
 	})
 
 	t.Run("reverts to using original link types", func(t *testing.T) {
-		// set the binding as it exists before reconciliation, which reflects the origState of the objects in the cluster.
-		binding := &api.SPIAccessTokenBinding{
+		_ = &api.SPIAccessTokenBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "binding",
 				Namespace: "default",
@@ -254,10 +266,25 @@ func TestDependentsRevertTo(t *testing.T) {
 
 		cl := newCl(origState()...)
 
-		h := DependentsHandler{
-			Client:       cl,
-			Binding:      binding,
-			TokenStorage: &memorystorage.MemoryTokenStorage{},
+		h := DependentsHandler[*api.SPIAccessToken]{
+			// set the state as it exists before reconciliation, which reflects the origState of the objects in the cluster.
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+				GetTargetNamespaceImpl: func() string {
+					return "default"
+				},
+				GetActualSecretNameImpl: func() string {
+					return "secret"
+				},
+				GetActualServiceAccountNamesImpl: func() []string {
+					return []string{
+						"sa-refed",
+						"sa-managed",
+					}
+				},
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
@@ -287,34 +314,33 @@ func TestDependentsRevertTo(t *testing.T) {
 		assert.Len(t, saRefed.Secrets, 2)
 		assert.Len(t, saRefed.ImagePullSecrets, 2)
 	})
+
 	t.Run("deletes no longer linked managed SAs", func(t *testing.T) {
 		// here, we're going to pretend that the reconciler created a new SA as a result of Sync - i.e that
 		// the spec of the binding contains a new service account that was previously not mentioned in its status.
 		// (i.e. the user updated the binding with a new SA link)
 
-		// set the binding as it exists before reconciliation, which reflects the origState of the objects in the cluster.
-		binding := &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding",
-				Namespace: "default",
-			},
-			Status: api.SPIAccessTokenBindingStatus{
-				SyncedObjectRef: api.TargetObjectRef{
-					Name: "secret",
-				},
-				ServiceAccountNames: []string{
-					"sa-refed",
-					"sa-managed",
-				},
-			},
-		}
-
 		cl := newCl(origState()...)
 
-		h := DependentsHandler{
-			Client:       cl,
-			Binding:      binding,
-			TokenStorage: &memorystorage.MemoryTokenStorage{},
+		h := DependentsHandler[*api.SPIAccessToken]{
+			// set the binding as it exists before reconciliation, which reflects the origState of the objects in the cluster.
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+				GetTargetNamespaceImpl: func() string {
+					return "default"
+				},
+				GetActualSecretNameImpl: func() string {
+					return "secret"
+				},
+				GetActualServiceAccountNamesImpl: func() []string {
+					return []string{
+						"sa-refed",
+						"sa-managed",
+					}
+				},
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
@@ -326,10 +352,10 @@ func TestDependentsRevertTo(t *testing.T) {
 				Name:      "sa-new",
 				Namespace: "default",
 				Labels: map[string]string{
-					ManagedByLabel: "binding",
+					"managed": "obj",
 				},
 				Annotations: map[string]string{
-					LinkAnnotation: "binding",
+					"linked": "obj",
 				},
 			},
 			Secrets: []corev1.ObjectReference{
@@ -347,33 +373,34 @@ func TestDependentsRevertTo(t *testing.T) {
 		err = cl.Get(context.TODO(), client.ObjectKeyFromObject(newSA), newSA)
 		assert.True(t, errors.IsNotFound(err))
 	})
+
 	t.Run("unannotates referenced SA if not linked anymore", func(t *testing.T) {
 		// here, we're testing the situation where there is an attempt to link a new pre-existing SA but the update of the binding fails, so we
 		// need to revert to the SA not being linked.
 
-		// set the binding as it exists before reconciliation, which reflects the origState of the objects in the cluster.
-		binding := &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding",
-				Namespace: "default",
-			},
-			Status: api.SPIAccessTokenBindingStatus{
-				SyncedObjectRef: api.TargetObjectRef{
-					Name: "secret",
-				},
-				ServiceAccountNames: []string{
-					"sa-refed",
-					"sa-managed",
-				},
-			},
-		}
-
 		cl := newCl(origState()...)
 
-		h := DependentsHandler{
-			Client:       cl,
-			Binding:      binding,
-			TokenStorage: &memorystorage.MemoryTokenStorage{},
+		linkedSAs := []string{
+			"sa-refed",
+			"sa-managed",
+		}
+
+		h := DependentsHandler[*api.SPIAccessToken]{
+			// set the binding as it exists before reconciliation, which reflects the origState of the objects in the cluster.
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+				GetTargetNamespaceImpl: func() string {
+					return "default"
+				},
+				GetActualSecretNameImpl: func() string {
+					return "secret"
+				},
+				GetActualServiceAccountNamesImpl: func() []string {
+					return linkedSAs
+				},
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.SPIAccessToken]{},
+			ObjectMarker:     objectMarker,
 		}
 
 		cp, err := h.CheckPoint(context.TODO())
@@ -387,7 +414,7 @@ func TestDependentsRevertTo(t *testing.T) {
 				Name:      "newRefedSA",
 				Namespace: "default",
 				Annotations: map[string]string{
-					LinkAnnotation: "binding",
+					"linked": "obj",
 				},
 			},
 			Secrets: []corev1.ObjectReference{
@@ -398,7 +425,7 @@ func TestDependentsRevertTo(t *testing.T) {
 		}
 		assert.NoError(t, cl.Create(context.TODO(), newRefedSA))
 
-		binding.Status.ServiceAccountNames = append(binding.Status.ServiceAccountNames, "newRefedSA")
+		linkedSAs = append(linkedSAs, "newRefedSA")
 
 		// and now, we're ready to revert
 		assert.NoError(t, h.RevertTo(context.TODO(), cp))
@@ -410,5 +437,4 @@ func TestDependentsRevertTo(t *testing.T) {
 		assert.Empty(t, checkRefed.Labels)
 		assert.Empty(t, checkRefed.Annotations)
 	})
-
 }

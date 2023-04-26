@@ -53,6 +53,8 @@ import (
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindingtarget"
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/tokens"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 )
 
@@ -88,7 +90,7 @@ type SPIAccessTokenBindingReconciler struct {
 func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.syncer = sync.New(mgr.GetClient())
 	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedObjectsFinalizerName, &linkedObjectsFinalizer{client: r.Client}); err != nil {
+	if err := r.finalizers.Register(linkedObjectsFinalizerName, &linkedObjectsFinalizer{client: r.Client, tokenstorage: r.TokenStorage, factory: r.ServiceProviderFactory}); err != nil {
 		return fmt.Errorf("failed to register the linked secrets finalizer: %w", err)
 	}
 
@@ -121,14 +123,17 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 			return requests
 		})).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				dataUpdate, ok := o.(*api.SPIAccessTokenDataUpdate)
-				if !ok {
-					return false
-				}
-				return binding.Status.LinkedAccessTokenName == dataUpdate.Spec.TokenName
+		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) (reqs []reconcile.Request) {
+			// let's see if this data update is even related to tokens and bail quickly if it is not.
+			tmpRequests := requestForDataUpdateOwner(o, "SPIAccessToken", false)
+			if len(tmpRequests) == 0 {
+				return tmpRequests
+			}
+			// the array has by contract at most 1 element
+			tokenRequest := tmpRequests[0]
 
+			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+				return tokenRequest.Name == binding.Status.LinkedAccessTokenName
 			})
 			if err != nil {
 				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to DataUpdate",
@@ -136,13 +141,18 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 				return []reconcile.Request{}
 			}
 
-			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "Secret")
+			logReconciliationRequests(requests, "SPIAccessTokenBinding", o, "SPIAccessTokenDataUpdate")
 
 			return requests
 		})).
 		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
-				return bindings.BindingNameInAnnotation(o.GetAnnotations()[bindings.LinkAnnotation], binding.Name)
+				marker := bindingtarget.BindingTargetObjectMarker{}
+				refed, err := marker.IsReferencedBy(context.Background(), client.ObjectKeyFromObject(&binding), o)
+				if err != nil {
+					enqueueLog.Error(err, "failed to check if SA is referenced by binding", "serviceAccount", client.ObjectKeyFromObject(o), "binding", client.ObjectKeyFromObject(&binding))
+				}
+				return refed
 			})
 			if err != nil {
 				enqueueLog.Error(err, "failed to list SPIAccessTokenBindings while determining the ones linked to a ServiceAccount",
@@ -315,10 +325,17 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	dependentsHandler := &bindings.DependentsHandler{
-		Client:       r.Client,
-		Binding:      &binding,
-		TokenStorage: r.TokenStorage,
+	dependentsHandler := &bindings.DependentsHandler[*api.SPIAccessToken]{
+		Target: &bindingtarget.BindingNamespaceTarget{
+			Client:  r.Client,
+			Binding: &binding,
+		},
+		SecretDataGetter: &tokens.SecretDataGetter{
+			Binding:         &binding,
+			TokenStorage:    r.TokenStorage,
+			ServiceProvider: sp,
+		},
+		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{},
 	}
 
 	binding.Status.OAuthUrl = token.Status.OAuthUrl
@@ -333,15 +350,16 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	if token.Status.Phase == api.SPIAccessTokenPhaseReady {
-		deps, errorReason, err := dependentsHandler.Sync(ctx, token, sp)
-		if err != nil && stderrors.Is(err, bindings.AccessTokenDataNotFoundError) {
+		deps, errorReason, err := dependentsHandler.Sync(ctx, token)
+		if err != nil && stderrors.Is(err, bindings.SecretDataNotFoundError) {
 			// token data suddenly disappeared, that's not an error generally, so flipping back to Awaiting state
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseAwaitingTokenData
 			binding.Status.SyncedObjectRef = api.TargetObjectRef{}
 			binding.Status.ServiceAccountNames = []string{}
 		} else if err != nil {
 			binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-			r.updateBindingStatusError(ctx, &binding, errorReason, err)
+			// TODO: add the translation layer between the string errors from the depdendentsHandler to the typed reasons
+			r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReason(errorReason), err)
 			if rerr := dependentsHandler.RevertTo(ctx, depCheckpoint); rerr != nil {
 				lg.Error(rerr, "failed to revert dependent objects changes")
 			}
@@ -691,7 +709,9 @@ func toObjectRef(obj client.Object) api.TargetObjectRef {
 }
 
 type linkedObjectsFinalizer struct {
-	client client.Client
+	client       client.Client
+	tokenstorage tokenstorage.TokenStorage
+	factory      serviceprovider.Factory
 }
 
 var _ finalizer.Finalizer = (*linkedObjectsFinalizer)(nil)
@@ -710,10 +730,23 @@ func (f *linkedObjectsFinalizer) Finalize(ctx context.Context, obj client.Object
 
 	lg.Info("linked objects finalizer starting to clean up dependent objects", "binding", key)
 
-	dep := bindings.DependentsHandler{
-		Client:       f.client,
-		Binding:      binding,
-		TokenStorage: nil,
+	sp, err := f.factory.FromRepoUrl(ctx, binding.Spec.RepoUrl, binding.Namespace)
+	if err != nil {
+		lg.Error(err, "failed to determine the service provider for the binding %s: %w", client.ObjectKeyFromObject(binding), err)
+		return res, fmt.Errorf("failed to determine the service provider for the binding %s: %w", client.ObjectKeyFromObject(binding), err)
+	}
+
+	dep := bindings.DependentsHandler[*api.SPIAccessToken]{
+		Target: &bindingtarget.BindingNamespaceTarget{
+			Client:  f.client,
+			Binding: binding,
+		},
+		SecretDataGetter: &tokens.SecretDataGetter{
+			Binding:         binding,
+			TokenStorage:    f.tokenstorage,
+			ServiceProvider: sp,
+		},
+		ObjectMarker: &bindingtarget.BindingTargetObjectMarker{},
 	}
 
 	if err := dep.Cleanup(ctx); err != nil {

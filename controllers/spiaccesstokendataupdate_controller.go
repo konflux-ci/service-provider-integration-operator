@@ -81,21 +81,11 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, fmt.Errorf("failed to load the token data update from the cluster: %w", err)
 	}
 
+	lg = lg.WithValues("owner", update.Spec.DataOwner)
+
 	if update.DeletionTimestamp != nil {
 		lg.V(logs.DebugLevel).Info("token data update being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
-	}
-
-	lg = lg.WithValues("token_name", update.Spec.TokenName)
-
-	// The token data changed in the token storage. We need to delete the token metadata so that all the bindings are
-	// updated with the latest data...
-	token := &api.SPIAccessToken{}
-	if err := r.Get(ctx, client.ObjectKey{Name: update.Spec.TokenName, Namespace: update.Namespace}, token); err != nil {
-		if !errors.IsNotFound(err) {
-			lg.Error(err, "failed to obtain the updated token")
-			return ctrl.Result{}, fmt.Errorf("failed to obtain the updated token: %w", err)
-		}
 	}
 
 	creationTime := update.CreationTimestamp
@@ -108,7 +98,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
 	}
 
-	lg.V(logs.DebugLevel).Info("token data update deleted: %s", "SPIAccessTokenDataUpdate.name", req.Name)
+	lg.V(logs.DebugLevel).Info("token data update deleted")
 
 	objectLifetimeMetric.Observe(time.Since(creationTime.Time).Seconds())
 

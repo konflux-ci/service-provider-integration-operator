@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/commaseparated"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,15 +117,11 @@ func TestServiceAccountSync(t *testing.T) {
 		return fake.NewClientBuilder().WithScheme(scheme)
 	}
 
-	binding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "binding",
-			Namespace: "default",
-		},
-	}
-
+	deploymentTarget := &TestDeploymentTarget{}
+	objectMarker := &TestObjectMarker{}
 	h := serviceAccountHandler{
-		Binding: binding,
+		Target:       deploymentTarget,
+		ObjectMarker: objectMarker,
 	}
 
 	t.Run("with SA", func(t *testing.T) {
@@ -145,16 +142,26 @@ func TestServiceAccountSync(t *testing.T) {
 			},
 		).Build()
 
-		h.Client = cl
-
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Reference: corev1.LocalObjectReference{
-						Name: "sa",
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
+		objectMarker.MarkReferencedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			o.GetAnnotations()["gelinkt"] = "yay"
+			return true, nil
+		}
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Reference: corev1.LocalObjectReference{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
 		}
 
 		sas, _, err := h.Sync(context.TODO())
@@ -169,7 +176,7 @@ func TestServiceAccountSync(t *testing.T) {
 		assert.Len(t, sa.Annotations, 3)
 		assert.Equal(t, sa.Annotations["a"], "b")
 		assert.Equal(t, sa.Annotations["c"], "d")
-		assert.Equal(t, sa.Annotations[LinkAnnotation], binding.Name)
+		assert.Equal(t, sa.Annotations["gelinkt"], "yay")
 
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), storedSA))
@@ -180,27 +187,38 @@ func TestServiceAccountSync(t *testing.T) {
 
 	t.Run("no SA", func(t *testing.T) {
 		cl := clBld().Build()
-		h.Client = cl
-
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Managed: api.ManagedServiceAccountSpec{
-						GenerateName: "sa",
-						Labels: map[string]string{
-							"a": "b",
-							"c": "d",
-						},
-						Annotations: map[string]string{
-							"a": "b",
-							"c": "d",
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Managed: api.ManagedServiceAccountSpec{
+								GenerateName: "sa",
+								Labels: map[string]string{
+									"a": "b",
+									"c": "d",
+								},
+								Annotations: map[string]string{
+									"a": "b",
+									"c": "d",
+								},
+							},
 						},
 					},
 				},
-			},
+			}
 		}
-
-		h.Binding = binding
+		objectMarker.MarkManagedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt_managed"] = "yay"
+			return true, nil
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
+		}
 
 		sas, _, err := h.Sync(context.TODO())
 		assert.NoError(t, err)
@@ -209,14 +227,13 @@ func TestServiceAccountSync(t *testing.T) {
 		sa := sas[0]
 		assert.True(t, strings.HasPrefix(sa.Name, "sa"))
 		assert.Len(t, sa.Labels, 3)
-		assert.Equal(t, sa.Labels["a"], "b")
-		assert.Equal(t, sa.Labels["c"], "d")
-		assert.Equal(t, sa.Labels[ManagedByLabel], binding.Name)
+		assert.Equal(t, "b", sa.Labels["a"])
+		assert.Equal(t, "d", sa.Labels["c"])
+		assert.Equal(t, "yay", sa.Labels["gelinkt_managed"])
 
-		assert.Len(t, sa.Annotations, 3)
-		assert.Equal(t, sa.Annotations["a"], "b")
-		assert.Equal(t, sa.Annotations["c"], "d")
-		assert.Equal(t, sa.Annotations[LinkAnnotation], binding.Name)
+		assert.Len(t, sa.Annotations, 2)
+		assert.Equal(t, "b", sa.Annotations["a"])
+		assert.Equal(t, "d", sa.Annotations["c"])
 
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), storedSA))
@@ -237,16 +254,30 @@ func TestServiceAccountSync(t *testing.T) {
 			).
 			Build()
 
-		h.Client = cl
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Reference: corev1.LocalObjectReference{
-						Name: "sa",
+		objectMarker.MarkReferencedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt"] = "yay"
+			return true, nil
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
+		}
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Reference: corev1.LocalObjectReference{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
 		}
 
 		_, _, err := h.Sync(context.TODO())
@@ -255,17 +286,31 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.NotContains(t, ManagedByLabel, storedSA.Labels)
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.Len(t, storedSA.Labels, 1)
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt"])
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Managed: api.ManagedServiceAccountSpec{
-						Name: "sa",
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Managed: api.ManagedServiceAccountSpec{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		objectMarker.MarkManagedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt_managed"] = "yay"
+			return true, nil
+		}
+		objectMarker.IsReferencedByImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			return o.GetLabels()["gelinkt"] == "yay", nil
 		}
 
 		_, _, err = h.Sync(context.TODO())
@@ -274,23 +319,37 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA = &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt"])
 	})
 
 	t.Run("flip managed to referenced", func(t *testing.T) {
 		cl := clBld().Build()
 
-		h.Client = cl
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Managed: api.ManagedServiceAccountSpec{
-						Name: "sa",
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Managed: api.ManagedServiceAccountSpec{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		objectMarker.MarkManagedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt_managed"] = "yay"
+			return true, nil
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
 		}
 
 		_, _, err := h.Sync(context.TODO())
@@ -299,17 +358,31 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Reference: corev1.LocalObjectReference{
-						Name: "sa",
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Reference: corev1.LocalObjectReference{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		objectMarker.UnmarkManagedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			delete(o.GetLabels(), "gelinkt_managed")
+			return true, nil
+		}
+		objectMarker.MarkReferencedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt"] = "yay"
+			return true, nil
 		}
 
 		_, _, err = h.Sync(context.TODO())
@@ -318,23 +391,37 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA = &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.NotContains(t, ManagedByLabel, storedSA.Labels)
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.NotContains(t, "gelinkt_managed", storedSA.Labels)
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt"])
 	})
 
 	t.Run("disallow taking ownership", func(t *testing.T) {
 		cl := clBld().Build()
 
-		h.Client = cl
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Managed: api.ManagedServiceAccountSpec{
-						Name: "sa",
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Managed: api.ManagedServiceAccountSpec{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		objectMarker.MarkManagedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt_managed"] = "yay"
+			return true, nil
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
 		}
 
 		_, _, err := h.Sync(context.TODO())
@@ -343,37 +430,61 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
 
-		binding.Name = "binding2"
-
+		// now, change the behavior to say that our SA is managed by some other target.
+		objectMarker.IsManagedByOtherImpl = func(ctx context.Context, o client.Object) (bool, error) {
+			return true, nil
+		}
 		_, _, err = h.Sync(context.TODO())
-
-		binding.Name = "binding"
 
 		assert.Error(t, err)
 
 		storedSA = &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
 	})
 
 	t.Run("single owner, multiple referenced", func(t *testing.T) {
 		cl := clBld().Build()
 
-		h.Client = cl
+		deploymentTarget.GetClientImpl = func() client.Client { return cl }
 
-		binding.Spec.Secret.LinkedTo = []api.SecretLink{
-			{
-				ServiceAccount: api.ServiceAccountLink{
-					Managed: api.ManagedServiceAccountSpec{
-						Name: "sa",
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Managed: api.ManagedServiceAccountSpec{
+								Name: "sa",
+							},
+						},
 					},
 				},
-			},
+			}
+		}
+		objectMarker.MarkManagedImpl = func(ctx context.Context, k client.ObjectKey, o client.Object) (bool, error) {
+			objectMarker.MarkReferenced(ctx, k, o)
+			if o.GetLabels() == nil {
+				o.SetLabels(map[string]string{})
+			}
+			o.GetLabels()["gelinkt_managed"] = "yay"
+			return true, nil
+		}
+		currentReferenceName := "o1"
+		objectMarker.MarkReferencedImpl = func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+			if o.GetAnnotations() == nil {
+				o.SetAnnotations(map[string]string{})
+			}
+			o.GetAnnotations()["gelinkt"] = commaseparated.Value(o.GetAnnotations()["gelinkt"]).Add(currentReferenceName).String()
+
+			return true, nil
+
+		}
+		deploymentTarget.GetTargetNamespaceImpl = func() string {
+			return "default"
 		}
 
 		_, _, err := h.Sync(context.TODO())
@@ -382,50 +493,24 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA := &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
+		assert.Equal(t, "o1", storedSA.Annotations["gelinkt"])
 
-		binding2 := &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding2",
-				Namespace: "default",
-			},
-			Spec: api.SPIAccessTokenBindingSpec{
-				Secret: api.SecretSpec{
-					LinkedTo: []api.SecretLink{
-						{
-							ServiceAccount: api.ServiceAccountLink{
-								Reference: corev1.LocalObjectReference{
-									Name: "sa",
-								},
+		// now, let's add additional referenced objects
+		deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+			return api.LinkableSecretSpec{
+				LinkedTo: []api.SecretLink{
+					{
+						ServiceAccount: api.ServiceAccountLink{
+							Reference: corev1.LocalObjectReference{
+								Name: "sa",
 							},
 						},
 					},
 				},
-			},
+			}
 		}
-
-		binding3 := &api.SPIAccessTokenBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding3",
-				Namespace: "default",
-			},
-			Spec: api.SPIAccessTokenBindingSpec{
-				Secret: api.SecretSpec{
-					LinkedTo: []api.SecretLink{
-						{
-							ServiceAccount: api.ServiceAccountLink{
-								Reference: corev1.LocalObjectReference{
-									Name: "sa",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		h.Binding = binding2
+		currentReferenceName = "o2"
 
 		_, _, err = h.Sync(context.TODO())
 		assert.NoError(t, err)
@@ -433,10 +518,10 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA = &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding,binding2", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
+		assert.Equal(t, "o1,o2", storedSA.Annotations["gelinkt"])
 
-		h.Binding = binding3
+		currentReferenceName = "o3"
 
 		_, _, err = h.Sync(context.TODO())
 		assert.NoError(t, err)
@@ -444,8 +529,8 @@ func TestServiceAccountSync(t *testing.T) {
 		storedSA = &corev1.ServiceAccount{}
 		assert.NoError(t, cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, storedSA))
 		assert.Equal(t, "sa", storedSA.Name)
-		assert.Equal(t, "binding", storedSA.Labels[ManagedByLabel])
-		assert.Equal(t, "binding,binding2,binding3", storedSA.Annotations[LinkAnnotation])
+		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
+		assert.Equal(t, "o1,o2,o3", storedSA.Annotations["gelinkt"])
 	})
 }
 
@@ -472,30 +557,34 @@ func TestLinkSecretToServiceAccount(t *testing.T) {
 		WithObjects(secret, sa).
 		Build()
 
-	binding := &api.SPIAccessTokenBinding{
-		Spec: api.SPIAccessTokenBindingSpec{
-			Secret: api.SecretSpec{
-				LinkedTo: []api.SecretLink{
-					{
-						ServiceAccount: api.ServiceAccountLink{
-							Reference: corev1.LocalObjectReference{
-								Name: "sa",
-							},
-						},
+	secretSpec := api.LinkableSecretSpec{
+		LinkedTo: []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Reference: corev1.LocalObjectReference{
+						Name: "sa",
 					},
 				},
 			},
 		},
 	}
 
-	r := serviceAccountHandler{
-		Client:  cl,
-		Binding: binding,
+	h := serviceAccountHandler{
+		Target: &TestDeploymentTarget{
+			GetClientImpl: func() client.Client { return cl },
+			GetTargetNamespaceImpl: func() string {
+				return "default"
+			},
+			GetSpecImpl: func() api.LinkableSecretSpec {
+				return secretSpec
+			},
+		},
+		ObjectMarker: &TestObjectMarker{},
 	}
 
 	t.Run("link as secret", func(t *testing.T) {
-		binding.Spec.Secret.LinkedTo[0].ServiceAccount.As = ""
-		r.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		secretSpec.LinkedTo[0].ServiceAccount.As = ""
+		h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
 
 		assert.Len(t, sa.Secrets, 1)
 		assert.Equal(t, sa.Secrets[0].Name, secret.Name)
@@ -508,8 +597,8 @@ func TestLinkSecretToServiceAccount(t *testing.T) {
 	})
 
 	t.Run("link as image pull secret", func(t *testing.T) {
-		binding.Spec.Secret.LinkedTo[0].ServiceAccount.As = api.ServiceAccountLinkTypeImagePullSecret
-		r.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		secretSpec.LinkedTo[0].ServiceAccount.As = api.ServiceAccountLinkTypeImagePullSecret
+		h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
 
 		assert.Len(t, sa.ImagePullSecrets, 1)
 		assert.Equal(t, sa.ImagePullSecrets[0].Name, secret.Name)
@@ -545,16 +634,12 @@ func TestUnlinkSecretFromServiceAccount(t *testing.T) {
 		WithObjects(secret, sa).
 		Build()
 
-	binding := &api.SPIAccessTokenBinding{
-		Spec: api.SPIAccessTokenBindingSpec{
-			Secret: api.SecretSpec{
-				LinkedTo: []api.SecretLink{
-					{
-						ServiceAccount: api.ServiceAccountLink{
-							Reference: corev1.LocalObjectReference{
-								Name: "sa",
-							},
-						},
+	secretSpec := api.LinkableSecretSpec{
+		LinkedTo: []api.SecretLink{
+			{
+				ServiceAccount: api.ServiceAccountLink{
+					Reference: corev1.LocalObjectReference{
+						Name: "sa",
 					},
 				},
 			},
@@ -562,8 +647,16 @@ func TestUnlinkSecretFromServiceAccount(t *testing.T) {
 	}
 
 	r := serviceAccountHandler{
-		Client:  cl,
-		Binding: binding,
+		Target: &TestDeploymentTarget{
+			GetClientImpl: func() client.Client { return cl },
+			GetTargetNamespaceImpl: func() string {
+				return "default"
+			},
+			GetSpecImpl: func() api.LinkableSecretSpec {
+				return secretSpec
+			},
+		},
+		ObjectMarker: &TestObjectMarker{},
 	}
 
 	t.Run("removes only referenced secrets", func(t *testing.T) {

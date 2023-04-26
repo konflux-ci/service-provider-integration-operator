@@ -107,13 +107,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
 	if err != nil {
-		setupLog.Error(err, "failed to initialize the token storage")
+		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, initializers); err != nil {
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, initializers); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
@@ -152,6 +152,7 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 	ret.DeletionGracePeriod = args.DeletionGracePeriod
 	ret.MaxFileDownloadSize = args.MaxFileDownloadSize
 	ret.EnableTokenUpload = args.EnableTokenUpload
+	ret.EnableRemoteSecrets = args.EnableRemoteSecrets
 
 	return ret, nil
 }
