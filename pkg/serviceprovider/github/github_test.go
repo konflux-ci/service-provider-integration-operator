@@ -457,6 +457,26 @@ func TestGitHubUnexpectedStatusMetric(t *testing.T) {
 	assert.True(t, metricPresent)
 }
 
+func TestGithubProbe_Examine(t *testing.T) {
+	probe := githubProbe{}
+	test := func(t *testing.T, url string, expectedMatch bool) {
+		baseUrl, err := probe.Examine(nil, url)
+		expectedBaseUrl := ""
+		if expectedMatch {
+			expectedBaseUrl = config.ServiceProviderTypeGitHub.DefaultBaseUrl
+		}
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBaseUrl, baseUrl)
+	}
+
+	test(t, "https://github.com/name/repo", true)
+	test(t, "https://github.com.foo.bar/name/repo", false)
+	test(t, "github.com/name/repo", false)
+	test(t, "https://www.github.com/name/repo", false)
+	test(t, "quay.io.foo.bar/name/repo", false)
+}
+
 func TestGitHubRateLimitErrorMetric(t *testing.T) {
 	// given
 	numberOfResponses := 3

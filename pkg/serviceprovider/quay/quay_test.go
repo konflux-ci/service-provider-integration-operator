@@ -69,6 +69,8 @@ func TestQuayProbe_Examine(t *testing.T) {
 
 	test(t, "quay.io/name/repo", true)
 	test(t, "https://quay.io/name/repo", true)
+	test(t, "https://quay.io.foo.bar/name/repo", false)
+	test(t, "quay.io.foo.bar/name/repo", false)
 	test(t, "https://github.com/name/repo", false)
 	test(t, "github.com/name/repo", false)
 }

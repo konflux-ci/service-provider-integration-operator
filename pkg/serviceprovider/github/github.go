@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -82,9 +83,10 @@ func init() {
 }
 
 var (
-	unableToParsePathError = errors.New("unable to parse path")
-	notGithubUrlError      = errors.New("not a github repository url")
-	unknownScopeError      = errors.New("unknown scope")
+	unableToParsePathError    = errors.New("unable to parse path")
+	notGithubUrlError         = errors.New("not a github repository url")
+	unknownScopeError         = errors.New("unknown scope")
+	failedToParseRepoUrlError = errors.New("failed to parse repository URL")
 )
 
 type Github struct {
@@ -345,8 +347,12 @@ type githubProbe struct{}
 
 var _ serviceprovider.Probe = (*githubProbe)(nil)
 
-func (g githubProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, config.ServiceProviderTypeGitHub.DefaultBaseUrl) {
+func (g githubProbe) Examine(_ *http.Client, repoBaseurl string) (string, error) {
+	baseUrl, err := url.Parse(repoBaseurl)
+	if err != nil {
+		return "", fmt.Errorf("%w '%s'", failedToParseRepoUrlError, repoBaseurl)
+	}
+	if fmt.Sprintf("%s://%s", baseUrl.Scheme, baseUrl.Host) == config.ServiceProviderTypeGitHub.DefaultBaseUrl {
 		return config.ServiceProviderTypeGitHub.DefaultBaseUrl, nil
 	} else {
 		return "", nil
