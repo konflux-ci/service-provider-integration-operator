@@ -95,8 +95,19 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 		var awsError smithy.APIError
 		if errors.As(err, &awsError) {
 			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
-				dbgLog.Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
-				return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.Error())
+				migrated, secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary, remove after some time
+				if migrationErr != nil {
+					dbgLog.Error(migrationErr, "something went wrong during migration")
+				}
+				if migrated && secretData != nil {
+					dbgLog.Info("secret migrated")
+					return secretData, nil
+				} else {
+					dbgLog.Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
+					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.Error())
+				}
+			} else {
+				dbgLog.Error(err, "what error is this???")
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
@@ -114,14 +125,9 @@ func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID
 	lg(ctx).V(logs.DebugLevel).Info("deleting the token", "secretID", id)
 
 	secretName := s.generateAwsSecretName(&id)
-	input := &secretsmanager.DeleteSecretInput{
-		SecretId:                   secretName,
-		ForceDeleteWithoutRecovery: aws.Bool(true),
-	}
-
-	_, err := s.client.DeleteSecret(ctx, input)
-	if err != nil {
-		return fmt.Errorf("error deleting AWS secret: %w", err)
+	errDelete := s.deleteAwsSecret(ctx, secretName)
+	if errDelete != nil {
+		return fmt.Errorf("error deleting AWS secret: %w", errDelete)
 	}
 	return nil
 }
@@ -181,7 +187,7 @@ func (s *AwsSecretStorage) updateAwsSecret(ctx context.Context, name *string, da
 }
 
 func (s *AwsSecretStorage) getAwsSecret(ctx context.Context, secretName *string) (*secretsmanager.GetSecretValueOutput, error) {
-	lg(ctx).Info("getting AWS secret", "secretname", secretName)
+	lg(ctx).V(logs.DebugLevel).Info("getting AWS secret", "secretname", secretName)
 
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: secretName,
@@ -197,8 +203,17 @@ func (s *AwsSecretStorage) getAwsSecret(ctx context.Context, secretName *string)
 	return awsSecret, nil
 }
 
-func lg(ctx context.Context) logr.Logger {
-	return log.FromContext(ctx, "secretstorage", "AWS")
+func (s *AwsSecretStorage) deleteAwsSecret(ctx context.Context, secretName *string) error {
+	input := &secretsmanager.DeleteSecretInput{
+		SecretId:                   secretName,
+		ForceDeleteWithoutRecovery: aws.Bool(true),
+	}
+
+	_, err := s.client.DeleteSecret(ctx, input)
+	if err != nil {
+		return fmt.Errorf("error deleting AWS secret: %w", err)
+	}
+	return nil
 }
 
 func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretID) *string {
@@ -211,4 +226,52 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 	} else {
 		return s.SpiInstanceId + "/%s"
 	}
+}
+
+func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secretstorage.SecretID) (bool, []byte, error) {
+	lg(ctx).Info("trying to migrate AWS secret from legacy name", "secretid", secretId)
+	dbLog := lg(ctx).V(logs.DebugLevel).WithValues("secretId", secretId)
+
+	legacyNameFormat := "%s/%s"
+	if s.SpiInstanceId != "" {
+		legacyNameFormat = s.SpiInstanceId + "/%s/%s"
+	}
+	legacySecretName := aws.String(fmt.Sprintf(legacyNameFormat, secretId.Namespace, secretId.Name))
+
+	// first try to get legacy secret, if it is not there, we just stop migration
+	getOutput, errGetSecret := s.getAwsSecret(ctx, legacySecretName)
+	if errGetSecret != nil {
+		var awsError smithy.APIError
+		if errors.As(errGetSecret, &awsError) {
+			if _, ok := awsError.(*types.ResourceNotFoundException); !ok {
+				dbLog.Info("no legacy secret found, nothing to do")
+				return false, nil, nil
+			}
+		}
+		return false, nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
+	}
+	dbLog.Info("got legacy secret", "secret", getOutput)
+
+	// we want to delete legacy secret in all cases
+	defer func() {
+		errDelete := s.deleteAwsSecret(ctx, legacySecretName)
+		if errDelete != nil {
+			lg(ctx).Error(errDelete, "failed to delete legacy secret during migration")
+		}
+	}()
+
+	newSecretName := s.generateAwsSecretName(&secretId)
+	dbLog.Info("storing the new secret", "secretname", newSecretName)
+
+	// create secret with new name
+	errCreate := s.createOrUpdateAwsSecret(ctx, newSecretName, getOutput.SecretBinary)
+	if errCreate != nil {
+		return false, nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
+	}
+
+	return true, getOutput.SecretBinary, nil
+}
+
+func lg(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx, "secretstorage", "AWS")
 }
