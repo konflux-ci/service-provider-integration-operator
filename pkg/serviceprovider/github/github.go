@@ -97,6 +97,7 @@ type Github struct {
 	ghClientBuilder        githubClientBuilder
 	downloadFileCapability downloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
+	baseUrl                string
 }
 
 type githubOAuthCapability struct {
@@ -136,8 +137,10 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		downloadFileCapability: downloadFileCapability{
 			httpClient:      httpClient,
 			ghClientBuilder: ghClientBuilder,
+			githubBaseUrl:   spConfig.ServiceProviderBaseUrl,
 		},
 		oauthCapability: newGithubOAuthCapability(factory, spConfig),
+		baseUrl:         spConfig.ServiceProviderBaseUrl,
 	}
 
 	return github, nil
@@ -157,7 +160,7 @@ func newGithubOAuthCapability(factory *serviceprovider.Factory, spConfig *config
 var _ serviceprovider.ConstructorFunc = newGithub
 
 func (g *Github) GetBaseUrl() string {
-	return config.ServiceProviderTypeGitHub.DefaultBaseUrl
+	return g.baseUrl
 }
 
 func (g *Github) GetDownloadFileCapability() serviceprovider.DownloadFileCapability {

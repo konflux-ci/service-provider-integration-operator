@@ -50,5 +50,19 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
 	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
+
+	// We need the githubBaseUrl in the githubClientBuilder struct to decide whether we need to create
+	// regular GitHub client or Enterprise client.
+	// The github library provides NewEnterpriseClient() method to create Enterprise client.
+	// However, it takes 2 URLs as parameters: one for the API URL and one for the upload URL where files can be uploaded.
+	// These two URLs are not the same by default. baseURL should be in format http(s)://[hostname]/api/v3/ and
+	// uploadURL should be in this format http(s)://[hostname]/api/uploads/.
+	// Note that it is likely that owner of the GitHub Enterprise instance can change the URLs, thus we cannot assume anything.
+
+	// Our current configuration interfaces only allow for a single URL to be specified.
+	// As far as I know, we currently do not allow uploading files to GitHub which means we might omit the uploadURL.
+	// However, we should decide formally whether we should change the configuration interface to allow for two URLs, or
+	// we should just omit the uploadURL.
+
 	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
 }

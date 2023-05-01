@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -31,6 +33,7 @@ import (
 type downloadFileCapability struct {
 	httpClient      *http.Client
 	ghClientBuilder githubClientBuilder
+	githubBaseUrl   string
 }
 
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
@@ -42,25 +45,17 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-var _URLRegexp = regexp.MustCompile(`(?Um)^(?:https)(?:\:\/\/)github.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)(.git)?$`)
-var _URLRegexpNames = _URLRegexp.SubexpNames()
-
 func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
-	submatches := _URLRegexp.FindAllStringSubmatch(repoUrl, -1)
-	if len(submatches) == 0 {
-		return "", fmt.Errorf("failed to match github repository: %w", unexpectedRepoUrlError)
-	}
-
-	matchesMap := map[string]string{}
-	for i, n := range submatches[0] {
-		matchesMap[_URLRegexpNames[i]] = n
+	owner, repo, err := f.parseOwnerAndRepoFromUrl(ctx, repoUrl)
+	if err != nil {
+		return "", fmt.Errorf("could not complile regex to check repoURl: %w", err)
 	}
 	lg := log.FromContext(ctx)
 	ghClient, err := f.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
-	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, matchesMap["owner"], matchesMap["repo"], filepath, &github.RepositoryContentGetOptions{Ref: ref})
+	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, owner, repo, filepath, &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
 		checkRateLimitError(err)
 		bytes, _ := io.ReadAll(resp.Body)
@@ -79,4 +74,24 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		return "", fmt.Errorf("content reading error: %w", err)
 	}
 	return content, nil
+}
+
+func (f downloadFileCapability) parseOwnerAndRepoFromUrl(ctx context.Context, url string) (owner string, repo string, err error) {
+	urlRegexp, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(f.githubBaseUrl) + `/(?P<owner>[^/]+)/(?P<repo>[^/]+)(/|(.git)?)$`)
+	if err != nil {
+		return "", "", fmt.Errorf("could not complile regex to check repoURl: %w", err)
+	}
+
+	urlRegexpNames := urlRegexp.SubexpNames()
+	matches := urlRegexp.FindAllStringSubmatch(url, -1)
+	if len(matches) == 0 {
+		return "", "", fmt.Errorf("failed to match github repository: %w", unexpectedRepoUrlError)
+	}
+
+	matchesMap := map[string]string{}
+	for i, n := range matches[0] {
+		matchesMap[urlRegexpNames[i]] = n
+	}
+	log.FromContext(ctx).V(logs.DebugLevel).Info("parsed values from GitHub URL", "owner", matchesMap["owner"], "repo", matchesMap["repo"])
+	return matchesMap["owner"], matchesMap["repo"], nil
 }
