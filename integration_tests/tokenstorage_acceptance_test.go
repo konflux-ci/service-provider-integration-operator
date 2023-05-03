@@ -82,17 +82,17 @@ func TestAws(t *testing.T) {
 		return
 	}
 
-	storage, error := tokenstorage.NewAwsTokenStorage(ctx, "spi-test", &awscli.AWSCliArgs{
+	secretStorage, error := awscli.NewAwsSecretStorage(ctx, "spi-test", &awscli.AWSCliArgs{
 		ConfigFile:      awsConfig,
 		CredentialsFile: awsCreds,
 	})
 	assert.NoError(t, error)
-	assert.NotNil(t, storage)
+	assert.NotNil(t, secretStorage)
 
-	err := storage.Initialize(ctx)
+	err := secretStorage.Initialize(ctx)
 	assert.NoError(t, err)
 
-	testStorage(t, ctx, storage)
+	testStorage(t, ctx, tokenstorage.NewJSONSerializingTokenStorage(secretStorage))
 }
 
 func createTokenStorage(secretStorage secretstorage.SecretStorage) tokenstorage.TokenStorage {
@@ -173,9 +173,9 @@ func refreshTestData() {
 
 	testSpiAccessToken = &v1beta1.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
+			UID:       uuid.NewUUID(),
 			Name:      "testSpiAccessToken-" + random,
 			Namespace: "testNamespace-" + random,
-			UID:       uuid.NewUUID(),
 		},
 	}
 }
