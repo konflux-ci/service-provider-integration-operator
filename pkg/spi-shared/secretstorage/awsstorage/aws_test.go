@@ -59,13 +59,14 @@ func TestInitSecretNameFormat(t *testing.T) {
 
 func TestGenerateSecretName(t *testing.T) {
 	s := AwsSecretStorage{
-		secretNameFormat: "%s/%s",
+		secretNameFormat: "%s",
 	}
-	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Uid: uuid.NewUUID(), Namespace: "tokennamespace", Name: "tokenname"})
+
+	uid := uuid.NewUUID()
+	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Uid: uid})
 
 	assert.NotNil(t, secretName)
-	assert.Contains(t, *secretName, "tokennamespace")
-	assert.Contains(t, *secretName, "tokenname")
+	assert.Contains(t, *secretName, uid)
 }
 
 func TestCheckCredentials(t *testing.T) {
