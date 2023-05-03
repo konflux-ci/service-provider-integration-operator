@@ -15,7 +15,7 @@ A Kubernetes controller/operator that manages service provider integration tasks
 > - Merge code into the main branch that isn’t slated to get promoted to production before “the big day”
 > - Do risky things with the staging or production environment (load tests, pen tests, etc.)
 >
-> Things that we should or could do in develop and main:
+> Things that we should or could do in develop and main branches:
 > - Deliver bug fixes that are pre-approved by the engineering leads
 > - Deliver new automated tests that are passing
 > - Write user help documentation
