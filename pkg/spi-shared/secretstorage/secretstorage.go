@@ -41,6 +41,7 @@ func (s SecretID) String() string {
 }
 
 var NotFoundError = errors.New("not found")
+var ErrNoUid = errors.New("kubernetes object does not have UID")
 
 // SecretStorage is a generic storage mechanism for storing secret data keyed by the SecretID.
 type SecretStorage interface {
@@ -95,8 +96,7 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 func ObjectToID[O client.Object](obj O) (*SecretID, error) {
 	logs.AuditLog(context.TODO()).Info("creating secret id", "object", obj, "uid", obj.GetUID())
 	if obj.GetUID() == "" {
-		// log.FromContext(context.TODO()).Error(fmt.Errorf("object does not have uid"), "object does not have uid", "obj", obj)
-		return nil, fmt.Errorf("object does not have uid: %+v", obj)
+		return nil, fmt.Errorf("failed to convert object '%s/%s' to secret storage ID: %w", obj.GetNamespace(), obj.GetName(), ErrNoUid)
 	}
 	return &SecretID{
 		Uid:       obj.GetUID(),

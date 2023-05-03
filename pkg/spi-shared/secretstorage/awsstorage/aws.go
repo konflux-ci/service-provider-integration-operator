@@ -95,19 +95,17 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 		var awsError smithy.APIError
 		if errors.As(err, &awsError) {
 			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
-				migrated, secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary, remove after some time
+				secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
 				if migrationErr != nil {
 					dbgLog.Error(migrationErr, "something went wrong during migration")
 				}
-				if migrated && secretData != nil {
-					dbgLog.Info("secret migrated")
+				if secretData != nil {
+					dbgLog.Info("secret successfully migrated", "secretid", id)
 					return secretData, nil
 				} else {
-					dbgLog.Info("token not found in aws storage", "err", notFoundErr.ErrorMessage())
+					dbgLog.Info("secret not found in aws storage", "err", notFoundErr.ErrorMessage())
 					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.Error())
 				}
-			} else {
-				dbgLog.Error(err, "what error is this???")
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
@@ -115,7 +113,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			}
 		}
 
-		return nil, fmt.Errorf("not able to get secret from the aws storage for some strange reason: %w", err)
+		return nil, fmt.Errorf("not able to get secret from the aws storage for some unknown reason: %w", err)
 	}
 
 	return getResult.SecretBinary, nil
@@ -228,8 +226,10 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 	}
 }
 
-func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secretstorage.SecretID) (bool, []byte, error) {
-	lg(ctx).Info("trying to migrate AWS secret from legacy name", "secretid", secretId)
+// tryMigrateSecret tries to migrate secret data from old name (derived from k8s object namespace and name) to new one (derived from k8s object uid).
+// returning byte data means the secret was successfully migrated to new location
+func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secretstorage.SecretID) ([]byte, error) {
+	lg(ctx).Info("trying to migrate AWS secret", "secretid", secretId)
 	dbLog := lg(ctx).V(logs.DebugLevel).WithValues("secretId", secretId)
 
 	legacyNameFormat := "%s/%s"
@@ -245,14 +245,17 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 		if errors.As(errGetSecret, &awsError) {
 			if _, ok := awsError.(*types.ResourceNotFoundException); !ok {
 				dbLog.Info("no legacy secret found, nothing to do")
-				return false, nil, nil
+				return nil, nil
 			}
 		}
-		return false, nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
+		return nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
 	}
-	dbLog.Info("got legacy secret", "secret", getOutput)
+
+	newSecretName := s.generateAwsSecretName(&secretId)
+	dbLog.Info("found legacy secret, migrating to new name", "legacy name", legacySecretName, "new name", newSecretName)
 
 	// we want to delete legacy secret in all cases
+	// this is to prevent infinite loop and leftover garbage
 	defer func() {
 		errDelete := s.deleteAwsSecret(ctx, legacySecretName)
 		if errDelete != nil {
@@ -260,16 +263,13 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 		}
 	}()
 
-	newSecretName := s.generateAwsSecretName(&secretId)
-	dbLog.Info("storing the new secret", "secretname", newSecretName)
-
 	// create secret with new name
 	errCreate := s.createOrUpdateAwsSecret(ctx, newSecretName, getOutput.SecretBinary)
 	if errCreate != nil {
-		return false, nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
+		return nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
 	}
 
-	return true, getOutput.SecretBinary, nil
+	return getOutput.SecretBinary, nil
 }
 
 func lg(ctx context.Context) logr.Logger {
