@@ -25,11 +25,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 var testData = []byte("test_data")
 
 var testSecretID = secretstorage.SecretID{
+	Uid:       uuid.NewUUID(),
 	Name:      "testSpiAccessToken",
 	Namespace: "testNamespace",
 }
@@ -59,7 +61,7 @@ func TestGenerateSecretName(t *testing.T) {
 	s := AwsSecretStorage{
 		secretNameFormat: "%s/%s",
 	}
-	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Namespace: "tokennamespace", Name: "tokenname"})
+	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Uid: uuid.NewUUID(), Namespace: "tokennamespace", Name: "tokenname"})
 
 	assert.NotNil(t, secretName)
 	assert.Contains(t, *secretName, "tokennamespace")

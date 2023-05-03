@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -94,7 +93,6 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 
 // ObjectToID converts given Kubernetes object to SecretID based on the name and namespace.
 func ObjectToID[O client.Object](obj O) (*SecretID, error) {
-	logs.AuditLog(context.TODO()).Info("creating secret id", "object", obj, "uid", obj.GetUID())
 	if obj.GetUID() == "" {
 		return nil, fmt.Errorf("failed to convert object '%s/%s' to secret storage ID: %w", obj.GetNamespace(), obj.GetName(), ErrNoUid)
 	}
