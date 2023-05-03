@@ -175,6 +175,7 @@ func refreshTestData() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "testSpiAccessToken-" + random,
 			Namespace: "testNamespace-" + random,
+			UID:       uuid.NewUUID(),
 		},
 	}
 }
