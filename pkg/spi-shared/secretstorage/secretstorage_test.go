@@ -130,9 +130,9 @@ func testStorageCall[K any, D any](test func(*DefaultTypedSecretStorage[K, D])) 
 				return nil
 			},
 		},
-		ToID: func(i *K) SecretID {
+		ToID: func(i *K) (*SecretID, error) {
 			record.ToIDCalled = true
-			return SecretID{}
+			return &SecretID{}, nil
 		},
 		Serialize: func(d *D) ([]byte, error) {
 			record.SerializeCalled = true
