@@ -22,6 +22,33 @@ type AggregatedError struct {
 	errors []error
 }
 
+func AggregateNonNilErrors(errs ...error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+
+	if len(errs) == 1 {
+		return errs[0]
+	}
+
+	aggregated := AggregatedError{}
+	for _, e := range errs {
+		if e != nil {
+			aggregated.Add(e)
+		}
+	}
+
+	if len(aggregated.errors) == 0 {
+		return nil
+	}
+
+	if len(aggregated.errors) == 1 {
+		return aggregated.errors[0]
+	} else {
+		return &aggregated
+	}
+}
+
 func NewAggregatedError(errs ...error) *AggregatedError {
 	return &AggregatedError{
 		errors: errs,
@@ -39,4 +66,8 @@ func (ae *AggregatedError) Error() string {
 	}
 
 	return strings.Join(strs, ", ")
+}
+
+func (ae *AggregatedError) HasErrors() bool {
+	return len(ae.errors) > 0
 }

@@ -23,13 +23,16 @@ import (
 // NamespaceTarget is the SecretDeploymentTarget that deploys the secrets and service accounts to some namespace on the cluster.
 type NamespaceTarget struct {
 	Client       client.Client
-	RemoteSecret *api.RemoteSecret
+	TargetKey    client.ObjectKey
+	SecretSpec   *api.LinkableSecretSpec
+	TargetSpec   *api.RemoteSecretTarget
+	TargetStatus *api.TargetStatus
 }
 
 var _ bindings.SecretDeploymentTarget = (*NamespaceTarget)(nil)
 
 func (t *NamespaceTarget) GetSpec() api.LinkableSecretSpec {
-	return t.RemoteSecret.Spec.Secret
+	return *t.SecretSpec
 }
 
 func (t *NamespaceTarget) GetClient() client.Client {
@@ -38,21 +41,35 @@ func (t *NamespaceTarget) GetClient() client.Client {
 
 // GetTargetObjectKey implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetTargetObjectKey() client.ObjectKey {
-	return client.ObjectKeyFromObject(t.RemoteSecret)
+	return t.TargetKey
 }
 
 func (t *NamespaceTarget) GetTargetNamespace() string {
-	return t.RemoteSecret.Spec.Target.Namespace
+	if t.TargetSpec != nil {
+		return t.TargetSpec.Namespace
+	} else if t.TargetStatus != nil {
+		return t.TargetStatus.Namespace.Namespace
+	} else {
+		return ""
+	}
 }
 
 // GetSecretName implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualSecretName() string {
-	return t.RemoteSecret.Status.Target.Namespace.SecretName
+	if t.TargetStatus == nil {
+		return ""
+	} else {
+		return t.TargetStatus.Namespace.SecretName
+	}
 }
 
 // GetServiceAccountNames implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
-	return t.RemoteSecret.Status.Target.Namespace.ServiceAccountNames
+	if t.TargetStatus == nil {
+		return []string{}
+	} else {
+		return t.TargetStatus.Namespace.ServiceAccountNames
+	}
 }
 
 // GetType implements SecretDeploymentTarget

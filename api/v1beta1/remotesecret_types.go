@@ -17,26 +17,39 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var multipleTargetsForSingleNamespaceNotSupportedError = errors.New("a single namespace targetted from multiple targets")
+
 // RemoteSecretSpec defines the desired state of RemoteSecret
 type RemoteSecretSpec struct {
+	// Secret defines the properties of the secret and the linked service accounts that should be
+	// created in the target namespaces.
 	Secret LinkableSecretSpec `json:"secret"`
-	Target RemoteSecretTarget `json:"target"`
+	// Targets is the list of the target namespaces that the secret and service accounts should be deployed to.
+	Targets []RemoteSecretTarget `json:"targets"`
 }
 
 type RemoteSecretTarget struct {
-	Environment string `json:"environment,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
+	// Namespace is the name of the target namespace to which to deploy.
+	Namespace string `json:"namespace,omitempty"`
+	// XXX: not sure how this will look like, so let's keep it out for the time being
+	// Override LinkableSecretSpec `json:"override,omitempty"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
 type RemoteSecretStatus struct {
+	// Conditions is the list of conditions describing the state of the deployment
+	// to the targets.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Targets is the list of the deployment statuses for individual targets in the spec.
 	// +optional
-	Target TargetStatus `json:"target,omitempty"`
+	Targets []TargetStatus `json:"targets,omitempty"`
 }
 
 type TargetStatus struct {
@@ -48,6 +61,8 @@ type NamespaceTargetStatus struct {
 	SecretName string `json:"secretName"`
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
+	// +optional
+	Error string `json:"error,omitempty"`
 }
 
 // RemoteSecretReason is the reconciliation status of the RemoteSecret object
@@ -91,4 +106,18 @@ type RemoteSecretList struct {
 
 func init() {
 	SchemeBuilder.Register(&RemoteSecret{}, &RemoteSecretList{})
+}
+
+// Validate makes sure that no two targets specify the same namespace.
+func (rs *RemoteSecret) Validate() error {
+	nss := map[string]int{}
+
+	for i, t := range rs.Spec.Targets {
+		previous, present := nss[t.Namespace]
+		if present {
+			return fmt.Errorf("%w: targets on indices %d and %d point to the same namespace %s", multipleTargetsForSingleNamespaceNotSupportedError, previous, i, t.Namespace)
+		}
+	}
+
+	return nil
 }
