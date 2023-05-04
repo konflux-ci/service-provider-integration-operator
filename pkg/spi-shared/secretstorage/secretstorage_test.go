@@ -16,6 +16,7 @@ package secretstorage
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -28,7 +29,7 @@ import (
 func TestDefaultTypedSecretStorage_Store(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[bool, bool]) {
 		dtss.Store(context.TODO(), pointer.Bool(true), nil)
-	})
+	}, CallsRecord[bool]{})
 
 	assert.True(t, record.ToIDCalled)
 	assert.True(t, record.SerializeCalled)
@@ -40,10 +41,25 @@ func TestDefaultTypedSecretStorage_Store(t *testing.T) {
 	assert.False(t, record.InitializeCalled)
 }
 
+func TestFailedToId_Store(t *testing.T) {
+	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
+		dtss.Store(context.TODO(), pointer.Int(42), nil)
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+
+	assert.True(t, record.ToIDCalled)
+
+	assert.False(t, record.DeleteCalled)
+	assert.False(t, record.GetCalled)
+	assert.False(t, record.DeserializeCalled)
+	assert.False(t, record.StoreCalled)
+	assert.False(t, record.SerializeCalled)
+	assert.False(t, record.InitializeCalled)
+}
+
 func TestDefaultTypedSecretStorage_Get(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
 		dtss.Get(context.TODO(), pointer.Int(42))
-	})
+	}, CallsRecord[int]{})
 
 	assert.True(t, record.ToIDCalled)
 	assert.True(t, record.GetCalled)
@@ -55,10 +71,25 @@ func TestDefaultTypedSecretStorage_Get(t *testing.T) {
 	assert.False(t, record.InitializeCalled)
 }
 
+func TestFailedToId_Get(t *testing.T) {
+	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
+		dtss.Get(context.TODO(), pointer.Int(42))
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+
+	assert.True(t, record.ToIDCalled)
+
+	assert.False(t, record.DeleteCalled)
+	assert.False(t, record.GetCalled)
+	assert.False(t, record.DeserializeCalled)
+	assert.False(t, record.StoreCalled)
+	assert.False(t, record.SerializeCalled)
+	assert.False(t, record.InitializeCalled)
+}
+
 func TestDefaultTypedSecretStorage_Delete(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
 		dtss.Delete(context.TODO(), pointer.Int(42))
-	})
+	}, CallsRecord[int]{})
 
 	assert.True(t, record.ToIDCalled)
 	assert.True(t, record.DeleteCalled)
@@ -70,10 +101,25 @@ func TestDefaultTypedSecretStorage_Delete(t *testing.T) {
 	assert.False(t, record.InitializeCalled)
 }
 
+func TestFailedToId_Delete(t *testing.T) {
+	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
+		dtss.Delete(context.TODO(), pointer.Int(42))
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+
+	assert.True(t, record.ToIDCalled)
+
+	assert.False(t, record.DeleteCalled)
+	assert.False(t, record.GetCalled)
+	assert.False(t, record.DeserializeCalled)
+	assert.False(t, record.StoreCalled)
+	assert.False(t, record.SerializeCalled)
+	assert.False(t, record.InitializeCalled)
+}
+
 func TestDefaultTypedSecretStorage_Initialize(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
 		dtss.Initialize(context.TODO())
-	})
+	}, CallsRecord[int]{})
 
 	// this is explicitly a noop, so test that it doesn't meddle
 	// with the underlying storage.
@@ -132,8 +178,9 @@ func TestObjectToIdNoUid(t *testing.T) {
 	assert.Error(t, err)
 }
 
-type CallsRecord struct {
+type CallsRecord[K any] struct {
 	ToIDCalled        bool
+	ToIDFunc          func(i *K) (*SecretID, error)
 	SerializeCalled   bool
 	DeserializeCalled bool
 	StoreCalled       bool
@@ -142,9 +189,7 @@ type CallsRecord struct {
 	InitializeCalled  bool
 }
 
-func testStorageCall[K any, D any](test func(*DefaultTypedSecretStorage[K, D])) CallsRecord {
-	record := CallsRecord{}
-
+func testStorageCall[K any, D any](test func(*DefaultTypedSecretStorage[K, D]), record CallsRecord[K]) CallsRecord[K] {
 	instance := DefaultTypedSecretStorage[K, D]{
 		DataTypeName: "kachny",
 		SecretStorage: &TestSecretStorage{
@@ -167,7 +212,11 @@ func testStorageCall[K any, D any](test func(*DefaultTypedSecretStorage[K, D])) 
 		},
 		ToID: func(i *K) (*SecretID, error) {
 			record.ToIDCalled = true
-			return &SecretID{}, nil
+			if record.ToIDFunc != nil {
+				return record.ToIDFunc(i)
+			} else {
+				return &SecretID{}, nil
+			}
 		},
 		Serialize: func(d *D) ([]byte, error) {
 			record.SerializeCalled = true
