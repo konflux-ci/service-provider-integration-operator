@@ -95,7 +95,7 @@ type Github struct {
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
 	ghClientBuilder        githubClientBuilder
-	downloadFileCapability downloadFileCapability
+	downloadFileCapability serviceprovider.DownloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
 	baseUrl                string
 }
@@ -118,6 +118,11 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		httpClient:   factory.HttpClient,
 	}
 
+	downloadCapability, err := NewDownloadFileCapability(httpClient, ghClientBuilder, spConfig.ServiceProviderBaseUrl)
+	if err != nil {
+		return nil, err
+	}
+
 	github := &Github{
 		Configuration: factory.Configuration,
 		tokenStorage:  factory.TokenStorage,
@@ -132,15 +137,11 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			MetadataCache:  &cache,
 			RepoHostParser: serviceprovider.RepoHostFromUrl,
 		},
-		httpClient:      factory.HttpClient,
-		ghClientBuilder: ghClientBuilder,
-		downloadFileCapability: downloadFileCapability{
-			httpClient:      httpClient,
-			ghClientBuilder: ghClientBuilder,
-			githubBaseUrl:   spConfig.ServiceProviderBaseUrl,
-		},
-		oauthCapability: newGithubOAuthCapability(factory, spConfig),
-		baseUrl:         spConfig.ServiceProviderBaseUrl,
+		httpClient:             factory.HttpClient,
+		ghClientBuilder:        ghClientBuilder,
+		downloadFileCapability: downloadCapability,
+		oauthCapability:        newGithubOAuthCapability(factory, spConfig),
+		baseUrl:                spConfig.ServiceProviderBaseUrl,
 	}
 
 	return github, nil

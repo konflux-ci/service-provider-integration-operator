@@ -67,7 +67,9 @@ func TestGetFileHead(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability := downloadFileCapability{client, githubClientBuilder, "https://github.com"}
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
+	assert.NoError(t, capabilityErr)
+
 	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", &api.SPIAccessToken{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -115,7 +117,9 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability := downloadFileCapability{client, githubClientBuilder, "https://github.com"}
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
+	assert.NoError(t, capabilityErr)
+
 	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", &api.SPIAccessToken{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -162,7 +166,9 @@ func TestGetFileOnBranch(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability := downloadFileCapability{client, githubClientBuilder, "https://github.com"}
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
+	assert.NoError(t, capabilityErr)
+
 	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", &api.SPIAccessToken{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -211,7 +217,9 @@ func TestGetFileOnCommitId(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability := downloadFileCapability{client, githubClientBuilder, "https://github.com"}
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
+	assert.NoError(t, capabilityErr)
+
 	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -249,7 +257,9 @@ func TestGetUnexistingFile(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability := downloadFileCapability{client, githubClientBuilder, "https://github.com"}
+	fileCapability, capabilityErr := NewDownloadFileCapability(&http.Client{}, githubClientBuilder, "https://github.com")
+	assert.NoError(t, capabilityErr)
+
 	_, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{}, 1024)
 	if err == nil {
 		t.Error("error expected")
@@ -259,7 +269,10 @@ func TestGetUnexistingFile(t *testing.T) {
 
 func TestInvalidRepoUrl(t *testing.T) {
 	test := func(t *testing.T, repoUrl string) {
-		fileCapability := downloadFileCapability{&http.Client{}, githubClientBuilder{}, "https://github.com"}
+
+		fileCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{}, "https://github.com")
+		assert.NoError(t, err)
+
 		c, err := fileCapability.DownloadFile(context.TODO(), repoUrl, "myfile", "bla", &api.SPIAccessToken{}, 1024)
 
 		assert.Error(t, err)
@@ -274,16 +287,20 @@ func TestInvalidRepoUrl(t *testing.T) {
 }
 
 func TestParseOwnerAndRepoFromUrl(t *testing.T) {
-	fileCapability := downloadFileCapability{&http.Client{}, githubClientBuilder{}, "https://github.com"}
+	downloadCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{},
+		"https://github.com")
+	assert.NoError(t, err)
+	ghCapability := downloadCapability.(downloadFileCapability)
+
 	testSuccess := func(t *testing.T, repoUrl, expectedOwner, expectedRepo string) {
-		owner, repo, err := fileCapability.parseOwnerAndRepoFromUrl(context.TODO(), repoUrl)
+		owner, repo, err := ghCapability.parseOwnerAndRepoFromUrl(context.TODO(), repoUrl)
 
 		assert.Equal(t, expectedOwner, owner)
 		assert.Equal(t, expectedRepo, repo)
 		assert.NoError(t, err)
 	}
 	testFail := func(t *testing.T, repoUrl string) {
-		_, _, err := fileCapability.parseOwnerAndRepoFromUrl(context.TODO(), repoUrl)
+		_, _, err := ghCapability.parseOwnerAndRepoFromUrl(context.TODO(), repoUrl)
 		assert.Error(t, err)
 	}
 
