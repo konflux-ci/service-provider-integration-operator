@@ -243,7 +243,7 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	if errGetSecret != nil {
 		var awsError smithy.APIError
 		if errors.As(errGetSecret, &awsError) {
-			if _, ok := awsError.(*types.ResourceNotFoundException); !ok {
+			if _, ok := awsError.(*types.ResourceNotFoundException); ok {
 				dbLog.Info("no legacy secret found, nothing to do")
 				return nil, nil
 			}
