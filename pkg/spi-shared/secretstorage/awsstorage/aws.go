@@ -252,7 +252,7 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	}
 
 	newSecretName := s.generateAwsSecretName(&secretId)
-	dbLog.Info("found legacy secret, migrating to new name", "legacy name", legacySecretName, "new name", newSecretName)
+	dbLog.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
 
 	// we want to delete legacy secret in all cases
 	// this is to prevent infinite loop and leftover garbage
