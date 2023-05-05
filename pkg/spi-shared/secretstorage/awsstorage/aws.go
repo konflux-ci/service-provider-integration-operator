@@ -254,19 +254,15 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	newSecretName := s.generateAwsSecretName(&secretId)
 	dbLog.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
 
-	// we want to delete legacy secret in all cases
-	// this is to prevent infinite loop and leftover garbage
-	defer func() {
-		errDelete := s.deleteAwsSecret(ctx, legacySecretName)
-		if errDelete != nil {
-			lg(ctx).Error(errDelete, "failed to delete legacy secret during migration")
-		}
-	}()
-
 	// create secret with new name
 	errCreate := s.createOrUpdateAwsSecret(ctx, newSecretName, getOutput.SecretBinary)
 	if errCreate != nil {
 		return nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
+	}
+
+	errDelete := s.deleteAwsSecret(ctx, legacySecretName)
+	if errDelete != nil {
+		lg(ctx).Error(errDelete, "failed to delete legacy secret during migration")
 	}
 
 	return getOutput.SecretBinary, nil

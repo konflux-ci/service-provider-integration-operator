@@ -452,7 +452,8 @@ func TestMigrate(t *testing.T) {
 		data, err := strg.tryMigrateSecret(ctx, testSecretID)
 		assert.Error(t, err)
 		assert.True(t, cl.getCalled)
-		assert.True(t, cl.deleteCalled)
+		assert.True(t, cl.createCalled)
+		assert.False(t, cl.deleteCalled)
 		assert.Nil(t, data)
 	})
 }
