@@ -97,6 +97,11 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		}
 	}
 
+	repoUrlMatcher, err := newRepoUrlMatcher(spConfig.ServiceProviderBaseUrl)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gitlab{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
@@ -116,7 +121,7 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
 		},
 		baseUrl:                spConfig.ServiceProviderBaseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl),
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher),
 		oauthCapability:        oauthCapability,
 	}, nil
 }

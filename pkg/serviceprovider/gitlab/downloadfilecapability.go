@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"net/http"
 	"regexp"
 
@@ -32,15 +33,15 @@ type downloadFileCapability struct {
 	httpClient      *http.Client
 	glClientBuilder gitlabClientBuilder
 	baseUrl         string
-	gitLabUrlRegexp *regexp.Regexp
+	repoMatcher     gitlabRepoUrlMatcher
 }
 
-func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string) downloadFileCapability {
+func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string, repoMatcher gitlabRepoUrlMatcher) downloadFileCapability {
 	return downloadFileCapability{
-		httpClient:      httpClient,
-		glClientBuilder: glClientBuilder,
-		baseUrl:         baseUrl,
-		gitLabUrlRegexp: regexp.MustCompile(`(?Um)^` + baseUrl + `/(?P<owner>[^/]+)/(?P<project>[^/]+)(.git)?$`),
+		httpClient,
+		glClientBuilder,
+		baseUrl,
+		repoMatcher,
 	}
 }
 
@@ -49,15 +50,15 @@ var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 var (
 	unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
+	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
 func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
-	gitLabURLRegexpNames := f.gitLabUrlRegexp.SubexpNames()
-	submatches := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
-	matchesMap := map[string]string{}
-	for i, n := range submatches[0] {
-		matchesMap[gitLabURLRegexpNames[i]] = n
+	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, repoUrl)
+	if err != nil {
+		return "", err
 	}
+
 	lg := log.FromContext(ctx)
 	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
 	if err != nil {
@@ -73,7 +74,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
 	}
 
-	file, resp, err := glClient.RepositoryFiles.GetFile(matchesMap["owner"]+"/"+matchesMap["project"], filepath, &refOption)
+	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, filepath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
 		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)
@@ -88,4 +89,36 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		return "", fmt.Errorf("unable to decode content: %w", err)
 	}
 	return string(decoded), nil
+}
+
+type gitlabRepoUrlMatcher struct {
+	regexp  *regexp.Regexp
+	baseUrl string
+}
+
+func newRepoUrlMatcher(baseUrl string) (gitlabRepoUrlMatcher, error) {
+	regex, err := regexp.Compile(`(?Um)^` + baseUrl + `/(?P<owner>[^/]+)/(?P<project>[^/]+)(.git)?$`)
+	if err != nil {
+		return gitlabRepoUrlMatcher{}, fmt.Errorf("compliling repoUrl matching regex for GitLab baseUrl %s failed with error: %w", baseUrl, err)
+	}
+	return gitlabRepoUrlMatcher{
+		regexp:  regex,
+		baseUrl: baseUrl,
+	}, nil
+}
+
+func (r gitlabRepoUrlMatcher) parseOwnerAndProjectFromUrl(ctx context.Context, repoUrl string) (owner, repo string, err error) {
+	urlRegexpNames := r.regexp.SubexpNames()
+	matches := r.regexp.FindAllStringSubmatch(repoUrl, -1)
+	if len(matches) == 0 {
+		return "", "", fmt.Errorf("failed to match GitLab repository with baseUrl %s: %w", r.baseUrl, unexpectedRepoUrlError)
+	}
+
+	matchesMap := map[string]string{}
+	for i, n := range matches[0] {
+		matchesMap[urlRegexpNames[i]] = n
+	}
+	log.FromContext(ctx).V(logs.DebugLevel).Info("parsed values from GitLab repoUrl",
+		"GitLab baseUrl", r.baseUrl, "owner", matchesMap["owner"], "repo", matchesMap["project"])
+	return matchesMap["owner"], matchesMap["project"], nil
 }
