@@ -34,7 +34,7 @@ type downloadFileCapability struct {
 	httpClient      *http.Client
 	ghClientBuilder githubClientBuilder
 	ghBaseUrl       string
-	ghUrlRegexp     *regexp.Regexp
+	ghRepoRegexp    *regexp.Regexp
 }
 
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
@@ -46,24 +46,24 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubClientBuilder, baseUrl string) (serviceprovider.DownloadFileCapability, error) {
-	reg, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(baseUrl) + `/(?P<owner>[^/]+)/(?P<repo>[^/]+)(/|(.git)?)$`)
+func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubClientBuilder, ghBaseUrl string) (serviceprovider.DownloadFileCapability, error) {
+	ghRepoRegexp, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(ghBaseUrl) + `/(?P<owner>[^/]+)/(?P<repo>[^/]+)(/|(.git)?)$`)
 	if err != nil {
-		return nil, fmt.Errorf("compliling repoUrl matching regex for GitHub baseUrl %s failed with error: %w", baseUrl, err)
+		return nil, fmt.Errorf("compiling repoUrl matching regex for GitHub with baseUrl %s failed with error: %w", ghBaseUrl, err)
 	}
 
 	return downloadFileCapability{
-		httpClient:      httpClient,
-		ghClientBuilder: ghClientBuilder,
-		ghBaseUrl:       baseUrl,
-		ghUrlRegexp:     reg,
+		httpClient,
+		ghClientBuilder,
+		ghBaseUrl,
+		ghRepoRegexp,
 	}, nil
 }
 
 func (d downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
 	owner, repo, err := d.parseOwnerAndRepoFromUrl(ctx, repoUrl)
 	if err != nil {
-		return "", fmt.Errorf("could not parse repostitory name and owner from repoUrl: %w", err)
+		return "", fmt.Errorf("could not parse repository name and owner from repoUrl: %w", err)
 	}
 	lg := log.FromContext(ctx)
 	ghClient, err := d.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
@@ -92,10 +92,10 @@ func (d downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 }
 
 func (d downloadFileCapability) parseOwnerAndRepoFromUrl(ctx context.Context, url string) (owner string, repo string, err error) {
-	urlRegexpNames := d.ghUrlRegexp.SubexpNames()
-	matches := d.ghUrlRegexp.FindAllStringSubmatch(url, -1)
+	urlRegexpNames := d.ghRepoRegexp.SubexpNames()
+	matches := d.ghRepoRegexp.FindAllStringSubmatch(url, -1)
 	if len(matches) == 0 {
-		return "", "", fmt.Errorf("failed to match github repository with baseUrl %s: %w", d.ghBaseUrl, unexpectedRepoUrlError)
+		return "", "", fmt.Errorf("failed to match GitHub repository with baseUrl %s: %w", d.ghBaseUrl, unexpectedRepoUrlError)
 	}
 
 	matchesMap := map[string]string{}
