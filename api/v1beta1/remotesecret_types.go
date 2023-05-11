@@ -109,6 +109,13 @@ func init() {
 }
 
 // Validate makes sure that no two targets specify the same namespace.
+// This is because the namespace is the only simple thing that can distinguish
+// between two secrets in an order independent way.
+// Also, having two secrets with the identical contents in the same namespace is considered
+// a little bit of a corner case.
+// If we were to support it we would have to come up with some more fine-grained rules, possibly
+// by just disallowing two secrets with the same namespace and name or with the same namespace
+// and generate name. But for now, let's keep the things simple and merely disallow them.
 func (rs *RemoteSecret) Validate() error {
 	nss := map[string]int{}
 
@@ -117,6 +124,7 @@ func (rs *RemoteSecret) Validate() error {
 		if present {
 			return fmt.Errorf("%w: targets on indices %d and %d point to the same namespace %s", multipleTargetsForSingleNamespaceNotSupportedError, previous, i, t.Namespace)
 		}
+		nss[t.Namespace] = i
 	}
 
 	return nil
