@@ -397,14 +397,14 @@ func TestHandlingOfLegacyDataInGet(t *testing.T) {
 
 	// save legacy data to the cluster
 	cl := cluster.Cores[0].Client
-	_, err := cl.Logical().Write("spi/data/default/token", map[string]any{
+	_, err := cl.Logical().Write("spi/data/test-uid", map[string]any{
 		"data": map[string]any{
 			"access_token": "kachny",
 		},
 	})
 	assert.NoError(t, err)
 
-	data, err := storage.Get(context.TODO(), secretstorage.SecretID{Name: "token", Namespace: "default"})
+	data, err := storage.Get(context.TODO(), secretstorage.SecretID{Uid: "test-uid", Name: "token", Namespace: "default"})
 	assert.NoError(t, err)
 
 	expectedToken := api.Token{
@@ -416,7 +416,7 @@ func TestHandlingOfLegacyDataInGet(t *testing.T) {
 	assert.Equal(t, expectedToken, actualToken)
 
 	// also, let's check that the data in the cluster has been upgraded to the new format
-	secret, err := cl.Logical().Read("spi/data/default/token")
+	secret, err := cl.Logical().Read("spi/data/test-uid")
 	assert.NoError(t, err)
 	dataField := secret.Data["data"]
 	dataMap := dataField.(map[string]any)
