@@ -46,7 +46,7 @@ func TestSecretDataGetter_GetData(t *testing.T) {
 
 		data, reason, err := sdg.GetData(context.TODO(), &api.RemoteSecret{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "kachny",
+				UID: "kachny",
 			},
 		})
 		assert.Empty(t, data)
@@ -68,7 +68,7 @@ func TestSecretDataGetter_GetData(t *testing.T) {
 
 		data, reason, err := sdg.GetData(context.TODO(), &api.RemoteSecret{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "kachny",
+				UID: "kachny",
 			},
 		})
 		assert.Empty(t, data)
@@ -90,7 +90,7 @@ func TestSecretDataGetter_GetData(t *testing.T) {
 
 		data, reason, err := sdg.GetData(context.TODO(), &api.RemoteSecret{
 			ObjectMeta: v1.ObjectMeta{
-				Name: "kachny",
+				UID: "kachny",
 			},
 		})
 		assert.NotEmpty(t, data)
