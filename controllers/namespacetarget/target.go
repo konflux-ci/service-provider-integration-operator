@@ -39,7 +39,6 @@ func (t *NamespaceTarget) GetClient() client.Client {
 	return t.Client
 }
 
-// GetTargetObjectKey implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetTargetObjectKey() client.ObjectKey {
 	return t.TargetKey
 }
@@ -54,7 +53,6 @@ func (t *NamespaceTarget) GetTargetNamespace() string {
 	}
 }
 
-// GetSecretName implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualSecretName() string {
 	if t.TargetStatus == nil {
 		return ""
@@ -63,7 +61,6 @@ func (t *NamespaceTarget) GetActualSecretName() string {
 	}
 }
 
-// GetServiceAccountNames implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
 	if t.TargetStatus == nil {
 		return []string{}
@@ -72,7 +69,6 @@ func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
 	}
 }
 
-// GetType implements SecretDeploymentTarget
 func (t *NamespaceTarget) GetType() string {
 	return "Namespace"
 }
