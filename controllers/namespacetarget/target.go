@@ -44,11 +44,17 @@ func (t *NamespaceTarget) GetTargetObjectKey() client.ObjectKey {
 }
 
 func (t *NamespaceTarget) GetTargetNamespace() string {
+	// target spec can be nil if the caller specifically wants to only process existing stuff
+	// (e.g. finalizer that just deletes stuff) or if the status and spec are out of sync
+	// (e.g. when we reconcile after a user removed a target from the spec of the remote secret).
+	// target status is going to be nil if the spec and status are out of sync (e.g. user
+	// added stuff to spec).
 	if t.TargetSpec != nil {
 		return t.TargetSpec.Namespace
 	} else if t.TargetStatus != nil {
 		return t.TargetStatus.Namespace.Namespace
 	} else {
+		// should never happen, but we need to return something
 		return ""
 	}
 }

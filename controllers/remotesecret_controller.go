@@ -193,12 +193,17 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	return ctrl.Result{}, returnedError
 }
 
+// processTargets uses remotesecrets.ClassifyTargetNamespaces to find out what to do with targets in the remote secret spec and status
+// and does what the classification tells it to.
 func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *AggregatedError) {
 	namespaceClassification := remotesecrets.ClassifyTargetNamespaces(remoteSecret)
 	for specIdx, statusIdx := range namespaceClassification.Sync {
 		spec := &remoteSecret.Spec.Targets[specIdx]
 		var status *api.TargetStatus
 		if statusIdx == -1 {
+			// as per docs, ClassifyTargetNamespaces uses -1 to indicate that the target is not in the status.
+			// So we just add a new empty entry to status and use that to deploy to the namespace.
+			// deployToNamespace will fill it in.
 			remoteSecret.Status.Targets = append(remoteSecret.Status.Targets, api.TargetStatus{})
 			status = &remoteSecret.Status.Targets[len(remoteSecret.Status.Targets)-1]
 		} else {
@@ -274,6 +279,9 @@ func (r *RemoteSecretReconciler) findSecretData(ctx context.Context, remoteSecre
 	return secretData, true, nil
 }
 
+// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
+// obviously, not recorded in the target status).
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 
