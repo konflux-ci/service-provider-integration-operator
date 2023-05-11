@@ -26,8 +26,7 @@ import (
 )
 
 type SecretDataGetter struct {
-	RemoteSecret *api.RemoteSecret
-	Storage      remotesecretstorage.RemoteSecretStorage
+	Storage remotesecretstorage.RemoteSecretStorage
 }
 
 func (sb *SecretDataGetter) GetData(ctx context.Context, obj *api.RemoteSecret) (map[string][]byte, string, error) {

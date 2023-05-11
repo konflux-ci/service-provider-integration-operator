@@ -43,6 +43,57 @@ func TestClassifyWithNoPriorState(t *testing.T) {
 	assert.Equal(t, StatusTargetIndex(-1), nc.Sync[SpecTargetIndex(1)])
 }
 
+func TestClassifyReordered(t *testing.T) {
+	rs := &api.RemoteSecret{
+		Spec: api.RemoteSecretSpec{
+			Targets: []api.RemoteSecretTarget{
+				{
+					Namespace: "ns_a",
+				},
+				{
+					Namespace: "ns_b",
+				},
+				{
+					Namespace: "ns_c",
+				},
+			},
+		},
+		Status: api.RemoteSecretStatus{
+			Targets: []api.TargetStatus{
+				{
+					Namespace: api.NamespaceTargetStatus{
+						Namespace:           "ns_b",
+						SecretName:          "sec3",
+						ServiceAccountNames: []string{},
+					},
+				},
+				{
+					Namespace: api.NamespaceTargetStatus{
+						Namespace:           "ns_c",
+						SecretName:          "sec2",
+						ServiceAccountNames: []string{},
+					},
+				},
+				{
+					Namespace: api.NamespaceTargetStatus{
+						Namespace:           "ns_a",
+						SecretName:          "sec1",
+						ServiceAccountNames: []string{},
+					},
+				},
+			},
+		},
+	}
+
+	nc := ClassifyTargetNamespaces(rs)
+
+	assert.Len(t, nc.Remove, 0)
+	assert.Len(t, nc.Sync, 3)
+	assert.Equal(t, StatusTargetIndex(2), nc.Sync[SpecTargetIndex(0)])
+	assert.Equal(t, StatusTargetIndex(0), nc.Sync[SpecTargetIndex(1)])
+	assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(2)])
+}
+
 func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 	rs := &api.RemoteSecret{
 		Spec: api.RemoteSecretSpec{

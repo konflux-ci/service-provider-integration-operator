@@ -360,8 +360,7 @@ func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSe
 			TargetStatus: targetStatus,
 		},
 		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			RemoteSecret: remoteSecret,
-			Storage:      r.RemoteSecretStorage,
+			Storage: r.RemoteSecretStorage,
 		},
 		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
 	}
@@ -412,8 +411,7 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 				TargetStatus: &ts,
 			},
 			SecretDataGetter: &remotesecrets.SecretDataGetter{
-				RemoteSecret: remoteSecret,
-				Storage:      f.storage,
+				Storage: f.storage,
 			},
 			ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
 		}
