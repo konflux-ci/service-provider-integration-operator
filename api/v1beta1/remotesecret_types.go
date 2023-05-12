@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var multipleTargetsForSingleNamespaceNotSupportedError = errors.New("a single namespace targetted from multiple targets")
+var multipleTargetsForSingleNamespaceNotSupportedError = errors.New("multiple targets referencing the same namespace is not allowed")
 
 // RemoteSecretSpec defines the desired state of RemoteSecret
 type RemoteSecretSpec struct {
