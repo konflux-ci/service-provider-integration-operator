@@ -287,6 +287,7 @@ func mockGitlab(cl client.Client, returnCode int, body string, responseError err
 		}),
 	}
 
+	matcher, _ := newRepoUrlMatcher(config.ServiceProviderTypeGitLab.DefaultBaseUrl)
 	return &Gitlab{
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{BaseUrl: "https://test.url"}},
 		httpClient:    httpClientMock,
@@ -307,6 +308,7 @@ func mockGitlab(cl client.Client, returnCode int, body string, responseError err
 			httpClient:   httpClientMock,
 			tokenStorage: tokenStorageMock,
 		},
+		repoUrlMatcher: matcher,
 	}
 }
 

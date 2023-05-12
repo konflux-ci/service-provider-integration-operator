@@ -19,9 +19,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"net/http"
-	"regexp"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -89,36 +87,4 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 		return "", fmt.Errorf("unable to decode content: %w", err)
 	}
 	return string(decoded), nil
-}
-
-type gitlabRepoUrlMatcher struct {
-	regexp  *regexp.Regexp
-	baseUrl string
-}
-
-func newRepoUrlMatcher(baseUrl string) (gitlabRepoUrlMatcher, error) {
-	regex, err := regexp.Compile(`(?Um)^` + baseUrl + `/(?P<owner>[^/]+)/(?P<project>[^/]+)(.git)?$`)
-	if err != nil {
-		return gitlabRepoUrlMatcher{}, fmt.Errorf("compliling repoUrl matching regex for GitLab baseUrl %s failed with error: %w", baseUrl, err)
-	}
-	return gitlabRepoUrlMatcher{
-		regexp:  regex,
-		baseUrl: baseUrl,
-	}, nil
-}
-
-func (r gitlabRepoUrlMatcher) parseOwnerAndProjectFromUrl(ctx context.Context, repoUrl string) (owner, repo string, err error) {
-	urlRegexpNames := r.regexp.SubexpNames()
-	matches := r.regexp.FindAllStringSubmatch(repoUrl, -1)
-	if len(matches) == 0 {
-		return "", "", fmt.Errorf("failed to match GitLab repository with baseUrl %s: %w", r.baseUrl, unexpectedRepoUrlError)
-	}
-
-	matchesMap := map[string]string{}
-	for i, n := range matches[0] {
-		matchesMap[urlRegexpNames[i]] = n
-	}
-	log.FromContext(ctx).V(logs.DebugLevel).Info("parsed values from GitLab repoUrl",
-		"GitLab baseUrl", r.baseUrl, "owner", matchesMap["owner"], "repo", matchesMap["project"])
-	return matchesMap["owner"], matchesMap["project"], nil
 }
