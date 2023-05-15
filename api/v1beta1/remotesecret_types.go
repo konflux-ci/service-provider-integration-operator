@@ -31,7 +31,8 @@ type RemoteSecretSpec struct {
 	// created in the target namespaces.
 	Secret LinkableSecretSpec `json:"secret"`
 	// Targets is the list of the target namespaces that the secret and service accounts should be deployed to.
-	Targets []RemoteSecretTarget `json:"targets"`
+	// +optional
+	Targets []RemoteSecretTarget `json:"targets,omitempty"`
 }
 
 type RemoteSecretTarget struct {
