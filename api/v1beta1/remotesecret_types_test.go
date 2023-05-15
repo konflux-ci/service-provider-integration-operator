@@ -72,7 +72,7 @@ func TestRemoteSecretValidate(t *testing.T) {
 		err := rs.Validate()
 
 		assert.Error(t, err)
-		assert.Equal(t, "a single namespace targetted from multiple targets: targets on indices 0 and 1 point to the same namespace ns-1", err.Error())
+		assert.Equal(t, "multiple targets referencing the same namespace is not allowed: targets on indices 0 and 1 point to the same namespace ns-1", err.Error())
 	})
 
 }
