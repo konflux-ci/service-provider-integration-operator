@@ -148,6 +148,18 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{}, nil
 	}
 
+	if err := remoteSecret.Validate(); err != nil {
+		var serr error
+		if serr = r.saveFailureStatus(ctx, remoteSecret, err); serr != nil {
+			lg.Error(serr, "failed to persist the failure status after validation", "validationError", err)
+		}
+		// failed validation is no reason for re-enqueing the reconciliation, because we require the user to
+		// update the object to fix the problem.
+		// On the other hand, failing to save the status is a reason to requeue because otherwise the user
+		// doesn't have a message in the status describing the problem to them.
+		return ctrl.Result{}, serr
+	}
+
 	secretData, found, err := r.findSecretData(ctx, remoteSecret)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -156,11 +168,59 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{}, nil
 	}
 
-	if remoteSecret.Spec.Target.Namespace != "" {
-		err = r.deployToNamespace(ctx, remoteSecret, secretData)
+	aerr := &AggregatedError{}
+	r.processTargets(ctx, remoteSecret, secretData, aerr)
+
+	var returnedError error
+
+	if aerr.HasErrors() {
+		if serr := r.saveFailureStatus(ctx, remoteSecret, aerr); serr != nil {
+			lg.Error(serr, "failed to update the status with errors from dependent objects deploymet", "deploymentErrors", aerr)
+		}
+		returnedError = aerr
+	} else {
+		meta.SetStatusCondition(&remoteSecret.Status.Conditions, metav1.Condition{
+			Type:   string(api.RemoteSecretConditionTypeDeployed),
+			Status: metav1.ConditionTrue,
+			Reason: string(api.RemoteSecretReasonInjected),
+		})
+		if err = r.saveSuccessStatus(ctx, remoteSecret); err != nil {
+			lg.Error(err, "failed to update the status of the remote secret with success after deploying everything successfully")
+			returnedError = err
+		}
 	}
 
-	return ctrl.Result{}, err
+	return ctrl.Result{}, returnedError
+}
+
+// processTargets uses remotesecrets.ClassifyTargetNamespaces to find out what to do with targets in the remote secret spec and status
+// and does what the classification tells it to.
+func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *AggregatedError) {
+	namespaceClassification := remotesecrets.ClassifyTargetNamespaces(remoteSecret)
+	for specIdx, statusIdx := range namespaceClassification.Sync {
+		spec := &remoteSecret.Spec.Targets[specIdx]
+		var status *api.TargetStatus
+		if statusIdx == -1 {
+			// as per docs, ClassifyTargetNamespaces uses -1 to indicate that the target is not in the status.
+			// So we just add a new empty entry to status and use that to deploy to the namespace.
+			// deployToNamespace will fill it in.
+			remoteSecret.Status.Targets = append(remoteSecret.Status.Targets, api.TargetStatus{})
+			status = &remoteSecret.Status.Targets[len(remoteSecret.Status.Targets)-1]
+		} else {
+			status = &remoteSecret.Status.Targets[statusIdx]
+		}
+		err := r.deployToNamespace(ctx, remoteSecret, spec, status, secretData)
+		if err != nil {
+			errorAggregate.Add(err)
+		}
+	}
+
+	for statusIndex := range namespaceClassification.Remove {
+		err := r.deleteFromNamespace(ctx, remoteSecret, statusIndex)
+		if err != nil {
+			errorAggregate.Add(err)
+		}
+	}
 }
 
 func (r *RemoteSecretReconciler) saveSuccessStatus(ctx context.Context, remoteSecret *api.RemoteSecret) error {
@@ -219,53 +279,49 @@ func (r *RemoteSecretReconciler) findSecretData(ctx context.Context, remoteSecre
 	return secretData, true, nil
 }
 
-func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
+// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
+// obviously, not recorded in the target status).
+func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 
-	depHandler := bindings.DependentsHandler[*api.RemoteSecret]{
-		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.Client,
-			RemoteSecret: remoteSecret,
-		},
-		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			RemoteSecret: remoteSecret,
-			Storage:      r.RemoteSecretStorage,
-		},
-		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+	depHandler := r.newDependentsHandler(remoteSecret, targetSpec, targetStatus)
+
+	checkPoint, syncErr := depHandler.CheckPoint(ctx)
+	if syncErr != nil {
+		return fmt.Errorf("failed to construct a checkpoint before dependent objects deployment: %w", syncErr)
 	}
 
-	checkPoint, err := depHandler.CheckPoint(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to construct a checkpoint before dependent objects deployment: %w", err)
+	deps, _, syncErr := depHandler.Sync(ctx, remoteSecret)
+
+	if syncErr == nil {
+		targetStatus.Namespace.Namespace = deps.Secret.Namespace
+		targetStatus.Namespace.SecretName = deps.Secret.Name
+
+		targetStatus.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
+		for i, sa := range deps.ServiceAccounts {
+			targetStatus.Namespace.ServiceAccountNames[i] = sa.Name
+		}
+	} else {
+		targetStatus.Namespace.Namespace = targetSpec.Namespace
+		targetStatus.Namespace.SecretName = ""
+		targetStatus.Namespace.ServiceAccountNames = []string{}
+		targetStatus.Namespace.Error = syncErr.Error()
 	}
 
-	deps, _, err := depHandler.Sync(ctx, remoteSecret)
-	if err != nil {
+	updateErr := r.Client.Status().Update(ctx, remoteSecret)
+	if syncErr != nil || updateErr != nil {
+		if syncErr != nil {
+			debugLog.Error(syncErr, "failed to sync the dependent objects")
+		}
+
+		if updateErr != nil {
+			debugLog.Error(updateErr, "failed to update the status with the info about dependent objects")
+		}
+
 		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after failure", "syncError", err)
+			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 		}
-		if serr := r.saveFailureStatus(ctx, remoteSecret, err); serr != nil {
-			debugLog.Error(serr, "failed to save the failure status after failing to revert the failed sync", "syncError", err)
-		}
-		return fmt.Errorf("failed to sync the dependent objects of the remote secret: %w", err)
-	}
-
-	remoteSecret.Status.Target.Namespace.Namespace = deps.Secret.Namespace
-	remoteSecret.Status.Target.Namespace.SecretName = deps.Secret.Name
-
-	remoteSecret.Status.Target.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
-	for i, sa := range deps.ServiceAccounts {
-		remoteSecret.Status.Target.Namespace.ServiceAccountNames[i] = sa.Name
-	}
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after failure to record the dependent objects in the remote secret status", "updateError", err)
-		}
-		if serr := r.saveFailureStatus(ctx, remoteSecret, err); serr != nil {
-			debugLog.Error(serr, "failed to save the failure status failing to update status (somewhat expected?)", "updateError", err)
-		}
-		return fmt.Errorf("failed to update the status with the info about dependent objects: %w", err)
 	}
 
 	if debugLog.Enabled() {
@@ -276,7 +332,46 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
 	}
 
+	return AggregateNonNilErrors(syncErr, updateErr)
+}
+
+func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
+	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[targetStatusIndex])
+
+	if err := dep.Cleanup(ctx); err != nil {
+		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+	}
+
+	// leave out the index from the status targets and save right now, so that the status reflects the state of the cluster as closely as possible.
+	newTargets := make([]api.TargetStatus, 0, len(remoteSecret.Status.Targets)-1)
+	for i, t := range remoteSecret.Status.Targets {
+		if i != targetStatusIndex {
+			newTargets = append(newTargets, t)
+		}
+	}
+	remoteSecret.Status.Targets = newTargets
+
+	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
+		return fmt.Errorf("failed to update the status with a modified set of target statuses: %w", err)
+	}
+
 	return nil
+}
+
+func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
+	return bindings.DependentsHandler[*api.RemoteSecret]{
+		Target: &namespacetarget.NamespaceTarget{
+			Client:       r.Client,
+			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
+			SecretSpec:   &remoteSecret.Spec.Secret,
+			TargetSpec:   targetSpec,
+			TargetStatus: targetStatus,
+		},
+		SecretDataGetter: &remotesecrets.SecretDataGetter{
+			Storage: r.RemoteSecretStorage,
+		},
+		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+	}
 }
 
 type remoteSecretStorageFinalizer struct {
@@ -314,21 +409,25 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 
 	lg.Info("linked objects finalizer starting to clean up dependent objects", "remoteSecret", key)
 
-	dep := bindings.DependentsHandler[*api.RemoteSecret]{
-		Target: &namespacetarget.NamespaceTarget{
-			Client:       f.client,
-			RemoteSecret: remoteSecret,
-		},
-		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			RemoteSecret: remoteSecret,
-			Storage:      f.storage,
-		},
-		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
-	}
+	for i := range remoteSecret.Status.Targets {
+		ts := remoteSecret.Status.Targets[i]
+		dep := bindings.DependentsHandler[*api.RemoteSecret]{
+			Target: &namespacetarget.NamespaceTarget{
+				Client:       f.client,
+				TargetKey:    key,
+				SecretSpec:   &remoteSecret.Spec.Secret,
+				TargetStatus: &ts,
+			},
+			SecretDataGetter: &remotesecrets.SecretDataGetter{
+				Storage: f.storage,
+			},
+			ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+		}
 
-	if err := dep.Cleanup(ctx); err != nil {
-		lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
-		return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+		if err := dep.Cleanup(ctx); err != nil {
+			lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
+			return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+		}
 	}
 
 	lg.Info("linked objects finalizer completed without failure", "binding", key)
