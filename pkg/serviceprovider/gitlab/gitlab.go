@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
@@ -46,9 +45,6 @@ var probeNotImplementedError = errors.New("gitLab probe not implemented")
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_single_repo")
 
-// Temp
-var notGitlabUrlError = errors.New("not a gitlab repository url")
-
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
 type Gitlab struct {
@@ -62,6 +58,7 @@ type Gitlab struct {
 	downloadFileCapability downloadFileCapability
 	refreshTokenCapability serviceprovider.RefreshTokenCapability
 	oauthCapability        serviceprovider.OAuthCapability
+	repoUrlMatcher         gitlabRepoUrlMatcher
 }
 
 var _ serviceprovider.ConstructorFunc = newGitlab
@@ -97,6 +94,11 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		}
 	}
 
+	repoUrlMatcher, err := newRepoUrlMatcher(spConfig.ServiceProviderBaseUrl)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gitlab{
 		Configuration: factory.Configuration,
 		lookup: serviceprovider.GenericLookup{
@@ -116,8 +118,9 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
 		},
 		baseUrl:                spConfig.ServiceProviderBaseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl),
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher),
 		oauthCapability:        oauthCapability,
+		repoUrlMatcher:         repoUrlMatcher,
 	}, nil
 }
 
@@ -194,7 +197,7 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
 
-	repo, err := g.parseGitlabRepoUrl(accessCheck.Spec.RepoUrl)
+	owner, project, err := g.repoUrlMatcher.parseOwnerAndProjectFromUrl(ctx, accessCheck.Spec.RepoUrl)
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = err.Error()
@@ -230,13 +233,13 @@ func (g Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, acc
 	}
 	token := &tokens[0]
 
-	if err := g.checkPrivateRepoAccess(ctx, token, repo, status); err != nil {
+	if err := g.checkPrivateRepoAccess(ctx, token, owner+"/"+project, status); err != nil {
 		return nil, err
 	}
 	return status, nil
 }
 
-func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAccessToken, repo string, status *api.SPIAccessCheckStatus) error {
+func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAccessToken, projectIdentifier string, status *api.SPIAccessCheckStatus) error {
 	glClient, err := g.glClientBuilder.createGitlabAuthClient(ctx, token, g.baseUrl)
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
@@ -244,7 +247,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, token *api.SPIAcces
 		return err
 	}
 
-	project, response, err := glClient.Projects.GetProject(repo, nil, gitlab.WithContext(ctx))
+	project, response, err := glClient.Projects.GetProject(projectIdentifier, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
 		status.ErrorMessage = err.Error()
@@ -293,14 +296,6 @@ func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessChe
 		lg.Info("unexpected return code for repo", "accessCheck", accessCheck, "code", resp.StatusCode)
 	}
 	return false, nil
-}
-
-// Temp
-func (g *Gitlab) parseGitlabRepoUrl(repoUrl string) (repoPath string, err error) {
-	if !strings.HasPrefix(repoUrl, g.GetBaseUrl()) {
-		return "", fmt.Errorf("%w: '%s'", notGitlabUrlError, repoUrl)
-	}
-	return strings.TrimPrefix(repoUrl, g.GetBaseUrl()), nil
 }
 
 func (g Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {
