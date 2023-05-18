@@ -75,13 +75,14 @@ type RemoteSecretConditionType string
 const (
 	RemoteSecretConditionTypeDeployed     RemoteSecretConditionType = "Deployed"
 	RemoteSecretConditionTypeDataObtained RemoteSecretConditionType = "DataObtained"
-	RemoteSecretConditionTypeError        RemoteSecretConditionType = "Error"
+	RemoteSecretConditionTypeSpecValid    RemoteSecretConditionType = "SpecValid"
 
 	RemoteSecretReasonAwaitingTokenData RemoteSecretReason = "AwaitingData"
+	RemoteSecretReasonDataFound         RemoteSecretReason = "DataFound"
 	RemoteSecretReasonInjected          RemoteSecretReason = "Injected"
+	RemoteSecretReasonPartiallyInjected RemoteSecretReason = "PartiallyInjected"
 	RemoteSecretReasonError             RemoteSecretReason = "Error"
-	RemoteSecretReasonCreated           RemoteSecretReason = "Created"
-	RemoteSecretReasonUnsupported       RemoteSecretReason = "Unsupported"
+	RemoteSecretReasonValid             RemoteSecretReason = "Valid"
 )
 
 //+kubebuilder:object:root=true
