@@ -47,7 +47,7 @@ spec:
 EOF
 kubectl wait --for=condition=DataObtained=false remotesecret/"${RS_NAME}" -n "${RS_NAMESPACE}"
 echo 'RemoteSecret successfully created.'
-kubectl get remotesecret test-remote-secret -n "${RS_NAMESPACE}" -o yaml
+kubectl get remotesecret "${RS_NAME}" -n "${RS_NAMESPACE}" -o yaml
 
 
 print 'Creating upload secret...'
@@ -65,7 +65,7 @@ stringData:
   a: b
   c: d
 EOF
-kubectl wait --for=condition=Deployed -n "${RS_NAMESPACE}" remotesecret test-remote-secret
+kubectl wait --for=condition=Deployed -n "${RS_NAMESPACE}" remotesecret "${RS_NAME}"
 echo 'Upload secret successfully created.'
 
 
