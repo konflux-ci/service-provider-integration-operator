@@ -357,18 +357,18 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	deps, _, syncErr := depHandler.Sync(ctx, remoteSecret)
 
 	if syncErr == nil {
-		targetStatus.Namespace.Namespace = deps.Secret.Namespace
-		targetStatus.Namespace.SecretName = deps.Secret.Name
+		targetStatus.Namespace = deps.Secret.Namespace
+		targetStatus.SecretName = deps.Secret.Name
 
-		targetStatus.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
+		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
-			targetStatus.Namespace.ServiceAccountNames[i] = sa.Name
+			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
 	} else {
-		targetStatus.Namespace.Namespace = targetSpec.Namespace
-		targetStatus.Namespace.SecretName = ""
-		targetStatus.Namespace.ServiceAccountNames = []string{}
-		targetStatus.Namespace.Error = syncErr.Error()
+		targetStatus.Namespace = targetSpec.Namespace
+		targetStatus.SecretName = ""
+		targetStatus.ServiceAccountNames = []string{}
+		targetStatus.Error = syncErr.Error()
 	}
 
 	updateErr := r.Client.Status().Update(ctx, remoteSecret)

@@ -61,25 +61,19 @@ func TestClassifyReordered(t *testing.T) {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_b",
-						SecretName:          "sec3",
-						ServiceAccountNames: []string{},
-					},
+					Namespace:           "ns_b",
+					SecretName:          "sec3",
+					ServiceAccountNames: []string{},
 				},
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_c",
-						SecretName:          "sec2",
-						ServiceAccountNames: []string{},
-					},
+					Namespace:           "ns_c",
+					SecretName:          "sec2",
+					ServiceAccountNames: []string{},
 				},
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_a",
-						SecretName:          "sec1",
-						ServiceAccountNames: []string{},
-					},
+					Namespace:           "ns_a",
+					SecretName:          "sec1",
+					ServiceAccountNames: []string{},
 				},
 			},
 		},
@@ -109,11 +103,9 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_b",
-						SecretName:          "sec",
-						ServiceAccountNames: []string{"sa_a", "sa_b"},
-					},
+					Namespace:           "ns_b",
+					SecretName:          "sec",
+					ServiceAccountNames: []string{"sa_a", "sa_b"},
 				},
 			},
 		},
@@ -139,18 +131,14 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_b",
-						SecretName:          "sec",
-						ServiceAccountNames: []string{"sa_a", "sa_b"},
-					},
+					Namespace:           "ns_b",
+					SecretName:          "sec",
+					ServiceAccountNames: []string{"sa_a", "sa_b"},
 				},
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "ns_a",
-						SecretName:          "sec",
-						ServiceAccountNames: []string{"sa_a", "sa_b"},
-					},
+					Namespace:           "ns_a",
+					SecretName:          "sec",
+					ServiceAccountNames: []string{"sa_a", "sa_b"},
 				},
 			},
 		},

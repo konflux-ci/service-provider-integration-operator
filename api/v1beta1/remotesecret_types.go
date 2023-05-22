@@ -54,10 +54,6 @@ type RemoteSecretStatus struct {
 }
 
 type TargetStatus struct {
-	Namespace NamespaceTargetStatus `json:"namespace,omitempty"`
-}
-
-type NamespaceTargetStatus struct {
 	Namespace  string `json:"namespace"`
 	SecretName string `json:"secretName"`
 	// +optional

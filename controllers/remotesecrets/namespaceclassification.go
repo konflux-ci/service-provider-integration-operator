@@ -77,7 +77,7 @@ func specNamespaceIndices(targets []api.RemoteSecretTarget) map[string]SpecTarge
 func statusNamespaceIndices(targets []api.TargetStatus) map[string]StatusTargetIndex {
 	ret := make(map[string]StatusTargetIndex, len(targets))
 	for i, t := range targets {
-		ret[t.Namespace.Namespace] = StatusTargetIndex(i)
+		ret[t.Namespace] = StatusTargetIndex(i)
 	}
 	return ret
 }
