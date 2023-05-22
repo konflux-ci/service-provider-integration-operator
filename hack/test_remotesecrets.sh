@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-RS_NAMESPACE=${1:-default}
-TARGET_NS_1="spi-test-target1"
-TARGET_NS_2="spi-test-target2"
-RS_NAME="test-remote-secret"
+# The script assumes that the RemoteSecret namespace exists.
+RS_NAMESPACE=${RS_NAMESPACE:-"default"}
+TARGET_NS_1=${TARGET_NS_1:-"spi-test-target1"}
+TARGET_NS_2=${TARGET_NS_2:-"spi-test-target2"}
+RS_NAME=${RS_NAME:-"test-remote-secret"}
 
 function cleanup() {
     kubectl delete namespace "${TARGET_NS_1}" --ignore-not-found=true
@@ -18,6 +19,9 @@ function print() {
   echo "--------------------------------------------------------"
 }
 
+# This cleanup is useful when the previous run ended in error and the cleanup function at the end was not called.
+# Note that if you run this script each time with different values of RS_NAMESPACE, TARGET_NS_1...
+# then this cleanup may not work properly.
 print "Cleaning up resources from previous runs..."
 cleanup
 
@@ -55,7 +59,7 @@ cat <<EOF | kubectl create -n "${RS_NAMESPACE}" -f -
 apiVersion: v1
 kind: Secret
 metadata:
-  name: test-remote-secret-secret
+  name: ${RS_NAME}-secret
   labels:
     spi.appstudio.redhat.com/upload-secret: remotesecret
   annotations:
