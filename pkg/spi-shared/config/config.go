@@ -63,6 +63,7 @@ const (
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
 	ServiceProviders []persistedServiceProviderConfiguration `yaml:"serviceProviders"  validate:"omitempty,dive"`
+	RedirectProxyUrl string                                  `yaml:"redirectProxyUrl"  validate:"omitempty,dive"`
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -120,7 +121,7 @@ func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, e
 	conf := SharedConfiguration{
 		ServiceProviders: []ServiceProviderConfiguration{},
 	}
-
+	conf.RedirectProxyUrl = persistedConfig.RedirectProxyUrl
 	for _, sp := range persistedConfig.ServiceProviders {
 		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {

@@ -17,8 +17,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -64,11 +66,10 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return "https://localhost:8080/oauth/callback"
-	//if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
-	//	return c.OAuthServiceConfiguration.RedirectProxyUrl
-	//}
-	//return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		return c.OAuthServiceConfiguration.RedirectProxyUrl
+	}
+	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
@@ -104,7 +105,12 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		params := url.Values{}
+		params.Add("state", newStateString)
+		params.Add("calback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
+		newStateString = params.Encode()
+	}
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
 	if oauthConfigErr != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
