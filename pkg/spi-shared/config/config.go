@@ -40,7 +40,7 @@ type ServiceProviderType struct {
 //
 // Note: HostCredentials service provider does not belong here because it's not defined service provider
 // that can be configured in any form.
-var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
+var SupportedServiceProviderTypes = []ServiceProviderType{
 	ServiceProviderTypeGitHub,
 	ServiceProviderTypeGitLab,
 	ServiceProviderTypeQuay,
@@ -48,7 +48,7 @@ var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 
 // HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
 // We can still provide limited functionality for them like manual token upload.
-var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
+var ServiceProviderTypeHostCredentials = ServiceProviderType{
 	Name: "HostCredentials",
 }
 
@@ -93,7 +93,8 @@ type SharedConfiguration struct {
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
-	BaseUrl string `validate:"required,https_only"`
+	BaseUrl          string `validate:"required,https_only"`
+	RedirectProxyUrl string
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This

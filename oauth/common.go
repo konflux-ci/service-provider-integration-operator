@@ -27,8 +27,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -66,7 +64,11 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
-	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
+	return "https://localhost:8080/oauth/callback"
+	//if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+	//	return c.OAuthServiceConfiguration.RedirectProxyUrl
+	//}
+	//return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
 func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
