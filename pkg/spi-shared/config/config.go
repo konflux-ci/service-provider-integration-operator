@@ -119,6 +119,7 @@ func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, e
 	conf := SharedConfiguration{
 		ServiceProviders: []ServiceProviderConfiguration{},
 	}
+
 	for _, sp := range persistedConfig.ServiceProviders {
 		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {
