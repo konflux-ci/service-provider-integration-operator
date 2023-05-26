@@ -1,0 +1,17 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: SnapshotEnvironmentBinding
+metadata:
+  generateName: so-sample-development-binding-
+  labels:
+    appstudio.application: so-sample
+    appstudio.environment: development
+  name: so-sample-development-binding-l5btw
+  namespace: default
+spec:
+  application: so-sample
+  components:
+  - configuration:
+      replicas: 1
+    name: devfile-sample-go-basic-fwzb
+  environment: development
+  snapshot: so-sample-zqpld
