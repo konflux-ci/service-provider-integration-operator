@@ -63,7 +63,6 @@ const (
 type persistedConfiguration struct {
 	// ServiceProviders is the list of configuration options for the individual service providers
 	ServiceProviders []persistedServiceProviderConfiguration `yaml:"serviceProviders"  validate:"omitempty,dive"`
-	RedirectProxyUrl string                                  `yaml:"redirectProxyUrl"  validate:"omitempty,dive"`
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -94,8 +93,7 @@ type SharedConfiguration struct {
 
 	// BaseUrl is the URL on which the OAuth service is deployed. It is used to compose the redirect URLs for the
 	// service providers in the form of `${BASE_URL}/oauth/callback` (e.g. my-host/oauth/callback).
-	BaseUrl          string `validate:"required,https_only"`
-	RedirectProxyUrl string
+	BaseUrl string `validate:"required,https_only"`
 }
 
 // ServiceProviderConfiguration contains configuration for a single service provider configured with the SPI. This
@@ -121,7 +119,6 @@ func (persistedConfig persistedConfiguration) convert() (*SharedConfiguration, e
 	conf := SharedConfiguration{
 		ServiceProviders: []ServiceProviderConfiguration{},
 	}
-	conf.RedirectProxyUrl = persistedConfig.RedirectProxyUrl
 	for _, sp := range persistedConfig.ServiceProviders {
 		spType, err := GetServiceProviderTypeByName(sp.ServiceProviderName)
 		if err != nil {

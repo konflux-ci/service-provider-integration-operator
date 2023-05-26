@@ -105,10 +105,11 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	//encode original state and callback to the new state. it allows to make redirection proxy stateless.
 	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
 		params := url.Values{}
 		params.Add("state", newStateString)
-		params.Add("calback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
+		params.Add("callback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
 		newStateString = params.Encode()
 	}
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
