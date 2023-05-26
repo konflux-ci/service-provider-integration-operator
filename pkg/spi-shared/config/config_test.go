@@ -31,7 +31,6 @@ func TestRead(t *testing.T) {
 	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: true})
 	t.Run("all supported service providers are set", func(t *testing.T) {
 		configFileContent := `
-redirectProxyUrl: https:/localhost:8080
 serviceProviders:
 - type: GitHub
   clientId: "123"
@@ -48,7 +47,6 @@ serviceProviders:
 
 		assert.Equal(t, "blabol", cfg.BaseUrl)
 		assert.Len(t, cfg.ServiceProviders, len(SupportedServiceProviderTypes))
-		assert.Equal(t, "https:/localhost:8080", cfg.RedirectProxyUrl)
 	})
 
 	t.Run("all supported service providers are set even if config is empty", func(t *testing.T) {
