@@ -450,7 +450,7 @@ func (r *RemoteSecretReconciler) clientForTarget(targetSpec *api.RemoteSecretTar
 	// This client only needs to store secrets and serviceaccounts so we should construct a minimal client without API discovery
 	// as we do in the oauth client to limit the time it takes to create the client and also to limit the memory consumption.
 	// We could also think about caching the clients.
-	
+
 	return r.Client
 }
 
