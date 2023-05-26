@@ -17,13 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"errors"
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-var multipleTargetsForSingleNamespaceNotSupportedError = errors.New("multiple targets referencing the same namespace is not allowed")
 
 // RemoteSecretSpec defines the desired state of RemoteSecret
 type RemoteSecretSpec struct {
@@ -38,8 +33,12 @@ type RemoteSecretSpec struct {
 type RemoteSecretTarget struct {
 	// Namespace is the name of the target namespace to which to deploy.
 	Namespace string `json:"namespace,omitempty"`
-	// XXX: not sure how this will look like, so let's keep it out for the time being
-	// Override LinkableSecretSpec `json:"override,omitempty"`
+	// ApiUrl specifies the URL of the API server of a remote Kubernetes cluster that this target points to. If left empty,
+	// the local cluster is assumed.
+	ApiUrl string `json:"apiUrl,omitempty"`
+	// CredentialsSecretName is the name of the secret in the same namespace as the RemoteSecret that contains the token
+	// to use to authenticate with the remote Kubernetes cluster. This is ignored if `apiUrl` is empty.
+	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
@@ -54,10 +53,16 @@ type RemoteSecretStatus struct {
 }
 
 type TargetStatus struct {
-	Namespace  string `json:"namespace"`
+	// Namespace is the namespace of the target where the secret and the service accounts have been deployed to.
+	Namespace string `json:"namespace"`
+	// ApiUrl is the URL of the remote Kubernetes cluster to which the target points to.
+	ApiUrl string `json:"apiUrl,omitempty"`
+	// SecretName is the name of the secret that is actually deployed to the target namespace
 	SecretName string `json:"secretName"`
+	// ServiceAccountNames is the names of the service accounts that have been deployed to the target namespace
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
+	// Error the optional error message if the deployment of either the secret or the service accounts failed.
 	// +optional
 	Error string `json:"error,omitempty"`
 }
@@ -104,26 +109,4 @@ type RemoteSecretList struct {
 
 func init() {
 	SchemeBuilder.Register(&RemoteSecret{}, &RemoteSecretList{})
-}
-
-// Validate makes sure that no two targets specify the same namespace.
-// This is because the namespace is the only simple thing that can distinguish
-// between two secrets in an order independent way.
-// Also, having two secrets with the identical contents in the same namespace is considered
-// a little bit of a corner case.
-// If we were to support it we would have to come up with some more fine-grained rules, possibly
-// by just disallowing two secrets with the same namespace and name or with the same namespace
-// and generate name. But for now, let's keep the things simple and merely disallow them.
-func (rs *RemoteSecret) Validate() error {
-	nss := map[string]int{}
-
-	for i, t := range rs.Spec.Targets {
-		previous, present := nss[t.Namespace]
-		if present {
-			return fmt.Errorf("%w: targets on indices %d and %d point to the same namespace %s", multipleTargetsForSingleNamespaceNotSupportedError, previous, i, t.Namespace)
-		}
-		nss[t.Namespace] = i
-	}
-
-	return nil
 }
