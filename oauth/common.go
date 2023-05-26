@@ -17,12 +17,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
