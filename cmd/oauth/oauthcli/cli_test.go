@@ -57,6 +57,22 @@ func TestCorsConfigParse(t *testing.T) {
 	}
 }
 
+func TestRedirectProxyParse(t *testing.T) {
+	//given
+	cmd := ""
+	env := []string{"REDIRECT_PROXY_URL=https://localhost:808/callback"}
+	//then
+	args := OAuthServiceCliArgs{}
+	_, err := parseWithEnv(cmd, env, &args)
+	//when
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.RedirectProxyUrl != "https://localhost:808/callback" {
+		t.Fatal("Unable to parse Proxy redirect url}")
+	}
+}
+
 func parseWithEnv(cmdline string, env []string, dest interface{}) (*arg.Parser, error) {
 	p, err := arg.NewParser(arg.Config{}, dest)
 	if err != nil {
