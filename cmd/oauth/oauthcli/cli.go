@@ -27,5 +27,5 @@ type OAuthServiceCliArgs struct {
 	KubeInsecureTLS  bool   `arg:"--kube-insecure-tls, env" default:"false" help:"Whether is allowed or not insecure kubernetes tls connection."`
 	ApiServer        string `arg:"--api-server, env:API_SERVER" default:"" help:"host:port of the Kubernetes API server to use when handling HTTP requests"`
 	ApiServerCAPath  string `arg:"--ca-path, env:API_SERVER_CA_PATH" default:"" help:"the path to the CA certificate to use when connecting to the Kubernetes API server"`
-	RedirectProxyUrl string `arg:"--redirect-proxy-url, env:REDIRECT_PROXY_URL" default:"" help:"the url of OAuth redirection proxy"`
+	RedirectProxyUrl string `arg:"--redirect-proxy-url, env:REDIRECT_PROXY_URL" default:"" help:"the URL of OAuth redirection proxy used in the tests to maintain predictable callback URL"`
 }
