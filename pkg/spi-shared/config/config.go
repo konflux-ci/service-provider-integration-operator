@@ -40,7 +40,7 @@ type ServiceProviderType struct {
 //
 // Note: HostCredentials service provider does not belong here because it's not defined service provider
 // that can be configured in any form.
-var SupportedServiceProviderTypes = []ServiceProviderType{
+var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 	ServiceProviderTypeGitHub,
 	ServiceProviderTypeGitLab,
 	ServiceProviderTypeQuay,
@@ -48,7 +48,7 @@ var SupportedServiceProviderTypes = []ServiceProviderType{
 
 // HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
 // We can still provide limited functionality for them like manual token upload.
-var ServiceProviderTypeHostCredentials = ServiceProviderType{
+var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
 	Name: "HostCredentials",
 }
 
