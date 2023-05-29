@@ -40,3 +40,31 @@ func TestAggregatedError_Add(t *testing.T) {
 	e.Add(errors.New("c"))
 	assert.Equal(t, "a, b, c", e.Error())
 }
+
+func TestAggregateNonNilErrors(t *testing.T) {
+	t.Run("single nil doesn't count", func(t *testing.T) {
+		assert.Nil(t, AggregateNonNilErrors(nil))
+	})
+
+	t.Run("all nils don't count", func(t *testing.T) {
+		assert.Nil(t, AggregateNonNilErrors(nil, nil, nil))
+	})
+
+	t.Run("single error returned as is", func(t *testing.T) {
+		err := errors.New("asdf")
+		assert.Same(t, err, AggregateNonNilErrors(err))
+	})
+
+	t.Run("single error among nils returned as is", func(t *testing.T) {
+		err := errors.New("asdf")
+		assert.Same(t, err, AggregateNonNilErrors(nil, err, nil, nil))
+	})
+
+	t.Run("multiple errors aggregated", func(t *testing.T) {
+		err1 := errors.New("1")
+		err2 := errors.New("2")
+		agg := AggregateNonNilErrors(err1, err2)
+		assert.IsType(t, &AggregatedError{}, agg)
+		assert.Equal(t, "1, 2", agg.Error())
+	})
+}

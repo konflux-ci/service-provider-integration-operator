@@ -148,124 +148,242 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{}, nil
 	}
 
-	secretData, found, err := r.findSecretData(ctx, remoteSecret)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !found {
-		return ctrl.Result{}, nil
+	// the reconciliation happens in stages, results of which are described in the status conditions.
+
+	validationResult, err := handleStage(ctx, r.Client, remoteSecret, r.validate(ctx, remoteSecret))
+	if err != nil || validationResult.Cancellation.Cancel {
+		return validationResult.Cancellation.Result, err
 	}
 
-	if remoteSecret.Spec.Target.Namespace != "" {
-		err = r.deployToNamespace(ctx, remoteSecret, secretData)
+	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	if err != nil || dataResult.Cancellation.Cancel {
+		return dataResult.Cancellation.Result, err
 	}
 
-	return ctrl.Result{}, err
+	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
+	if err != nil || deployResult.Cancellation.Cancel {
+		return deployResult.Cancellation.Result, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
-func (r *RemoteSecretReconciler) saveSuccessStatus(ctx context.Context, remoteSecret *api.RemoteSecret) error {
-	meta.RemoveStatusCondition(&remoteSecret.Status.Conditions, string(api.RemoteSecretConditionTypeError))
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		return fmt.Errorf("failed to update the status: %w", err)
-	}
-	return nil
+// stageResult describes the result of reconciliation stage.
+type stageResult[R any] struct {
+	// Name is the name of the stage used in error reporting
+	Name string
+	// Condition is the condition describing the result of the stage in the remote secret's status.
+	Condition metav1.Condition
+	// ReturnValue is the result of this stage. It can be used by later stages.
+	ReturnValue R
+	// Cancellation describes whether and how to cancel the current reconciliation early, right after the stage.
+	Cancellation cancellation
 }
 
-func (r *RemoteSecretReconciler) saveFailureStatus(ctx context.Context, remoteSecret *api.RemoteSecret, err error) error {
-	meta.SetStatusCondition(&remoteSecret.Status.Conditions, metav1.Condition{
-		Type:    string(api.RemoteSecretConditionTypeError),
-		Status:  metav1.ConditionTrue,
-		Reason:  string(api.RemoteSecretReasonError),
-		Message: err.Error(),
-	})
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		return fmt.Errorf("failed to update the status: %w", err)
-	}
-	return nil
+type cancellation struct {
+	// Result contains the result to return when cancelling the current reconciliation.
+	Result ctrl.Result
+	// Cancel makes the current reconciliation stop early, right after this stage with the Result.
+	Cancel bool
+	// ReturnError is the error that will be returned from the reconciliation method if this stage is cancelling the reconciliation.
+	ReturnError error
 }
 
-func (r *RemoteSecretReconciler) findSecretData(ctx context.Context, remoteSecret *api.RemoteSecret) (*remotesecretstorage.SecretData, bool, error) {
-	lg := log.FromContext(ctx)
+// handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
+func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
+	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
+
+	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
+		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %v: %w", result, serr)
+	}
+
+	if result.Cancellation.Cancel || result.Cancellation.ReturnError != nil {
+		return result, result.Cancellation.ReturnError
+	} else {
+		return result, nil
+	}
+}
+
+// validate validates the provided remote secret.
+func (r *RemoteSecretReconciler) validate(ctx context.Context, remoteSecret *api.RemoteSecret) stageResult[any] {
+	result := stageResult[any]{
+		Name: "validation",
+	}
+
+	if err := remoteSecret.Validate(); err != nil {
+		result.Condition = metav1.Condition{
+			Type:    string(api.RemoteSecretConditionTypeSpecValid),
+			Status:  metav1.ConditionFalse,
+			Reason:  string(api.RemoteSecretReasonError),
+			Message: err.Error(),
+		}
+		result.Cancellation.Cancel = true
+	} else {
+		result.Condition = metav1.Condition{
+			Type:   string(api.RemoteSecretConditionTypeSpecValid),
+			Status: metav1.ConditionTrue,
+			Reason: string(api.RemoteSecretReasonValid),
+		}
+	}
+
+	return result
+}
+
+// obtainData tries to find the data of the remote secret in the backing storage.
+func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *api.RemoteSecret) stageResult[*remotesecretstorage.SecretData] {
+	result := stageResult[*remotesecretstorage.SecretData]{
+		Name: "data-fetch",
+	}
+
 	secretData, err := r.RemoteSecretStorage.Get(ctx, remoteSecret)
 	if err != nil {
 		if stdErrors.Is(err, secretstorage.NotFoundError) {
-			meta.SetStatusCondition(&remoteSecret.Status.Conditions, metav1.Condition{
+			result.Condition = metav1.Condition{
 				Type:    string(api.RemoteSecretConditionTypeDataObtained),
 				Status:  metav1.ConditionFalse,
 				Reason:  string(api.RemoteSecretReasonAwaitingTokenData),
 				Message: "The data of the remote secret not found in storage. Please provide it.",
-			})
-
-			if err := r.saveSuccessStatus(ctx, remoteSecret); err != nil {
-				return nil, false, err
 			}
-			return nil, false, nil
+			// we don't want to retry the reconciliation in this case, because the data is simply not present in the storage.
+			// we will get notified once it appears there.
+		} else {
+			result.Condition = metav1.Condition{
+				Type:    string(api.RemoteSecretConditionTypeDataObtained),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(api.RemoteSecretReasonError),
+				Message: err.Error(),
+			}
+			// we want to retry the reconciliation in this case because something else failed while we tried to get the data. so let's return the error
+			result.Cancellation.ReturnError = err
 		}
-
-		if updateErr := r.saveFailureStatus(ctx, remoteSecret, err); updateErr != nil {
-			lg.Error(updateErr, "failed to update the remote secret with the error while getting the data from storage", "underlyingError", err)
-		}
-
-		return nil, false, fmt.Errorf("failed to find the secret associated with the remote secret %s: %w", client.ObjectKeyFromObject(remoteSecret), err)
+		// regardless of whether we want to repeat the reconciliation, we don't want to continue with the current one, because the remote secret
+		// doesn't have any data to put into the target secrets.
+		result.Cancellation.Cancel = true
+		return result
 	}
 
-	meta.RemoveStatusCondition(&remoteSecret.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))
-	if err := r.saveSuccessStatus(ctx, remoteSecret); err != nil {
-		return nil, false, err
+	result.Condition = metav1.Condition{
+		Type:   string(api.RemoteSecretConditionTypeDataObtained),
+		Status: metav1.ConditionTrue,
+		Reason: string(api.RemoteSecretReasonDataFound),
 	}
 
-	return secretData, true, nil
+	result.ReturnValue = secretData
+
+	return result
 }
 
-func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
+// deploy tries to deploy the secret to all the specified targets. It accumulates all errors, rather than stopping on the first one, so that we deploy
+// to as many targets as possible.
+func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.RemoteSecret, data *remotesecretstorage.SecretData) stageResult[any] {
+	result := stageResult[any]{
+		Name: "secret-deployment",
+	}
+
+	aerr := &AggregatedError{}
+	r.processTargets(ctx, remoteSecret, data, aerr)
+
+	var deploymentStatus metav1.ConditionStatus
+	var deploymentReason api.RemoteSecretReason
+	var deploymentMessage string
+
+	if aerr.HasErrors() {
+		log.FromContext(ctx).Error(aerr, "failed to deploy the secret to some targets")
+
+		deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		deploymentStatus = metav1.ConditionFalse
+		deploymentMessage = aerr.Error()
+		// we want to retry the reconciliation because we failed to deploy to some targets
+		result.Cancellation.Cancel = true
+		result.Cancellation.ReturnError = aerr
+	} else {
+		deploymentReason = api.RemoteSecretReasonInjected
+		deploymentStatus = metav1.ConditionTrue
+	}
+
+	result.Condition = metav1.Condition{
+		Type:    string(api.RemoteSecretConditionTypeDeployed),
+		Status:  deploymentStatus,
+		Reason:  string(deploymentReason),
+		Message: deploymentMessage,
+	}
+
+	return result
+}
+
+// processTargets uses remotesecrets.ClassifyTargetNamespaces to find out what to do with targets in the remote secret spec and status
+// and does what the classification tells it to.
+func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *AggregatedError) {
+	namespaceClassification := remotesecrets.ClassifyTargetNamespaces(remoteSecret)
+	for specIdx, statusIdx := range namespaceClassification.Sync {
+		spec := &remoteSecret.Spec.Targets[specIdx]
+		var status *api.TargetStatus
+		if statusIdx == -1 {
+			// as per docs, ClassifyTargetNamespaces uses -1 to indicate that the target is not in the status.
+			// So we just add a new empty entry to status and use that to deploy to the namespace.
+			// deployToNamespace will fill it in.
+			remoteSecret.Status.Targets = append(remoteSecret.Status.Targets, api.TargetStatus{})
+			status = &remoteSecret.Status.Targets[len(remoteSecret.Status.Targets)-1]
+		} else {
+			status = &remoteSecret.Status.Targets[statusIdx]
+		}
+		err := r.deployToNamespace(ctx, remoteSecret, spec, status, secretData)
+		if err != nil {
+			errorAggregate.Add(err)
+		}
+	}
+
+	for statusIndex := range namespaceClassification.Remove {
+		err := r.deleteFromNamespace(ctx, remoteSecret, statusIndex)
+		if err != nil {
+			errorAggregate.Add(err)
+		}
+	}
+}
+
+// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
+// obviously, not recorded in the target status).
+func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 
-	depHandler := bindings.DependentsHandler[*api.RemoteSecret]{
-		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.Client,
-			RemoteSecret: remoteSecret,
-		},
-		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			RemoteSecret: remoteSecret,
-			Storage:      r.RemoteSecretStorage,
-		},
-		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+	depHandler := r.newDependentsHandler(remoteSecret, targetSpec, targetStatus)
+
+	checkPoint, syncErr := depHandler.CheckPoint(ctx)
+	if syncErr != nil {
+		return fmt.Errorf("failed to construct a checkpoint before dependent objects deployment: %w", syncErr)
 	}
 
-	checkPoint, err := depHandler.CheckPoint(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to construct a checkpoint before dependent objects deployment: %w", err)
+	deps, _, syncErr := depHandler.Sync(ctx, remoteSecret)
+
+	if syncErr == nil {
+		targetStatus.Namespace.Namespace = deps.Secret.Namespace
+		targetStatus.Namespace.SecretName = deps.Secret.Name
+
+		targetStatus.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
+		for i, sa := range deps.ServiceAccounts {
+			targetStatus.Namespace.ServiceAccountNames[i] = sa.Name
+		}
+	} else {
+		targetStatus.Namespace.Namespace = targetSpec.Namespace
+		targetStatus.Namespace.SecretName = ""
+		targetStatus.Namespace.ServiceAccountNames = []string{}
+		targetStatus.Namespace.Error = syncErr.Error()
 	}
 
-	deps, _, err := depHandler.Sync(ctx, remoteSecret)
-	if err != nil {
+	updateErr := r.Client.Status().Update(ctx, remoteSecret)
+	if syncErr != nil || updateErr != nil {
+		if syncErr != nil {
+			debugLog.Error(syncErr, "failed to sync the dependent objects")
+		}
+
+		if updateErr != nil {
+			debugLog.Error(updateErr, "failed to update the status with the info about dependent objects")
+		}
+
 		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after failure", "syncError", err)
+			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 		}
-		if serr := r.saveFailureStatus(ctx, remoteSecret, err); serr != nil {
-			debugLog.Error(serr, "failed to save the failure status after failing to revert the failed sync", "syncError", err)
-		}
-		return fmt.Errorf("failed to sync the dependent objects of the remote secret: %w", err)
-	}
-
-	remoteSecret.Status.Target.Namespace.Namespace = deps.Secret.Namespace
-	remoteSecret.Status.Target.Namespace.SecretName = deps.Secret.Name
-
-	remoteSecret.Status.Target.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
-	for i, sa := range deps.ServiceAccounts {
-		remoteSecret.Status.Target.Namespace.ServiceAccountNames[i] = sa.Name
-	}
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after failure to record the dependent objects in the remote secret status", "updateError", err)
-		}
-		if serr := r.saveFailureStatus(ctx, remoteSecret, err); serr != nil {
-			debugLog.Error(serr, "failed to save the failure status failing to update status (somewhat expected?)", "updateError", err)
-		}
-		return fmt.Errorf("failed to update the status with the info about dependent objects: %w", err)
 	}
 
 	if debugLog.Enabled() {
@@ -276,7 +394,46 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
 	}
 
+	return AggregateNonNilErrors(syncErr, updateErr)
+}
+
+func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
+	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[targetStatusIndex])
+
+	if err := dep.Cleanup(ctx); err != nil {
+		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+	}
+
+	// leave out the index from the status targets and save right now, so that the status reflects the state of the cluster as closely as possible.
+	newTargets := make([]api.TargetStatus, 0, len(remoteSecret.Status.Targets)-1)
+	for i, t := range remoteSecret.Status.Targets {
+		if i != targetStatusIndex {
+			newTargets = append(newTargets, t)
+		}
+	}
+	remoteSecret.Status.Targets = newTargets
+
+	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
+		return fmt.Errorf("failed to update the status with a modified set of target statuses: %w", err)
+	}
+
 	return nil
+}
+
+func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
+	return bindings.DependentsHandler[*api.RemoteSecret]{
+		Target: &namespacetarget.NamespaceTarget{
+			Client:       r.Client,
+			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
+			SecretSpec:   &remoteSecret.Spec.Secret,
+			TargetSpec:   targetSpec,
+			TargetStatus: targetStatus,
+		},
+		SecretDataGetter: &remotesecrets.SecretDataGetter{
+			Storage: r.RemoteSecretStorage,
+		},
+		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+	}
 }
 
 type remoteSecretStorageFinalizer struct {
@@ -314,21 +471,25 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 
 	lg.Info("linked objects finalizer starting to clean up dependent objects", "remoteSecret", key)
 
-	dep := bindings.DependentsHandler[*api.RemoteSecret]{
-		Target: &namespacetarget.NamespaceTarget{
-			Client:       f.client,
-			RemoteSecret: remoteSecret,
-		},
-		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			RemoteSecret: remoteSecret,
-			Storage:      f.storage,
-		},
-		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
-	}
+	for i := range remoteSecret.Status.Targets {
+		ts := remoteSecret.Status.Targets[i]
+		dep := bindings.DependentsHandler[*api.RemoteSecret]{
+			Target: &namespacetarget.NamespaceTarget{
+				Client:       f.client,
+				TargetKey:    key,
+				SecretSpec:   &remoteSecret.Spec.Secret,
+				TargetStatus: &ts,
+			},
+			SecretDataGetter: &remotesecrets.SecretDataGetter{
+				Storage: f.storage,
+			},
+			ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+		}
 
-	if err := dep.Cleanup(ctx); err != nil {
-		lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
-		return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+		if err := dep.Cleanup(ctx); err != nil {
+			lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
+			return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+		}
 	}
 
 	lg.Info("linked objects finalizer completed without failure", "binding", key)

@@ -25,42 +25,31 @@ import (
 )
 
 func TestNamespaceTarget_GetActualSecretName(t *testing.T) {
-	bt := NamespaceTarget{
-		RemoteSecret: getTestRemoteSecret(),
-	}
-
+	bt := getTestNamespaceTarget()
 	assert.Equal(t, "kachny-asdf", bt.GetActualSecretName())
 }
 
 func TestNamespaceTarget_GetActualServiceAccountNames(t *testing.T) {
-	bt := NamespaceTarget{
-		RemoteSecret: getTestRemoteSecret(),
-	}
+	bt := getTestNamespaceTarget()
 
 	assert.Equal(t, []string{"a", "b"}, bt.GetActualServiceAccountNames())
 }
 
 func TestNamespaceTarget_GetClient(t *testing.T) {
 	cl := fake.NewClientBuilder().Build()
-	bt := NamespaceTarget{
-		Client: cl,
-	}
+	bt := getTestNamespaceTarget()
+	bt.Client = cl
 
 	assert.Same(t, cl, bt.GetClient())
 }
 
 func TestNamespaceTarget_GetTargetObjectKey(t *testing.T) {
-	bt := NamespaceTarget{
-		RemoteSecret: getTestRemoteSecret(),
-	}
-
+	bt := getTestNamespaceTarget()
 	assert.Equal(t, client.ObjectKey{Name: "remotesecret", Namespace: "ns"}, bt.GetTargetObjectKey())
 }
 
 func TestNamespaceTarget_GetSpec(t *testing.T) {
-	bt := NamespaceTarget{
-		RemoteSecret: getTestRemoteSecret(),
-	}
+	bt := getTestNamespaceTarget()
 
 	assert.Equal(t, api.LinkableSecretSpec{
 		GenerateName: "kachny-",
@@ -68,15 +57,23 @@ func TestNamespaceTarget_GetSpec(t *testing.T) {
 }
 
 func TestNamespaceTarget_GetTargetNamespace(t *testing.T) {
-	bt := NamespaceTarget{
-		RemoteSecret: getTestRemoteSecret(),
-	}
-
+	bt := getTestNamespaceTarget()
 	assert.Equal(t, "target-ns", bt.GetTargetNamespace())
 }
 
 func TestNamespaceTarget_GetType(t *testing.T) {
 	assert.Equal(t, "Namespace", (&NamespaceTarget{}).GetType())
+}
+
+func getTestNamespaceTarget() NamespaceTarget {
+	rs := getTestRemoteSecret()
+	return NamespaceTarget{
+		Client:       nil,
+		TargetKey:    client.ObjectKeyFromObject(rs),
+		SecretSpec:   &rs.Spec.Secret,
+		TargetSpec:   &rs.Spec.Targets[0],
+		TargetStatus: &rs.Status.Targets[0],
+	}
 }
 
 func getTestRemoteSecret() *api.RemoteSecret {
@@ -89,16 +86,20 @@ func getTestRemoteSecret() *api.RemoteSecret {
 			Secret: api.LinkableSecretSpec{
 				GenerateName: "kachny-",
 			},
-			Target: api.RemoteSecretTarget{
-				Namespace: "target-ns",
+			Targets: []api.RemoteSecretTarget{
+				{
+					Namespace: "target-ns",
+				},
 			},
 		},
 		Status: api.RemoteSecretStatus{
-			Target: api.TargetStatus{
-				Namespace: api.NamespaceTargetStatus{
-					Namespace:           "target-ns",
-					SecretName:          "kachny-asdf",
-					ServiceAccountNames: []string{"a", "b"},
+			Targets: []api.TargetStatus{
+				{
+					Namespace: api.NamespaceTargetStatus{
+						Namespace:           "target-ns",
+						SecretName:          "kachny-asdf",
+						ServiceAccountNames: []string{"a", "b"},
+					},
 				},
 			},
 		},

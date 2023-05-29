@@ -111,7 +111,7 @@ func TestCheckPublicRepo(t *testing.T) {
 }
 
 func TestParseGithubRepositoryUrl(t *testing.T) {
-	gh := Github{}
+	gh := Github{baseUrl: "https://github.com"}
 
 	testOk := func(url, expectedOwner, expectedRepo string) {
 		t.Run(fmt.Sprintf("%s => %s:%s", url, expectedOwner, expectedRepo), func(t *testing.T) {
@@ -370,7 +370,8 @@ func TestNewGithub(t *testing.T) {
 		},
 		HttpClient: http.DefaultClient,
 	}
-	spConfig := &config.ServiceProviderConfiguration{}
+	baseUrl := "https://github.com"
+	spConfig := &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: baseUrl}
 
 	sp, err := newGithub(factory, spConfig)
 
@@ -379,7 +380,7 @@ func TestNewGithub(t *testing.T) {
 	assert.Nil(t, sp.GetOAuthCapability())
 	assert.NotNil(t, sp.GetDownloadFileCapability())
 	assert.Equal(t, config.ServiceProviderTypeGitHub, sp.GetType())
-	assert.Equal(t, config.ServiceProviderTypeGitHub.DefaultBaseUrl, sp.GetBaseUrl())
+	assert.Equal(t, baseUrl, sp.GetBaseUrl())
 }
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {

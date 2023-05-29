@@ -345,7 +345,7 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 			Namespace: uploadSecret.Namespace,
 		},
 		Spec: spi.RemoteSecretSpec{
-			Target: targetSpec,
+			Targets: []spi.RemoteSecretTarget{targetSpec},
 		},
 	}
 
