@@ -122,7 +122,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		}
 
 		if err = (&SnapshotEnvironmentBindingReconciler{
-			Client:        mgr.GetClient(),
+			k8sClient:     mgr.GetClient(),
 			Scheme:        mgr.GetScheme(),
 			Configuration: cfg,
 		}).SetupWithManager(mgr); err != nil {
