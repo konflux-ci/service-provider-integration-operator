@@ -325,7 +325,7 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 			*status = api.TargetStatus{
 				ApiUrl:    remoteSecret.Spec.Targets[specIdx].ApiUrl,
 				Namespace: remoteSecret.Spec.Targets[specIdx].Namespace,
-				Error:     fmt.Sprintf("target at index %d is a duplicate of target at index %d", specIdx, originalIdx),
+				Error:     fmt.Sprintf("the target at the index %d is a duplicate of the target at the index %d", specIdx, originalIdx),
 			}
 		}
 	}
@@ -369,6 +369,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		for i, sa := range deps.ServiceAccounts {
 			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
+		targetStatus.Error = ""
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
 		targetStatus.SecretName = ""
@@ -389,9 +390,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
 			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 		}
-	}
-
-	if debugLog.Enabled() {
+	} else if debugLog.Enabled() {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			saks[i] = client.ObjectKeyFromObject(sa)
