@@ -36,9 +36,9 @@ type RemoteSecretTarget struct {
 	// ApiUrl specifies the URL of the API server of a remote Kubernetes cluster that this target points to. If left empty,
 	// the local cluster is assumed.
 	ApiUrl string `json:"apiUrl,omitempty"`
-	// CredentialsSecretName is the name of the secret in the same namespace as the RemoteSecret that contains the token
+	// ClusterCredentialsSecret is the name of the secret in the same namespace as the RemoteSecret that contains the token
 	// to use to authenticate with the remote Kubernetes cluster. This is ignored if `apiUrl` is empty.
-	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
+	ClusterCredentialsSecret string `json:"clusterCredentialsSecret,omitempty"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
