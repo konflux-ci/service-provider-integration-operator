@@ -19,8 +19,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"os"
+
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
