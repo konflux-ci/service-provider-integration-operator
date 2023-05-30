@@ -211,7 +211,7 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	if err != nil {
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
 	}
-	cfg := oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg, RedirectProxyUrl: args.RedirectProxyUrl}
+	cfg := oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg, RedirectProxyUrl: args.OAuthRedirectProxyUrl}
 	err = config.ValidateStruct(cfg)
 	if err != nil {
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("oauth service configuration validation failed: %w", err)
