@@ -19,4 +19,5 @@ import (
 
 type OAuthServiceConfiguration struct {
 	config.SharedConfiguration `validate:"required"`
+	RedirectProxyUrl           string `validate:"omitempty,https_only"`
 }

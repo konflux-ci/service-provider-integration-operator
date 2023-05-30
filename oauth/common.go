@@ -19,16 +19,17 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -66,6 +67,9 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		return c.OAuthServiceConfiguration.RedirectProxyUrl
+	}
 	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
@@ -102,7 +106,13 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-
+	//encode original state and callback to the new state. it allows to make redirection proxy stateless.
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		params := url.Values{}
+		params.Add("state", newStateString)
+		params.Add("callback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
+		newStateString = params.Encode()
+	}
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
 	if oauthConfigErr != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
