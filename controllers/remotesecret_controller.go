@@ -18,6 +18,7 @@ import (
 	"context"
 	stdErrors "errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -150,11 +151,6 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
 
-	validationResult, err := handleStage(ctx, r.Client, remoteSecret, r.validate(ctx, remoteSecret))
-	if err != nil || validationResult.Cancellation.Cancel {
-		return validationResult.Cancellation.Result, err
-	}
-
 	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
@@ -202,31 +198,6 @@ func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api
 	} else {
 		return result, nil
 	}
-}
-
-// validate validates the provided remote secret.
-func (r *RemoteSecretReconciler) validate(ctx context.Context, remoteSecret *api.RemoteSecret) stageResult[any] {
-	result := stageResult[any]{
-		Name: "validation",
-	}
-
-	if err := remoteSecret.Validate(); err != nil {
-		result.Condition = metav1.Condition{
-			Type:    string(api.RemoteSecretConditionTypeSpecValid),
-			Status:  metav1.ConditionFalse,
-			Reason:  string(api.RemoteSecretReasonError),
-			Message: err.Error(),
-		}
-		result.Cancellation.Cancel = true
-	} else {
-		result.Condition = metav1.Condition{
-			Type:   string(api.RemoteSecretConditionTypeSpecValid),
-			Status: metav1.ConditionTrue,
-			Reason: string(api.RemoteSecretReasonValid),
-		}
-	}
-
-	return result
 }
 
 // obtainData tries to find the data of the remote secret in the backing storage.
@@ -339,6 +310,38 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 			errorAggregate.Add(err)
 		}
 	}
+
+	// mark the duplicates...
+	for originalIdx, duplicates := range namespaceClassification.DuplicateTargetSpecs {
+		for specIdx, statusIdx := range duplicates {
+			var status *api.TargetStatus
+			if statusIdx == -1 {
+				remoteSecret.Status.Targets = append(remoteSecret.Status.Targets, api.TargetStatus{})
+				status = &remoteSecret.Status.Targets[len(remoteSecret.Status.Targets)-1]
+			} else {
+				status = &remoteSecret.Status.Targets[statusIdx]
+			}
+			// clear out the status and just set the key and error
+			*status = api.TargetStatus{
+				ApiUrl:    remoteSecret.Spec.Targets[specIdx].ApiUrl,
+				Namespace: remoteSecret.Spec.Targets[specIdx].Namespace,
+				Error:     fmt.Sprintf("the target at the index %d is a duplicate of the target at the index %d", specIdx, originalIdx),
+			}
+		}
+	}
+
+	// and finally, remove the orphaned and deleted targets from the status
+	toRemove := make([]remotesecrets.StatusTargetIndex, 0, len(namespaceClassification.Remove)+len(namespaceClassification.OrphanDuplicateStatuses))
+	toRemove = append(toRemove, namespaceClassification.Remove...)
+	toRemove = append(toRemove, namespaceClassification.OrphanDuplicateStatuses...)
+	// sort the array in reverse order so that we can remove from the status without reindexing
+	sort.Slice(toRemove, func(i, j int) bool {
+		return toRemove[i] > toRemove[j]
+	})
+
+	for _, stIdx := range toRemove {
+		remoteSecret.Status.Targets = append(remoteSecret.Status.Targets[:stIdx], remoteSecret.Status.Targets[stIdx+1:]...)
+	}
 }
 
 // deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
@@ -356,19 +359,22 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	deps, _, syncErr := depHandler.Sync(ctx, remoteSecret)
 
-	if syncErr == nil {
-		targetStatus.Namespace.Namespace = deps.Secret.Namespace
-		targetStatus.Namespace.SecretName = deps.Secret.Name
+	targetStatus.ApiUrl = targetSpec.ApiUrl
 
-		targetStatus.Namespace.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
+	if syncErr == nil {
+		targetStatus.Namespace = deps.Secret.Namespace
+		targetStatus.SecretName = deps.Secret.Name
+
+		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
-			targetStatus.Namespace.ServiceAccountNames[i] = sa.Name
+			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
+		targetStatus.Error = ""
 	} else {
-		targetStatus.Namespace.Namespace = targetSpec.Namespace
-		targetStatus.Namespace.SecretName = ""
-		targetStatus.Namespace.ServiceAccountNames = []string{}
-		targetStatus.Namespace.Error = syncErr.Error()
+		targetStatus.Namespace = targetSpec.Namespace
+		targetStatus.SecretName = ""
+		targetStatus.ServiceAccountNames = []string{}
+		targetStatus.Error = syncErr.Error()
 	}
 
 	updateErr := r.Client.Status().Update(ctx, remoteSecret)
@@ -384,9 +390,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
 			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 		}
-	}
-
-	if debugLog.Enabled() {
+	} else if debugLog.Enabled() {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			saks[i] = client.ObjectKeyFromObject(sa)
@@ -423,7 +427,7 @@ func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remote
 func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
 	return bindings.DependentsHandler[*api.RemoteSecret]{
 		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.Client,
+			Client:       r.clientForTarget(targetSpec),
 			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
 			SecretSpec:   &remoteSecret.Spec.Secret,
 			TargetSpec:   targetSpec,
@@ -434,6 +438,19 @@ func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSe
 		},
 		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
 	}
+}
+
+func (r *RemoteSecretReconciler) clientForTarget(targetSpec *api.RemoteSecretTarget) client.Client {
+	if targetSpec.ApiUrl == "" {
+		return r.Client
+	}
+
+	// TODO: this should construct a client that connects to the ApiUrl of the target using the token stored in the secret.
+	// This client only needs to store secrets and serviceaccounts so we should construct a minimal client without API discovery
+	// as we do in the oauth client to limit the time it takes to create the client and also to limit the memory consumption.
+	// We could also think about caching the clients.
+
+	return r.Client
 }
 
 type remoteSecretStorageFinalizer struct {
