@@ -95,11 +95,9 @@ func getTestRemoteSecret() *api.RemoteSecret {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace: api.NamespaceTargetStatus{
-						Namespace:           "target-ns",
-						SecretName:          "kachny-asdf",
-						ServiceAccountNames: []string{"a", "b"},
-					},
+					Namespace:           "target-ns",
+					SecretName:          "kachny-asdf",
+					ServiceAccountNames: []string{"a", "b"},
 				},
 			},
 		},

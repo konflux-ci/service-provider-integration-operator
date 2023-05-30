@@ -84,7 +84,7 @@ fi
 
 
 print "Checking if secret was created in target namespaces..."
-TARGETS=$(echo "${TARGETS}" | jq ".[].namespace")
+TARGETS=$(echo "${TARGETS}" | jq ".[]")
 TARGET1_SECRET=$(echo "${TARGETS}" | jq "select(.namespace==\"${TARGET_NS_1}\") | .secretName" | tr -d '"')
 TARGET2_SECRET=$(echo "${TARGETS}" | jq "select(.namespace==\"${TARGET_NS_2}\") | .secretName" | tr -d '"')
 kubectl get secret/"${TARGET1_SECRET}" -n "${TARGET_NS_1}" --no-headers -o custom-columns=":metadata.name"

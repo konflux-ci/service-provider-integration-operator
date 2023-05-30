@@ -52,7 +52,7 @@ func (t *NamespaceTarget) GetTargetNamespace() string {
 	if t.TargetSpec != nil {
 		return t.TargetSpec.Namespace
 	} else if t.TargetStatus != nil {
-		return t.TargetStatus.Namespace.Namespace
+		return t.TargetStatus.Namespace
 	} else {
 		// should never happen, but we need to return something
 		return ""
@@ -63,7 +63,7 @@ func (t *NamespaceTarget) GetActualSecretName() string {
 	if t.TargetStatus == nil {
 		return ""
 	} else {
-		return t.TargetStatus.Namespace.SecretName
+		return t.TargetStatus.SecretName
 	}
 }
 
@@ -71,7 +71,7 @@ func (t *NamespaceTarget) GetActualServiceAccountNames() []string {
 	if t.TargetStatus == nil {
 		return []string{}
 	} else {
-		return t.TargetStatus.Namespace.ServiceAccountNames
+		return t.TargetStatus.ServiceAccountNames
 	}
 }
 
