@@ -77,8 +77,6 @@ rules:
   resources:
   - snapshotenvironmentbindings
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch

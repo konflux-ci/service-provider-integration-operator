@@ -23,7 +23,7 @@ const (
 	ApplicationLabelName                   = "appstudio.application"
 	EnvironmentLabelName                   = "appstudio.environment"
 	ComponentLabelName                     = "appstudio.component"
-	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets"
+	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
 )
 
 var (
@@ -39,7 +39,7 @@ type SnapshotEnvironmentBindingReconciler struct {
 	finalizers    finalizer.Finalizers
 }
 
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments,verbs=get;list;watch
@@ -84,11 +84,6 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 			return ctrl.Result{}, fmt.Errorf("failed to update snapshot env binding based on finalization result: %w", err)
 		}
 	}
-	if finalizationResult.StatusUpdated {
-		if err = r.k8sClient.Status().Update(ctx, &snapshotEnvBinding); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the snapshot env binding status based on finalization result: %w", err)
-		}
-	}
 
 	if snapshotEnvBinding.DeletionTimestamp != nil {
 		lg.V(logs.DebugLevel).Info("SnapshotEnvironmentBinding is being deleted. skipping reconciliation")
@@ -104,10 +99,14 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: environmentName, Namespace: snapshotEnvBinding.Namespace}, &environment)
 	if err != nil {
 		lg.Error(err, fmt.Sprintf("unable to get the Environment %s %v", environmentName, req.NamespacedName))
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 
 	target, err := detectTargetFromEnvironment(ctx, environment)
+	if err != nil {
+		lg.Error(err, fmt.Sprintf("error while resolving target for environment %s", environmentName))
+		return ctrl.Result{}, fmt.Errorf("error resolving targer for environment %s: %w", environmentName, err)
+	}
 
 	remoteSecretsList := api.RemoteSecretList{}
 	if err := r.k8sClient.List(ctx, &remoteSecretsList, client.InNamespace(appNamespace), client.MatchingLabels{ApplicationLabelName: applicationName, EnvironmentLabelName: environmentName}); err != nil {
@@ -175,7 +174,7 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 
 	target, err := detectTargetFromEnvironment(ctx, environment)
 	if err != nil {
-		return res, err
+		return res, fmt.Errorf("error resolving targer for environment %s: %w", snapshotEnvBinding.Spec.Environment, err)
 	}
 
 	remoteSecretsList := api.RemoteSecretList{}
