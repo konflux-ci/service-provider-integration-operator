@@ -76,9 +76,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 
 	finalizationResult, err := r.finalizers.Finalize(ctx, &snapshotEnvBinding)
 	if err != nil {
-		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
-		// we get another reconciliation due to cluster state change
-		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to finalize: %w", err)
 	}
 	if finalizationResult.Updated {
 		if err = r.k8sClient.Update(ctx, &snapshotEnvBinding); err != nil {
@@ -129,8 +127,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 func addTargetIfNotExists(secret *api.RemoteSecret, target api.RemoteSecretTarget) {
 	for idx := range secret.Spec.Targets {
 		existingTarget := secret.Spec.Targets[idx]
-		// Add the rest of the fields there
-		if existingTarget.Namespace == target.Namespace {
+		if targetsMatch(existingTarget, target) {
 			return
 		}
 	}
@@ -140,11 +137,14 @@ func addTargetIfNotExists(secret *api.RemoteSecret, target api.RemoteSecretTarge
 func removeTarget(secret *api.RemoteSecret, target api.RemoteSecretTarget) {
 	for idx := range secret.Spec.Targets {
 		existingTarget := secret.Spec.Targets[idx]
-		// Add the rest of the fields there
-		if existingTarget.Namespace == target.Namespace {
+		if targetsMatch(existingTarget, target) {
 			secret.Spec.Targets = append(secret.Spec.Targets[:idx], secret.Spec.Targets[idx+1:]...)
 		}
 	}
+}
+
+func targetsMatch(target1, target2 api.RemoteSecretTarget) bool {
+	return target1.Namespace == target2.Namespace && target1.ApiUrl == target2.ApiUrl && target1.ClusterCredentialsSecret == target2.ClusterCredentialsSecret
 }
 
 func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (api.RemoteSecretTarget, error) {
