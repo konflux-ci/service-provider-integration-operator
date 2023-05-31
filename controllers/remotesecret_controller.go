@@ -449,7 +449,7 @@ func (r *RemoteSecretReconciler) clientForTarget(targetSpec *api.RemoteSecretTar
 	} else {
 		return r.Client
 	}
-	
+
 	if apiUrl == "" {
 		return r.Client
 	}
