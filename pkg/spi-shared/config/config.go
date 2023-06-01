@@ -16,12 +16,12 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	"golang.org/x/oauth2"
+	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strings"
-
-	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v3"
 )
 
 type spiInstanceIdContextKeyType struct{}
@@ -40,7 +40,7 @@ type ServiceProviderType struct {
 //
 // Note: HostCredentials service provider does not belong here because it's not defined service provider
 // that can be configured in any form.
-var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
+var SupportedServiceProviderTypes = []ServiceProviderType{
 	ServiceProviderTypeGitHub,
 	ServiceProviderTypeGitLab,
 	ServiceProviderTypeQuay,
@@ -48,7 +48,7 @@ var SupportedServiceProviderTypes []ServiceProviderType = []ServiceProviderType{
 
 // HostCredentials service provider is used for service provider URLs that we don't support (are not in list of SupportedServiceProviderTypes).
 // We can still provide limited functionality for them like manual token upload.
-var ServiceProviderTypeHostCredentials ServiceProviderType = ServiceProviderType{
+var ServiceProviderTypeHostCredentials = ServiceProviderType{
 	Name: "HostCredentials",
 }
 
@@ -181,7 +181,7 @@ func LoadFrom(configFilePath, baseUrl string) (SharedConfiguration, error) {
 	}
 
 	cfg.BaseUrl = strings.TrimSuffix(baseUrl, "/")
-	err = ValidateStruct(cfg)
+	err = config.ValidateStruct(cfg)
 	if err != nil {
 		return SharedConfiguration{}, fmt.Errorf("service configuration validation failed: %w", err)
 	}

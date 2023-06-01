@@ -15,10 +15,10 @@
 package v1beta1
 
 import (
-	"testing"
-
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"testing"
 )
 
 func TestValidate(t *testing.T) {
@@ -26,12 +26,12 @@ func TestValidate(t *testing.T) {
 		binding := SPIAccessTokenBinding{
 			Spec: SPIAccessTokenBindingSpec{
 				Secret: SecretSpec{
-					LinkableSecretSpec: LinkableSecretSpec{
+					LinkableSecretSpec: api.LinkableSecretSpec{
 						Type: secretType,
-						LinkedTo: []SecretLink{
+						LinkedTo: []api.SecretLink{
 							{
-								ServiceAccount: ServiceAccountLink{
-									As: ServiceAccountLinkTypeImagePullSecret,
+								ServiceAccount: api.ServiceAccountLink{
+									As: api.ServiceAccountLinkTypeImagePullSecret,
 								},
 							},
 						},

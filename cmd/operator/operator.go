@@ -9,6 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
+distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
@@ -19,6 +20,8 @@ package main
 import (
 	"context"
 	"fmt"
+	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
+
 	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -27,10 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
-	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
+	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
@@ -83,7 +86,7 @@ func main() {
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
 	var err error
-	err = sharedconfig.SetupCustomValidations(sharedconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
@@ -92,8 +95,8 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
-	ctx = context.WithValue(ctx, config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
-	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId))
+	ctx = context.WithValue(ctx, config.SPIInstanceIdContextKey, args.CommonCliArgs.InstanceId)
+	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.InstanceId))
 
 	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {
@@ -107,7 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)

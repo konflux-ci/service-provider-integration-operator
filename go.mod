@@ -3,6 +3,7 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 go 1.20
 
 require (
+    github.com/redhat-appstudio/remote-secret v0.0.0-20230601111811-063c58336b5a
 	github.com/alexedwards/scs/v2 v2.5.1
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go-v2 v1.18.0
