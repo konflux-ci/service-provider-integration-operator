@@ -8,4 +8,5 @@ resources:
 - bases/appstudio.redhat.com_spiaccesschecks.yaml
 - bases/appstudio.redhat.com_spifilecontentrequests.yaml
 - bases/appstudio.redhat.com_remotesecrets.yaml
+- https://github.com/redhat-appstudio/application-api/config/crd?ref=e6c600a8c7324206833144dcdc710d7a982e63de
 #+kubebuilder:scaffold:crdkustomizeresource

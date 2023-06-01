@@ -108,13 +108,18 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 	}
 
 	remoteSecretsList := api.RemoteSecretList{}
-	if err := r.k8sClient.List(ctx, &remoteSecretsList, client.InNamespace(appNamespace), client.MatchingLabels{ApplicationLabelName: applicationName, EnvironmentLabelName: environmentName}); err != nil {
-		spiFileContentRequestLog.Error(err, "Unable to fetch remote secrets list", "namespace", appNamespace)
+	if err := r.k8sClient.List(ctx, &remoteSecretsList, client.InNamespace(appNamespace), client.MatchingLabels{ApplicationLabelName: applicationName}); err != nil {
+		lg.Error(err, "Unable to fetch remote secrets list", "namespace", appNamespace)
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
+		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
+		if set && environmentInSecret != "" && environmentInSecret != environmentName {
+			// this secret is intended for another environment, bypassing it
+			continue
+		}
 		addTargetIfNotExists(&remoteSecret, target)
 		if err = r.k8sClient.Update(ctx, &remoteSecret); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update secret: %w", err)
@@ -179,12 +184,17 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 	}
 
 	remoteSecretsList := api.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(snapshotEnvBinding.Namespace), client.MatchingLabels{ApplicationLabelName: snapshotEnvBinding.Spec.Application, EnvironmentLabelName: snapshotEnvBinding.Spec.Environment}); err != nil {
+	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(snapshotEnvBinding.Namespace), client.MatchingLabels{ApplicationLabelName: snapshotEnvBinding.Spec.Application}); err != nil {
 		return res, unableToFetchRemoteSecretsError
 	}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
+		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
+		if set && environmentInSecret != "" && environmentInSecret != snapshotEnvBinding.Spec.Environment {
+			// this secret is intended for another environment, bypassing it
+			continue
+		}
 		removeTarget(&remoteSecret, target)
 		if err = f.client.Update(ctx, &remoteSecret); err != nil {
 			return res, unableToUpdateRemoteSecret
