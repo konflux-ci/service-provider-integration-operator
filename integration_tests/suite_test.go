@@ -38,12 +38,12 @@ import (
 
 	config2 "github.com/onsi/ginkgo/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	corev1 "k8s.io/api/core/v1"
@@ -171,7 +171,7 @@ var _ = BeforeSuite(func() {
 		return "", nil
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
-	ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: true}
+	ITest.ValidationOptions = rconfig.CustomValidationOptions{AllowInsecureURLs: true}
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 

@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage/awscli"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
