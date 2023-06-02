@@ -224,15 +224,12 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_minikube_rhtap ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
-
-deploy_minikube_rhtap: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
-	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault_rhtap"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-
+deploy_minikube_rhtap: kustomize ## Deploy RHTAP CRD-s to the Minikube cluster
+	 $(KUSTOMIZE) build config/rhtap/overlays/minikube_vault | kubectl apply -f -
 
 deploy_minikube_aws: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config with AWS tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_aws"
@@ -246,13 +243,12 @@ deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the
 	OAUTH_HOST=`hack/spi-host-openshift.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
 	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
 
-undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
+undeploy_minikube: undeploy_vault_k8s undeploy_minikube_rhtap ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/default ${TEMP_DIR}/overlays/minikube_vault_rhtap | kubectl delete -f -
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/default | kubectl delete -f -
 
-undeploy_minikube_rhtap: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
-	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/overlays/minikube_vault_rhtap | kubectl delete -f -
+undeploy_minikube_rhtap: kustomize ## Undeploy RHTAP CRD-s
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/rhtap/overlays/minikube_vault | kubectl delete -f - || true
 
 undeploy_openshift: undeploy_vault_openshift ## Undeploy controller from the Openshift cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_openshift ]; then echo "No deployment files found in .tmp/deployment_openshift"; exit 1; fi
