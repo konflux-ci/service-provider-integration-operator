@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -101,7 +101,7 @@ type SPIAccessTokenBindingList struct {
 }
 
 type SecretSpec struct {
-	api.LinkableSecretSpec `json:",inline"`
+	rapi.LinkableSecretSpec `json:",inline"`
 
 	// Fields specifies the mapping from the token record fields to the keys in the secret data.
 	Fields TokenFieldMapping `json:"fields,omitempty"`
@@ -165,7 +165,7 @@ func (in *SPIAccessTokenBinding) Validate() SPIAccessTokenBindingValidation {
 		if link.ServiceAccount.Reference.Name != "" && (link.ServiceAccount.Managed.Name != "" || link.ServiceAccount.Managed.GenerateName != "") {
 			ret.Consistency = append(ret.Consistency, fmt.Sprintf("The %d-th service account spec defines both a service account reference and the managed service account. This is invalid", i+1))
 		}
-		if in.Spec.Secret.Type != corev1.SecretTypeDockerConfigJson && link.ServiceAccount.As == api.ServiceAccountLinkTypeImagePullSecret {
+		if in.Spec.Secret.Type != corev1.SecretTypeDockerConfigJson && link.ServiceAccount.As == rapi.ServiceAccountLinkTypeImagePullSecret {
 			ret.Consistency = append(ret.Consistency,
 				fmt.Sprintf("the secret must have the %s type for it to be linkable to the %d-th service account spec as an image pull secret", corev1.SecretTypeDockerConfigJson, i+1))
 		}

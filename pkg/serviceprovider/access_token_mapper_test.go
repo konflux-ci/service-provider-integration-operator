@@ -17,13 +17,13 @@ limitations under the License.
 package serviceprovider
 
 import (
-	"strconv"
-	"strings"
-	"testing"
-
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"strconv"
+	"strings"
+	"testing"
 )
 
 var at AccessTokenMapper
@@ -66,26 +66,26 @@ func TestEmpty(t *testing.T) {
 
 func TestSecretTypeDefaultFields(t *testing.T) {
 	t.Run("basicAuth", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeBasicAuth}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeBasicAuth}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.ServiceProviderUserName, converted[corev1.BasicAuthUsernameKey])
 		assert.Equal(t, at.Token, converted[corev1.BasicAuthPasswordKey])
 	})
 
 	t.Run("serviceAccountToken", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeServiceAccountToken}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeServiceAccountToken}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted["extra"])
 	})
 
 	t.Run("dockercfg", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeDockercfg}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeDockercfg}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.DockerConfigKey])
 	})
 
 	t.Run("dockerconfigjson", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{RepoUrl: "https://spurl", Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeDockerConfigJson}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{RepoUrl: "https://spurl", Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeDockerConfigJson}}})
 		assert.NoError(t, err)
 		assert.Equal(t,
 			`{
@@ -98,7 +98,7 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 	})
 
 	t.Run("ssh-privatekey", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeSSHAuth}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeSSHAuth}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[corev1.SSHAuthPrivateKey])
 	})
@@ -110,7 +110,7 @@ func TestSecretTypeDefaultFields(t *testing.T) {
 	})
 
 	t.Run("opaque", func(t *testing.T) {
-		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: api.LinkableSecretSpec{Type: corev1.SecretTypeOpaque}}})
+		converted, err := at.ToSecretType(&api.SPIAccessTokenBindingSpec{Secret: api.SecretSpec{LinkableSecretSpec: rapi.LinkableSecretSpec{Type: corev1.SecretTypeOpaque}}})
 		assert.NoError(t, err)
 		assert.Equal(t, at.Token, converted[tokenKey])
 	})

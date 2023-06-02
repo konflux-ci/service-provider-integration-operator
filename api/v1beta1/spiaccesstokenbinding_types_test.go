@@ -15,7 +15,7 @@
 package v1beta1
 
 import (
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"testing"
@@ -26,12 +26,12 @@ func TestValidate(t *testing.T) {
 		binding := SPIAccessTokenBinding{
 			Spec: SPIAccessTokenBindingSpec{
 				Secret: SecretSpec{
-					LinkableSecretSpec: api.LinkableSecretSpec{
+					LinkableSecretSpec: rapi.LinkableSecretSpec{
 						Type: secretType,
-						LinkedTo: []api.SecretLink{
+						LinkedTo: []rapi.SecretLink{
 							{
-								ServiceAccount: api.ServiceAccountLink{
-									As: api.ServiceAccountLinkTypeImagePullSecret,
+								ServiceAccount: rapi.ServiceAccountLink{
+									As: rapi.ServiceAccountLinkTypeImagePullSecret,
 								},
 							},
 						},

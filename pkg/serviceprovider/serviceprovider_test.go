@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"net/http"
 	"net/url"
 	"os"
@@ -127,7 +128,7 @@ func TestFromRepoUrl(t *testing.T) {
 	mockSP := struct {
 		ServiceProvider
 	}{}
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
+	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
 	mockInit := Initializer{
 		Probe: struct {
 			ProbeFunc
@@ -450,7 +451,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 }
 
 func TestSpConfigWithBaseUrl(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: true})
 	spConfig, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.Nil(t, err)
 	assert.Equal(t, config.ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
@@ -460,7 +461,7 @@ func TestSpConfigWithBaseUrl(t *testing.T) {
 }
 
 func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
+	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
 	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
 	var validationErr validator.ValidationErrors

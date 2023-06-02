@@ -18,6 +18,8 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"net/http"
 	"strings"
 	"time"
@@ -391,7 +393,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 	Describe("Syncing", func() {
 		binding := StandardTestBinding("sync-test")
 		binding.Spec.Secret = api.SecretSpec{
-			LinkableSecretSpec: api.LinkableSecretSpec{
+			LinkableSecretSpec: rapi.LinkableSecretSpec{
 				Name: "binding-secret",
 				Type: corev1.SecretTypeBasicAuth,
 			},
@@ -613,7 +615,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://acme/acme",
 						Secret: api.SecretSpec{
-							LinkableSecretSpec: api.LinkableSecretSpec{
+							LinkableSecretSpec: rapi.LinkableSecretSpec{
 								Type: corev1.SecretTypeBasicAuth,
 							},
 						},
@@ -792,7 +794,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				Spec: api.SPIAccessTokenBindingSpec{
 					RepoUrl: "test-provider://acme/acme",
 					Secret: api.SecretSpec{
-						LinkableSecretSpec: api.LinkableSecretSpec{
+						LinkableSecretSpec: rapi.LinkableSecretSpec{
 							Type: corev1.SecretTypeBasicAuth,
 						},
 					},
@@ -883,15 +885,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
 										Type: corev1.SecretTypeServiceAccountToken,
 										Annotations: map[string]string{
 											corev1.ServiceAccountNameKey: "sa-token",
 										},
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
+												ServiceAccount: rapi.ServiceAccountLink{
 													Reference: corev1.LocalObjectReference{
 														Name: "sa-token",
 													},
@@ -910,12 +912,12 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										Type: corev1.SecretTypeOpaque,
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
-													Managed: api.ManagedServiceAccountSpec{
+												ServiceAccount: rapi.ServiceAccountLink{
+													Managed: rapi.ManagedServiceAccountSpec{
 														GenerateName: "sa-secret-sa-",
 													},
 												},
@@ -933,13 +935,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										Type: corev1.SecretTypeDockerConfigJson,
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
-													As: api.ServiceAccountLinkTypeImagePullSecret,
-													Managed: api.ManagedServiceAccountSpec{
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
+													Managed: rapi.ManagedServiceAccountSpec{
 														GenerateName: "sa-image-pull-secret-sa-",
 													},
 												},
@@ -1090,13 +1092,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://test/",
 						Secret: api.SecretSpec{
-							LinkableSecretSpec: api.LinkableSecretSpec{
+							LinkableSecretSpec: rapi.LinkableSecretSpec{
 								Type: corev1.SecretTypeOpaque,
-								LinkedTo: []api.SecretLink{
+								LinkedTo: []rapi.SecretLink{
 									{
-										ServiceAccount: api.ServiceAccountLink{
-											As: api.ServiceAccountLinkTypeImagePullSecret,
-											Managed: api.ManagedServiceAccountSpec{
+										ServiceAccount: rapi.ServiceAccountLink{
+											As: rapi.ServiceAccountLinkTypeImagePullSecret,
+											Managed: rapi.ManagedServiceAccountSpec{
 												GenerateName: "sa-secret-sa-",
 											},
 										},
@@ -1161,11 +1163,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										Type: corev1.SecretTypeBasicAuth,
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
+												ServiceAccount: rapi.ServiceAccountLink{
 													Reference: corev1.LocalObjectReference{
 														Name: "test-service-account",
 													},
@@ -1184,12 +1186,12 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										Type: corev1.SecretTypeDockerConfigJson,
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
-													As: api.ServiceAccountLinkTypeImagePullSecret,
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
 													Reference: corev1.LocalObjectReference{
 														Name: "test-service-account",
 													},
@@ -1390,13 +1392,13 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									LinkableSecretSpec: api.LinkableSecretSpec{
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
 										Type: corev1.SecretTypeDockerConfigJson,
-										LinkedTo: []api.SecretLink{
+										LinkedTo: []rapi.SecretLink{
 											{
-												ServiceAccount: api.ServiceAccountLink{
-													As: api.ServiceAccountLinkTypeImagePullSecret,
-													Managed: api.ManagedServiceAccountSpec{
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
+													Managed: rapi.ManagedServiceAccountSpec{
 														GenerateName: "sa-managed-sa-",
 													},
 												},
@@ -1477,7 +1479,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: false}
+					ITest.ValidationOptions = rconfig.CustomValidationOptions{AllowInsecureURLs: false}
 					ITest.TestServiceProvider.GetBaseUrlImpl = func() string {
 						return "http://abc.foo"
 					}
