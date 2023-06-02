@@ -20,6 +20,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"net/url"
 	"time"
 
@@ -286,7 +287,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	val := binding.Validate()
 	if len(val.Consistency) > 0 {
-		validationErrors := NewAggregatedError()
+		validationErrors := rerror.NewAggregatedError()
 		for _, e := range val.Consistency {
 			validationErrors.Add(fmt.Errorf("%w: %s", bindingConsistencyError, e))
 		}
@@ -302,7 +303,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if len(validation.ScopeValidation) > 0 {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, rerror.NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}
 

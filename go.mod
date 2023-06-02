@@ -3,7 +3,6 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 go 1.20
 
 require (
-    github.com/redhat-appstudio/remote-secret v0.0.0-20230601111811-063c58336b5a
 	github.com/alexedwards/scs/v2 v2.5.1
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go-v2 v1.18.0
@@ -36,6 +35,7 @@ require (
 	github.com/onsi/gomega v1.27.6
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.0
+	github.com/redhat-appstudio/remote-secret v0.0.0-20230602070246-1bd9b1ab9c8f
 	github.com/stretchr/testify v1.8.2
 	github.com/xanzy/go-gitlab v0.83.0
 	go.uber.org/zap v1.24.0

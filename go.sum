@@ -1026,6 +1026,10 @@ github.com/prometheus/procfs v0.9.0/go.mod h1:+pB4zwohETzFnmlpe6yd2lSc+0/46IYZRB
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/rboyer/safeio v0.2.1 h1:05xhhdRNAdS3apYm7JRjOqngf4xruaW959jmRxGDuSU=
 github.com/rboyer/safeio v0.2.1/go.mod h1:Cq/cEPK+YXFn622lsQ0K4KsPZSPtaptHHEldsy7Fmig=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230601115941-ccbde3d46a73 h1:+xZwTte+rE1OJUrcckMrwpRPcff+7OppFnPbIs4aBvg=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230601115941-ccbde3d46a73/go.mod h1:1XxVe/1/RYCnFaT2WuNXLAQQcIcpOskPGjmLCCDBqjU=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230602070246-1bd9b1ab9c8f h1:WkNoHWQqv3qRWkKsJb9f6P1xddlwshVnRKq1vJGGS9E=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230602070246-1bd9b1ab9c8f/go.mod h1:1XxVe/1/RYCnFaT2WuNXLAQQcIcpOskPGjmLCCDBqjU=
 github.com/renier/xmlrpc v0.0.0-20170708154548-ce4a1a486c03 h1:Wdi9nwnhFNAlseAOekn6B5G/+GMtks9UKbvRU/CMM/o=
 github.com/renier/xmlrpc v0.0.0-20170708154548-ce4a1a486c03/go.mod h1:gRAiPF5C5Nd0eyyRdqIu9qTiFSoZzpTq727b5B8fkkU=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=

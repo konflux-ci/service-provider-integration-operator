@@ -16,18 +16,19 @@ package controllers
 
 import (
 	"errors"
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAggregatedError(t *testing.T) {
-	e := NewAggregatedError(errors.New("a"), errors.New("b"), errors.New("c"))
+	e := rerror.NewAggregatedError(errors.New("a"), errors.New("b"), errors.New("c"))
 	assert.Equal(t, "a, b, c", e.Error())
 }
 
 func TestAggregatedError_Add(t *testing.T) {
-	e := NewAggregatedError()
+	e := rerror.NewAggregatedError()
 
 	assert.Equal(t, "", e.Error())
 
@@ -43,28 +44,28 @@ func TestAggregatedError_Add(t *testing.T) {
 
 func TestAggregateNonNilErrors(t *testing.T) {
 	t.Run("single nil doesn't count", func(t *testing.T) {
-		assert.Nil(t, AggregateNonNilErrors(nil))
+		assert.Nil(t, rerror.AggregateNonNilErrors(nil))
 	})
 
 	t.Run("all nils don't count", func(t *testing.T) {
-		assert.Nil(t, AggregateNonNilErrors(nil, nil, nil))
+		assert.Nil(t, rerror.AggregateNonNilErrors(nil, nil, nil))
 	})
 
 	t.Run("single error returned as is", func(t *testing.T) {
 		err := errors.New("asdf")
-		assert.Same(t, err, AggregateNonNilErrors(err))
+		assert.Same(t, err, rerror.AggregateNonNilErrors(err))
 	})
 
 	t.Run("single error among nils returned as is", func(t *testing.T) {
 		err := errors.New("asdf")
-		assert.Same(t, err, AggregateNonNilErrors(nil, err, nil, nil))
+		assert.Same(t, err, rerror.AggregateNonNilErrors(nil, err, nil, nil))
 	})
 
 	t.Run("multiple errors aggregated", func(t *testing.T) {
 		err1 := errors.New("1")
 		err2 := errors.New("2")
-		agg := AggregateNonNilErrors(err1, err2)
-		assert.IsType(t, &AggregatedError{}, agg)
+		agg := rerror.AggregateNonNilErrors(err1, err2)
+		assert.IsType(t, &rerror.AggregatedError{}, agg)
 		assert.Equal(t, "1, 2", agg.Error())
 	})
 }
