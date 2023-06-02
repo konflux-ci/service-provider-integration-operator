@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
 

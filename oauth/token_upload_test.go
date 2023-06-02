@@ -20,7 +20,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"

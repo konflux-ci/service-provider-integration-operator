@@ -16,7 +16,7 @@ package integrationtests
 
 import (
 	"github.com/onsi/ginkgo"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -31,7 +31,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"

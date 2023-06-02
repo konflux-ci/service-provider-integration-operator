@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/vaultstorage"

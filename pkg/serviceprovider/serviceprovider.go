@@ -23,8 +23,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"

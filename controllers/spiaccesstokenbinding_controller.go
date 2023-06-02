@@ -33,12 +33,12 @@ import (
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
+	"github.com/redhat-appstudio/remote-secret/pkg/sync"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +51,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindingtarget"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/tokens"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"

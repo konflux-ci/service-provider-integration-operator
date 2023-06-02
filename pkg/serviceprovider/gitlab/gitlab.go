@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	"github.com/xanzy/go-gitlab"
 

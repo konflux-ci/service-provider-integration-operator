@@ -26,7 +26,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"

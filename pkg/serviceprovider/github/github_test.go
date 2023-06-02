@@ -35,8 +35,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"

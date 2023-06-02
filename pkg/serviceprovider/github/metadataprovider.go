@@ -30,8 +30,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 
 	"github.com/google/go-github/v45/github"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"

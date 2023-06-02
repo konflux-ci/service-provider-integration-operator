@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	"github.com/google/go-github/v45/github"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

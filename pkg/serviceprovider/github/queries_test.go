@@ -23,9 +23,9 @@ import (
 
 	"github.com/google/go-github/v45/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	"github.com/stretchr/testify/assert"
 )

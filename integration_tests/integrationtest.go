@@ -25,7 +25,7 @@ import (
 
 	"github.com/go-test/deep"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/onsi/ginkgo"
 

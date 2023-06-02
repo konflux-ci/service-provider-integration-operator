@@ -19,11 +19,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/alexedwards/scs/v2"

@@ -28,7 +28,7 @@ import (
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"k8s.io/apimachinery/pkg/api/errors"
