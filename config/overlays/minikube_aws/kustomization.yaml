@@ -11,6 +11,6 @@ generatorOptions:
   disableNameSuffixHash: true
 
 secretGenerator:
-  - name: shared-configuration-file
+      - name: shared-configuration-file
     files:
       - config.yaml
