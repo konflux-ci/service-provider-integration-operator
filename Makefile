@@ -224,9 +224,10 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_remotesecret_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	kubectl apply -f .tmp/approle_remote_secret.yaml -n remotesecret
 
 deploy_minikube_aws: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config with AWS tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_aws"
@@ -258,6 +259,9 @@ undeploy_vault_openshift: kustomize
 deploy_vault_minikube: kustomize
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
+
+deploy_remotesecret_minikube: kustomize
+	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
 
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true

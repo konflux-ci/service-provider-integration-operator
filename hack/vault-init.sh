@@ -138,6 +138,7 @@ function auth() {
 
   k8sAuth
   approleAuth
+  approleAuthRemoteSecret
 }
 
 function k8sAuth() {
@@ -188,6 +189,39 @@ secret yaml with Vault credentials prepared
 make sure your kubectl context targets cluster with SPI deployment and create the secret using (check spi namespace):
 
   $ kubectl apply -f ${SECRET_FILE} -n spi-system
+
+EOF
+}
+
+function approleAuthRemoteSecret() {
+  if ! vaultExec "vault auth list | grep -q approle" ; then
+    echo "setup approle authentication ..."
+    vaultExec "vault auth enable approle"
+  fi
+
+  if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
+  SECRET_FILE="$( realpath .tmp )/approle_remote_secret.yaml"
+
+  function approleSet() {
+    vaultExec "vault write auth/approle/role/${1} token_policies=${SPI_POLICY_NAME}"
+    ROLE_ID=$( vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id' )
+    SECRET_ID=$( vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id' )
+    echo "---" >> ${SECRET_FILE}
+    kubectl --kubeconfig=${VAULT_KUBE_CONFIG} create secret generic vault-approle-${1} \
+      --from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
+      --dry-run=client -o yaml >> ${SECRET_FILE}
+  }
+
+  if [ -f ${SECRET_FILE} ]; then rm ${SECRET_FILE}; fi
+  touch ${SECRET_FILE}
+  approleSet remote-secret-operator
+
+  cat << EOF
+
+secret yaml with Vault credentials prepared
+make sure your kubectl context targets cluster with SPI/RemoteSecret deployment and create the secret using:
+
+  $ kubectl apply -f ${SECRET_FILE} -n remotesecret
 
 EOF
 }
