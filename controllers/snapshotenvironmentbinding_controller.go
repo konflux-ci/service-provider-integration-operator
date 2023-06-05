@@ -43,6 +43,7 @@ const (
 
 var (
 	unableToFetchRemoteSecretsError = stderrors.New("unable to fetch the Remote Secrets list")
+	unableToFetchEnvironmentError   = stderrors.New("unable to fetch environment")
 	unableToUpdateRemoteSecret      = stderrors.New("unable to update the remote secret")
 )
 
@@ -189,7 +190,7 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 	environment := appstudiov1alpha1.Environment{}
 	err := f.client.Get(ctx, types.NamespacedName{Name: snapshotEnvBinding.Spec.Environment, Namespace: snapshotEnvBinding.Namespace}, &environment)
 	if err != nil {
-		return res, unableToFetchRemoteSecretsError
+		return res, unableToFetchEnvironmentError
 	}
 
 	target, err := detectTargetFromEnvironment(ctx, environment)
