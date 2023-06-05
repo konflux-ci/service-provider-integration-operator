@@ -38,7 +38,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/hostcredentials"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	sharedconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	corev1 "k8s.io/api/core/v1"
 
@@ -94,7 +93,7 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
-	ctx = context.WithValue(ctx, config.SPIInstanceIdContextKey, args.CommonCliArgs.InstanceId)
+	ctx = context.WithValue(ctx, rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
 	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.InstanceId))
 
 	mgr, mgrErr := createManager(args)

@@ -48,11 +48,11 @@ func main() {
 	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
-	ctx := context.WithValue(context.Background(), config.SPIInstanceIdContextKey, args.CommonCliArgs.InstanceId)
+	ctx := context.WithValue(context.Background(), rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
 
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	setupLog := ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.InstanceId)
+	setupLog := ctrl.Log.WithValues("instanceId", args.CommonCliArgs.InstanceId)
 	ctx = log.IntoContext(ctx, setupLog)
 	setupLog = log.FromContext(ctx).WithName("setup")
 
