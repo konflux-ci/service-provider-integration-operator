@@ -47,13 +47,10 @@ import (
 )
 
 const (
-	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	uploadSecretToken          = "token"                                  //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
-	providerUrlField           = "providerUrl"
-	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
-	targetTypeAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-type"
-	targetNameAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-name"
+	tokenSecretLabel  = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	uploadSecretToken = "token"                                  //#nosec G101 -- false positive, this is not a token
+	spiTokenNameField = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
+	providerUrlField  = "providerUrl"
 )
 
 var (
@@ -72,9 +69,6 @@ type TokenUploadReconciler struct {
 	// TokenStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
 	// secret storage mechanism
 	TokenStorage tokenstorage.TokenStorage
-	//// RemoteSecretStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
-	//// secret storage mechanism
-	//RemoteSecretStorage remotesecretstorage.RemoteSecretStorage
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -114,9 +108,6 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	switch secretType {
 	case "token":
 		err = r.reconcileToken(ctx, uploadSecret)
-	//case "remotesecret":
-	//	lg.Info("remote secret - ignoring")
-	//	return ctrl.Result{}, nil
 	default:
 		err = fmt.Errorf("%w: %s", invalidSecretTypeError, secretType)
 		lg.Error(err, "invalid secret type")
@@ -164,35 +155,6 @@ func (r *TokenUploadReconciler) reconcileToken(ctx context.Context, uploadSecret
 
 	return nil
 }
-
-//
-//func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
-//	lg := log.FromContext(ctx)
-//
-//	// try to find the remote secret
-//	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
-//	if err != nil {
-//		return fmt.Errorf("can not find RemoteSecret: %w ", err)
-//	} else if remoteSecret == nil {
-//		// The remote secret does not exist, so create it
-//		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
-//		if err != nil {
-//			return fmt.Errorf("can not create RemoteSecret: %w ", err)
-//		}
-//	}
-//
-//	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
-//	auditLog.Info("manual secret upload initiated", "action", "UPDATE")
-//	err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
-//	if err != nil {
-//		err = fmt.Errorf("failed to store the remote secret data: %w", err)
-//		auditLog.Error(err, "manual secret upload failed")
-//		return err
-//	}
-//	auditLog.Info("manual secret upload completed")
-//
-//	return nil
-//}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -303,67 +265,3 @@ func (r *TokenUploadReconciler) createSpiAccessToken(ctx context.Context, upload
 		return nil, fmt.Errorf("can not create SPIAccessToken %s. Reason: %w", accessToken.Name, err)
 	}
 }
-
-//
-//func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
-//	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
-//	if remoteSecretName == "" {
-//		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
-//		return nil, nil
-//	}
-//
-//	remoteSecret := spi.RemoteSecret{}
-//	err := r.Get(ctx, types.NamespacedName{Name: remoteSecretName, Namespace: uploadSecret.Namespace}, &remoteSecret)
-//
-//	if err != nil {
-//		if kuberrors.IsNotFound(err) {
-//			lg.V(logs.DebugLevel).Info("RemoteSecret NOT found, will try to create  ", "RemoteSecret.name", remoteSecret.Name)
-//			return nil, nil
-//		} else {
-//			return nil, fmt.Errorf("can not find RemoteSecret %s: %w ", remoteSecretName, err)
-//		}
-//	} else {
-//		lg.V(logs.DebugLevel).Info("RemoteSecret found : ", "RemoteSecret.name", remoteSecret.Name)
-//		return &remoteSecret, nil
-//	}
-//}
-//
-//func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*spi.RemoteSecret, error) {
-//	targetType, ok := uploadSecret.Annotations[targetTypeAnnotation]
-//	if !ok {
-//		return nil, targetTypeNotSetError
-//	}
-//	targetName, ok := uploadSecret.Annotations[targetNameAnnotation]
-//	if !ok {
-//		return nil, targetNameNotSetError
-//	}
-//	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
-//
-//	targetSpec := spi.RemoteSecretTarget{}
-//	if targetType == "namespace" {
-//		targetSpec.Namespace = targetName
-//	}
-//
-//	remoteSecret := spi.RemoteSecret{
-//		ObjectMeta: metav1.ObjectMeta{
-//			Namespace: uploadSecret.Namespace,
-//		},
-//		Spec: spi.RemoteSecretSpec{
-//			Targets: []spi.RemoteSecretTarget{targetSpec},
-//		},
-//	}
-//
-//	if remoteSecretName == "" {
-//		remoteSecret.GenerateName = "generated-"
-//	} else {
-//		remoteSecret.Name = remoteSecretName
-//	}
-//
-//	err := r.Create(ctx, &remoteSecret)
-//	if err == nil {
-//		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetType", targetType, "targetName", targetName)
-//		return &remoteSecret, nil
-//	} else {
-//		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
-//	}
-//}
