@@ -48,6 +48,7 @@ import (
 
 const (
 	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	uploadSecretToken          = "token"                                  //#nosec G101 -- false positive, this is not a token
 	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
 	providerUrlField           = "providerUrl"
 	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
@@ -114,7 +115,8 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	case "token":
 		err = r.reconcileToken(ctx, uploadSecret)
 	//case "remotesecret":
-	//	err = r.reconcileRemoteSecret(ctx, uploadSecret)
+	//	lg.Info("remote secret - ignoring")
+	//	return ctrl.Result{}, nil
 	default:
 		err = fmt.Errorf("%w: %s", invalidSecretTypeError, secretType)
 		lg.Error(err, "invalid secret type")
@@ -198,7 +200,8 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
 				Key:      tokenSecretLabel,
-				Operator: metav1.LabelSelectorOpExists,
+				Values:   []string{uploadSecretToken},
+				Operator: metav1.LabelSelectorOpIn,
 			},
 		},
 	})
