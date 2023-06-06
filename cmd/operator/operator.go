@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -64,6 +66,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1beta1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	initServiceProviders()

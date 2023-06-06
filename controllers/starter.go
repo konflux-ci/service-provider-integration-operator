@@ -120,6 +120,14 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
+
+		if err = (&SnapshotEnvironmentBindingReconciler{
+			k8sClient:     mgr.GetClient(),
+			Scheme:        mgr.GetScheme(),
+			Configuration: cfg,
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	if cfg.EnableTokenUpload {

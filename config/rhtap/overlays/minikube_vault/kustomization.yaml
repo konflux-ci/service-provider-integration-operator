@@ -1,0 +1,7 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+namespace: spi-system
+
+resources:
+  - https://github.com/redhat-appstudio/application-api/config/crd?ref=e6c600a8c7324206833144dcdc710d7a982e63de
