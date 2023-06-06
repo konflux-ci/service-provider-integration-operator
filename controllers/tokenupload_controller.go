@@ -55,8 +55,6 @@ const (
 
 var (
 	invalidSecretTypeError = stdErrors.New("invalid secret type")
-	targetTypeNotSetError  = stdErrors.New("target type not set")
-	targetNameNotSetError  = stdErrors.New("target name not set")
 )
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spiaccesstokendataupdates,verbs=create
