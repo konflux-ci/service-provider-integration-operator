@@ -224,7 +224,7 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_minikube_rhtap ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_minikube_rhtap deploy_remotesecret_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 	kubectl apply -f .tmp/approle_remote_secret.yaml -n remotesecret
