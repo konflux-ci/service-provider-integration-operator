@@ -17,8 +17,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"net/http"
+
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 

@@ -16,14 +16,15 @@ package main
 import (
 	"context"
 	"fmt"
-	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
-	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"html/template"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 

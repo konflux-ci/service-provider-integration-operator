@@ -18,11 +18,12 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"net/http"
 	"strings"
 	"time"
+
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 

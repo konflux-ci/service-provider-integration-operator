@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
 
 	"os"

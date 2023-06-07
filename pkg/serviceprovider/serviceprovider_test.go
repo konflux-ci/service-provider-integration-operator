@@ -18,11 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"net/http"
 	"net/url"
 	"os"
 	"testing"
+
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/go-playground/validator/v10"
 

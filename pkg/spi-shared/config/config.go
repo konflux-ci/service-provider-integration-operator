@@ -16,12 +16,13 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/config"
-	"golang.org/x/oauth2"
-	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	"golang.org/x/oauth2"
+	"gopkg.in/yaml.v3"
 )
 
 type ServiceProviderName string

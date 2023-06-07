@@ -17,10 +17,11 @@ package integrationtests
 import (
 	"context"
 	"fmt"
-	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"runtime"
 	"strings"
 	"time"
+
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/go-test/deep"
 

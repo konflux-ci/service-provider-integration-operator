@@ -15,9 +15,10 @@
 package operatorcli
 
 import (
+	"time"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"time"
 )
 
 type OperatorCliArgs struct {

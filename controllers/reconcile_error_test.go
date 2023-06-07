@@ -16,8 +16,9 @@ package controllers
 
 import (
 	"errors"
-	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"testing"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/stretchr/testify/assert"
 )

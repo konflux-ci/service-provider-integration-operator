@@ -17,13 +17,14 @@ limitations under the License.
 package serviceprovider
 
 import (
+	"strconv"
+	"strings"
+	"testing"
+
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	"strconv"
-	"strings"
-	"testing"
 )
 
 var at AccessTokenMapper

@@ -20,9 +20,10 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"net/url"
 	"time"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/go-playground/validator/v10"
 

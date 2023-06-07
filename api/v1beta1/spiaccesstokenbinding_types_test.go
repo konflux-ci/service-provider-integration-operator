@@ -15,10 +15,11 @@
 package v1beta1
 
 import (
+	"testing"
+
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	"testing"
 )
 
 func TestValidate(t *testing.T) {
