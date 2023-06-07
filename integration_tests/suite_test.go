@@ -127,6 +127,9 @@ var _ = BeforeSuite(func() {
 	err = rbac.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = v1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = apiexv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
