@@ -16,7 +16,9 @@ package integrationtests
 
 import (
 	"github.com/onsi/ginkgo"
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -43,7 +45,6 @@ import (
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	corev1 "k8s.io/api/core/v1"
