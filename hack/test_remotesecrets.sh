@@ -61,9 +61,9 @@ kind: Secret
 metadata:
   name: ${RS_NAME}-secret
   labels:
-    spi.appstudio.redhat.com/upload-secret: remotesecret
+    appstudio.redhat.com/upload-secret: remotesecret
   annotations:
-    spi.appstudio.redhat.com/remotesecret-name: ${RS_NAME}
+    appstudio.redhat.com/remotesecret-name: ${RS_NAME}
 type: Opaque
 stringData:
   a: b
