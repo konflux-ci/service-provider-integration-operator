@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"

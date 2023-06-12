@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/go-test/deep"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/onsi/ginkgo"
 
@@ -92,7 +92,7 @@ type IntegrationTest struct {
 	// metrics are being collected.
 	MetricsRegistry *prometheus.Registry
 	// Custom validation options to register
-	ValidationOptions config.CustomValidationOptions
+	ValidationOptions rconfig.CustomValidationOptions
 }
 
 // TestSetup is used to express the requirements on the state of the K8s Cluster before the tests. Once an instance with
@@ -227,7 +227,7 @@ type priorITestState struct {
 	serviceProvider   serviceprovider.TestServiceProvider
 	hostCredsProvider serviceprovider.TestServiceProvider
 	operatorConfig    opconfig.OperatorConfiguration // intentionally not a pointer
-	validationOptions config.CustomValidationOptions
+	validationOptions rconfig.CustomValidationOptions
 
 	// we're missing the configuration of token storage here, because there's no way I know of to reconstruct it after
 	// ITestBehavior modifies it. We'd need to go the way of the TestServiceProvider so that we have a struct that we
@@ -350,7 +350,7 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		ts.Behavior.BeforeObjectsCreated()
 	}
 
-	err := config.SetupCustomValidations(ITest.ValidationOptions)
+	err := rconfig.SetupCustomValidations(ITest.ValidationOptions)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	ts.InCluster = TestObjects{

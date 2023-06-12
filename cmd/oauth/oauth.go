@@ -23,14 +23,16 @@ import (
 	"strings"
 	"time"
 
+	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
@@ -47,18 +49,18 @@ func main() {
 	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
-	ctx := context.WithValue(context.Background(), config.SPIInstanceIdContextKey, args.CommonCliArgs.SPIInstanceId)
+	ctx := context.WithValue(context.Background(), rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
 
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	setupLog := ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.SPIInstanceId)
+	setupLog := ctrl.Log.WithValues("instanceId", args.CommonCliArgs.InstanceId)
 	ctx = log.IntoContext(ctx, setupLog)
 	setupLog = log.FromContext(ctx).WithName("setup")
 
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	var err error
-	err = config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
@@ -89,13 +91,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	storage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to construct the secret storage")
 		os.Exit(1)
 	}
 
-	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(storage)
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
 	// The initialization of the token storage is currently a noop, but let's stick
 	// to the protocol in case it actually does something in the future.
 	if err := tokenStorage.Initialize(ctx); err != nil {
@@ -212,7 +214,7 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
 	}
 	cfg := oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg, RedirectProxyUrl: args.OAuthRedirectProxyUrl}
-	err = config.ValidateStruct(cfg)
+	err = rconfig.ValidateStruct(cfg)
 	if err != nil {
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("oauth service configuration validation failed: %w", err)
 	}

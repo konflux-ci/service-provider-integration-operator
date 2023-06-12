@@ -20,7 +20,6 @@ import (
 
 type OAuthServiceCliArgs struct {
 	cmd.CommonCliArgs
-	cmd.LoggingCliArgs
 	ServiceAddr           string `arg:"--service-addr, env" default:"0.0.0.0:8000" help:"Service address to listen on"`
 	AllowedOrigins        string `arg:"--allowed-origins, env" default:"https://console.redhat.com,https://console.stage.redhat.com,https://console.dev.redhat.com,https://prod.foo.redhat.com:1337" help:"Comma-separated list of domains allowed for cross-domain requests"`
 	KubeConfig            string `arg:"--kubeconfig, env" default:"" help:""`

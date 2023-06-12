@@ -19,22 +19,24 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
+	rsecretstorage "github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/remotesecretstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage secretstorage.SecretStorage, initializers *serviceprovider.Initializers) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage rsecretstorage.SecretStorage, initializers *serviceprovider.Initializers) error {
 	ctx := context.Background()
 
 	// note that calling the initialize method on the different storages constructed here is essentially useless
@@ -112,14 +114,6 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	}
 
 	if cfg.EnableRemoteSecrets {
-		if err = (&RemoteSecretReconciler{
-			Client:              mgr.GetClient(),
-			Scheme:              mgr.GetScheme(),
-			Configuration:       cfg,
-			RemoteSecretStorage: remoteSecretStorage,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
 
 		if err = (&SnapshotEnvironmentBindingReconciler{
 			k8sClient:     mgr.GetClient(),
@@ -158,10 +152,9 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		}
 
 		if err = (&TokenUploadReconciler{
-			Client:              mgr.GetClient(),
-			Scheme:              mgr.GetScheme(),
-			TokenStorage:        notifTokenStorage,
-			RemoteSecretStorage: notifRemoteSecretStorage,
+			Client:       mgr.GetClient(),
+			Scheme:       mgr.GetScheme(),
+			TokenStorage: notifTokenStorage,
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}

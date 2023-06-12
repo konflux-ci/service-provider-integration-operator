@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/alexedwards/scs/v2"

@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
+
 	"github.com/go-playground/validator/v10"
 
 	"github.com/go-logr/logr"
@@ -33,12 +35,12 @@ import (
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/sync"
+	"github.com/redhat-appstudio/remote-secret/pkg/sync"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +53,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindingtarget"
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/tokens"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -286,7 +288,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 
 	val := binding.Validate()
 	if len(val.Consistency) > 0 {
-		validationErrors := NewAggregatedError()
+		validationErrors := rerror.NewAggregatedError()
 		for _, e := range val.Consistency {
 			validationErrors.Add(fmt.Errorf("%w: %s", bindingConsistencyError, e))
 		}
@@ -302,7 +304,7 @@ func (r *SPIAccessTokenBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if len(validation.ScopeValidation) > 0 {
 		binding.Status.Phase = api.SPIAccessTokenBindingPhaseError
-		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...))
+		r.updateBindingStatusError(ctx, &binding, api.SPIAccessTokenBindingErrorReasonUnsupportedPermissions, rerror.NewAggregatedError(validation.ScopeValidation...))
 		return ctrl.Result{}, nil
 	}
 

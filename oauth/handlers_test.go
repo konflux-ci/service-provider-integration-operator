@@ -25,7 +25,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	"github.com/prometheus/client_golang/prometheus"

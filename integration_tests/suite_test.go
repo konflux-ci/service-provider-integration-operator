@@ -17,7 +17,8 @@ package integrationtests
 import (
 	"github.com/onsi/ginkgo"
 	"github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -32,16 +33,15 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
 
 	config2 "github.com/onsi/ginkgo/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -175,7 +175,7 @@ var _ = BeforeSuite(func() {
 		return "", nil
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
-	ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: true}
+	ITest.ValidationOptions = rconfig.CustomValidationOptions{AllowInsecureURLs: true}
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 

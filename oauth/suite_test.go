@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
+	kubernetes2 "github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
-	kubernetes2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"

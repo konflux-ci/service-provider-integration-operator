@@ -18,9 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	rbindings "github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
-	dependents "github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
@@ -39,7 +38,7 @@ func (sb *SecretDataGetter) GetData(ctx context.Context, tokenObject *api.SPIAcc
 	}
 
 	if token == nil {
-		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), bindings.SecretDataNotFoundError
+		return nil, string(api.SPIAccessTokenBindingErrorReasonTokenRetrieval), rbindings.SecretDataNotFoundError
 	}
 
 	at, err := sb.ServiceProvider.MapToken(ctx, sb.Binding, tokenObject, token)
@@ -60,4 +59,4 @@ func (sb *SecretDataGetter) GetData(ctx context.Context, tokenObject *api.SPIAcc
 	return data, string(api.SPIAccessTokenBindingErrorReasonNoError), nil
 }
 
-var _ dependents.SecretDataGetter[*api.SPIAccessToken] = (*SecretDataGetter)(nil)
+var _ rbindings.SecretDataGetter[*api.SPIAccessToken] = (*SecretDataGetter)(nil)

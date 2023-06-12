@@ -18,8 +18,8 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

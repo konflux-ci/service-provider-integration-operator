@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"

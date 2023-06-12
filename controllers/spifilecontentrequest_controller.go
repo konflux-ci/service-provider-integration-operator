@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
-
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -302,7 +302,7 @@ func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Conte
 				},
 			},
 			Secret: api.SecretSpec{
-				LinkableSecretSpec: api.LinkableSecretSpec{
+				LinkableSecretSpec: rapi.LinkableSecretSpec{
 					Type: corev1.SecretTypeBasicAuth,
 				},
 			},

@@ -17,8 +17,8 @@ package bindingtarget
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/commaseparated"
+	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	certutil "k8s.io/client-go/util/cert"

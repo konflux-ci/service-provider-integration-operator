@@ -18,8 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,15 +30,15 @@ import (
 // The supplied secret storage must be initialized explicitly before it can be used by this storage.
 type NotifyingSecretStorage struct {
 	ClientFactory kubernetesclient.K8sClientFactory
-	SecretStorage SecretStorage
+	SecretStorage secretstorage.SecretStorage
 	Group         string
 	Kind          string
 }
 
-var _ SecretStorage = (*NotifyingSecretStorage)(nil)
+var _ secretstorage.SecretStorage = (*NotifyingSecretStorage)(nil)
 
 // Delete implements SecretStorage
-func (s *NotifyingSecretStorage) Delete(ctx context.Context, id SecretID) error {
+func (s *NotifyingSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
 	if err := s.SecretStorage.Delete(ctx, id); err != nil {
 		return fmt.Errorf("wrapped storage error: %w", err)
 	}
@@ -46,7 +47,7 @@ func (s *NotifyingSecretStorage) Delete(ctx context.Context, id SecretID) error 
 }
 
 // Get implements SecretStorage
-func (s *NotifyingSecretStorage) Get(ctx context.Context, id SecretID) ([]byte, error) {
+func (s *NotifyingSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
 	var data []byte
 	var err error
 
@@ -62,7 +63,7 @@ func (s *NotifyingSecretStorage) Initialize(ctx context.Context) error {
 }
 
 // Store implements SecretStorage
-func (s *NotifyingSecretStorage) Store(ctx context.Context, id SecretID, data []byte) error {
+func (s *NotifyingSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
 	if err := s.SecretStorage.Store(ctx, id, data); err != nil {
 		return fmt.Errorf("wrapped storage error: %w", err)
 	}
@@ -70,7 +71,7 @@ func (s *NotifyingSecretStorage) Store(ctx context.Context, id SecretID, data []
 	return s.createDataUpdate(ctx, id)
 }
 
-func (s *NotifyingSecretStorage) createDataUpdate(ctx context.Context, id SecretID) error {
+func (s *NotifyingSecretStorage) createDataUpdate(ctx context.Context, id secretstorage.SecretID) error {
 	update := &api.SPIAccessTokenDataUpdate{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "data-update-",

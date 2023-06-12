@@ -23,7 +23,6 @@ import (
 
 type OperatorCliArgs struct {
 	cmd.CommonCliArgs
-	cmd.LoggingCliArgs
 	EnableLeaderElection        bool               `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
 	TokenMetadataCacheTtl       time.Duration      `arg:"--metadata-cache-ttl, env" default:"1h" help:"The maximum age of token metadata data cache"`
 	TokenLifetimeDuration       time.Duration      `arg:"--token-ttl, env" default:"120h" help:"the time after which a token will be automatically deleted in hours, minutes or seconds. Examples:  \"3h\",  \"5h30m40s\" etc"`

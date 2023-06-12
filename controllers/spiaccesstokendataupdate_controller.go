@@ -25,7 +25,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"

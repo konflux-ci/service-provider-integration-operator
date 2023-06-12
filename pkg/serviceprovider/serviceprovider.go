@@ -23,9 +23,10 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -168,7 +169,7 @@ func (f *Factory) initializeServiceProvider(_ context.Context, spType config.Ser
 	}
 
 	if spConfig != nil {
-		if err := config.ValidateStruct(spConfig); err != nil {
+		if err := rconfig.ValidateStruct(spConfig); err != nil {
 			return nil, fmt.Errorf("failed to create runtime configuration for service provider %s: %w", spType.Name, err)
 		}
 		sp, errConstructSp := ctor.Construct(f, spConfig)
@@ -225,7 +226,7 @@ func spConfigWithBaseUrl(spType config.ServiceProviderType, baseUrl string) (*co
 		ServiceProviderType:    spType,
 		ServiceProviderBaseUrl: baseUrl,
 	}
-	if err := config.ValidateStruct(cfg); err != nil {
+	if err := rconfig.ValidateStruct(cfg); err != nil {
 		return nil, fmt.Errorf("failed to validate service provider configuration: %w", err)
 	}
 	return cfg, nil

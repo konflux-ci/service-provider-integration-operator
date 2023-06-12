@@ -25,11 +25,11 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 

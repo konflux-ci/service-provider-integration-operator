@@ -20,9 +20,9 @@ import (
 	"fmt"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,7 +122,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, fmt.Errorf("error resolving targer for environment %s: %w", environmentName, err)
 	}
 
-	remoteSecretsList := api.RemoteSecretList{}
+	remoteSecretsList := rapi.RemoteSecretList{}
 	if err := r.k8sClient.List(ctx, &remoteSecretsList, client.InNamespace(appNamespace), client.MatchingLabels{ApplicationLabelName: applicationName}); err != nil {
 		lg.Error(err, "Unable to fetch remote secrets list", "namespace", appNamespace)
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
@@ -144,7 +144,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 	return ctrl.Result{}, nil
 }
 
-func addTargetIfNotExists(secret *api.RemoteSecret, target api.RemoteSecretTarget) {
+func addTargetIfNotExists(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 	for idx := range secret.Spec.Targets {
 		existingTarget := secret.Spec.Targets[idx]
 		if targetsMatch(existingTarget, target) {
@@ -154,7 +154,7 @@ func addTargetIfNotExists(secret *api.RemoteSecret, target api.RemoteSecretTarge
 	secret.Spec.Targets = append(secret.Spec.Targets, target)
 }
 
-func removeTarget(secret *api.RemoteSecret, target api.RemoteSecretTarget) {
+func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 	for idx := range secret.Spec.Targets {
 		existingTarget := secret.Spec.Targets[idx]
 		if targetsMatch(existingTarget, target) {
@@ -163,13 +163,13 @@ func removeTarget(secret *api.RemoteSecret, target api.RemoteSecretTarget) {
 	}
 }
 
-func targetsMatch(target1, target2 api.RemoteSecretTarget) bool {
+func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 	return target1.Namespace == target2.Namespace && target1.ApiUrl == target2.ApiUrl && target1.ClusterCredentialsSecret == target2.ClusterCredentialsSecret
 }
 
-func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (api.RemoteSecretTarget, error) {
+func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
 	// Dummy load. Real impl should reverse pass Env -> DTC -> DT -> SpaceRequest to find out full target details
-	return api.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
 }
 
 type linkedRemoteSecretsFinalizer struct {
@@ -198,7 +198,7 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return res, fmt.Errorf("error resolving targer for environment %s: %w", snapshotEnvBinding.Spec.Environment, err)
 	}
 
-	remoteSecretsList := api.RemoteSecretList{}
+	remoteSecretsList := rapi.RemoteSecretList{}
 	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(snapshotEnvBinding.Namespace), client.MatchingLabels{ApplicationLabelName: snapshotEnvBinding.Spec.Application}); err != nil {
 		return res, unableToFetchRemoteSecretsError
 	}

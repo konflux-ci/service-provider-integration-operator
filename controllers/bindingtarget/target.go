@@ -15,8 +15,9 @@
 package bindingtarget
 
 import (
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	dependents "github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	dependents "github.com/redhat-appstudio/service-provider-integration-operator/controllers/bindings"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,7 +50,7 @@ func (t *BindingNamespaceTarget) GetTargetObjectKey() client.ObjectKey {
 }
 
 // GetSpec implements dependents.SecretDeploymentTarget
-func (t *BindingNamespaceTarget) GetSpec() api.LinkableSecretSpec {
+func (t *BindingNamespaceTarget) GetSpec() rapi.LinkableSecretSpec {
 	return t.Binding.Spec.Secret.LinkableSecretSpec
 }
 
