@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
