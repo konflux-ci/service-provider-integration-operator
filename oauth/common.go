@@ -154,10 +154,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
-	redirectLocation := r.FormValue("redirect_after_login")
-	if redirectLocation == "" {
-		redirectLocation = strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
-	}
+	redirectLocation := strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
 }
 
