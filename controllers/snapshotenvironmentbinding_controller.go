@@ -186,22 +186,16 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return res, unexpectedObjectTypeError
 	}
 
-	// Get the Environment CR
-	environment := appstudiov1alpha1.Environment{}
-	err := f.client.Get(ctx, types.NamespacedName{Name: snapshotEnvBinding.Spec.Environment, Namespace: snapshotEnvBinding.Namespace}, &environment)
-	if err != nil {
-		return res, unableToFetchEnvironmentError
-	}
-
-	target, err := detectTargetFromEnvironment(ctx, environment)
-	if err != nil {
-		return res, fmt.Errorf("error resolving targer for environment %s: %w", snapshotEnvBinding.Spec.Environment, err)
-	}
-
 	remoteSecretsList := rapi.RemoteSecretList{}
 	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(snapshotEnvBinding.Namespace), client.MatchingLabels{ApplicationLabelName: snapshotEnvBinding.Spec.Application}); err != nil {
 		return res, unableToFetchRemoteSecretsError
 	}
+
+	if len(remoteSecretsList.Items) == 0 {
+		return finalizer.Result{}, nil
+	}
+
+	target := rapi.RemoteSecretTarget{Namespace: snapshotEnvBinding.Namespace}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
@@ -211,7 +205,7 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 			continue
 		}
 		removeTarget(&remoteSecret, target)
-		if err = f.client.Update(ctx, &remoteSecret); err != nil {
+		if err := f.client.Update(ctx, &remoteSecret); err != nil {
 			return res, unableToUpdateRemoteSecret
 		}
 	}
