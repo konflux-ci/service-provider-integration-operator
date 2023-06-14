@@ -397,7 +397,7 @@ var _ = Describe("Controller", func() {
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))
-				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://redirect.to?foo=bar"))
+				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://spi.on.my.machine/callback_success"))
 			}).Should(Succeed())
 		})
 	})
