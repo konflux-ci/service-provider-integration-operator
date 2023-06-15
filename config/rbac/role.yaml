@@ -53,6 +53,7 @@ rules:
   verbs:
   - list
   - update
+  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
