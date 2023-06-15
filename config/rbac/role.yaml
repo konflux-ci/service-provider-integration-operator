@@ -49,6 +49,13 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - remotesecrets
+  verbs:
+  - list
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - snapshotenvironmentbindings
   verbs:
   - get
