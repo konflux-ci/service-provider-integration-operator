@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
 
 	"os"
@@ -69,6 +71,7 @@ func init() {
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1beta1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	initServiceProviders()
