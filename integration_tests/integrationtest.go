@@ -17,6 +17,8 @@ package integrationtests
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"runtime"
 	"strings"
 	"time"
@@ -155,6 +157,9 @@ type TestObjects struct {
 	Checks              []*api.SPIAccessCheck
 	FileContentRequests []*api.SPIFileContentRequest
 	DataUpdates         []*api.SPIAccessTokenDataUpdate
+	RemoteSecrets       []*rapi.RemoteSecret
+	Environments        []*v1alpha1.Environment
+	SnapshotEnvBindings []*v1alpha1.SnapshotEnvironmentBinding
 }
 
 func (to TestObjects) GetToken(key client.ObjectKey) *api.SPIAccessToken {
@@ -260,6 +265,21 @@ func StandardTestBinding(namePrefix string) *api.SPIAccessTokenBinding {
 	}
 }
 
+func StandardEnvironment(name string) *v1alpha1.Environment {
+	return &v1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1alpha1.EnvironmentSpec{
+			Type: "Non-POC",
+			Configuration: v1alpha1.EnvironmentConfiguration{
+				Env: []v1alpha1.EnvVarPair{},
+			},
+		},
+	}
+}
+
 func StandardFileRequest(namePrefix string) *api.SPIFileContentRequest {
 	return &api.SPIFileContentRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -359,6 +379,9 @@ func (ts *TestSetup) BeforeEach(postCondition func(Gomega)) {
 		Checks:              createAll(ts.ToCreate.Checks),
 		FileContentRequests: createAll(ts.ToCreate.FileContentRequests),
 		DataUpdates:         createAll(ts.ToCreate.DataUpdates),
+		RemoteSecrets:       createAll(ts.ToCreate.RemoteSecrets),
+		Environments:        createAll(ts.ToCreate.Environments),
+		SnapshotEnvBindings: createAll(ts.ToCreate.SnapshotEnvBindings),
 	}
 
 	// we don't need to force reconcile here, because we just created the objects so a reconciliation is running..
@@ -398,6 +421,9 @@ func (ts *TestSetup) AfterEach() {
 	deleteAll(newListChecks, listLenChecks, convertChecks)
 	deleteAll(newListBindings, listLenBindings, convertBindings)
 	deleteAll(newListTokens, listLenTokens, convertTokens)
+	deleteAll(newListRemoteSecrets, listLenRemoteSecrets, convertRemoteSecrets)
+	deleteAll(newListEnvironments, listLenEnvironments, convertEnvironments)
+	deleteAll(newListSnapshotEnvBindings, listLenSnapshotEnvBindings, convertSnapshotEnvBindings)
 
 	ts.InCluster = TestObjects{}
 
@@ -467,6 +493,9 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		ts.InCluster.Checks = addAllExisting(&api.SPIAccessCheckList{}, convertChecks)
 		ts.InCluster.FileContentRequests = addAllExisting(&api.SPIFileContentRequestList{}, convertFiles)
 		ts.InCluster.DataUpdates = addAllExisting(&api.SPIAccessTokenDataUpdateList{}, convertDataUpdates)
+		ts.InCluster.RemoteSecrets = addAllExisting(&rapi.RemoteSecretList{}, convertRemoteSecrets)
+		ts.InCluster.Environments = addAllExisting(&v1alpha1.EnvironmentList{}, convertEnvironments)
+		ts.InCluster.SnapshotEnvBindings = addAllExisting(&v1alpha1.SnapshotEnvironmentBindingList{}, convertSnapshotEnvBindings)
 	}
 
 	// we need to create copies of the objects from the cluster, so these are arrays of structs, not arrays of pointers
@@ -476,6 +505,9 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 	var checks []api.SPIAccessCheck
 	var fileRequests []api.SPIFileContentRequest
 	var dataUpdates []api.SPIAccessTokenDataUpdate
+	var remoteSecrets []rapi.RemoteSecret
+	var environments []v1alpha1.Environment
+	var snapshotEnvBindings []v1alpha1.SnapshotEnvironmentBinding
 
 	rememberCurrentClusterState := func() {
 		tokens = fromPointerArray(ts.InCluster.Tokens)
@@ -483,6 +515,9 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		checks = fromPointerArray(ts.InCluster.Checks)
 		fileRequests = fromPointerArray(ts.InCluster.FileContentRequests)
 		dataUpdates = fromPointerArray(ts.InCluster.DataUpdates)
+		remoteSecrets = fromPointerArray(ts.InCluster.RemoteSecrets)
+		environments = fromPointerArray(ts.InCluster.Environments)
+		snapshotEnvBindings = fromPointerArray(ts.InCluster.SnapshotEnvBindings)
 	}
 
 	i := 0
@@ -511,6 +546,9 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 			forEach(ts.InCluster.Checks, TriggerReconciliation)
 			forEach(ts.InCluster.DataUpdates, TriggerReconciliation)
 			forEach(ts.InCluster.FileContentRequests, TriggerReconciliation)
+			forEach(ts.InCluster.RemoteSecrets, TriggerReconciliation)
+			forEach(ts.InCluster.Environments, TriggerReconciliation)
+			forEach(ts.InCluster.SnapshotEnvBindings, TriggerReconciliation)
 			now := time.Now()
 			lastReconcile = &now
 		}
@@ -537,8 +575,11 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 		checkDiffs := findDifferences(toPointerArray(checks), ts.InCluster.Checks)
 		fileRequestDiffs := findDifferences(toPointerArray(fileRequests), ts.InCluster.FileContentRequests)
 		dataUpdateDiffs := findDifferences(toPointerArray(dataUpdates), ts.InCluster.DataUpdates)
+		remoteSecretDiffs := findDifferences(toPointerArray(remoteSecrets), ts.InCluster.RemoteSecrets)
+		environmentDiffs := findDifferences(toPointerArray(environments), ts.InCluster.Environments)
+		snapshotEnvBindingDiffs := findDifferences(toPointerArray(snapshotEnvBindings), ts.InCluster.SnapshotEnvBindings)
 
-		if len(tokenDiffs) > 0 || len(bindingDiffs) > 0 || len(checkDiffs) > 0 || len(fileRequestDiffs) > 0 || len(dataUpdateDiffs) > 0 {
+		if len(tokenDiffs) > 0 || len(bindingDiffs) > 0 || len(checkDiffs) > 0 || len(fileRequestDiffs) > 0 || len(dataUpdateDiffs) > 0 || len(remoteSecretDiffs) > 0 || len(environmentDiffs) > 0 || len(snapshotEnvBindingDiffs) > 0 {
 			if i > 1 {
 				log.Log.Info("~~~~")
 				log.Log.Info("~~~~")
@@ -552,6 +593,9 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 					"checkDiffs", checkDiffs,
 					"fileRequestDiffs", fileRequestDiffs,
 					"dataUpdateDiffs", dataUpdateDiffs,
+					"remoteSecretDiffs", remoteSecretDiffs,
+					"environmentDiffs", environmentDiffs,
+					"snapshotEnvBindingDiffs", snapshotEnvBindingDiffs,
 				)
 				log.Log.Info("~~~~")
 				log.Log.Info("~~~~")
@@ -671,12 +715,51 @@ func listLenDataUpdates(l *api.SPIAccessTokenDataUpdateList) int {
 	return len(l.Items)
 }
 
+func convertRemoteSecrets(l *rapi.RemoteSecretList) []*rapi.RemoteSecret {
+	return toPointerArray(l.Items)
+}
+
+func newListRemoteSecrets() *rapi.RemoteSecretList {
+	return &rapi.RemoteSecretList{}
+}
+
+func listLenRemoteSecrets(l *rapi.RemoteSecretList) int {
+	return len(l.Items)
+}
+
+func convertEnvironments(l *v1alpha1.EnvironmentList) []*v1alpha1.Environment {
+	return toPointerArray(l.Items)
+}
+
+func newListEnvironments() *v1alpha1.EnvironmentList {
+	return &v1alpha1.EnvironmentList{}
+}
+
+func listLenEnvironments(l *v1alpha1.EnvironmentList) int {
+	return len(l.Items)
+}
+
+func convertSnapshotEnvBindings(l *v1alpha1.SnapshotEnvironmentBindingList) []*v1alpha1.SnapshotEnvironmentBinding {
+	return toPointerArray(l.Items)
+}
+
+func newListSnapshotEnvBindings() *v1alpha1.SnapshotEnvironmentBindingList {
+	return &v1alpha1.SnapshotEnvironmentBindingList{}
+}
+
+func listLenSnapshotEnvBindings(l *v1alpha1.SnapshotEnvironmentBindingList) int {
+	return len(l.Items)
+}
+
 func validateClusterEmpty(g Gomega) {
 	checkNoObjectsInCluster(g, newListTokens, listLenTokens)
 	checkNoObjectsInCluster(g, newListBindings, listLenBindings)
 	checkNoObjectsInCluster(g, newListChecks, listLenChecks)
 	checkNoObjectsInCluster(g, newListDataUpdates, listLenDataUpdates)
 	checkNoObjectsInCluster(g, newListFiles, listLenFiles)
+	checkNoObjectsInCluster(g, newListRemoteSecrets, listLenRemoteSecrets)
+	checkNoObjectsInCluster(g, newListEnvironments, listLenEnvironments)
+	checkNoObjectsInCluster(g, newListSnapshotEnvBindings, listLenSnapshotEnvBindings)
 }
 
 func checkNoObjectsInCluster[L client.ObjectList](g Gomega, list func() L, getLen func(l L) int) {

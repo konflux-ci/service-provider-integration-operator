@@ -17,9 +17,12 @@ package integrationtests
 import (
 	"github.com/onsi/ginkgo"
 	"github.com/redhat-appstudio/application-api/api/v1alpha1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
+	"io"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -71,6 +74,11 @@ var testServiceProvider = config.ServiceProviderType{
 	Name: "TestServiceProvider",
 }
 
+var remoteCrdURLs = []string{
+	"https://raw.githubusercontent.com/redhat-appstudio/remote-secret/main/config/crd/bases/appstudio.redhat.com_remotesecrets.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_snapshotenvironmentbindings.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_environments.yaml"}
+
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -98,6 +106,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		//UseExistingCluster: pointer.BoolPtr(true),
+		CRDs: getRemoteCRDs(),
 	}
 	ITest.TestEnvironment = testEnv
 
@@ -134,6 +143,11 @@ var _ = BeforeSuite(func() {
 	err = apiexv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = rapi.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = v1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	//+kubebuilder:scaffold:scheme
 
 	cl, err := client.New(cfg, client.Options{Scheme: scheme})
@@ -298,6 +312,34 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 }, 3600)
+
+func getRemoteCRDs() []*apiexv1.CustomResourceDefinition {
+	var ret []*apiexv1.CustomResourceDefinition
+	for _, remoteCRDUrl := range remoteCrdURLs {
+		log.Log.Info("Downloading CRD from " + remoteCRDUrl)
+		resp, err := http.Get(remoteCRDUrl)
+
+		if err != nil {
+			log.Log.Error(err, "Unable to download CRD", "URL", remoteCRDUrl)
+			continue
+		}
+		bytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Log.Error(err, "Unable to read CRD content", "URL", remoteCRDUrl)
+			continue
+		}
+		var crd apiexv1.CustomResourceDefinition
+		err = yaml.Unmarshal(bytes, &crd)
+		if err != nil {
+			log.Log.Error(err, "Unable to unmarshal CRD", "URL", remoteCRDUrl)
+			continue
+		}
+		log.Log.Info("Downloaded CRD:" + crd.Name)
+		ret = append(ret, &crd)
+	}
+	return ret
+}
 
 var _ = AfterSuite(func() {
 	if ITest.Cancel != nil {
