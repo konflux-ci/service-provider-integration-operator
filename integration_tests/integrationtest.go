@@ -17,11 +17,12 @@ package integrationtests
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/application-api/api/v1alpha1"
-	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
