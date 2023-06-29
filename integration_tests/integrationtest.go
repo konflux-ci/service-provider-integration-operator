@@ -297,7 +297,11 @@ func StandardFileRequest(namePrefix string) *api.SPIFileContentRequest {
 // TriggerReconciliation updates the provided object with a "random-annon-to-trigger-reconcile" annotation (with
 // a random value) so that a new reconciliation is performed.
 func TriggerReconciliation(object client.Object) {
-	Eventually(func(g Gomega) {
+	triggerReconciliation(Default, object)
+}
+
+func triggerReconciliation(g Gomega, object client.Object) {
+	g.Eventually(func(gg Gomega) {
 		// trigger the update of the token to force the reconciliation
 		cpy := object.DeepCopyObject().(client.Object)
 		err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(object), cpy)
@@ -312,7 +316,7 @@ func TriggerReconciliation(object client.Object) {
 			"object", client.ObjectKeyFromObject(object),
 			"kind", object.GetObjectKind().GroupVersionKind().String())
 
-		Expect(err).NotTo(HaveOccurred())
+		gg.Expect(err).NotTo(HaveOccurred())
 
 		annos := object.GetAnnotations()
 		if annos == nil {
@@ -320,7 +324,8 @@ func TriggerReconciliation(object client.Object) {
 		}
 		annos["random-anno-to-trigger-reconcile"] = string(uuid.NewUUID())
 		cpy.SetAnnotations(annos)
-		g.Expect(ITest.Client.Update(ITest.Context, cpy)).To(Succeed())
+		err = ITest.Client.Update(ITest.Context, cpy)
+		gg.Expect(err).NotTo(HaveOccurred())
 	}).Should(Succeed())
 
 	log.Log.V(logs.DebugLevel).Info("update to force reconciliation succeeded",
@@ -542,14 +547,18 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 				log.Log.Info("////")
 				log.Log.Info("////")
 			}
-			forEach(ts.InCluster.Tokens, TriggerReconciliation)
-			forEach(ts.InCluster.Bindings, TriggerReconciliation)
-			forEach(ts.InCluster.Checks, TriggerReconciliation)
-			forEach(ts.InCluster.DataUpdates, TriggerReconciliation)
-			forEach(ts.InCluster.FileContentRequests, TriggerReconciliation)
-			forEach(ts.InCluster.RemoteSecrets, TriggerReconciliation)
-			forEach(ts.InCluster.Environments, TriggerReconciliation)
-			forEach(ts.InCluster.SnapshotEnvBindings, TriggerReconciliation)
+
+			trigger := func(o client.Object) { triggerReconciliation(g, o) }
+
+			forEach(ts.InCluster.Tokens, trigger)
+			forEach(ts.InCluster.Bindings, trigger)
+			forEach(ts.InCluster.Checks, trigger)
+			forEach(ts.InCluster.DataUpdates, trigger)
+			forEach(ts.InCluster.FileContentRequests, trigger)
+			forEach(ts.InCluster.RemoteSecrets, trigger)
+			forEach(ts.InCluster.Environments, trigger)
+			forEach(ts.InCluster.SnapshotEnvBindings, trigger)
+
 			now := time.Now()
 			lastReconcile = &now
 		}
@@ -607,7 +616,15 @@ func (ts *TestSetup) settleWithCluster(forceReconcile bool, postCondition func(G
 			time.Sleep(200 * time.Millisecond)
 
 			// true here is the result of the if statement that we're nested in... We expect that to be false :)
-			g.Expect(true).To(BeFalse())
+			g.Expect(true).To(BeFalse(), "cluster state still evolving", "tokenDiffs", tokenDiffs,
+				"bindingDiffs", bindingDiffs,
+				"checkDiffs", checkDiffs,
+				"fileRequestDiffs", fileRequestDiffs,
+				"dataUpdateDiffs", dataUpdateDiffs,
+				"remoteSecretDiffs", remoteSecretDiffs,
+				"environmentDiffs", environmentDiffs,
+				"snapshotEnvBindingDiffs", snapshotEnvBindingDiffs,
+			)
 			// the cluster state is still evolving, no need to bother with calling postCondition yet
 			return
 		}
