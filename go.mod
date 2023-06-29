@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230509152222-ef5c4dcebc94
 	github.com/redhat-appstudio/remote-secret v0.0.0-20230629151711-9dfb93843748
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.83.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/oauth2 v0.7.0
