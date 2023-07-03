@@ -1,6 +1,11 @@
 #!/bin/bash
 
-#set -x
+# !!! Note that this script should not be used for production purposes !!!
+
+# in the infra-deployment repo, utils.sh script will be saved in a tmp folder
+# https://github.com/rsoaresd/infra-deployments/blob/SVPI-518/hack/preview.sh#L206-L207
+source $(realpath .tmp)/utils.sh
+
 set -e
 
 VAULT_KUBE_CONFIG=${VAULT_KUBE_CONFIG:-${KUBECONFIG:-$HOME/.kube/config}}
@@ -14,10 +19,6 @@ ROOT_TOKEN_NAME=vault-root-token
 SPI_DATA_PATH_PREFIX=${SPI_DATA_PATH_PREFIX:-spi}
 SPI_POLICY_NAME=${SPI_DATA_PATH_PREFIX//\//-}
 
-function vaultExec() {
-	COMMAND=${1}
-	kubectl --kubeconfig=${VAULT_KUBE_CONFIG} exec ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} -- sh -c "${COMMAND}" 2>/dev/null
-}
 
 function init() {
 	INIT_STATE=$(isInitialized)
@@ -83,10 +84,6 @@ function unseal() {
 	echo "unsealed"
 }
 
-function login() {
-	vaultExec "vault login ${ROOT_TOKEN} > /dev/null"
-}
-
 function ensureRootToken() {
 	if [ -s "${KEYS_FILE}" ]; then
 		ROOT_TOKEN=$(grep "Root Token" "${KEYS_FILE}" | awk '{split($0,a,": "); print a[2]}')
@@ -128,13 +125,6 @@ function generateRootToken() {
 	done
 }
 
-function audit() {
-	if ! vaultExec "vault audit list | grep -q file"; then
-		echo "enabling audit log ..."
-		vaultExec "vault audit enable file file_path=stdout"
-	fi
-}
-
 function applyPolicy() {
 	POLICY_FILE=/tmp/spi_policy.hcl
 	vaultExec "echo 'path \"${SPI_DATA_PATH_PREFIX}/*\" { capabilities = [\"read\", \"create\", \"list\", \"delete\", \"update\"] }' > ${POLICY_FILE}"
@@ -147,11 +137,6 @@ function spiSecretEngine() {
 		echo "creating SPI secret engine ..."
 		vaultExec "vault secrets enable -path=${SPI_DATA_PATH_PREFIX} kv-v2"
 	fi
-}
-
-function restart() {
-	echo "restarting vault pod '${VAULT_PODNAME}' ..."
-	kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} >/dev/null
 }
 
 function initVault() {
