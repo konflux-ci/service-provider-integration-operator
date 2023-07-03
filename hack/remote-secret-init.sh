@@ -14,11 +14,6 @@ VAULT_PODNAME=${VAULT_PODNAME:-vault-0}
 REMOTE_SECRET_APP_ROLE_FILE="$(realpath .tmp)/approle_remote_secret.yaml"
 ROOT_TOKEN_NAME=vault-root-token
 
-function restart() {
-	echo "restarting vault pod '${VAULT_PODNAME}' ..."
-	kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} >/dev/null
-}
-
 function auth() {
 	if ! vaultExec "vault auth list | grep -q approle"; then
 		echo "setup approle authentication ..."
@@ -45,7 +40,6 @@ function approleAuthRemoteSecret() {
 	login
 	audit
 	auth
-	restart
 }
 
 if ! timeout 300s bash -c "while ! kubectl get applications.argoproj.io -n openshift-gitops -o name | grep -q remote-secret-controller-in-cluster-local; do printf '.'; sleep 5; done"; then
@@ -59,6 +53,7 @@ else
 			approleAuthRemoteSecret
 		fi
 		echo "$REMOTE_SECRET_APP_ROLE_FILE exists."
+		restart
 		kubectl apply -f $REMOTE_SECRET_APP_ROLE_FILE -n remotesecret
 		echo "Remote secret controller initialization was completed"
 	else

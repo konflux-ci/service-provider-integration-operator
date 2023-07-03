@@ -76,6 +76,7 @@ else
 			approleAuthSPI
 		fi
 		echo "$SPI_APP_ROLE_FILE exists."
+		restart
 		kubectl apply -f $SPI_APP_ROLE_FILE -n spi-system
 		echo "SPI initialization was completed"
 	else

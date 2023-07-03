@@ -33,3 +33,8 @@ function approleSet() {
 		--from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
 		--dry-run=client -o yaml >>${REMOTE_SECRET_APP_ROLE_FILE}
 }
+
+function restart() {
+	echo "restarting vault pod '${VAULT_PODNAME}' ..."
+	kubectl --kubeconfig=${VAULT_KUBE_CONFIG} delete pod ${VAULT_PODNAME} -n ${VAULT_NAMESPACE} >/dev/null
+}
