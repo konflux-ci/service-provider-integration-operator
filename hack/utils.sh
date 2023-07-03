@@ -28,10 +28,11 @@ function approleSet() {
 	vaultExec "vault write auth/approle/role/${1} token_policies=${SPI_POLICY_NAME}"
 	ROLE_ID=$(vaultExec "vault read auth/approle/role/${1}/role-id --format=json" | jq -r '.data.role_id')
 	SECRET_ID=$(vaultExec "vault write -force auth/approle/role/${1}/secret-id --format=json" | jq -r '.data.secret_id')
-	echo "---" >>${REMOTE_SECRET_APP_ROLE_FILE}
+	APP_ROLE_FILE=${2}
+	echo "---" >>${APP_ROLE_FILE}
 	kubectl --kubeconfig=${VAULT_KUBE_CONFIG} create secret generic vault-approle-${1} \
 		--from-literal=role_id=${ROLE_ID} --from-literal=secret_id=${SECRET_ID} \
-		--dry-run=client -o yaml >>${REMOTE_SECRET_APP_ROLE_FILE}
+		--dry-run=client -o yaml >>${APP_ROLE_FILE}
 }
 
 function restart() {

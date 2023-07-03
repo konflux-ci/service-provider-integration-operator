@@ -41,8 +41,8 @@ function approleAuth() {
 
 	if [ -f ${SPI_APP_ROLE_FILE} ]; then rm ${SPI_APP_ROLE_FILE}; fi
 	touch ${SPI_APP_ROLE_FILE}
-	approleSet spi-operator
-	approleSet spi-oauth
+	approleSet spi-operator ${SPI_APP_ROLE_FILE}
+	approleSet spi-oauth ${SPI_APP_ROLE_FILE}
 
 	cat <<EOF
 

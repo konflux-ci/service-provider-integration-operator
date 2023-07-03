@@ -24,7 +24,7 @@ function auth() {
 
 	if [ -f ${REMOTE_SECRET_APP_ROLE_FILE} ]; then rm ${REMOTE_SECRET_APP_ROLE_FILE}; fi
 	touch ${REMOTE_SECRET_APP_ROLE_FILE}
-	approleSet remote-secret-operator
+	approleSet remote-secret-operator ${REMOTE_SECRET_APP_ROLE_FILE}
 
 	cat <<EOF
 
