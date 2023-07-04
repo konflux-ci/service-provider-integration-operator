@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230509152222-ef5c4dcebc94
-	github.com/redhat-appstudio/remote-secret v0.0.0-20230702194320-0305eb2c961d
+	github.com/redhat-appstudio/remote-secret v0.0.0-20230704064501-a9d5e422244e
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.83.0
 	go.uber.org/zap v1.24.0
@@ -75,7 +75,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.28 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.35 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.28 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.2 // indirect
