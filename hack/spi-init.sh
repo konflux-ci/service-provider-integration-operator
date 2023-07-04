@@ -40,6 +40,7 @@ function approleAuth() {
 	if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
 
 	if [ -f ${SPI_APP_ROLE_FILE} ]; then rm ${SPI_APP_ROLE_FILE}; fi
+
 	touch ${SPI_APP_ROLE_FILE}
 	approleSet spi-operator ${SPI_APP_ROLE_FILE}
 	approleSet spi-oauth ${SPI_APP_ROLE_FILE}
@@ -72,10 +73,7 @@ if ! timeout 100s bash -c "while ! kubectl get applications.argoproj.io -n opens
 else
 	if [ "$(oc get applications.argoproj.io spi-in-cluster-local -n openshift-gitops -o jsonpath='{.status.health.status} {.status.sync.status}')" != "Healthy Synced" ]; then
 		echo "Initializing SPI"
-		if [ ! -f "$SPI_APP_ROLE_FILE" ]; then
-			approleAuthSPI
-		fi
-		echo "$SPI_APP_ROLE_FILE exists."
+		approleAuthSPI
 		restart
 		kubectl apply -f $SPI_APP_ROLE_FILE -n spi-system
 		echo "SPI initialization was completed"

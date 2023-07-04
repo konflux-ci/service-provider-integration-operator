@@ -19,7 +19,6 @@ ROOT_TOKEN_NAME=vault-root-token
 SPI_DATA_PATH_PREFIX=${SPI_DATA_PATH_PREFIX:-spi}
 SPI_POLICY_NAME=${SPI_DATA_PATH_PREFIX//\//-}
 
-
 function init() {
 	INIT_STATE=$(isInitialized)
 	if [ "$INIT_STATE" == "false" ]; then

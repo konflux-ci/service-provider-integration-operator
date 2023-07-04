@@ -23,6 +23,7 @@ function auth() {
 	if [ ! -d ".tmp" ]; then mkdir -p .tmp; fi
 
 	if [ -f ${REMOTE_SECRET_APP_ROLE_FILE} ]; then rm ${REMOTE_SECRET_APP_ROLE_FILE}; fi
+
 	touch ${REMOTE_SECRET_APP_ROLE_FILE}
 	approleSet remote-secret-operator ${REMOTE_SECRET_APP_ROLE_FILE}
 
@@ -49,10 +50,7 @@ if ! timeout 300s bash -c "while ! kubectl get applications.argoproj.io -n opens
 else
 	if [ "$(oc get applications.argoproj.io remote-secret-controller-in-cluster-local -n openshift-gitops -o jsonpath='{.status.health.status} {.status.sync.status}')" != "Healthy Synced" ]; then
 		echo "Initializing remote secret controller"
-		if [ ! -f "$REMOTE_SECRET_APP_ROLE_FILE" ]; then
-			approleAuthRemoteSecret
-		fi
-		echo "$REMOTE_SECRET_APP_ROLE_FILE exists."
+		approleAuthRemoteSecret
 		restart
 		kubectl apply -f $REMOTE_SECRET_APP_ROLE_FILE -n remotesecret
 		echo "Remote secret controller initialization was completed"
