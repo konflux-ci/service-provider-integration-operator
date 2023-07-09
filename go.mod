@@ -177,7 +177,7 @@ require (
 	github.com/hashicorp/raft-snapshot v1.0.4 // indirect
 	github.com/hashicorp/vault-plugin-secrets-kv v0.14.3 // indirect
 	github.com/hashicorp/vault/api v1.9.2 // indirect
-	github.com/hashicorp/vault/api/auth/approle v0.4.0 // indirect
+	github.com/hashicorp/vault/api/auth/approle v0.4.1 // indirect
 	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0 // indirect
 	github.com/hashicorp/vault/sdk v0.8.1 // indirect
 	github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 // indirect
