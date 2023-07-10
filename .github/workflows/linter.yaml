@@ -58,7 +58,7 @@ jobs:
         run: kustomize build config/overlays/openshift_aws/ >  ./.kube-linter/deploy-spi-openshift-aws.yaml
       - name: Generate monitoring configuration
         shell: bash
-        run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml
+        run: kustomize build config/monitoring/grafana/base >  ./.kube-linter/monitorings.yaml
       - name: Generate vault configuration
         shell: bash
         run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml
