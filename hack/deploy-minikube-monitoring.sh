@@ -222,7 +222,7 @@ spec:
         timeInterval: "30s"
 EOF
 
-kustomize build ${SCRIPT_DIR}/../config/monitoring/prometeus | kubectl apply -f -
+kustomize build ${SCRIPT_DIR}/../config/monitoring/prometheus | kubectl apply -f -
 kustomize build ${SCRIPT_DIR}/../config/monitoring/grafana/minikube | kubectl apply -f -
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
