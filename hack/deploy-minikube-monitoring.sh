@@ -134,7 +134,7 @@ spec:
     - port: web
 EOF
 
-kustomize build ${SCRIPT_DIR}/../config/monitoring/prometheus | kubectl apply -f -
+kustomize build ${SCRIPT_DIR}/../config/monitoring/prometheus/base | kubectl apply -f -
 
 echo 'Installing Grafana'
 kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v4.6.0" | kubectl apply -f -
