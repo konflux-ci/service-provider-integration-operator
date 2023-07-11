@@ -35,9 +35,9 @@ import (
 )
 
 const (
-	ApplicationLabelName                   = "appstudio.application"
-	EnvironmentLabelName                   = "appstudio.environment"
-	ComponentLabelName                     = "appstudio.component"
+	ApplicationLabelName                   = "appstudio.redhat.com/application"
+	EnvironmentLabelName                   = "appstudio.redhat.com/environment"
+	ComponentLabelName                     = "appstudio.redhat.com/component"
 	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
 )
 
