@@ -59,6 +59,9 @@ jobs:
       - name: Generate monitoring configuration
         shell: bash
         run: kustomize build config/monitoring/grafana/base >  ./.kube-linter/monitorings.yaml
+      - name: Generate prometheus configuration
+        shell: bash
+        run: kustomize build config/monitoring/prometheus/base >  ./.kube-linter/prometheus.yaml
       - name: Generate vault configuration
         shell: bash
         run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml
