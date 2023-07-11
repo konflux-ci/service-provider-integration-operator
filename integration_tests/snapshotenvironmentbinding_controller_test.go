@@ -32,7 +32,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-remotesecret-",
 						Namespace:    "default",
-						Labels:       map[string]string{"appstudio.openshift.io/application": "test-app", "appstudio.openshift.io/environment": "test-env"},
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": "test-env"},
 					},
 					Spec: rapi.RemoteSecretSpec{
 						Secret: rapi.LinkableSecretSpec{
@@ -46,7 +46,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-snapshotbinding-",
 						Namespace:    "default",
-						Labels:       map[string]string{"appstudio.openshift.io/application": "test-app", "appstudio.openshift.io/environment": "test-env"},
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": "test-env"},
 					},
 					Spec: v1alpha1.SnapshotEnvironmentBindingSpec{
 						Application: "test-app",
