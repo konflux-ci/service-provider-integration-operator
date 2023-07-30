@@ -8,7 +8,7 @@ require (
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.2.4
-	github.com/go-playground/validator/v10 v10.13.0
+	github.com/go-playground/validator/v10 v10.14.1
 	github.com/go-test/deep v1.1.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-github/v45 v45.2.0
@@ -18,11 +18,11 @@ require (
 	github.com/hashicorp/vault v1.13.2
 	github.com/migueleliasweb/go-github-mock v0.0.19
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.8
+	github.com/onsi/gomega v1.27.10
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230509152222-ef5c4dcebc94
-	github.com/redhat-appstudio/remote-secret v0.0.0-20230725152300-fd4c134f2965
+	github.com/redhat-appstudio/remote-secret v0.0.0-20230730075044-5bb0218b8f8f
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.88.0
 	go.uber.org/zap v1.24.0
@@ -67,18 +67,18 @@ require (
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/aws/aws-sdk-go v1.44.191 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.18.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.18.27 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.26 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.34 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.28 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.35 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.28 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.12.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.19.2 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.19.1 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.18.30 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.29 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.36 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.30 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.37 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.30 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.12 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.12.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.20.1 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/axiomhq/hyperloglog v0.0.0-20220105174342-98591331716a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -104,6 +104,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.20.0 // indirect
@@ -178,8 +179,8 @@ require (
 	github.com/hashicorp/raft-snapshot v1.0.4 // indirect
 	github.com/hashicorp/vault-plugin-secrets-kv v0.14.3 // indirect
 	github.com/hashicorp/vault/api v1.9.2 // indirect
-	github.com/hashicorp/vault/api/auth/approle v0.4.0 // indirect
-	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0 // indirect
+	github.com/hashicorp/vault/api/auth/approle v0.4.1 // indirect
+	github.com/hashicorp/vault/api/auth/kubernetes v0.4.1 // indirect
 	github.com/hashicorp/vault/sdk v0.8.1 // indirect
 	github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
@@ -193,7 +194,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
-	github.com/leodido/go-urn v1.2.3 // indirect
+	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/linode/linodego v0.7.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
