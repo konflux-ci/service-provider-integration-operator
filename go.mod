@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/vault v1.13.2
 	github.com/migueleliasweb/go-github-mock v0.0.19
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.8
+	github.com/onsi/gomega v1.27.10
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230509152222-ef5c4dcebc94
