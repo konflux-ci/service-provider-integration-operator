@@ -132,7 +132,7 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			// the array has by contract at most 1 element
 			tokenRequest := tmpRequests[0]
 
-			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+			requests, err := r.filteredBindingsAsRequests(ctx, o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				return tokenRequest.Name == binding.Status.LinkedAccessTokenName
 			})
 			if err != nil {
@@ -146,9 +146,9 @@ func (r *SPIAccessTokenBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 			return requests
 		})).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			requests, err := r.filteredBindingsAsRequests(context.Background(), o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
+			requests, err := r.filteredBindingsAsRequests(ctx, o.GetNamespace(), func(binding api.SPIAccessTokenBinding) bool {
 				marker := bindingtarget.BindingTargetObjectMarker{}
-				refed, err := marker.IsReferencedBy(context.Background(), client.ObjectKeyFromObject(&binding), o)
+				refed, err := marker.IsReferencedBy(ctx, client.ObjectKeyFromObject(&binding), o)
 				if err != nil {
 					enqueueLog.Error(err, "failed to check if SA is referenced by binding", "serviceAccount", client.ObjectKeyFromObject(o), "binding", client.ObjectKeyFromObject(&binding))
 				}
