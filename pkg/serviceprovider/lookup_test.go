@@ -69,7 +69,7 @@ func TestGenericLookup_Lookup(t *testing.T) {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
-	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(matchingToken, nonMatchingToken1, nonMatchingToken2).Build()
+	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(matchingToken, nonMatchingToken1, nonMatchingToken2).WithStatusSubresource(matchingToken, nonMatchingToken1, nonMatchingToken2).Build()
 
 	cache := MetadataCache{
 		Client:                    cl,
@@ -113,7 +113,7 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
-	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(token).Build()
+	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(token).WithStatusSubresource(token).Build()
 
 	cache := MetadataCache{
 		Client:                    cl,

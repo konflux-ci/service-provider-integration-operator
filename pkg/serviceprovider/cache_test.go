@@ -107,13 +107,14 @@ func TestMetadataCache_Persist(t *testing.T) {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
-	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(&api.SPIAccessToken{
+	token := &api.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-token",
 			Namespace: "default",
 		},
 		Status: api.SPIAccessTokenStatus{},
-	}).Build()
+	}
+	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(token).WithStatusSubresource(token).Build()
 
 	t.Run("works with nil metadata", func(t *testing.T) {
 		token := &api.SPIAccessToken{}
