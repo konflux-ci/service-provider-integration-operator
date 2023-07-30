@@ -41,16 +41,6 @@ type LoggingKubernetesClient struct {
 	IncludeStacktraces bool
 }
 
-func (c *LoggingKubernetesClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *LoggingKubernetesClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 type loggingKubernetesSubresourceWriter struct {
 	scheme             *runtime.Scheme
 	writer             client.SubResourceWriter
@@ -283,6 +273,13 @@ var _ client.Client = (*LoggingKubernetesClient)(nil)
 
 func (c *LoggingKubernetesClient) getKind(obj runtime.Object) string {
 	return getKind(c.Client.Scheme(), obj)
+}
+func (c *LoggingKubernetesClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return c.Client.GroupVersionKindFor(obj)
+}
+
+func (c *LoggingKubernetesClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return c.Client.IsObjectNamespaced(obj)
 }
 
 func getKind(scheme *runtime.Scheme, obj runtime.Object) string {
