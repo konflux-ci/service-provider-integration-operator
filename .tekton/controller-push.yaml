@@ -33,8 +33,15 @@ spec:
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/monitoring/grafana/base?ref=\)\(.*\)|\1{{ revision }}|' components/monitoring/grafana/base/dashboards/spi/kustomization.yaml
         sed -i -e 's|\(https://github.com/redhat-appstudio/service-provider-integration-operator/config/monitoring/prometheus/base?ref=\)\(.*\)|\1{{ revision }}|' components/spi/overlays/staging/base/kustomization.yaml
   pipelineRef:
-    name: docker-build
-    bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
+    params:
+      - name: bundle
+        value: >-
+          quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
+      - name: name
+        value: docker-build
+      - name: kind
+        value: Pipeline
+    resolver: bundles
   workspaces:
     - name: workspace
       volumeClaimTemplate:
