@@ -81,7 +81,7 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
-                    description: Annotations is the keys and values that the create
+                    description: Annotations is the keys and values that the created
                       secret should be annotated with.
                     type: object
                   fields:
@@ -129,6 +129,18 @@ spec:
                     type: object
                   generateName:
                     type: string
+                  keys:
+                    description: RequiredKeys are the keys which need to be present
+                      in the UploadSecret to successfully upload the SecretData. Furthermore,
+                      the UploadSecret needs to contain the keys which are inferred
+                      from the Type (and UploadSecret's type, since these have to
+                      match) and may contain any additional keys.
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                    type: array
                   labels:
                     additionalProperties:
                       type: string
@@ -209,15 +221,12 @@ spec:
                       is used.
                     type: string
                   type:
-                    description: Type is the type of the secret to be created. If
-                      left empty, the default type used in the cluster is assumed
-                      (typically Opaque). The type of the secret defines the automatic
-                      mapping of the token record fields to keys in the secret data
-                      according to the documentation https://kubernetes.io/docs/concepts/configuration/secret/#secret-types.
-                      Only kubernetes.io/service-account-token, kubernetes.io/dockercfg,
-                      kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth
-                      are supported. All other secret types need to have their mapping
-                      specified manually using the Fields.
+                    description: Type is the type of the secret to be created in targets.
+                      If left empty, the default type used in the cluster is assumed
+                      (typically Opaque). The Type has to match type of the UploadSecret.
+                      This constraint ensures that the requirements on keys, put forth
+                      by Kubernetes (https://kubernetes.io/docs/concepts/configuration/secret/#secret-types),
+                      are met and secret can be properly created in targets.
                     type: string
                 type: object
             required:
