@@ -4,7 +4,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 namespace: remotesecret
 
 resources:
-  - https://github.com/redhat-appstudio/remote-secret/config/overlays/minikube_vault?ref=2c6af6dcd01f57194f50a6a55cd80f1d2b701c5e
+  - https://github.com/redhat-appstudio/remote-secret/config/overlays/minikube_vault?ref=4ca04c29115cd1a4800c0c7fa1d75875edd5338f
 
 patches:
   - path: controller-manager-environment-config.yaml
