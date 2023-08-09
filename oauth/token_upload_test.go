@@ -23,7 +23,6 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +36,7 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	cntx := clientfactory.NamespaceIntoContext(context.TODO(), "ns-1")
-	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
+	tokenData := &v1beta1.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&v1beta1.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +81,7 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	cntx := context.TODO()
-	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
+	tokenData := &v1beta1.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&v1beta1.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +119,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	cntx := context.TODO()
-	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
+	tokenData := &v1beta1.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&v1beta1.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{

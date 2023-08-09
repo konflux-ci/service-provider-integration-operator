@@ -17,7 +17,6 @@ package integrationtests
 import (
 	"io"
 
-	"github.com/onsi/ginkgo"
 	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
@@ -67,7 +66,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -94,7 +92,7 @@ var _ = BeforeSuite(func() {
 		Fail("This testsuite cannot be run in parallel")
 	}
 	logs.InitDevelLoggers()
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	log.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	ITest.Context = ctx
@@ -363,7 +361,7 @@ var _ = BeforeEach(func() {
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
-	log.Log.Info(">>>>>>>", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText)
+	log.Log.Info(">>>>>>>", "test", CurrentGinkgoTestDescription().FullTestText)
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
@@ -371,7 +369,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testDesc := CurrentGinkgoTestDescription()
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")

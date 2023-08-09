@@ -67,7 +67,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 
 		It("have the target set", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace == "default").To(BeTrue())
+				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal("default"))
 			})
 		})
 

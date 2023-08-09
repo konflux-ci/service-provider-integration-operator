@@ -42,13 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const (
-	testClientId     = "test_client_id_123"
-	testClientSecret = "test_client_secret_123"
-	testAuthUrl      = "test_auth_url_123"
-	testTokenUrl     = "test_token_url_123"
-)
-
 func TestObtainOauthConfig(t *testing.T) {
 	t.Run("no secret use default oauth config", func(t *testing.T) {
 		scheme := runtime.NewScheme()
