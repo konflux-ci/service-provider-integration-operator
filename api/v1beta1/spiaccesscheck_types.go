@@ -23,6 +23,11 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const (
+	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repo"
+	RSServiceProviderHostLabel            = "appstudio.redhat.com/sp.host"
+)
+
 // SPIAccessCheckSpec defines the desired state of SPIAccessCheck
 type SPIAccessCheckSpec struct {
 	RepoUrl     string      `json:"repoUrl"`
@@ -37,6 +42,12 @@ type SPIAccessCheckStatus struct {
 	ServiceProvider ServiceProviderType         `json:"serviceProvider"`
 	ErrorReason     SPIAccessCheckErrorReason   `json:"errorReason,omitempty"`
 	ErrorMessage    string                      `json:"errorMessage,omitempty"`
+	Credentials     CredentialsReference        `json:"credentials,omitempty"`
+}
+
+type CredentialsReference struct {
+	RemoteSecret string `json:"remoteSecret,omitempty"`
+	Secret       string `json:"secret,omitempty"`
 }
 
 type SPIRepoType string

@@ -23,6 +23,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
+	"k8s.io/utils/strings/slices"
+
 	"github.com/google/go-github/v45/github"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -247,8 +250,30 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	}
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
-
 	lg := log.FromContext(ctx)
+
+	remoteSecrets, lookupErr := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+	if lookupErr != nil {
+		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+		status.ErrorMessage = lookupErr.Error()
+		return status, nil
+	}
+
+	if len(remoteSecrets) > 0 {
+		matchingRemoteSecret := remoteSecrets[0] // Just use the first RS if no exact match is found
+		for _, rs := range remoteSecrets {
+			accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
+			if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), owner+"/"+repo) {
+				matchingRemoteSecret = rs
+				break
+			}
+		}
+		status.Accessible = true
+		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+		status.Credentials.RemoteSecret = matchingRemoteSecret.Name
+		return status, nil
+	}
 
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {

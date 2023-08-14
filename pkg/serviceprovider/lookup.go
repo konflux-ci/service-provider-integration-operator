@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -139,4 +141,24 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 
 func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccessToken) error {
 	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
+}
+
+func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
+	lg := log.FromContext(ctx)
+
+	potentialMatches := &v1beta1.RemoteSecretList{}
+
+	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
+	}
+
+	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
+		api.RSServiceProviderHostLabel: repoHost,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list the potentially matching remote secrets: %w", err)
+	}
+	lg.V(logs.DebugLevel).Info("remote secret lookup", "potential_matches", len(potentialMatches.Items))
+
+	return potentialMatches.Items, nil
 }
