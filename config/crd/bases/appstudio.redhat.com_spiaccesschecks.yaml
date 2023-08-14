@@ -79,6 +79,13 @@ spec:
                 type: string
               accessible:
                 type: boolean
+              credentials:
+                properties:
+                  remoteSecret:
+                    type: string
+                  secret:
+                    type: string
+                type: object
               errorMessage:
                 type: string
               errorReason:
