@@ -252,29 +252,6 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
 	lg := log.FromContext(ctx)
 
-	remoteSecrets, lookupErr := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = lookupErr.Error()
-		return status, nil
-	}
-
-	if len(remoteSecrets) > 0 {
-		matchingRemoteSecret := remoteSecrets[0] // Just use the first RS if no exact match is found
-		for _, rs := range remoteSecrets {
-			accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
-			if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), owner+"/"+repo) {
-				matchingRemoteSecret = rs
-				break
-			}
-		}
-		status.Accessible = true
-		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
-		status.Credentials.RemoteSecret = matchingRemoteSecret.Name
-		return status, nil
-	}
-
 	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
@@ -305,8 +282,31 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		if pointer.BoolDeref(ghRepository.Private, false) {
 			status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 		}
-	} else {
-		lg.Info("we have no tokens for repository", "repo", repoUrl)
+		return status, nil
+	}
+	lg.Info("we have no tokens for repository", "repo", repoUrl)
+
+	remoteSecrets, lookupErr := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+	if lookupErr != nil {
+		lg.Error(lookupErr, "failed to lookup RemoteSecrets for accessCheck", "accessCheck", accessCheck)
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+		status.ErrorMessage = lookupErr.Error()
+		return status, nil
+	}
+
+	if len(remoteSecrets) > 0 {
+		matchingRemoteSecret := remoteSecrets[0] // Just use the first RS if no exact match is found
+		for _, rs := range remoteSecrets {
+			accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
+			if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), owner+"/"+repo) {
+				matchingRemoteSecret = rs
+				break
+			}
+		}
+		// We do not know if the RemoteSecret actually has a valid token to use. Just give the user
+		// the information, and he can try it himself.
+		status.Credentials.RemoteSecret = matchingRemoteSecret.Name
+		return status, nil
 	}
 
 	return status, nil
