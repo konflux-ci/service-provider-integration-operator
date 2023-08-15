@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
 	"github.com/google/go-github/v45/github"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -544,5 +546,6 @@ func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
+	utilruntime.Must(v1beta1.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }

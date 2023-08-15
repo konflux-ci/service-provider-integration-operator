@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -160,5 +162,12 @@ func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client
 	}
 	lg.V(logs.DebugLevel).Info("remote secret lookup", "potential_matches", len(potentialMatches.Items))
 
-	return potentialMatches.Items, nil
+	result := make([]v1beta1.RemoteSecret, 0)
+	for _, rs := range potentialMatches.Items {
+		if meta.IsStatusConditionTrue(rs.Status.Conditions, string(v1beta1.RemoteSecretConditionTypeDataObtained)) {
+			result = append(result, rs)
+		}
+	}
+
+	return result, nil
 }
