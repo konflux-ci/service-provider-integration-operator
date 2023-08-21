@@ -213,7 +213,7 @@ func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.C
 // references namespace in the local cluster. If no such target exists, -1 is returned.
 func getLocalNamespaceTargetIndex(targets []v1beta1.TargetStatus, namespace string) int {
 	for i, target := range targets {
-		if target.ApiUrl == "" && target.Namespace == namespace {
+		if target.ApiUrl == "" && target.Error == "" && target.Namespace == namespace {
 			return i
 		}
 	}
