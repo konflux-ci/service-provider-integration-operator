@@ -55,7 +55,7 @@ func NewFilter(policy config.TokenPolicy, exactTokenFilter TokenFilter) TokenFil
 	return exactTokenFilter
 }
 
-// RemoteSecretFilter is a helper interface to implement the ServiceProvider.LookupToken method using the GenericLookup struct.
+// RemoteSecretFilter is a helper interface to implement the ServiceProvider.LookupRemoteSecrets method using the GenericLookup struct.
 type RemoteSecretFilter interface {
 	Matches(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool
 }
