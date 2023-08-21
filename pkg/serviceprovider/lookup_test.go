@@ -141,3 +141,11 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 	assert.Equal(t, "42", token.Status.TokenMetadata.UserId)
 	assert.True(t, token.Status.TokenMetadata.LastRefreshTime > 0)
 }
+
+func TestGenericLookup_LookupRemoteSecrets(t *testing.T) {
+
+}
+
+func TestGenericLookup_LookupRemoteSecretSecret(t *testing.T) {
+
+}

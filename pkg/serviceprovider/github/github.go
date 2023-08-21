@@ -23,8 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
-	"k8s.io/utils/strings/slices"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/google/go-github/v45/github"
 	"github.com/prometheus/client_golang/prometheus"
@@ -131,6 +130,7 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
+			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
 			MetadataProvider: &metadataProvider{
 				httpClient:      httpClient,
@@ -224,8 +224,6 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	repoUrl := accessCheck.Spec.RepoUrl
-
 	status := &api.SPIAccessCheckStatus{
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitHub,
@@ -250,66 +248,103 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	}
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
-	lg := log.FromContext(ctx)
 
-	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		if !publicRepo {
-			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-			status.ErrorMessage = lookupErr.Error()
-		}
-		return status, nil
+	return g.checkPrivateRepositoryAccess(ctx, cl, accessCheck, owner, repo)
+}
+
+// checkPrivateRepositoryAccess checks whether a repository si private
+func (g *Github) checkPrivateRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, owner, repo string) (*api.SPIAccessCheckStatus, error) {
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
 
-	if len(tokens) > 0 {
-		token := &tokens[0]
-		ghClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
-		if err != nil {
-			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
-			status.ErrorMessage = err.Error()
-			return status, err
-		}
-		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
-		if err != nil {
-			checkRateLimitError(err)
-			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
+		if errReason != "" {
+			status.ErrorReason = errReason
 			status.ErrorMessage = err.Error()
 			return status, nil
 		}
+		return nil, err
+	}
 
-		status.Accessible = true
-		if pointer.BoolDeref(ghRepository.Private, false) {
-			status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+	githubClient, errReason, err := g.githubClientFromSpiAccessToken(ctx, cl, accessCheck)
+	if err != nil {
+		return returnRawOrPreservedError(errReason, err)
+	}
+
+	if githubClient == nil { // SPIAccessToken lookup came up empty, let's try to get token from RemoteSecret
+		githubClient, errReason, err = g.githubClientFromRemoteSecret(ctx, cl, accessCheck, owner+"/"+repo)
+		if err != nil {
+			return returnRawOrPreservedError(errReason, err)
 		}
-		return status, nil
-	}
-	lg.Info("we have no tokens for repository", "repo", repoUrl)
-
-	remoteSecrets, lookupErr := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup RemoteSecrets for accessCheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = lookupErr.Error()
-		return status, nil
-	}
-
-	if len(remoteSecrets) > 0 {
-		matchingRemoteSecret := remoteSecrets[0] // Just use the first RS if no exact match is found
-		for _, rs := range remoteSecrets {
-			accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
-			if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), owner+"/"+repo) {
-				matchingRemoteSecret = rs
-				break
-			}
+		if githubClient == nil { // We cannot use RemoteSecret neither.
+			return status, nil
 		}
-		// We do not know if the RemoteSecret actually has a valid token to use. Just give the user
-		// the information, and he can try it himself.
-		status.Credentials.RemoteSecret = matchingRemoteSecret.Name
-		return status, nil
 	}
 
+	ghRepository, resp, err := githubClient.Repositories.Get(ctx, owner, repo)
+	if err != nil {
+		checkRateLimitError(err)
+		if resp != nil && resp.StatusCode != http.StatusNotFound {
+			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
+		}
+		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError, err)
+	}
+
+	status.Accessible = true
+	if pointer.BoolDeref(ghRepository.Private, false) {
+		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+	}
 	return status, nil
+}
+
+// githubClientFromSpiAccessToken tries to construct github client by looking up matching SPIAccessTokens. If multiple
+// SPIAccessTokens are found, it constructs the client from the first one.
+// The function returns a client, error reason and actual error. When the error reason is present, the actual error
+// should be preserved in SPIAccessCheckStatus rather than returned directly
+func (g *Github) githubClientFromSpiAccessToken(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*github.Client, api.SPIAccessCheckErrorReason, error) {
+	tokens, err := g.lookup.Lookup(ctx, cl, accessCheck)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, err
+	}
+
+	if len(tokens) == 0 {
+		return nil, "", nil
+	}
+
+	token := &tokens[0]
+	githubClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	if err != nil {
+		return nil, "", err
+	}
+	return githubClient, "", nil
+}
+
+// githubClientFromRemoteSecret tries to construct github client by looking up matching RemoteSecret. If multiple
+// RemoteSecrets are found, it constructs the client from the one containing the exact name of repository we are
+// trying to access in the annotation. If no RemoteSecret like that is available, it uses the first one found.
+// The function returns a triplet with the same meaning as in githubClientFromSpiAccessToken.
+func (g *Github) githubClientFromRemoteSecret(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoName string) (*github.Client, api.SPIAccessCheckErrorReason, error) {
+	remoteSecrets, err := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+	if err != nil {
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, err
+	}
+
+	secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoName)
+	if err != nil {
+		return nil, api.SPIAccessCheckErrorUnknownError, err
+	}
+
+	if secret == nil {
+		return nil, "", nil
+	}
+
+	accessToken := string(secret.Data[v1.BasicAuthPasswordKey])
+	githubClient := g.ghClientBuilder.createClientFromTokenData(ctx, accessToken)
+	return githubClient, "", nil
 }
 
 func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {

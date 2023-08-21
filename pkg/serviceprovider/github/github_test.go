@@ -542,6 +542,14 @@ func TestGitHubRateLimitErrorMetric(t *testing.T) {
 	assert.True(t, metricPresent)
 }
 
+func TestGithubClientFromSpiAccessToken(t *testing.T) {
+
+}
+
+func TestGithubClientFromRemoteSecret(t *testing.T) {
+
+}
+
 func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))

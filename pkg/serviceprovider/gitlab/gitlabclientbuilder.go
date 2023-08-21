@@ -47,11 +47,18 @@ func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, 
 		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
 		return nil, accessTokenNotFoundError
 	}
-	client, err := gitlab.NewOAuthClient(tokenData.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
+	client, err := builder.createClientFromTokenData(tokenData.AccessToken, baseUrl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to created new authenticated gitlab client for SPIAccessToken %s/%s: %w",
-			spiAccessToken.Namespace, spiAccessToken.Name, err)
+		return nil, err
 	}
 	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
+	return client, nil
+}
+
+func (builder *gitlabClientBuilder) createClientFromTokenData(accessToken string, baseUrl string) (*gitlab.Client, error) {
+	client, err := gitlab.NewOAuthClient(accessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
+	if err != nil {
+		return nil, fmt.Errorf("failed to created new authenticated gitlab client: %w", err)
+	}
 	return client, nil
 }

@@ -68,3 +68,7 @@ func TestTokenFilterFunc_Matches(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultRemoteSecretFilterFunc(t *testing.T) {
+
+}

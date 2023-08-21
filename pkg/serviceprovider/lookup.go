@@ -16,23 +16,28 @@ package serviceprovider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/api/meta"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/utils/strings/slices"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
-	"k8s.io/apimachinery/pkg/util/errors"
+	kubeerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var missingTargetError = errors.New("found RemoteSecret does not have a target in the SPIAccessCheck's namespace, this should not happen")
 
 // GenericLookup implements a token lookup in a generic way such that the users only need to provide a function
 // to provide a service-provider-specific "state" of the token and a "filter" function that uses the token and its
@@ -43,7 +48,8 @@ type GenericLookup struct {
 	ServiceProviderType api.ServiceProviderType
 	// TokenFilter is the filter function that decides whether a token matches the requirements of a binding, given
 	// the token's service-provider-specific state
-	TokenFilter TokenFilter
+	TokenFilter        TokenFilter
+	RemoteSecretFilter RemoteSecretFilter
 	// MetadataProvider is used to figure out metadata of a token in the service provider useful for token lookup
 	MetadataProvider MetadataProvider
 	// MetadataCache is an abstraction used for storing/fetching the metadata of tokens
@@ -133,7 +139,7 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 	wg.Wait()
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors while examining the potential matches: %w", errors.NewAggregate(errs))
+		return nil, fmt.Errorf("errors while examining the potential matches: %w", kubeerrors.NewAggregate(errs))
 	}
 
 	lg.V(logs.DebugLevel).Info("lookup finished", "matching_tokens", len(result))
@@ -145,16 +151,18 @@ func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccess
 	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
 }
 
+// LookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable.
+// These RemoteSecrets are then filtered and only those fulfilling three conditions. The RemoteSecret must contain the data,
+// the secret type is set to SecretTypeBasicAuth, and it has a synced target which references the matchable namespace.
 func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
 	lg := log.FromContext(ctx)
-
-	potentialMatches := &v1beta1.RemoteSecretList{}
 
 	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
 	if err != nil {
 		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
 	}
 
+	potentialMatches := &v1beta1.RemoteSecretList{}
 	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
 		api.RSServiceProviderHostLabel: repoHost,
 	}); err != nil {
@@ -162,12 +170,52 @@ func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client
 	}
 	lg.V(logs.DebugLevel).Info("remote secret lookup", "potential_matches", len(potentialMatches.Items))
 
-	result := make([]v1beta1.RemoteSecret, 0)
+	matches := make([]v1beta1.RemoteSecret, 0)
+	// For now let's just do a linear search. In the future we can think about go func like in Lookup.
 	for _, rs := range potentialMatches.Items {
-		if meta.IsStatusConditionTrue(rs.Status.Conditions, string(v1beta1.RemoteSecretConditionTypeDataObtained)) {
-			result = append(result, rs)
+		if l.RemoteSecretFilter == nil || l.RemoteSecretFilter.Matches(ctx, matchable, &rs) {
+			matches = append(matches, rs)
 		}
 	}
 
-	return result, nil
+	return matches, nil
+}
+
+func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret, repoName string) (*v1.Secret, error) {
+	if len(remoteSecrets) == 0 {
+		return nil, nil
+	}
+
+	matchingRemoteSecret := remoteSecrets[0]
+	for _, rs := range remoteSecrets {
+		accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
+		if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), repoName) {
+			matchingRemoteSecret = rs
+			break
+		}
+	}
+
+	targetIndex := getLocalNamespaceTargetIndex(matchingRemoteSecret.Status.Targets, matchable.ObjNamespace())
+	if targetIndex < 0 || targetIndex >= len(matchingRemoteSecret.Status.Targets) {
+		return nil, missingTargetError // Should not happen, but avoids panicking just in case.
+	}
+
+	secret := &v1.Secret{}
+	err := cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].SecretName}, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+// getLocalNamespaceTargetIndex is helper function which finds the index of a target in targets such that the target
+// references namespace in the local cluster. If no such target exists, -1 is returned.
+func getLocalNamespaceTargetIndex(targets []v1beta1.TargetStatus, namespace string) int {
+	for i, target := range targets {
+		if target.ApiUrl == "" && target.Namespace == namespace {
+			return i
+		}
+	}
+	return -1
 }

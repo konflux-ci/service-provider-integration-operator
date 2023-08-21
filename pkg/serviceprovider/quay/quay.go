@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -93,6 +95,7 @@ func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderC
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			MetadataProvider:    mp,
 			MetadataCache:       &cache,
 			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
@@ -230,6 +233,22 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
+		remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+		if err != nil {
+			lg.Error(lookupErr, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
+			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+			status.ErrorMessage = lookupErr.Error() // Just like with SPIAccessToken, we are not returning here.
+		}
+
+		secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, owner+"/"+repository)
+		if err != nil {
+			return nil, err //  api.SPIAccessCheckErrorUnknownError,
+		}
+
+		if secret != nil {
+			username = string(secret.Data[v1.BasicAuthUsernameKey])
+			token = string(secret.Data[v1.BasicAuthPasswordKey])
+		}
 	}
 
 	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {

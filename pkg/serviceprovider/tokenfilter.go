@@ -17,9 +17,11 @@ package serviceprovider
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -52,3 +54,25 @@ func NewFilter(policy config.TokenPolicy, exactTokenFilter TokenFilter) TokenFil
 	}
 	return exactTokenFilter
 }
+
+// RemoteSecretFilter is a helper interface to implement the ServiceProvider.LookupToken method using the GenericLookup struct.
+type RemoteSecretFilter interface {
+	Matches(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool
+}
+
+type RemoteSecretFilterFunc func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool
+
+var _ = (RemoteSecretFilterFunc)(nil)
+
+func (f RemoteSecretFilterFunc) Matches(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
+	return f(ctx, matchable, remoteSecret)
+}
+
+var _ RemoteSecretFilter = (RemoteSecretFilterFunc)(nil)
+
+var DefaultRemoteSecretFilterFunc = RemoteSecretFilterFunc(func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
+	dataObtained := meta.IsStatusConditionTrue(remoteSecret.Status.Conditions, string(v1beta1.RemoteSecretConditionTypeDataObtained))
+	basicAuthType := remoteSecret.Spec.Secret.Type == v1.SecretTypeBasicAuth
+	correctTarget := getLocalNamespaceTargetIndex(remoteSecret.Status.Targets, matchable.ObjNamespace()) != -1
+	return dataObtained && basicAuthType && correctTarget
+})
