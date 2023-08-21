@@ -47,13 +47,18 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
 		return nil, accessTokenNotFoundError
 	}
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
+	client := g.createClientFromTokenData(ctx, tokenData.AccessToken)
 	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
 
 	// We need the githubBaseUrl in the githubClientBuilder struct to decide whether to create
 	// regular GitHub client or an Enterprise client through the GitHub library's NewEnterpriseClient() function.
 	// However, the function takes 2 URLs as parameters: one for the API URL and one for the upload URL where files can be uploaded.
 	// As we currently do not allow uploading files to GitHub, we might omit the uploadURL.
-	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
+	return client, nil
+}
+
+func (g *githubClientBuilder) createClientFromTokenData(ctx context.Context, accessToken string) *github.Client {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+	return github.NewClient(oauth2.NewClient(ctx, ts))
 }
