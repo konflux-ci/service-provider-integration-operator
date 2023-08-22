@@ -201,7 +201,7 @@ func TestGenericLookup_LookupRemoteSecrets(t *testing.T) {
 func TestGenericLookup_LookupRemoteSecretSecret(t *testing.T) {
 	remoteSecrets := []v1beta1.RemoteSecret{{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "matching",
+			Name:      "matching-rs",
 			Namespace: "default",
 			Annotations: map[string]string{
 				api.RSServiceProviderRepositoryAnnotation: "test/repo,diff/repo",
@@ -210,7 +210,6 @@ func TestGenericLookup_LookupRemoteSecretSecret(t *testing.T) {
 		Status: v1beta1.RemoteSecretStatus{
 			Targets: []v1beta1.TargetStatus{{
 				Namespace:  "default",
-				ApiUrl:     "",
 				SecretName: "rs-secret",
 			}},
 		},
@@ -249,10 +248,12 @@ func TestGenericLookup_LookupRemoteSecretSecret(t *testing.T) {
 	cl := mockK8sClient(&remoteSecretSecret)
 	gl := GenericLookup{}
 
-	secret, err := gl.LookupRemoteSecretSecret(context.TODO(), cl, &check, remoteSecrets, "test/repo")
+	rs, secret, err := gl.LookupRemoteSecretSecret(context.TODO(), cl, &check, remoteSecrets, "test/repo")
 	assert.NoError(t, err)
+	assert.NotNil(t, rs)
+	assert.NotNil(t, secret)
+	assert.Equal(t, "matching-rs", rs.Name)
 	assert.Equal(t, "rs-secret", secret.Name)
-
 }
 
 func TestGetLocalNamespaceTargetIndex(t *testing.T) {
