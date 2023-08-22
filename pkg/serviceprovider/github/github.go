@@ -296,7 +296,7 @@ func (g *Github) tryConstructGithubClient(ctx context.Context, cl client.Client,
 	tokens, err := g.lookup.Lookup(ctx, cl, accessCheck)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, err
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup SPIAccessTokens: %w", err)
 	}
 
 	if len(tokens) > 0 {
@@ -309,12 +309,12 @@ func (g *Github) tryConstructGithubClient(ctx context.Context, cl client.Client,
 
 	remoteSecrets, err := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
 	if err != nil {
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, err
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup RemoteSecrets: %w", err)
 	}
 
 	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
 	if err != nil {
-		return nil, api.SPIAccessCheckErrorUnknownError, reference, err
+		return nil, api.SPIAccessCheckErrorUnknownError, reference, fmt.Errorf("unable to lookup RemoteSecret's Secret: %w", err)
 	}
 	if rs == nil || secret == nil {
 		return nil, "", reference, nil

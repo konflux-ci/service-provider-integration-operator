@@ -19,13 +19,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"golang.org/x/oauth2"

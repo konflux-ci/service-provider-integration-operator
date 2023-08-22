@@ -171,9 +171,9 @@ func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client
 
 	matches := make([]v1beta1.RemoteSecret, 0)
 	// For now let's just do a linear search. In the future we can think about go func like in Lookup.
-	for _, rs := range potentialMatches.Items {
-		if l.RemoteSecretFilter == nil || l.RemoteSecretFilter.Matches(ctx, matchable, &rs) {
-			matches = append(matches, rs)
+	for i := range potentialMatches.Items {
+		if l.RemoteSecretFilter == nil || l.RemoteSecretFilter.Matches(ctx, matchable, &potentialMatches.Items[i]) {
+			matches = append(matches, potentialMatches.Items[i])
 		}
 	}
 
@@ -185,11 +185,11 @@ func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.C
 		return nil, nil, nil
 	}
 
-	matchingRemoteSecret := &remoteSecrets[0]
+	matchingRemoteSecret := remoteSecrets[0]
 	for _, rs := range remoteSecrets {
 		accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
 		if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), repoName) {
-			matchingRemoteSecret = &rs
+			matchingRemoteSecret = rs
 			break
 		}
 	}
@@ -202,10 +202,10 @@ func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.C
 	secret := &v1.Secret{}
 	err := cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].SecretName}, secret)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to find Secret created by RemoteSecret: %w", err)
 	}
 
-	return matchingRemoteSecret, secret, nil
+	return &matchingRemoteSecret, secret, nil
 }
 
 // getLocalNamespaceTargetIndex is helper function which finds the index of a target in targets such that the target

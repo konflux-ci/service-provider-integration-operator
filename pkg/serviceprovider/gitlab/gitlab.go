@@ -43,6 +43,7 @@ var unsupportedScopeError = errors.New("unsupported scope for GitLab")
 var unsupportedAreaError = errors.New("unsupported permission area for GitLab")
 var unsupportedUserWritePermissionError = errors.New("user write permission is not supported by GitLab")
 var probeNotImplementedError = errors.New("gitLab probe not implemented")
+var unexpectedStatusCodeError = errors.New("unexpected status code from GitLab API")
 
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitLab, "fetch_single_repo")
@@ -256,7 +257,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	}
 	if response != nil && response.StatusCode != http.StatusOK {
 		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError,
-			fmt.Errorf("GitLab responded with unexpected status code: %d", response.StatusCode))
+			fmt.Errorf("%w: %d", unexpectedStatusCodeError, response.StatusCode))
 	}
 
 	status.Accessible = true
@@ -304,7 +305,7 @@ func (g *Gitlab) tryConstructGitlabClient(ctx context.Context, cl client.Client,
 	tokens, err := g.lookup.Lookup(ctx, cl, accessCheck)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, err
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup SPIAccessTokens: %w", err)
 	}
 
 	if len(tokens) > 0 {
@@ -317,12 +318,12 @@ func (g *Gitlab) tryConstructGitlabClient(ctx context.Context, cl client.Client,
 
 	remoteSecrets, err := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
 	if err != nil {
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, err
+		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup RemoteSecrets: %w", err)
 	}
 
 	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, projectIdentifier)
 	if err != nil {
-		return nil, api.SPIAccessCheckErrorUnknownError, reference, err
+		return nil, api.SPIAccessCheckErrorUnknownError, reference, fmt.Errorf("unable to lookup RemoteSecret's Secret: %w", err)
 	}
 	if rs == nil || secret == nil {
 		return nil, "", reference, nil
