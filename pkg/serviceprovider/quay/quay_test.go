@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"io"
 	"net/http"
 	"os"
@@ -647,6 +648,55 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})
+
+	t.Run("uses RemoteSecret when SPIAccessToken not found", func(t *testing.T) {
+		mockedCl := mockK8sClient(&v1beta1.RemoteSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rs",
+				Namespace: "ac-namespace",
+				Labels: map[string]string{
+					api.RSServiceProviderHostLabel: "quay.io",
+				},
+			},
+			Spec: v1beta1.RemoteSecretSpec{
+				Secret:  v1beta1.LinkableSecretSpec{},
+				Targets: nil,
+			},
+			Status: v1beta1.RemoteSecretStatus{
+				Targets: []v1beta1.TargetStatus{{
+					Namespace:  "ac-namespace",
+					SecretName: "secret",
+				}},
+			},
+		}, &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret",
+				Namespace: "ac-namespace",
+			},
+		})
+
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(privateRepoResponseJson))}, nil
+			}},
+			lookup: lookupMock,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), mockedCl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
+		assert.Equal(t, "rs", status.Credentials.RemoteSecret)
+		assert.Equal(t, "secret", status.Credentials.Secret)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
 }
 
 func TestNewQuay(t *testing.T) {
@@ -689,6 +739,7 @@ func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
+	utilruntime.Must(v1beta1.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }
 

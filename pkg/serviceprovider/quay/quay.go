@@ -233,21 +233,9 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		}
 	} else {
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
-		remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-		if err != nil {
-			lg.Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
-			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-			status.ErrorMessage = err.Error() // Just like with SPIAccessToken, we are not returning here.
-		}
-
-		rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, owner+"/"+repository)
-		if err != nil {
-			return nil, err //  api.SPIAccessCheckErrorUnknownError,
-		}
-
-		if rs != nil || secret != nil {
-			username = string(secret.Data[v1.BasicAuthUsernameKey])
-			token = string(secret.Data[v1.BasicAuthPasswordKey])
+		// we need this check here in case if lookup failed
+		if status.ErrorReason == "" && status.ErrorMessage == "" {
+			username, token, status = q.tryGetQuayCredentials(ctx, cl, accessCheck, owner+"/"+repository)
 		}
 	}
 
@@ -298,6 +286,37 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	}
 
 	return status, nil
+}
+
+func (q *Quay) tryGetQuayCredentials(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoIdentifier string) (username, token string, status *api.SPIAccessCheckStatus) {
+	status = &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeContainerRegistry,
+		ServiceProvider: api.ServiceProviderTypeQuay,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
+
+	remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+		status.ErrorMessage = err.Error()
+		return
+	}
+
+	rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorMessage = err.Error()
+		return
+	}
+
+	if rs != nil && secret != nil {
+		username = string(secret.Data[v1.BasicAuthUsernameKey])
+		token = string(secret.Data[v1.BasicAuthPasswordKey])
+		status.Credentials.RemoteSecret = rs.Name
+		status.Credentials.Secret = secret.Name
+	}
+	return
 }
 
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
