@@ -46,7 +46,6 @@ func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabCl
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 
 var (
-	unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
