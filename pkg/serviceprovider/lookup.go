@@ -152,8 +152,7 @@ func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccess
 }
 
 // LookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable.
-// These RemoteSecrets are then filtered and only those fulfilling three conditions. The RemoteSecret must contain the data,
-// the secret type is set to SecretTypeBasicAuth, and it has a synced target which references the matchable namespace.
+// These RemoteSecrets are then filtered using GenericLookup's RemoteSecretFilter.
 func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
 	lg := log.FromContext(ctx)
 
@@ -181,32 +180,32 @@ func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client
 	return matches, nil
 }
 
-func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret, repoName string) (*v1.Secret, error) {
+func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret, repoName string) (*v1beta1.RemoteSecret, *v1.Secret, error) {
 	if len(remoteSecrets) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	matchingRemoteSecret := remoteSecrets[0]
+	matchingRemoteSecret := &remoteSecrets[0]
 	for _, rs := range remoteSecrets {
 		accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
 		if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), repoName) {
-			matchingRemoteSecret = rs
+			matchingRemoteSecret = &rs
 			break
 		}
 	}
 
 	targetIndex := getLocalNamespaceTargetIndex(matchingRemoteSecret.Status.Targets, matchable.ObjNamespace())
 	if targetIndex < 0 || targetIndex >= len(matchingRemoteSecret.Status.Targets) {
-		return nil, missingTargetError // Should not happen, but avoids panicking just in case.
+		return nil, nil, missingTargetError // Should not happen, but avoids panicking just in case.
 	}
 
 	secret := &v1.Secret{}
 	err := cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].SecretName}, secret)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return secret, nil
+	return matchingRemoteSecret, secret, nil
 }
 
 // getLocalNamespaceTargetIndex is helper function which finds the index of a target in targets such that the target

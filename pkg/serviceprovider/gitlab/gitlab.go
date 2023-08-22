@@ -331,12 +331,12 @@ func (g *Gitlab) gitlabClientFromRemoteSecret(ctx context.Context, cl client.Cli
 		return nil, api.SPIAccessCheckErrorTokenLookupFailed, err
 	}
 
-	secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoName)
+	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoName)
 	if err != nil {
 		return nil, api.SPIAccessCheckErrorUnknownError, err
 	}
 
-	if secret == nil {
+	if rs == nil || secret == nil {
 		return nil, "", nil
 	}
 

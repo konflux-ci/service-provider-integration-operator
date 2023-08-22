@@ -70,6 +70,8 @@ func (f RemoteSecretFilterFunc) Matches(ctx context.Context, matchable Matchable
 
 var _ RemoteSecretFilter = (RemoteSecretFilterFunc)(nil)
 
+// DefaultRemoteSecretFilterFunc filters RemoteSecret based on three conditions: the SecretData must be obtained,
+// type of the secret must SecretTypeBasicAuth, and the RemoteSecret must have target in the same (local) namespace as matchable.
 var DefaultRemoteSecretFilterFunc = RemoteSecretFilterFunc(func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
 	dataObtained := meta.IsStatusConditionTrue(remoteSecret.Status.Conditions, string(v1beta1.RemoteSecretConditionTypeDataObtained))
 	basicAuthType := remoteSecret.Spec.Secret.Type == v1.SecretTypeBasicAuth

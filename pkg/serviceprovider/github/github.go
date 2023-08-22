@@ -287,7 +287,7 @@ func (g *Github) checkPrivateRepositoryAccess(ctx context.Context, cl client.Cli
 	ghRepository, resp, err := githubClient.Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		checkRateLimitError(err)
-		if resp != nil && resp.StatusCode != http.StatusNotFound {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
 		}
 		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError, err)
@@ -333,15 +333,15 @@ func (g *Github) githubClientFromRemoteSecret(ctx context.Context, cl client.Cli
 		return nil, api.SPIAccessCheckErrorTokenLookupFailed, err
 	}
 
-	secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoName)
+	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoName)
 	if err != nil {
 		return nil, api.SPIAccessCheckErrorUnknownError, err
 	}
 
-	if secret == nil {
+	if rs == nil || secret == nil {
 		return nil, "", nil
 	}
-
+	// TODO: update the credentials field in accesscheck
 	accessToken := string(secret.Data[v1.BasicAuthPasswordKey])
 	githubClient := g.ghClientBuilder.createClientFromTokenData(ctx, accessToken)
 	return githubClient, "", nil

@@ -235,17 +235,17 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
 		remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
 		if err != nil {
-			lg.Error(lookupErr, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
+			lg.Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
 			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-			status.ErrorMessage = lookupErr.Error() // Just like with SPIAccessToken, we are not returning here.
+			status.ErrorMessage = err.Error() // Just like with SPIAccessToken, we are not returning here.
 		}
 
-		secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, owner+"/"+repository)
+		rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, owner+"/"+repository)
 		if err != nil {
 			return nil, err //  api.SPIAccessCheckErrorUnknownError,
 		}
 
-		if secret != nil {
+		if rs != nil || secret != nil {
 			username = string(secret.Data[v1.BasicAuthUsernameKey])
 			token = string(secret.Data[v1.BasicAuthPasswordKey])
 		}
