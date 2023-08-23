@@ -234,7 +234,7 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persist github metadata: %w", err)
 	}
-	return nil
+	return g.me
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {

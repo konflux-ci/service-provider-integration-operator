@@ -18,17 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"strings"
-	"sync"
-
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
-	kubeerrors "k8s.io/apimachinery/pkg/util/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 var missingTargetError = errors.New("found RemoteSecret does not have a target in the SPIAccessCheck's namespace, this should not happen")
@@ -37,19 +30,16 @@ var missingTargetError = errors.New("found RemoteSecret does not have a target i
 // to provide a service-provider-specific "state" of the token and a "filter" function that uses the token and its
 // state to match it against a binding
 type GenericLookup struct {
-	// ServiceProviderType is just the type of the provider we're dealing with. It is used to limit the number of
-	// results the filter function needs to sift through.
-	ServiceProviderType api.ServiceProviderType
-	// TokenFilter is the filter function that decides whether a token matches the requirements of a binding, given
-	// the token's service-provider-specific state
-	TokenFilter        TokenFilter
-	RemoteSecretFilter RemoteSecretFilter
+
 	// MetadataProvider is used to figure out metadata of a token in the service provider useful for token lookup
 	MetadataProvider MetadataProvider
 	// MetadataCache is an abstraction used for storing/fetching the metadata of tokens
 	MetadataCache *MetadataCache
-	// RepoHostParser is a function that extracts the host from the repoUrl
-	RepoHostParser RepoHostParser
+	//// RepoHostParser is a function that extracts the host from the repoUrl
+	//RepoHostParser RepoHostParser
+
+	spiSource          SpiTokenCredentialsSource
+	remoteSecretSource RemoteSecretCredentialsSource
 }
 
 type RepoHostParser func(url string) (string, error)
@@ -72,82 +62,25 @@ func RepoHostFromUrl(repoUrl string) (string, error) {
 }
 
 func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable Matchable) ([]api.SPIAccessToken, error) {
-	lg := log.FromContext(ctx)
-
-	var result = make([]api.SPIAccessToken, 0)
-
-	potentialMatches := &api.SPIAccessTokenList{}
-
-	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
+	token, err := l.spiSource.LookupCredentialSource(ctx, cl, matchable)
 	if err != nil {
-		return result, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
+		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
 	}
-
-	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
-		api.ServiceProviderTypeLabel: string(l.ServiceProviderType),
-		api.ServiceProviderHostLabel: repoHost,
-	}); err != nil {
-		return result, fmt.Errorf("failed to list the potentially matching tokens: %w", err)
-	}
-
-	lg.V(logs.DebugLevel).Info("lookup", "potential_matches", len(potentialMatches.Items))
-
-	errs := make([]error, 0)
-
-	mutex := sync.Mutex{}
-	wg := sync.WaitGroup{}
-	for _, t := range potentialMatches.Items {
-		if t.Status.Phase != api.SPIAccessTokenPhaseReady {
-			lg.V(logs.DebugLevel).Info("skipping lookup, token not ready", "token", t.Name)
-			continue
-		}
-
-		wg.Add(1)
-		go func(tkn api.SPIAccessToken) {
-			lg.V(logs.DebugLevel).Info("matching", "token", tkn.Name)
-			defer wg.Done()
-			if err := l.MetadataCache.Ensure(ctx, &tkn, l.MetadataProvider); err != nil {
-				mutex.Lock()
-				defer mutex.Unlock()
-				lg.Error(err, "failed to refresh the metadata of candidate token", "token", tkn.Namespace+"/"+tkn.Name)
-				errs = append(errs, err)
-				return
-			}
-
-			ok, err := l.TokenFilter.Matches(ctx, matchable, &tkn)
-			if err != nil {
-				mutex.Lock()
-				defer mutex.Unlock()
-				lg.Error(err, "failed to match candidate token", "token", tkn.Namespace+"/"+tkn.Name)
-				errs = append(errs, err)
-				return
-			}
-			if ok {
-				mutex.Lock()
-				defer mutex.Unlock()
-				result = append(result, tkn)
-			}
-		}(t)
-	}
-
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors while examining the potential matches: %w", kubeerrors.NewAggregate(errs))
-	}
-
-	lg.V(logs.DebugLevel).Info("lookup finished", "matching_tokens", len(result))
-
-	return result, nil
+	return []api.SPIAccessToken{*token}, nil
 }
 
+// TODO remove this method from lookup
 func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccessToken) error {
 	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
 }
 
 func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
-	// using for loop
-
-	//TODO think about error.
+	credentials, err := l.remoteSecretSource.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
+	}
+	if credentials == nil {
+		return l.spiSource.LookupCredentials(ctx, cl, matchable)
+	}
 	return nil, fmt.Errorf("Not found")
 }
