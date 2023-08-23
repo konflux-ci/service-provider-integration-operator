@@ -17,15 +17,11 @@ package github
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/google/go-github/v45/github"
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type githubClientBuilder struct {
@@ -35,30 +31,31 @@ type githubClientBuilder struct {
 
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
-func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
-	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
-	lg := log.FromContext(ctx)
-	if tsErr != nil {
+//
+//func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
+//	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
+//	lg := log.FromContext(ctx)
+//	if tsErr != nil {
+//
+//		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
+//		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiToken.Namespace, spiToken.Name, tsErr)
+//	}
+//	if tokenData == nil {
+//		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
+//		return nil, accessTokenNotFoundError
+//	}
+//	client := g.createClientFromTokenData(ctx, tokenData.AccessToken)
+//	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
+//
+//	// We need the githubBaseUrl in the githubClientBuilder struct to decide whether to create
+//	// regular GitHub client or an Enterprise client through the GitHub library's NewEnterpriseClient() function.
+//	// However, the function takes 2 URLs as parameters: one for the API URL and one for the upload URL where files can be uploaded.
+//	// As we currently do not allow uploading files to GitHub, we might omit the uploadURL.
+//	return client, nil
+//}
 
-		lg.Error(tsErr, "failed to get token from storage for", "token", spiToken)
-		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w", spiToken.Namespace, spiToken.Name, tsErr)
-	}
-	if tokenData == nil {
-		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
-		return nil, accessTokenNotFoundError
-	}
-	client := g.createClientFromTokenData(ctx, tokenData.AccessToken)
-	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
-
-	// We need the githubBaseUrl in the githubClientBuilder struct to decide whether to create
-	// regular GitHub client or an Enterprise client through the GitHub library's NewEnterpriseClient() function.
-	// However, the function takes 2 URLs as parameters: one for the API URL and one for the upload URL where files can be uploaded.
-	// As we currently do not allow uploading files to GitHub, we might omit the uploadURL.
-	return client, nil
-}
-
-func (g *githubClientBuilder) createClientFromTokenData(ctx context.Context, accessToken string) *github.Client {
+func (g *githubClientBuilder) createClientFromStaticTokenSource(ctx context.Context, token *oauth2.Token) *github.Client {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+	ts := oauth2.StaticTokenSource(token)
 	return github.NewClient(oauth2.NewClient(ctx, ts))
 }

@@ -22,8 +22,6 @@ import (
 	"net/url"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -187,6 +185,15 @@ func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.
 	return tokens, nil
 }
 
+func (g *Quay) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("github token lookup failure: %w", err)
+	}
+	return credentials, nil
+
+}
+
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)
@@ -212,7 +219,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
-	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
+	credentials, lookupErr := q.lookup.LookupCredentials(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
@@ -221,25 +228,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		// The error will still be reported in status.
 	}
 
-	var username, token string
-	if len(tokens) > 0 {
-		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
-		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
-		if getTokenErr != nil {
-			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
-		}
-		if apiToken != nil {
-			username, token = getUsernameAndPasswordFromTokenData(apiToken)
-		}
-	} else {
-		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
-		// we need this check here in case if lookup failed
-		if status.ErrorReason == "" && status.ErrorMessage == "" {
-			username, token, status = q.tryGetQuayCredentials(ctx, cl, accessCheck, owner+"/"+repository)
-		}
-	}
-
-	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {
+	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, credentials.Password); err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = "failed request to Quay API"
 		return status, err
@@ -257,11 +246,11 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		case http.StatusUnauthorized, http.StatusForbidden:
 			// if we have no token, we cannot distinguish between non-existent and private repository, so in that case
 			// we can assign no new status here...
-			if token != "" {
+			if credentials.Password != "" {
 				// ok, we failed to authorize with a token. This means that we either are using a robot token on a
 				// private repo or token lookup didn't return a valid token (maybe an expired one or the perms changed
 				// in quay in the meantime).
-				if username != "" && username != OAuthTokenUserName {
+				if credentials.Username != "" && credentials.Username != OAuthTokenUserName {
 					// yes, a robot token. All we know is that the token lookup succeeded, so this must mean docker login
 					// must have succeeded (now or some time ago). So let's just assume here that the repo is accessible.
 					// For public repositories, the Quay API repository info query succeeds with any (or none) credentials.
@@ -288,36 +277,36 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 	return status, nil
 }
 
-func (q *Quay) tryGetQuayCredentials(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoIdentifier string) (username, token string, status *api.SPIAccessCheckStatus) {
-	status = &api.SPIAccessCheckStatus{
-		Type:            api.SPIRepoTypeContainerRegistry,
-		ServiceProvider: api.ServiceProviderTypeQuay,
-		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-	}
-
-	remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = err.Error()
-		return
-	}
-
-	rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
-	if err != nil {
-		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
-		status.ErrorMessage = err.Error()
-		return
-	}
-
-	if rs != nil && secret != nil {
-		username = string(secret.Data[v1.BasicAuthUsernameKey])
-		token = string(secret.Data[v1.BasicAuthPasswordKey])
-		status.Credentials.RemoteSecret = rs.Name
-		status.Credentials.Secret = secret.Name
-	}
-	return
-}
+//func (q *Quay) tryGetQuayCredentials(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoIdentifier string) (username, token string, status *api.SPIAccessCheckStatus) {
+//	status = &api.SPIAccessCheckStatus{
+//		Type:            api.SPIRepoTypeContainerRegistry,
+//		ServiceProvider: api.ServiceProviderTypeQuay,
+//		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+//	}
+//
+//	remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
+//	if err != nil {
+//		log.FromContext(ctx).Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
+//		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+//		status.ErrorMessage = err.Error()
+//		return
+//	}
+//
+//	rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
+//	if err != nil {
+//		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+//		status.ErrorMessage = err.Error()
+//		return
+//	}
+//
+//	if rs != nil && secret != nil {
+//		username = string(secret.Data[v1.BasicAuthUsernameKey])
+//		token = string(secret.Data[v1.BasicAuthPasswordKey])
+//		status.Credentials.RemoteSecret = rs.Name
+//		status.Credentials.Secret = secret.Name
+//	}
+//	return
+//}
 
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
 	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiBaseUrl, owner, repository)

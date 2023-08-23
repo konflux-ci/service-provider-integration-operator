@@ -18,12 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/oauth2"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/google/go-github/v45/github"
 	"github.com/prometheus/client_golang/prometheus"
@@ -106,6 +105,15 @@ type Github struct {
 	downloadFileCapability serviceprovider.DownloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
 	baseUrl                string
+}
+
+func (g *Github) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("github token lookup failure: %w", err)
+	}
+	return credentials, nil
+
 }
 
 type githubOAuthCapability struct {
@@ -230,13 +238,18 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus
+
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
 
 	owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorBadURL
 		status.ErrorMessage = err.Error()
-		return &status, nil //nolint:nilerr // we preserve the error in the status
+		return status, nil //nolint:nilerr // we preserve the error in the status
 	}
 
 	publicRepo, err := g.publicRepo(ctx, accessCheck)
@@ -246,85 +259,43 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	status.Accessible = publicRepo
 	if publicRepo {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
-		return &status, nil
+		return status, nil
 	}
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
 
-	return g.checkPrivateRepositoryAccess(ctx, cl, accessCheck, owner, repo)
-}
+	lg := log.FromContext(ctx)
 
-// checkPrivateRepositoryAccess checks whether a repository si private
-func (g *Github) checkPrivateRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, owner, repo string) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus
-	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
-		if errReason != "" {
-			status.ErrorReason = errReason
-			status.ErrorMessage = err.Error()
-			return &status, nil
+	credentials, lookupErr := g.lookup.LookupCredentials(ctx, cl, accessCheck)
+	if lookupErr != nil {
+		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
+		if !publicRepo {
+			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+			status.ErrorMessage = lookupErr.Error()
 		}
-		return nil, err
+		return status, nil
 	}
 
-	githubClient, errorReason, reference, err := g.tryConstructGithubClient(ctx, cl, accessCheck, owner+"/"+repo)
-	if err != nil {
-		return returnRawOrPreservedError(errorReason, err)
-	}
-	if githubClient == nil {
-		return &status, nil
-	}
-
-	status.Credentials = reference
-	ghRepository, resp, err := githubClient.Repositories.Get(ctx, owner, repo)
+	//token := &tokens[0]
+	ghClient := g.ghClientBuilder.createClientFromStaticTokenSource(ctx, &oauth2.Token{AccessToken: credentials.Password})
+	//if err != nil {
+	//	status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+	//	status.ErrorMessage = err.Error()
+	//	return status, err
+	//}
+	ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		checkRateLimitError(err)
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
-		}
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError, err)
+		status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
+		status.ErrorMessage = err.Error()
+		return status, nil
 	}
 
 	status.Accessible = true
 	if pointer.BoolDeref(ghRepository.Private, false) {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 	}
-	return &status, nil
-}
-
-func (g *Github) tryConstructGithubClient(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoIdentifier string) (*github.Client, api.SPIAccessCheckErrorReason, api.CredentialsReference, error) {
-	reference := api.CredentialsReference{}
-	tokens, err := g.lookup.Lookup(ctx, cl, accessCheck)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup SPIAccessTokens: %w", err)
-	}
-
-	if len(tokens) > 0 {
-		githubClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, &tokens[0])
-		if err != nil {
-			return nil, api.SPIAccessCheckErrorUnknownError, reference, err
-		}
-		return githubClient, "", reference, nil
-	}
-
-	remoteSecrets, err := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-	if err != nil {
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup RemoteSecrets: %w", err)
-	}
-
-	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
-	if err != nil {
-		return nil, api.SPIAccessCheckErrorUnknownError, reference, fmt.Errorf("unable to lookup RemoteSecret's Secret: %w", err)
-	}
-	if rs == nil || secret == nil {
-		return nil, "", reference, nil
-	}
-	reference.RemoteSecret = rs.Name
-	reference.Secret = secret.Name
-
-	accessToken := string(secret.Data[v1.BasicAuthPasswordKey])
-	githubClient := g.ghClientBuilder.createClientFromTokenData(ctx, accessToken)
-	return githubClient, "", reference, nil
+	return status, nil
 }
 
 func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {

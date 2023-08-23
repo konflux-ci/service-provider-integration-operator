@@ -86,6 +86,15 @@ func (g *HostCredentialsProvider) LookupTokens(ctx context.Context, cl client.Cl
 	return tokens, nil
 }
 
+func (g *HostCredentialsProvider) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("github token lookup failure: %w", err)
+	}
+	return credentials, nil
+
+}
+
 func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	err := g.lookup.PersistMetadata(ctx, token)
 	if err != nil {

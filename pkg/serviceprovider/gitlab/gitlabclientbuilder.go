@@ -20,11 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/xanzy/go-gitlab"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type gitlabClientBuilder struct {
@@ -34,28 +31,28 @@ type gitlabClientBuilder struct {
 
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
-func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken, baseUrl string) (*gitlab.Client, error) {
-	lg := log.FromContext(ctx)
-	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
-	if err != nil {
-		lg.Error(err, "failed to get token from storage for", "token", spiAccessToken)
-		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w",
-			spiAccessToken.Namespace, spiAccessToken.Name, err)
-	}
+//func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken, baseUrl string) (*gitlab.Client, error) {
+//	lg := log.FromContext(ctx)
+//	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
+//	if err != nil {
+//		lg.Error(err, "failed to get token from storage for", "token", spiAccessToken)
+//		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w",
+//			spiAccessToken.Namespace, spiAccessToken.Name, err)
+//	}
+//
+//	if tokenData == nil {
+//		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
+//		return nil, accessTokenNotFoundError
+//	}
+//	client, err := builder.createClientFromTokenData(tokenData.AccessToken, baseUrl)
+//	if err != nil {
+//		return nil, err
+//	}
+//	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
+//	return client, nil
+//}
 
-	if tokenData == nil {
-		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
-		return nil, accessTokenNotFoundError
-	}
-	client, err := builder.createClientFromTokenData(tokenData.AccessToken, baseUrl)
-	if err != nil {
-		return nil, err
-	}
-	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
-	return client, nil
-}
-
-func (builder *gitlabClientBuilder) createClientFromTokenData(accessToken string, baseUrl string) (*gitlab.Client, error) {
+func (builder *gitlabClientBuilder) createClientFromTokenData(ctx context.Context, accessToken string, baseUrl string) (*gitlab.Client, error) {
 	client, err := gitlab.NewOAuthClient(accessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated gitlab client: %w", err)
