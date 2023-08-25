@@ -18,11 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/oauth2"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"golang.org/x/oauth2"
 
 	"github.com/google/go-github/v45/github"
 	"github.com/prometheus/client_golang/prometheus"
@@ -98,6 +99,7 @@ var (
 
 type Github struct {
 	Configuration          *opconfig.OperatorConfiguration
+	metadataCache          *serviceprovider.MetadataCache
 	lookup                 serviceprovider.GenericLookup
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
@@ -108,11 +110,11 @@ type Github struct {
 }
 
 func (g *Github) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
-	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	cred, err := g.lookup.CredentialsLookup(ctx, cl, matchable)
 	if err != nil {
 		return nil, fmt.Errorf("github token lookup failure: %w", err)
 	}
-	return credentials, nil
+	return cred, nil
 
 }
 
@@ -141,18 +143,25 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 
 	github := &Github{
 		Configuration: factory.Configuration,
+		metadataCache: &cache,
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
-			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
-			MetadataProvider: &metadataProvider{
-				httpClient:      httpClient,
-				tokenStorage:    factory.TokenStorage,
-				ghClientBuilder: ghClientBuilder,
+			SPICredentialsSource: serviceprovider.SPIAccessTokenCredentialsSource{
+				ServiceProviderType: api.ServiceProviderTypeGitHub,
+				TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+				MetadataProvider: &metadataProvider{
+					httpClient:      httpClient,
+					tokenStorage:    factory.TokenStorage,
+					ghClientBuilder: ghClientBuilder,
+				},
+				MetadataCache:  &cache,
+				RepoHostParser: serviceprovider.RepoUrlParserFromSchemalessUrl,
+				TokenStorage:   factory.TokenStorage,
 			},
-			MetadataCache:  &cache,
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			RemoteSecretCredentialsSource: serviceprovider.RemoteSecretCredentialsSource{
+				RepoHostParser:     serviceprovider.RepoUrlParserFromSchemalessUrl,
+				RemoteSecretFilter: serviceprovider.DefaultRemoteSecretFilterFunc,
+			},
 		},
 		httpClient:             factory.HttpClient,
 		ghClientBuilder:        ghClientBuilder,
@@ -223,7 +232,7 @@ func translateToScopes(permission api.Permission) []string {
 }
 
 func (g *Github) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+	tokens, err := g.lookup.SPIAccessTokenLookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("github token lookup failure: %w", err)
 	}
@@ -231,10 +240,10 @@ func (g *Github) LookupTokens(ctx context.Context, cl client.Client, binding *ap
 }
 
 func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
-		return fmt.Errorf("failed to persist github metadata: %w", err)
+	if err := g.metadataCache.Persist(ctx, token); err != nil {
+		return fmt.Errorf("failed to persist GitHub metadata: %w", err)
 	}
-	return g.me
+	return nil
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
@@ -266,7 +275,7 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 
 	lg := log.FromContext(ctx)
 
-	credentials, lookupErr := g.lookup.LookupCredentials(ctx, cl, accessCheck)
+	cred, lookupErr := g.lookup.CredentialsLookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		if !publicRepo {
@@ -276,13 +285,12 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		return status, nil
 	}
 
-	//token := &tokens[0]
-	ghClient := g.ghClientBuilder.createClientFromStaticTokenSource(ctx, &oauth2.Token{AccessToken: credentials.Password})
-	//if err != nil {
-	//	status.ErrorReason = api.SPIAccessCheckErrorUnknownError
-	//	status.ErrorMessage = err.Error()
-	//	return status, err
-	//}
+	ghClient, err := g.ghClientBuilder.CreateAuthorizedClient(ctx, &oauth2.Token{AccessToken: cred.Password})
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
+		status.ErrorMessage = err.Error()
+		return status, err
+	}
 	ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		checkRateLimitError(err)

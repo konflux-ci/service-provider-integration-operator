@@ -33,6 +33,7 @@ import (
 // only one token for particular URL in the given namespace.
 type HostCredentialsProvider struct {
 	Configuration *opconfig.OperatorConfiguration
+	metadataCache *serviceprovider.MetadataCache
 	lookup        serviceprovider.GenericLookup
 	httpClient    rest.HTTPClient
 	repoUrl       string
@@ -46,17 +47,24 @@ var Initializer = serviceprovider.Initializer{
 }
 
 func newHostCredentialsProvider(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
-
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	return &HostCredentialsProvider{
 		Configuration: factory.Configuration,
+		metadataCache: &cache,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeHostCredentials,
-			TokenFilter:         serviceprovider.MatchAllTokenFilter,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
-			MetadataCache:       &cache,
-			MetadataProvider: &metadataProvider{
-				tokenStorage: factory.TokenStorage,
+			SPICredentialsSource: serviceprovider.SPIAccessTokenCredentialsSource{
+				ServiceProviderType: api.ServiceProviderTypeHostCredentials,
+				TokenFilter:         serviceprovider.MatchAllTokenFilter,
+				MetadataProvider: &metadataProvider{
+					tokenStorage: factory.TokenStorage,
+				},
+				MetadataCache:  &cache,
+				RepoHostParser: serviceprovider.RepoUrlParserFromSchemalessUrl,
+				TokenStorage:   factory.TokenStorage,
+			},
+			RemoteSecretCredentialsSource: serviceprovider.RemoteSecretCredentialsSource{
+				RepoHostParser:     serviceprovider.RepoUrlParserFromSchemalessUrl,
+				RemoteSecretFilter: serviceprovider.DefaultRemoteSecretFilterFunc,
 			},
 		},
 		httpClient: factory.HttpClient,
@@ -79,7 +87,7 @@ func (g *HostCredentialsProvider) GetType() config.ServiceProviderType {
 }
 
 func (g *HostCredentialsProvider) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+	tokens, err := g.lookup.SPIAccessTokenLookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("token lookup failed: %w", err)
 	}
@@ -87,18 +95,18 @@ func (g *HostCredentialsProvider) LookupTokens(ctx context.Context, cl client.Cl
 }
 
 func (g *HostCredentialsProvider) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
-	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	cred, err := g.lookup.CredentialsLookup(ctx, cl, matchable)
 	if err != nil {
 		return nil, fmt.Errorf("github token lookup failure: %w", err)
 	}
-	return credentials, nil
+	return cred, nil
 
 }
 
 func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	err := g.lookup.PersistMetadata(ctx, token)
+	err := g.metadataCache.Persist(ctx, token)
 	if err != nil {
-		return fmt.Errorf("metadata persist failed: %w", err)
+		return fmt.Errorf("failed to persist metadata: %w", err)
 	}
 	return nil
 }

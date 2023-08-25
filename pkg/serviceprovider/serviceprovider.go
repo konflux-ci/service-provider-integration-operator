@@ -40,7 +40,8 @@ type ServiceProvider interface {
 	// This usually searches kubernetes (using the provided client) and the service provider itself (using some specific
 	// mechanism (usually an http client)).
 	LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
-	//will replace LookupTokens in future after deprication of spitoken/spitokenbinding
+
+	// LookupCredentials will replace LookupTokens in future after deprication of SPIAccessToken/SPIAccessTokenBinding
 	LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error)
 
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any

@@ -30,6 +30,7 @@ import (
 // supplying custom implementations of each of the interface methods. It provides dummy implementations of them, too, so
 // that no null pointer dereferences should occur under normal operation.
 type TestServiceProvider struct {
+	LookupCredentialsImpl     func(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error)
 	LookupTokensImpl          func(context.Context, client.Client, *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 	PersistMetadataImpl       func(context.Context, client.Client, *api.SPIAccessToken) error
 	GetBaseUrlImpl            func() string
@@ -41,6 +42,13 @@ type TestServiceProvider struct {
 	DownloadFileCapability    func() DownloadFileCapability
 	RefreshTokenCapability    func() RefreshTokenCapability
 	OAuthCapability           func() OAuthCapability
+}
+
+func (t TestServiceProvider) LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
+	if t.LookupCredentialsImpl == nil {
+		return &Credentials{}, nil
+	}
+	return t.LookupCredentialsImpl(ctx, cl, matchable)
 }
 
 var _ ServiceProvider = (*TestServiceProvider)(nil)

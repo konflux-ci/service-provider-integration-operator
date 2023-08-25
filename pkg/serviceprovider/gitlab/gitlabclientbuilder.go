@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"golang.org/x/oauth2"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/xanzy/go-gitlab"
 )
@@ -27,33 +30,17 @@ import (
 type gitlabClientBuilder struct {
 	httpClient   *http.Client
 	tokenStorage tokenstorage.TokenStorage
+	baseUrl      string
 }
 
-var accessTokenNotFoundError = errors.New("token data is not found in token storage")
+var _ serviceprovider.AuthorizedClientBuilder[gitlab.Client] = (*gitlabClientBuilder)(nil)
+var tokenNilError = errors.New("token used to construct authorized client is nil")
 
-//func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken, baseUrl string) (*gitlab.Client, error) {
-//	lg := log.FromContext(ctx)
-//	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
-//	if err != nil {
-//		lg.Error(err, "failed to get token from storage for", "token", spiAccessToken)
-//		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w",
-//			spiAccessToken.Namespace, spiAccessToken.Name, err)
-//	}
-//
-//	if tokenData == nil {
-//		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
-//		return nil, accessTokenNotFoundError
-//	}
-//	client, err := builder.createClientFromTokenData(tokenData.AccessToken, baseUrl)
-//	if err != nil {
-//		return nil, err
-//	}
-//	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
-//	return client, nil
-//}
-
-func (builder *gitlabClientBuilder) createClientFromTokenData(ctx context.Context, accessToken string, baseUrl string) (*gitlab.Client, error) {
-	client, err := gitlab.NewOAuthClient(accessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(baseUrl))
+func (builder *gitlabClientBuilder) CreateAuthorizedClient(ctx context.Context, token *oauth2.Token) (*gitlab.Client, error) {
+	if token == nil {
+		return nil, tokenNilError
+	}
+	client, err := gitlab.NewOAuthClient(token.AccessToken, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.baseUrl))
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated gitlab client: %w", err)
 	}

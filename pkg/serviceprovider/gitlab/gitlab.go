@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"golang.org/x/oauth2"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -56,6 +58,7 @@ var defaultAccessCheckStatus = api.SPIAccessCheckStatus{
 
 type Gitlab struct {
 	Configuration          *opconfig.OperatorConfiguration
+	metadataCache          *serviceprovider.MetadataCache
 	lookup                 serviceprovider.GenericLookup
 	metadataProvider       *metadataProvider
 	httpClient             rest.HTTPClient
@@ -108,13 +111,20 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 
 	return &Gitlab{
 		Configuration: factory.Configuration,
+		metadataCache: &cache,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitLab,
-			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
-			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
-			MetadataProvider:    mp,
-			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			SPICredentialsSource: serviceprovider.SPIAccessTokenCredentialsSource{
+				ServiceProviderType: api.ServiceProviderTypeGitLab,
+				TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+				MetadataProvider:    mp,
+				MetadataCache:       &cache,
+				RepoHostParser:      serviceprovider.RepoUrlParserFromSchemalessUrl,
+				TokenStorage:        factory.TokenStorage,
+			},
+			RemoteSecretCredentialsSource: serviceprovider.RemoteSecretCredentialsSource{
+				RepoHostParser:     serviceprovider.RepoUrlParserFromSchemalessUrl,
+				RemoteSecretFilter: serviceprovider.DefaultRemoteSecretFilterFunc,
+			},
 		},
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
@@ -133,26 +143,25 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 }
 
 func (g *Gitlab) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	tokens, err := g.lookup.Lookup(ctx, cl, binding)
+	tokens, err := g.lookup.SPIAccessTokenLookup(ctx, cl, binding)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab token lookup failure: %w", err)
+		return nil, fmt.Errorf("failed to lookup token for Gitlab: %w", err)
 	}
-
 	return tokens, nil
 }
 
 func (g *Gitlab) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
-	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	cred, err := g.lookup.CredentialsLookup(ctx, cl, matchable)
 	if err != nil {
-		return nil, fmt.Errorf("github token lookup failure: %w", err)
+		return nil, fmt.Errorf("failed to lookup token for GitLab: %w", err)
 	}
-	return credentials, nil
+	return cred, nil
 
 }
 
 func (g *Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
-		return fmt.Errorf("failed to persist gitlab metadata: %w", err)
+	if err := g.metadataCache.Persist(ctx, token); err != nil {
+		return fmt.Errorf("failed to persist GitLab metadata: %w", err)
 	}
 	return nil
 }
@@ -234,7 +243,7 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
 	lg := log.FromContext(ctx)
 
-	credentials, lookupErr := g.lookup.LookupCredentials(ctx, cl, accessCheck)
+	cred, lookupErr := g.lookup.CredentialsLookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		if !publicRepo {
@@ -244,14 +253,14 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		return status, nil
 	}
 
-	if err := g.checkPrivateRepoAccess(ctx, credentials, owner+"/"+project, status); err != nil {
+	if err := g.checkPrivateRepoAccess(ctx, cred, owner+"/"+project, status); err != nil {
 		return nil, err
 	}
 	return status, nil
 }
 
 func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, credentials *serviceprovider.Credentials, projectIdentifier string, status *api.SPIAccessCheckStatus) error {
-	glClient, err := g.glClientBuilder.createClientFromTokenData(ctx, credentials.Password, g.baseUrl)
+	glClient, err := g.glClientBuilder.CreateAuthorizedClient(ctx, &oauth2.Token{AccessToken: credentials.Password})
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = err.Error()

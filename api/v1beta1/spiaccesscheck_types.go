@@ -47,7 +47,6 @@ type SPIAccessCheckStatus struct {
 
 type CredentialsReference struct {
 	RemoteSecret string `json:"remoteSecret,omitempty"`
-	Secret       string `json:"secret,omitempty"`
 }
 
 type SPIRepoType string

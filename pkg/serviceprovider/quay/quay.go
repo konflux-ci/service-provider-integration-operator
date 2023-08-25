@@ -52,6 +52,7 @@ var (
 
 type Quay struct {
 	Configuration    *opconfig.OperatorConfiguration
+	metadataCache    *serviceprovider.MetadataCache
 	lookup           serviceprovider.GenericLookup
 	metadataProvider *metadataProvider
 	httpClient       rest.HTTPClient
@@ -90,13 +91,14 @@ func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderC
 
 	return &Quay{
 		Configuration: factory.Configuration,
+		metadataCache: &cache,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
 			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			MetadataProvider:    mp,
 			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoHostParser:      serviceprovider.RepoHostFromSchemalessUrl,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
@@ -178,25 +180,25 @@ func translateToQuayScopes(permission api.Permission) []string {
 }
 
 func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
-	tokens, err := q.lookup.Lookup(ctx, cl, binding)
+	tokens, err := q.lookup.SPIAccessTokenLookup(ctx, cl, binding)
 	if err != nil {
-		return nil, fmt.Errorf("quay token lookup failure: %w", err)
+		return nil, fmt.Errorf("failed to lookup token for Quay: %w", err)
 	}
 	return tokens, nil
 }
 
 func (g *Quay) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
-	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	cred, err := g.lookup.CredentialsLookup(ctx, cl, matchable)
 	if err != nil {
-		return nil, fmt.Errorf("github token lookup failure: %w", err)
+		return nil, fmt.Errorf("failed to lookup token for Quay: %w", err)
 	}
-	return credentials, nil
+	return cred, nil
 
 }
 
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
-	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
-		return fmt.Errorf("failed to persiste quay metadata: %w", err)
+	if err := q.metadataCache.Persist(ctx, token); err != nil {
+		return fmt.Errorf("failed to persist Quay metadata: %w", err)
 	}
 	return nil
 }
@@ -219,7 +221,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
-	credentials, lookupErr := q.lookup.LookupCredentials(ctx, cl, accessCheck)
+	credentials, lookupErr := q.lookup.CredentialsLookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
@@ -276,37 +278,6 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 
 	return status, nil
 }
-
-//func (q *Quay) tryGetQuayCredentials(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, repoIdentifier string) (username, token string, status *api.SPIAccessCheckStatus) {
-//	status = &api.SPIAccessCheckStatus{
-//		Type:            api.SPIRepoTypeContainerRegistry,
-//		ServiceProvider: api.ServiceProviderTypeQuay,
-//		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-//	}
-//
-//	remoteSecrets, err := q.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-//	if err != nil {
-//		log.FromContext(ctx).Error(err, "failed to lookup remoteSecret for accesscheck", "accessCheck", accessCheck)
-//		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-//		status.ErrorMessage = err.Error()
-//		return
-//	}
-//
-//	rs, secret, err := q.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, repoIdentifier)
-//	if err != nil {
-//		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
-//		status.ErrorMessage = err.Error()
-//		return
-//	}
-//
-//	if rs != nil && secret != nil {
-//		username = string(secret.Data[v1.BasicAuthUsernameKey])
-//		token = string(secret.Data[v1.BasicAuthPasswordKey])
-//		status.Credentials.RemoteSecret = rs.Name
-//		status.Credentials.Secret = secret.Name
-//	}
-//	return
-//}
 
 func (q *Quay) requestRepoInfo(ctx context.Context, owner, repository, token string) (int, map[string]interface{}, error) {
 	requestUrl := fmt.Sprintf("%s/repository/%s/%s?includeTags=false", quayApiBaseUrl, owner, repository)
