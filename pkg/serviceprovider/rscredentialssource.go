@@ -69,6 +69,9 @@ func (r RemoteSecretCredentialsSource) LookupCredentials(ctx context.Context, cl
 	if err != nil {
 		return nil, fmt.Errorf("failed to find suitable matching RemoteSecret: %w", err)
 	}
+	if matchingRemoteSecret == nil {
+		return nil, nil
+	}
 	targetIndex := getLocalNamespaceTargetIndex(matchingRemoteSecret.Status.Targets, matchable.ObjNamespace())
 	if targetIndex < 0 || targetIndex >= len(matchingRemoteSecret.Status.Targets) {
 		return nil, missingTargetError // Should not happen, but avoids panicking just in case.
@@ -80,7 +83,7 @@ func (r RemoteSecretCredentialsSource) LookupCredentials(ctx context.Context, cl
 		return nil, fmt.Errorf("failed to find Secret created by RemoteSecret: %w", err)
 	}
 
-	return &Credentials{Username: string(secret.Data[v1.BasicAuthUsernameKey]), Password: string(secret.Data[v1.BasicAuthPasswordKey])}, nil
+	return &Credentials{Username: string(secret.Data[v1.BasicAuthUsernameKey]), Password: string(secret.Data[v1.BasicAuthPasswordKey]), SourceObjectName: matchingRemoteSecret.Name}, nil
 }
 
 // getLocalNamespaceTargetIndex is helper function which finds the index of a target in targets such that the target

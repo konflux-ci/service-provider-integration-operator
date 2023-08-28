@@ -45,15 +45,19 @@ func (l GenericLookup) SPIAccessTokenLookup(ctx context.Context, cl client.Clien
 	return []api.SPIAccessToken{}, nil
 }
 
-// CredentialsLookup firstly tries to obtain credentials from SPICredentialsSource and if that does not succeed, it tries the
-// same with RemoteSecretCredentialsSource.
+// CredentialsLookup tries to obtain credentials from SPICredentialsSource and if that fails, it tries the same with RemoteSecretCredentialsSource.
+// Note that credentials may be nil if the sources do not find suitable object for matchable.
 func (l GenericLookup) CredentialsLookup(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
 	cred, err := l.SPICredentialsSource.LookupCredentials(ctx, cl, matchable)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
+		return nil, fmt.Errorf("failed to lookup credentials from SPIAccessToken source: %w", err)
 	}
 	if cred != nil {
 		return cred, nil
 	}
-	return l.RemoteSecretCredentialsSource.LookupCredentials(ctx, cl, matchable)
+	cred, err = l.RemoteSecretCredentialsSource.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup credentials from RemoteSecret source: %w", err)
+	}
+	return cred, nil
 }

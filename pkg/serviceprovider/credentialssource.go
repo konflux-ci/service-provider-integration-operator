@@ -10,8 +10,9 @@ import (
 )
 
 type Credentials struct {
-	Username string
-	Password string
+	Username         string
+	Password         string
+	SourceObjectName string
 }
 
 type CredentialsSource[D any] interface {

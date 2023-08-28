@@ -50,12 +50,6 @@ var _ serviceprovider.ServiceProvider = (*Github)(nil)
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
 
-var defaultAccessCheckStatus = api.SPIAccessCheckStatus{
-	Type:            api.SPIRepoTypeGit,
-	ServiceProvider: api.ServiceProviderTypeGitHub,
-	Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-}
-
 var unexpectedStatusCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: config.MetricsNamespace,
@@ -284,8 +278,12 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 		return status, nil
 	}
+	if cred == nil {
+		return status, nil
+	}
+	status.Credentials.RemoteSecret = cred.SourceObjectName
 
-	ghClient, err := g.ghClientBuilder.CreateAuthorizedClient(ctx, &oauth2.Token{AccessToken: cred.Password})
+	ghClient, err := g.ghClientBuilder.CreateAuthenticatedClient(ctx, &oauth2.Token{AccessToken: cred.Password})
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = err.Error()

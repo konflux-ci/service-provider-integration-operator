@@ -93,12 +93,18 @@ func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderC
 		Configuration: factory.Configuration,
 		metadataCache: &cache,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeQuay,
-			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
-			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
-			MetadataProvider:    mp,
-			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemalessUrl,
+			SPICredentialsSource: serviceprovider.SPIAccessTokenCredentialsSource{
+				ServiceProviderType: api.ServiceProviderTypeQuay,
+				TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+				MetadataProvider:    mp,
+				MetadataCache:       &cache,
+				RepoHostParser:      serviceprovider.RepoUrlParserFromSchemalessUrl,
+				TokenStorage:        factory.TokenStorage,
+			},
+			RemoteSecretCredentialsSource: serviceprovider.RemoteSecretCredentialsSource{
+				RepoHostParser:     serviceprovider.RepoUrlParserFromSchemalessUrl,
+				RemoteSecretFilter: serviceprovider.DefaultRemoteSecretFilterFunc,
+			},
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
@@ -221,7 +227,7 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
-	credentials, lookupErr := q.lookup.CredentialsLookup(ctx, cl, accessCheck)
+	cred, lookupErr := q.lookup.CredentialsLookup(ctx, cl, accessCheck)
 	if lookupErr != nil {
 		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
 		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
@@ -229,8 +235,12 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		// not returning here. We're still able to detect public repository without the token.
 		// The error will still be reported in status.
 	}
+	if cred == nil {
+		cred = &serviceprovider.Credentials{}
+	}
+	status.Credentials.RemoteSecret = cred.SourceObjectName
 
-	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, credentials.Password); err != nil {
+	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, cred.Password); err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = "failed request to Quay API"
 		return status, err
@@ -248,11 +258,11 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		case http.StatusUnauthorized, http.StatusForbidden:
 			// if we have no token, we cannot distinguish between non-existent and private repository, so in that case
 			// we can assign no new status here...
-			if credentials.Password != "" {
+			if cred.Password != "" {
 				// ok, we failed to authorize with a token. This means that we either are using a robot token on a
 				// private repo or token lookup didn't return a valid token (maybe an expired one or the perms changed
 				// in quay in the meantime).
-				if credentials.Username != "" && credentials.Username != OAuthTokenUserName {
+				if cred.Username != "" && cred.Username != OAuthTokenUserName {
 					// yes, a robot token. All we know is that the token lookup succeeded, so this must mean docker login
 					// must have succeeded (now or some time ago). So let's just assume here that the repo is accessible.
 					// For public repositories, the Quay API repository info query succeeds with any (or none) credentials.

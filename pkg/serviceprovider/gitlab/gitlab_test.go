@@ -314,7 +314,6 @@ func TestCheckRepositoryAccess_Uses_RemoteSecret(t *testing.T) {
 	assert.Equal(t, api.ServiceProviderTypeGitLab, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-	assert.Equal(t, "secret", status.Credentials.Secret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }
@@ -356,16 +355,26 @@ func mockGitlab(cl client.Client, returnCode, authClientReturnCode int, body str
 		Configuration: &opconfig.OperatorConfiguration{SharedConfiguration: config.SharedConfiguration{BaseUrl: "https://test.url"}},
 		httpClient:    httpClientMock,
 		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitLab,
-			MetadataCache:       &metadataCache,
-			TokenFilter: struct {
-				serviceprovider.TokenFilterFunc
-			}{
-				TokenFilterFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-					return true, lookupError
+			SPICredentialsSource: serviceprovider.SPIAccessTokenCredentialsSource{
+				ServiceProviderType: api.ServiceProviderTypeGitLab,
+				TokenFilter: struct {
+					serviceprovider.TokenFilterFunc
+				}{
+					TokenFilterFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+						return true, lookupError
+					},
 				},
+				MetadataProvider: nil,
+				MetadataCache:    &metadataCache,
+				RepoHostParser:   serviceprovider.RepoUrlParserFromUrl,
+				TokenStorage:     tokenStorageMock,
 			},
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			RemoteSecretCredentialsSource: serviceprovider.RemoteSecretCredentialsSource{
+				RepoHostParser: serviceprovider.RepoUrlParserFromUrl,
+				RemoteSecretFilter: serviceprovider.RemoteSecretFilterFunc(func(ctx context.Context, matchable serviceprovider.Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
+					return true
+				}),
+			},
 		},
 		tokenStorage: tokenStorageMock,
 		glClientBuilder: gitlabClientBuilder{

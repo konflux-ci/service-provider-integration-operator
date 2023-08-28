@@ -6,12 +6,10 @@ import (
 	"time"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestSPISource_LookupCredentialsSource(t *testing.T) {
@@ -51,11 +49,56 @@ func TestSPISource_LookupCredentialsSource(t *testing.T) {
 		},
 	}
 
-	sch := runtime.NewScheme()
-	utilruntime.Must(corev1.AddToScheme(sch))
-	utilruntime.Must(api.AddToScheme(sch))
-	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(matchingToken, nonMatchingToken1, nonMatchingToken2).Build()
+	cl := mockK8sClient(matchingToken, nonMatchingToken1, nonMatchingToken2)
 
+	spiSource := mockSPISource(cl)
+	tkn, err := spiSource.LookupCredentialsSource(context.TODO(), cl, &api.SPIAccessTokenBinding{
+		Spec: api.SPIAccessTokenBindingSpec{
+			RepoUrl: "https://fake.sp",
+		},
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, "matching", tkn.Name)
+}
+
+func TestSPISource_LookupCredentials(t *testing.T) {
+	matchingToken := &api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "matching",
+			Namespace: "default",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: "test",
+				api.ServiceProviderHostLabel: "fake.sp",
+			},
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+		},
+	}
+
+	cl := mockK8sClient(matchingToken)
+
+	spiSource := mockSPISource(cl)
+	spiSource.TokenStorage = tokenstorage.TestTokenStorage{
+		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{
+				Username:    "user123",
+				AccessToken: "token123",
+			}, nil
+		},
+	}
+	cred, err := spiSource.LookupCredentials(context.TODO(), cl, &api.SPIAccessTokenBinding{
+		Spec: api.SPIAccessTokenBindingSpec{
+			RepoUrl: "https://fake.sp",
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "user123", cred.Username)
+	assert.Equal(t, "token123", cred.Password)
+}
+
+func mockSPISource(cl client.Client) SPIAccessTokenCredentialsSource {
 	cache := MetadataCache{
 		Client:                    cl,
 		ExpirationPolicy:          &TtlMetadataExpirationPolicy{Ttl: 1 * time.Hour},
@@ -74,17 +117,5 @@ func TestSPISource_LookupCredentialsSource(t *testing.T) {
 		MetadataCache:  &cache,
 		RepoHostParser: RepoUrlParserFromUrl,
 	}
-
-	tkn, err := spiSource.LookupCredentialsSource(context.TODO(), cl, &api.SPIAccessTokenBinding{
-		Spec: api.SPIAccessTokenBindingSpec{
-			RepoUrl: "https://fake.sp",
-		},
-	})
-	assert.NoError(t, err)
-
-	assert.Equal(t, "matching", tkn.Name)
-}
-
-func TestSPISource_LookupCredentials(t *testing.T) {
-
+	return spiSource
 }

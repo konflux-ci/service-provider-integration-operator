@@ -50,12 +50,6 @@ var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(con
 
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
-var defaultAccessCheckStatus = api.SPIAccessCheckStatus{
-	Type:            api.SPIRepoTypeGit,
-	ServiceProvider: api.ServiceProviderTypeGitLab,
-	Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-}
-
 type Gitlab struct {
 	Configuration          *opconfig.OperatorConfiguration
 	metadataCache          *serviceprovider.MetadataCache
@@ -85,8 +79,9 @@ type gitlabOAuthCapability struct {
 func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
-		httpClient:   factory.HttpClient,
-		tokenStorage: factory.TokenStorage,
+		httpClient:    factory.HttpClient,
+		tokenStorage:  factory.TokenStorage,
+		gitlabBaseUrl: spConfig.ServiceProviderBaseUrl,
 	}
 	mp := &metadataProvider{
 		tokenStorage:    factory.TokenStorage,
@@ -252,6 +247,10 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 		}
 		return status, nil
 	}
+	if cred == nil {
+		return status, nil
+	}
+	status.Credentials.RemoteSecret = cred.SourceObjectName
 
 	if err := g.checkPrivateRepoAccess(ctx, cred, owner+"/"+project, status); err != nil {
 		return nil, err
@@ -260,7 +259,7 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 }
 
 func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, credentials *serviceprovider.Credentials, projectIdentifier string, status *api.SPIAccessCheckStatus) error {
-	glClient, err := g.glClientBuilder.CreateAuthorizedClient(ctx, &oauth2.Token{AccessToken: credentials.Password})
+	glClient, err := g.glClientBuilder.CreateAuthenticatedClient(ctx, &oauth2.Token{AccessToken: credentials.Password})
 	if err != nil {
 		status.ErrorReason = api.SPIAccessCheckErrorUnknownError
 		status.ErrorMessage = err.Error()

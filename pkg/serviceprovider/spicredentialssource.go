@@ -101,13 +101,19 @@ func (s SPIAccessTokenCredentialsSource) LookupCredentialsSource(ctx context.Con
 		return nil, fmt.Errorf("errors while examining the potential matches: %w", kubeerrors.NewAggregate(errs))
 	}
 	lg.V(logs.DebugLevel).Info("lookup finished", "matching_tokens", len(result))
-	return &result[0], nil
+	if len(result) > 0 {
+		return &result[0], nil
+	}
+	return nil, nil
 }
 func (s SPIAccessTokenCredentialsSource) LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
 	lg := log.FromContext(ctx)
 	spiToken, err := s.LookupCredentialsSource(ctx, cl, matchable)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find suitable matching SPIAccessToken: %w", err)
+	}
+	if spiToken == nil {
+		return nil, nil
 	}
 
 	tokenData, tsErr := s.TokenStorage.Get(ctx, spiToken)

@@ -6,6 +6,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type AuthorizedClientBuilder[C any] interface {
-	CreateAuthorizedClient(context.Context, *oauth2.Token) (*C, error)
+type AuthenticatedClientBuilder[C any] interface {
+	CreateAuthenticatedClient(context.Context, *oauth2.Token) (*C, error)
 }
