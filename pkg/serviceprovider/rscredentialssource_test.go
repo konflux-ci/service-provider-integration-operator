@@ -1,7 +1,22 @@
+//
+// Copyright (c) 2021 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package serviceprovider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -18,16 +33,19 @@ import (
 func TestRSSource_LookupCredentialsSource(t *testing.T) {
 	matchingLabelAndName := &v1beta1.RemoteSecret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "matching-name",
+			Name:      "matching-with-preference",
 			Namespace: "default",
 			Labels: map[string]string{
 				api.RSServiceProviderHostLabel: "test",
+			},
+			Annotations: map[string]string{
+				api.RSServiceProviderRepositoryAnnotation: "repo/name,other/name",
 			},
 		},
 	}
 	matchingJustLabel := &v1beta1.RemoteSecret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "matching-label",
+			Name:      "matching-1",
 			Namespace: "default",
 			Labels: map[string]string{
 				api.RSServiceProviderHostLabel: "test",
@@ -50,7 +68,7 @@ func TestRSSource_LookupCredentialsSource(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.SPIAccessCheckSpec{
-			RepoUrl: "https://test",
+			RepoUrl: "https://test/repo/name",
 		},
 	}
 
@@ -58,46 +76,33 @@ func TestRSSource_LookupCredentialsSource(t *testing.T) {
 
 	rsSources := RemoteSecretCredentialsSource{
 		RemoteSecretFilter: RemoteSecretFilterFunc(func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
-			return remoteSecret.Name == "matching-name"
+			return strings.HasPrefix(remoteSecret.Name, "matching")
 		}),
 		RepoHostParser: RepoUrlParserFromSchemalessUrl,
 	}
 
-	remoteSecrets, err := rsSources.LookupCredentialsSource(context.TODO(), cl, &check)
+	remoteSecret, err := rsSources.LookupCredentialsSource(context.TODO(), cl, &check)
 	assert.NoError(t, err)
-	assert.Len(t, remoteSecrets, 1)
-	assert.Equal(t, "matching-name", remoteSecrets.Name)
+	assert.NotNil(t, remoteSecret)
+	assert.Equal(t, "matching-with-preference", remoteSecret.Name)
 }
 
 func TestRSSource_LookupCredentials(t *testing.T) {
-	//remoteSecrets := []v1beta1.RemoteSecret{{
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name:      "matching-rs",
-	//		Namespace: "default",
-	//		Annotations: map[string]string{
-	//			api.RSServiceProviderRepositoryAnnotation: "test/repo,diff/repo",
-	//		},
-	//	},
-	//	Status: v1beta1.RemoteSecretStatus{
-	//		Targets: []v1beta1.TargetStatus{{
-	//			Namespace:  "default",
-	//			SecretName: "rs-secret",
-	//		}},
-	//	},
-	//}, {
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name:      "non-matching",
-	//		Namespace: "default",
-	//		Annotations: map[string]string{
-	//			api.RSServiceProviderRepositoryAnnotation: "diff/repo,anoth/repo",
-	//		},
-	//	},
-	//}, {
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name:      "non-matching",
-	//		Namespace: "default",
-	//	},
-	//}}
+	remoteSecret := v1beta1.RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "matching-rs",
+			Namespace: "default",
+			Labels: map[string]string{
+				api.RSServiceProviderHostLabel: "test",
+			},
+		},
+		Status: v1beta1.RemoteSecretStatus{
+			Targets: []v1beta1.TargetStatus{{
+				Namespace:  "default",
+				SecretName: "rs-secret",
+			}},
+		},
+	}
 
 	check := api.SPIAccessCheck{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,20 +121,18 @@ func TestRSSource_LookupCredentials(t *testing.T) {
 		},
 	}
 
-	cl := mockK8sClient(&remoteSecretSecret)
+	cl := mockK8sClient(&remoteSecret, &remoteSecretSecret)
 	rsSource := RemoteSecretCredentialsSource{
 		RemoteSecretFilter: RemoteSecretFilterFunc(func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
-			return remoteSecret.Name == "matching-name"
+			return remoteSecret.Name == "matching-rs"
 		}),
 		RepoHostParser: RepoUrlParserFromSchemalessUrl,
 	}
 
-	rs, err := rsSource.LookupCredentials(context.TODO(), cl, &check)
+	cred, err := rsSource.LookupCredentials(context.TODO(), cl, &check)
 	assert.NoError(t, err)
-	assert.NotNil(t, rs)
-	//assert.NotNil(t, secret)
-	//assert.Equal(t, "matching-rs", rs.Name)
-	//assert.Equal(t, "rs-secret", secret.Name)
+	assert.NotNil(t, cred)
+	assert.Equal(t, "matching-rs", cred.SourceObjectName)
 }
 
 func TestGetLocalNamespaceTargetIndex(t *testing.T) {

@@ -417,17 +417,25 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 		}),
 	}
 
-	return &Github{httpClient: mockedHTTPClient,
-
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			MetadataCache:       &metadataCache,
-			TokenFilter: tokenFilterMock{
-				matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-					return true, lookupError
-				},
+	spiSource := serviceprovider.SPIAccessTokenCredentialsSource{
+		ServiceProviderType: api.ServiceProviderTypeGitHub,
+		TokenFilter: tokenFilterMock{
+			matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+				return true, lookupError
 			},
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+		},
+		MetadataProvider: nil,
+		MetadataCache:    &metadataCache,
+		RepoHostParser:   serviceprovider.RepoUrlParserFromUrl,
+		TokenStorage:     ts,
+	}
+
+	return &Github{httpClient: mockedHTTPClient,
+		lookup: serviceprovider.GenericLookup{
+			SPICredentialsSource: spiSource,
+			RemoteSecretCredentialsSource: serviceprovider.TestRSSource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+				return nil, nil
+			}},
 		},
 		tokenStorage: ts,
 		ghClientBuilder: githubClientBuilder{
@@ -558,41 +566,11 @@ func TestGithubClientFromSpiAccessToken(t *testing.T) {
 }
 
 func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
-	cl := mockK8sClient(&v1beta1.RemoteSecret{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rs",
-			Namespace: "ns",
-			Labels: map[string]string{
-				api.RSServiceProviderHostLabel: "github.com",
-			},
-		},
-		Spec: v1beta1.RemoteSecretSpec{
-			Secret: v1beta1.LinkableSecretSpec{
-				Name: "secret",
-				Type: corev1.SecretTypeBasicAuth,
-			},
-			Targets: []v1beta1.RemoteSecretTarget{{
-				Namespace: "ns",
-			}},
-		},
-		Status: v1beta1.RemoteSecretStatus{
-			Conditions: []metav1.Condition{{
-				Type:   string(v1beta1.RemoteSecretConditionTypeDataObtained),
-				Status: metav1.ConditionTrue,
-			}},
-			Targets: []v1beta1.TargetStatus{{
-				Namespace:  "ns",
-				SecretName: "secret",
-			}},
-		},
-	}, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret",
-			Namespace: "ns",
-		},
-	})
+	cl := mockK8sClient()
 	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
+	gh.lookup.RemoteSecretCredentialsSource = serviceprovider.TestRSSource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+		return &serviceprovider.Credentials{SourceObjectName: "rs"}, nil
+	}}
 	ac := &api.SPIAccessCheck{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -610,7 +588,6 @@ func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-	assert.Equal(t, "secret", status.Credentials.Secret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }

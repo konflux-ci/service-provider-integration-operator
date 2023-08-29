@@ -303,13 +303,21 @@ const publicRepoResponseJson = "{\"is_public\": true}"
 const privateRepoResponseJson = "{\"is_public\": false}"
 
 func TestCheckRepositoryAccessPublic(t *testing.T) {
+
+	lookup := serviceprovider.GenericLookup{
+		SPICredentialsSource: serviceprovider.TestSPISource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+			return nil, nil
+		}},
+		RemoteSecretCredentialsSource: serviceprovider.TestRSSource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+			return nil, nil
+		}},
+	}
+
 	quay := &Quay{
 		httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
-		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: serviceprovider.RepoHostFromSchemalessUrl,
-		},
+		lookup: lookup,
 	}
 	k8sClient := mockK8sClient()
 
@@ -361,20 +369,29 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
 		CacheServiceProviderState: true,
 	}
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
+	}}
 
-	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      serviceprovider.RepoHostFromSchemalessUrl,
+	spiSource := serviceprovider.SPIAccessTokenCredentialsSource{
 		ServiceProviderType: api.ServiceProviderTypeQuay,
-		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{
 			matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 				return true, nil
 			},
 		},
+		MetadataProvider: nil,
+		MetadataCache:    &metadataCache,
+		RepoHostParser:   serviceprovider.RepoUrlParserFromSchemalessUrl,
+		TokenStorage:     ts,
 	}
-	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-		return &api.Token{AccessToken: "blabol"}, nil
-	}}
+
+	lookupMock := serviceprovider.GenericLookup{
+		SPICredentialsSource: spiSource,
+		RemoteSecretCredentialsSource: serviceprovider.TestRSSource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+			return nil, nil
+		}},
+	}
 
 	t.Run("public repository", func(t *testing.T) {
 		quay := &Quay{
@@ -530,10 +547,13 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("lookup failed public", func(t *testing.T) {
-		failingLookup := lookupMock
-		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+		failingSpiSource := spiSource
+		failingSpiSource.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 			return false, errors.New("intentional failure")
 		}}
+		failingLookup := serviceprovider.GenericLookup{
+			SPICredentialsSource: failingSpiSource,
+		}
 
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
@@ -556,10 +576,13 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("lookup failed nonpublic", func(t *testing.T) {
-		failingLookup := lookupMock
-		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
+		failingSpiSource := spiSource
+		failingSpiSource.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 			return false, errors.New("intentional failure")
 		}}
+		failingLookup := serviceprovider.GenericLookup{
+			SPICredentialsSource: failingSpiSource,
+		}
 
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
@@ -628,14 +651,20 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("robot token on private", func(t *testing.T) {
+		ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
+		}}
+		lookup := lookupMock
+		mySpiSource := spiSource
+		mySpiSource.TokenStorage = ts
+		lookup.SPICredentialsSource = mySpiSource
+
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
-			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
-			}},
+			lookup:       lookup,
+			tokenStorage: ts,
 		}
 
 		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
@@ -681,7 +710,14 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(privateRepoResponseJson))}, nil
 			}},
-			lookup: lookupMock,
+			lookup: serviceprovider.GenericLookup{
+				SPICredentialsSource: serviceprovider.TestSPISource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+					return nil, nil
+				}},
+				RemoteSecretCredentialsSource: serviceprovider.TestRSSource{LookupCredentialsImpl: func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+					return &serviceprovider.Credentials{Username: "user", Password: "pass", SourceObjectName: "rs"}, nil
+				}},
+			},
 		}
 
 		status, err := quay.CheckRepositoryAccess(context.TODO(), mockedCl, accessCheck)
@@ -693,7 +729,6 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 		assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-		assert.Equal(t, "secret", status.Credentials.Secret)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})
