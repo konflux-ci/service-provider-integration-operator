@@ -18,6 +18,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"k8s.io/utils/strings/slices"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -168,7 +169,7 @@ func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 }
 
 func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
-	if arrayContains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
+	if slices.Contains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
 		return rapi.RemoteSecretTarget{
 			Namespace:                environment.Spec.UnstableConfigurationFields.TargetNamespace,
 			ApiUrl:                   environment.Spec.UnstableConfigurationFields.APIURL,
@@ -178,15 +179,6 @@ func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alp
 		// local environment, just return the namespace
 		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
 	}
-}
-
-func arrayContains(input []string, s string) bool {
-	for _, item := range input {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
 
 type linkedRemoteSecretsFinalizer struct {
