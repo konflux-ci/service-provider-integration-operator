@@ -266,7 +266,7 @@ func StandardTestBinding(namePrefix string) *api.SPIAccessTokenBinding {
 	}
 }
 
-func StandardEnvironment(name string) *v1alpha1.Environment {
+func StandardLocalEnvironment(name string) *v1alpha1.Environment {
 	return &v1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -276,6 +276,28 @@ func StandardEnvironment(name string) *v1alpha1.Environment {
 			Type: "Non-POC",
 			Configuration: v1alpha1.EnvironmentConfiguration{
 				Env: []v1alpha1.EnvVarPair{},
+			},
+		},
+	}
+}
+
+func StandardRemoteEnvironment(name string) *v1alpha1.Environment {
+	return &v1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1alpha1.EnvironmentSpec{
+			Tags: []string{"managed"},
+			Configuration: v1alpha1.EnvironmentConfiguration{
+				Env: []v1alpha1.EnvVarPair{},
+			},
+			UnstableConfigurationFields: &v1alpha1.UnstableEnvironmentConfiguration{
+				KubernetesClusterCredentials: v1alpha1.KubernetesClusterCredentials{
+					APIURL:                   "https://api.example.com",
+					ClusterCredentialsSecret: "cluster-credentials-secret",
+					TargetNamespace:          "target-ns",
+				},
 			},
 		},
 	}

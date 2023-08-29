@@ -168,8 +168,25 @@ func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 }
 
 func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
-	// Dummy load. Real impl should reverse pass Env -> DTC -> DT -> SpaceRequest to find out full target details
-	return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	if arrayContains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
+		return rapi.RemoteSecretTarget{
+			Namespace:                environment.Spec.UnstableConfigurationFields.TargetNamespace,
+			ApiUrl:                   environment.Spec.UnstableConfigurationFields.APIURL,
+			ClusterCredentialsSecret: environment.Spec.UnstableConfigurationFields.ClusterCredentialsSecret,
+		}, nil
+	} else {
+		// local environment, just return the namespace
+		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	}
+}
+
+func arrayContains(input []string, s string) bool {
+	for _, item := range input {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }
 
 type linkedRemoteSecretsFinalizer struct {

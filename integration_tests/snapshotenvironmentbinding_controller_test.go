@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("SnapshotEnvironmentBinding", func() {
 
-	Describe("Creates new target for RemoteSecret", func() {
+	Describe("Creates new target for RemoteSecret with local environment", func() {
 
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
@@ -41,7 +41,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 						},
 					},
 				}},
-				Environments: []*v1alpha1.Environment{StandardEnvironment("test-env")},
+				Environments: []*v1alpha1.Environment{StandardLocalEnvironment("test-env")},
 				SnapshotEnvBindings: []*v1alpha1.SnapshotEnvironmentBinding{{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-snapshotbinding-",
@@ -67,7 +67,58 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 
 		It("have the target set", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace == "default").To(BeTrue())
+				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal("default"))
+			})
+		})
+
+	})
+
+	Describe("Creates new target for RemoteSecret with remote environment", func() {
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				RemoteSecrets: []*rapi.RemoteSecret{{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "create-target-remotesecret-",
+						Namespace:    "default",
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": "test-remote-env"},
+					},
+					Spec: rapi.RemoteSecretSpec{
+						Secret: rapi.LinkableSecretSpec{
+							Name: "test-remote-secret",
+							Type: "Opaque",
+						},
+					},
+				}},
+				Environments: []*v1alpha1.Environment{StandardRemoteEnvironment("test-remote-env")},
+				SnapshotEnvBindings: []*v1alpha1.SnapshotEnvironmentBinding{{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "create-target-snapshotbinding-",
+						Namespace:    "default",
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": "test-env"},
+					},
+					Spec: v1alpha1.SnapshotEnvironmentBindingSpec{
+						Application: "test-app",
+						Environment: "test-remote-env",
+						Components:  []v1alpha1.BindingComponent{},
+					},
+				}},
+			},
+			Behavior: ITestBehavior{},
+		}
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("have the target set", func() {
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal("target-ns"))
+				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].ApiUrl).To(Equal("https://api.example.com"))
+				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].ClusterCredentialsSecret).To(Equal("cluster-credentials-secret"))
 			})
 		})
 
