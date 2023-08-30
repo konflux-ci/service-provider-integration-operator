@@ -84,7 +84,7 @@ func TestCheckPublicRepo(t *testing.T) {
 			}}
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-			publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
+			publicRepo, err := gh.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected, publicRepo)
@@ -105,7 +105,7 @@ func TestCheckPublicRepo(t *testing.T) {
 		}}
 		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-		publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
+		publicRepo, err := gh.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 
 		assert.Error(t, err)
 		assert.Equal(t, false, publicRepo)
@@ -427,7 +427,8 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 					return true, lookupError
 				},
 			},
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			RepoUrlParser: serviceprovider.RepoUrlFromString,
+			TokenStorage:  ts,
 		},
 		tokenStorage: ts,
 		ghClientBuilder: githubClientBuilder{
@@ -444,7 +445,7 @@ func TestGitHubUnexpectedStatusMetric(t *testing.T) {
 	expectedLabels := map[string]string{"unexpected_status": "429"}
 	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
 	for i := 0; i < numberOfResponses; i++ {
-		public, err := gh.publicRepo(context.TODO(), &api.SPIAccessCheck{
+		public, err := gh.checkPublicRepoAccess(context.TODO(), &api.SPIAccessCheck{
 			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
 		})
 		assert.NoError(t, err)
@@ -553,10 +554,6 @@ func TestGitHubRateLimitErrorMetric(t *testing.T) {
 	assert.True(t, metricPresent)
 }
 
-func TestGithubClientFromSpiAccessToken(t *testing.T) {
-
-}
-
 func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 	cl := mockK8sClient(&v1beta1.RemoteSecret{
 		TypeMeta: metav1.TypeMeta{},
@@ -590,6 +587,9 @@ func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret",
 			Namespace: "ns",
+			Annotations: map[string]string{
+				v1beta1.ManagingRemoteSecretNameAnnotation: "ns/rs",
+			},
 		},
 	})
 	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
@@ -610,7 +610,6 @@ func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-	assert.Equal(t, "secret", status.Credentials.Secret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }

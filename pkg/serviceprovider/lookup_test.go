@@ -88,8 +88,8 @@ func TestGenericLookup_Lookup(t *testing.T) {
 				UserId: "42",
 			}, nil
 		}),
-		MetadataCache:  &cache,
-		RepoHostParser: RepoHostFromUrl,
+		MetadataCache: &cache,
+		RepoUrlParser: RepoUrlFromString,
 	}
 
 	tkns, err := gl.Lookup(context.TODO(), cl, &api.SPIAccessTokenBinding{
@@ -131,8 +131,8 @@ func TestGenericLookup_PersistMetadata(t *testing.T) {
 				UserId: "42",
 			}, nil
 		}),
-		MetadataCache:  &cache,
-		RepoHostParser: RepoHostFromUrl,
+		MetadataCache: &cache,
+		RepoUrlParser: RepoUrlFromString,
 	}
 
 	assert.NoError(t, gl.PersistMetadata(context.TODO(), token))
@@ -189,10 +189,10 @@ func TestGenericLookup_LookupRemoteSecrets(t *testing.T) {
 		RemoteSecretFilter: RemoteSecretFilterFunc(func(ctx context.Context, matchable Matchable, remoteSecret *v1beta1.RemoteSecret) bool {
 			return remoteSecret.Name == "matching-name"
 		}),
-		RepoHostParser: RepoHostFromSchemelessUrl,
+		RepoUrlParser: RepoUrlFromSchemalessString,
 	}
 
-	remoteSecrets, err := gl.LookupRemoteSecrets(context.TODO(), cl, &check)
+	remoteSecrets, err := gl.lookupRemoteSecrets(context.TODO(), cl, &check)
 	assert.NoError(t, err)
 	assert.Len(t, remoteSecrets, 1)
 	assert.Equal(t, "matching-name", remoteSecrets[0].Name)
@@ -246,13 +246,13 @@ func TestGenericLookup_LookupRemoteSecretSecret(t *testing.T) {
 	}
 
 	cl := mockK8sClient(&remoteSecretSecret)
-	gl := GenericLookup{}
+	gl := GenericLookup{
+		RepoUrlParser: RepoUrlFromSchemalessString,
+	}
 
-	rs, secret, err := gl.LookupRemoteSecretSecret(context.TODO(), cl, &check, remoteSecrets, "test/repo")
+	secret, err := gl.lookupRemoteSecretSecret(context.TODO(), cl, &check, remoteSecrets)
 	assert.NoError(t, err)
-	assert.NotNil(t, rs)
 	assert.NotNil(t, secret)
-	assert.Equal(t, "matching-rs", rs.Name)
 	assert.Equal(t, "rs-secret", secret.Name)
 }
 

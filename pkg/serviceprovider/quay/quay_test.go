@@ -308,7 +308,7 @@ func TestCheckRepositoryAccessPublic(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
 		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser: serviceprovider.RepoUrlFromSchemalessString,
 		},
 	}
 	k8sClient := mockK8sClient()
@@ -362,8 +362,12 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		CacheServiceProviderState: true,
 	}
 
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
+	}}
+
 	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+		RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
 		ServiceProviderType: api.ServiceProviderTypeQuay,
 		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{
@@ -371,10 +375,8 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return true, nil
 			},
 		},
+		TokenStorage: ts,
 	}
-	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-		return &api.Token{AccessToken: "blabol"}, nil
-	}}
 
 	t.Run("public repository", func(t *testing.T) {
 		quay := &Quay{
@@ -628,14 +630,17 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("robot token on private", func(t *testing.T) {
+		ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
+		}}
+		lookup := lookupMock
+		lookup.TokenStorage = ts
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
-			lookup: lookupMock,
-			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
-			}},
+			lookup:       lookup,
+			tokenStorage: ts,
 		}
 
 		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
@@ -674,6 +679,9 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "secret",
 				Namespace: "ac-namespace",
+				Annotations: map[string]string{
+					v1beta1.ManagingRemoteSecretNameAnnotation: "ac-namespace/rs",
+				},
 			},
 		})
 
@@ -693,7 +701,6 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 		assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-		assert.Equal(t, "secret", status.Credentials.Secret)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})

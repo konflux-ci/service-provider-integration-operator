@@ -136,7 +136,7 @@ func TestIsPublicRepo(t *testing.T) {
 		}}
 
 		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "gitlab.test"}}
-		isPublic, err := gitlab.isPublicRepo(context.TODO(), spiAccessCheck)
+		isPublic, err := gitlab.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 		assert.False(t, isPublic)
 		assert.ErrorIs(t, err, expectedError)
 	})
@@ -152,7 +152,7 @@ func TestIsPublicRepo(t *testing.T) {
 			}}
 
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "gitlab.test"}}
-			isPublic, err := gitlab.isPublicRepo(context.TODO(), spiAccessCheck)
+			isPublic, err := gitlab.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 			assert.NoError(t, err)
 			assert.Equal(t, expected, isPublic)
 		})
@@ -292,6 +292,9 @@ func TestCheckRepositoryAccess_Uses_RemoteSecret(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret",
 			Namespace: "ac-namespace",
+			Annotations: map[string]string{
+				v1beta1.ManagingRemoteSecretNameAnnotation: "ac-namespace/rs",
+			},
 		},
 	})
 
@@ -314,7 +317,6 @@ func TestCheckRepositoryAccess_Uses_RemoteSecret(t *testing.T) {
 	assert.Equal(t, api.ServiceProviderTypeGitLab, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
 	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
-	assert.Equal(t, "secret", status.Credentials.Secret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }
@@ -365,7 +367,8 @@ func mockGitlab(cl client.Client, returnCode, authClientReturnCode int, body str
 					return true, lookupError
 				},
 			},
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			RepoUrlParser: serviceprovider.RepoUrlFromString,
+			TokenStorage:  tokenStorageMock,
 		},
 		tokenStorage: tokenStorageMock,
 		glClientBuilder: gitlabClientBuilder{

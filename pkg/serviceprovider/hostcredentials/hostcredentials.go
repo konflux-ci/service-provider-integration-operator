@@ -53,11 +53,12 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, spConfig *conf
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeHostCredentials,
 			TokenFilter:         serviceprovider.MatchAllTokenFilter,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
 			MetadataCache:       &cache,
 			MetadataProvider: &metadataProvider{
 				tokenStorage: factory.TokenStorage,
 			},
+			TokenStorage: factory.TokenStorage,
 		},
 		httpClient: factory.HttpClient,
 		repoUrl:    spConfig.ServiceProviderBaseUrl,

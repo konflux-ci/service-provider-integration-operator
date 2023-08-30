@@ -83,8 +83,6 @@ spec:
                 properties:
                   remoteSecret:
                     type: string
-                  secret:
-                    type: string
                 type: object
               errorMessage:
                 type: string

@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"net/http"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
@@ -84,8 +82,9 @@ type gitlabOAuthCapability struct {
 func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProviderConfiguration) (serviceprovider.ServiceProvider, error) {
 	cache := factory.NewCacheWithExpirationPolicy(&serviceprovider.NeverMetadataExpirationPolicy{})
 	glClientBuilder := gitlabClientBuilder{
-		httpClient:   factory.HttpClient,
-		tokenStorage: factory.TokenStorage,
+		httpClient:    factory.HttpClient,
+		tokenStorage:  factory.TokenStorage,
+		gitlabBaseUrl: spConfig.ServiceProviderBaseUrl,
 	}
 	mp := &metadataProvider{
 		tokenStorage:    factory.TokenStorage,
@@ -116,7 +115,8 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			MetadataProvider:    mp,
 			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
+			TokenStorage:        factory.TokenStorage,
 		},
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
@@ -202,14 +202,7 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	// We currently only check access to git repository on GitLab.
 	status := defaultAccessCheckStatus
 
-	owner, project, err := g.repoUrlMatcher.parseOwnerAndProjectFromUrl(ctx, accessCheck.Spec.RepoUrl)
-	if err != nil {
-		status.ErrorReason = api.SPIAccessCheckErrorBadURL
-		status.ErrorMessage = err.Error()
-		return &status, nil //nolint:nilerr // we preserve the error in the status
-	}
-
-	publicRepo, err := g.isPublicRepo(ctx, accessCheck)
+	publicRepo, err := g.checkPublicRepoAccess(ctx, accessCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -220,35 +213,40 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	}
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
-
-	privateRepoStatus, err := g.checkPrivateRepoAccess(ctx, cl, accessCheck, owner+"/"+project)
-	if err != nil {
-		return nil, err
-	}
-	return privateRepoStatus, nil
+	return g.checkPrivateRepoAccess(ctx, cl, accessCheck)
 }
 
-func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, projectIdentifier string) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus
+func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	status := defaultAccessCheckStatus.DeepCopy()
 	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
 		if errReason != "" {
 			status.ErrorReason = errReason
 			status.ErrorMessage = err.Error()
-			return &status, nil
+			return status, nil
 		}
 		return nil, err
 	}
 
-	gitlabClient, errorReason, reference, err := g.tryConstructGitlabClient(ctx, cl, accessCheck, projectIdentifier)
+	owner, name, err := g.repoUrlMatcher.parseOwnerAndProjectFromUrl(ctx, accessCheck.Spec.RepoUrl)
 	if err != nil {
-		return returnRawOrPreservedError(errorReason, err)
+		return returnRawOrPreservedError(api.SPIAccessCheckErrorBadURL, err)
 	}
-	if gitlabClient == nil {
-		return &status, nil
-	}
-	status.Credentials = reference
 
-	project, response, err := gitlabClient.Projects.GetProject(projectIdentifier, nil, gitlab.WithContext(ctx))
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, accessCheck)
+	if err != nil {
+		return returnRawOrPreservedError(api.SPIAccessCheckErrorTokenLookupFailed, err)
+	}
+
+	if credentials == nil {
+		return status, nil
+	}
+
+	gitlabClient, err := g.glClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
+	if err != nil {
+		return nil, err
+	}
+
+	project, response, err := gitlabClient.Projects.GetProject(owner+"/"+name, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		if response != nil && response.StatusCode == http.StatusNotFound {
 			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
@@ -261,6 +259,7 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	}
 
 	status.Accessible = true
+	status.Credentials.RemoteSecret = credentials.SourceObjectName
 
 	// "Internal projects can be cloned by any signed-in user except external users."
 	// This means that a repo cannot be accessed without user context thus the repo is not public.
@@ -268,10 +267,10 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	if project.Visibility == gitlab.PrivateVisibility || project.Visibility == gitlab.InternalVisibility {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 	}
-	return &status, nil
+	return status, nil
 }
 
-func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
+func (g *Gitlab) checkPublicRepoAccess(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	ctx = httptransport.ContextWithMetrics(ctx, publicRepoMetricConfig)
 	lg := log.FromContext(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, accessCheck.Spec.RepoUrl, nil)
@@ -298,42 +297,6 @@ func (g *Gitlab) isPublicRepo(ctx context.Context, accessCheck *api.SPIAccessChe
 		lg.Info("unexpected return code for repo", "accessCheck", accessCheck, "code", resp.StatusCode)
 	}
 	return false, nil
-}
-
-func (g *Gitlab) tryConstructGitlabClient(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck, projectIdentifier string) (*gitlab.Client, api.SPIAccessCheckErrorReason, api.CredentialsReference, error) {
-	reference := api.CredentialsReference{}
-	tokens, err := g.lookup.Lookup(ctx, cl, accessCheck)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup SPIAccessTokens: %w", err)
-	}
-
-	if len(tokens) > 0 {
-		gitlabClient, err := g.glClientBuilder.createGitlabAuthClient(ctx, &tokens[0], g.baseUrl)
-		if err != nil {
-			return nil, api.SPIAccessCheckErrorUnknownError, reference, err
-		}
-		return gitlabClient, "", reference, nil
-	}
-
-	remoteSecrets, err := g.lookup.LookupRemoteSecrets(ctx, cl, accessCheck)
-	if err != nil {
-		return nil, api.SPIAccessCheckErrorTokenLookupFailed, reference, fmt.Errorf("unable to lookup RemoteSecrets: %w", err)
-	}
-
-	rs, secret, err := g.lookup.LookupRemoteSecretSecret(ctx, cl, accessCheck, remoteSecrets, projectIdentifier)
-	if err != nil {
-		return nil, api.SPIAccessCheckErrorUnknownError, reference, fmt.Errorf("unable to lookup RemoteSecret's Secret: %w", err)
-	}
-	if rs == nil || secret == nil {
-		return nil, "", reference, nil
-	}
-	reference.RemoteSecret = rs.Name
-	reference.Secret = secret.Name
-
-	accessToken := string(secret.Data[v1.BasicAuthPasswordKey])
-	gitlabClient, err := g.glClientBuilder.createClientFromTokenData(accessToken, g.baseUrl)
-	return gitlabClient, "", reference, err
 }
 
 func (g *Gitlab) MapToken(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, tokenData *api.Token) (serviceprovider.AccessTokenMapper, error) {

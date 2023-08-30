@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/strings/slices"
@@ -38,6 +40,7 @@ import (
 )
 
 var missingTargetError = errors.New("found RemoteSecret does not have a target in the SPIAccessCheck's namespace, this should not happen")
+var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
 // GenericLookup implements a token lookup in a generic way such that the users only need to provide a function
 // to provide a service-provider-specific "state" of the token and a "filter" function that uses the token and its
@@ -49,32 +52,33 @@ type GenericLookup struct {
 	// TokenFilter is the filter function that decides whether a token matches the requirements of a binding, given
 	// the token's service-provider-specific state
 	TokenFilter        TokenFilter
+	TokenStorage       tokenstorage.TokenStorage
 	RemoteSecretFilter RemoteSecretFilter
 	// MetadataProvider is used to figure out metadata of a token in the service provider useful for token lookup
 	MetadataProvider MetadataProvider
 	// MetadataCache is an abstraction used for storing/fetching the metadata of tokens
 	MetadataCache *MetadataCache
-	// RepoHostParser is a function that extracts the host from the repoUrl
-	RepoHostParser RepoHostParser
+	// RepoUrlParser is a function that parses URL from the repoUrl
+	RepoUrlParser RepoUrlParser
 }
 
-type RepoHostParser func(url string) (string, error)
+type RepoUrlParser func(url string) (*url.URL, error)
 
-func RepoHostFromSchemelessUrl(repoUrl string) (string, error) {
+func RepoUrlFromSchemalessString(repoUrl string) (*url.URL, error) {
 	schemeIndex := strings.Index(repoUrl, "://")
 	if schemeIndex == -1 {
 		repoUrl = "https://" + repoUrl
 	}
-	return RepoHostFromUrl(repoUrl)
+	return RepoUrlFromString(repoUrl)
 }
 
-func RepoHostFromUrl(repoUrl string) (string, error) {
+func RepoUrlFromString(repoUrl string) (*url.URL, error) {
 	parsed, err := url.Parse(repoUrl)
 	if err != nil {
-		return "", fmt.Errorf("invalid url: %w", err)
+		return nil, fmt.Errorf("invalid url: %w", err)
 	}
 
-	return parsed.Host, nil
+	return parsed, nil
 }
 
 func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable Matchable) ([]api.SPIAccessToken, error) {
@@ -84,14 +88,14 @@ func (l GenericLookup) Lookup(ctx context.Context, cl client.Client, matchable M
 
 	potentialMatches := &api.SPIAccessTokenList{}
 
-	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
+	repoUrl, err := l.RepoUrlParser(matchable.RepoUrl())
 	if err != nil {
 		return result, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
 	}
 
 	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
 		api.ServiceProviderTypeLabel: string(l.ServiceProviderType),
-		api.ServiceProviderHostLabel: repoHost,
+		api.ServiceProviderHostLabel: repoUrl.Host,
 	}); err != nil {
 		return result, fmt.Errorf("failed to list the potentially matching tokens: %w", err)
 	}
@@ -151,19 +155,59 @@ func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccess
 	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
 }
 
-// LookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable.
+func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
+	tokens, err := l.Lookup(ctx, cl, matchable)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tokens) > 0 {
+		tokenData, err := l.TokenStorage.Get(ctx, &tokens[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to get token data: %w", err)
+		}
+		if tokenData == nil {
+			return nil, accessTokenNotFoundError
+		}
+		// for now, we leave this empty in case of SPIAccessToken
+		return &Credentials{Username: tokenData.Username, Token: tokenData.AccessToken, SourceObjectName: ""}, nil
+	}
+
+	remoteSecrets, err := l.lookupRemoteSecrets(ctx, cl, matchable)
+	if err != nil {
+		return nil, err
+	}
+
+	secret, err := l.lookupRemoteSecretSecret(ctx, cl, matchable, remoteSecrets)
+	if err != nil {
+		return nil, err
+	}
+
+	if secret == nil {
+		return nil, nil
+	}
+	// Potentially we could change the lookupRemoteSecretSecret to return the RemoteSecret as well.
+	_, rsName, _ := strings.Cut(secret.Annotations[v1beta1.ManagingRemoteSecretNameAnnotation], "/")
+	return &Credentials{
+		Username:         string(secret.Data[v1.BasicAuthUsernameKey]),
+		Token:            string(secret.Data[v1.BasicAuthPasswordKey]),
+		SourceObjectName: rsName,
+	}, nil
+}
+
+// lookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable.
 // These RemoteSecrets are then filtered using GenericLookup's RemoteSecretFilter.
-func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
+func (l GenericLookup) lookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
 	lg := log.FromContext(ctx)
 
-	repoHost, err := l.RepoHostParser(matchable.RepoUrl())
+	repoUrl, err := l.RepoUrlParser(matchable.RepoUrl())
 	if err != nil {
-		return nil, fmt.Errorf("error parsing the host from repo URL %s: %w", matchable.RepoUrl(), err)
+		return nil, fmt.Errorf("error parsing the repo URL %s: %w", matchable.RepoUrl(), err)
 	}
 
 	potentialMatches := &v1beta1.RemoteSecretList{}
 	if err := cl.List(ctx, potentialMatches, client.InNamespace(matchable.ObjNamespace()), client.MatchingLabels{
-		api.RSServiceProviderHostLabel: repoHost,
+		api.RSServiceProviderHostLabel: repoUrl.Host,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to list the potentially matching remote secrets: %w", err)
 	}
@@ -180,15 +224,20 @@ func (l GenericLookup) LookupRemoteSecrets(ctx context.Context, cl client.Client
 	return matches, nil
 }
 
-func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret, repoName string) (*v1beta1.RemoteSecret, *v1.Secret, error) {
+func (l GenericLookup) lookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret) (*v1.Secret, error) {
 	if len(remoteSecrets) == 0 {
-		return nil, nil, nil
+		return nil, nil
+	}
+
+	repoUrl, err := l.RepoUrlParser(matchable.RepoUrl())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the repo URL %s: %w", matchable.RepoUrl(), err)
 	}
 
 	matchingRemoteSecret := remoteSecrets[0]
 	for _, rs := range remoteSecrets {
 		accessibleRepositories := rs.Annotations[api.RSServiceProviderRepositoryAnnotation]
-		if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), repoName) {
+		if slices.Contains(commaseparated.Value(accessibleRepositories).Values(), strings.TrimPrefix(repoUrl.Path, "/")) {
 			matchingRemoteSecret = rs
 			break
 		}
@@ -196,16 +245,16 @@ func (l GenericLookup) LookupRemoteSecretSecret(ctx context.Context, cl client.C
 
 	targetIndex := getLocalNamespaceTargetIndex(matchingRemoteSecret.Status.Targets, matchable.ObjNamespace())
 	if targetIndex < 0 || targetIndex >= len(matchingRemoteSecret.Status.Targets) {
-		return nil, nil, missingTargetError // Should not happen, but avoids panicking just in case.
+		return nil, missingTargetError // Should not happen, but avoids panicking just in case.
 	}
 
 	secret := &v1.Secret{}
-	err := cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].SecretName}, secret)
+	err = cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].SecretName}, secret)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to find Secret created by RemoteSecret: %w", err)
+		return nil, fmt.Errorf("unable to find Secret created by RemoteSecret: %w", err)
 	}
 
-	return &matchingRemoteSecret, secret, nil
+	return secret, nil
 }
 
 // getLocalNamespaceTargetIndex is helper function which finds the index of a target in targets such that the target

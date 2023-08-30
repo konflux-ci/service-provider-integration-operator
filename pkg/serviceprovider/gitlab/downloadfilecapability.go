@@ -57,7 +57,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 	}
 
 	lg := log.FromContext(ctx)
-	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
+	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}
