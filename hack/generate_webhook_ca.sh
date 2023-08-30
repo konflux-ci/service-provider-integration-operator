@@ -8,7 +8,7 @@ set -e
 THIS_DIR="$(dirname "$(realpath "$0")")"
 TEMP_DIR="${THIS_DIR}/../.tmp/deployment_remotesecret_k8s"
 
-GENCERTS_DIR="${TEMP_DIR}/webhook/k8s/certs"
+GENCERTS_DIR="${TEMP_DIR}/remotesecret/webhook/k8s/certs"
 
 mkdir -p "${GENCERTS_DIR}"
 
