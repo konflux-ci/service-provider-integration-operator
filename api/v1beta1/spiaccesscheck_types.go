@@ -24,8 +24,13 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
+	// RSServiceProviderHostLabel is supposed to be present on RemoteSecret that contains credentials which can be used
+	// for SPIAccessCheck. The value represent service provider hostname.
+	RSServiceProviderHostLabel = "appstudio.redhat.com/sp.host"
+
+	// RSServiceProviderRepositoryAnnotation provides additional information on top of RSServiceProviderHostLabel.
+	// The value represents comma-separated names of repositories for which the credentials can be used.
 	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repo"
-	RSServiceProviderHostLabel            = "appstudio.redhat.com/sp.host"
 )
 
 // SPIAccessCheckSpec defines the desired state of SPIAccessCheck
@@ -45,6 +50,7 @@ type SPIAccessCheckStatus struct {
 	Credentials     CredentialsReference        `json:"credentials,omitempty"`
 }
 
+// CredentialsReference represent the source of credentials used for SPIAccessCheck.
 type CredentialsReference struct {
 	RemoteSecret string `json:"remoteSecret,omitempty"`
 }

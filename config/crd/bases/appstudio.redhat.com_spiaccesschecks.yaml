@@ -80,6 +80,8 @@ spec:
               accessible:
                 type: boolean
               credentials:
+                description: CredentialsReference represent the source of credentials
+                  used for SPIAccessCheck.
                 properties:
                   remoteSecret:
                     type: string

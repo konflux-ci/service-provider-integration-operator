@@ -155,6 +155,8 @@ func (l GenericLookup) PersistMetadata(ctx context.Context, token *api.SPIAccess
 	return l.MetadataCache.Ensure(ctx, token, l.MetadataProvider)
 }
 
+// LookupCredentials tries to obtain credentials from either SPIAccessToken resource or RemoteSecret resource.
+// Note that it may return, nil, nil if no suitable resource is found.
 func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
 	tokens, err := l.Lookup(ctx, cl, matchable)
 	if err != nil {
@@ -195,8 +197,8 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 	}, nil
 }
 
-// lookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable.
-// These RemoteSecrets are then filtered using GenericLookup's RemoteSecretFilter.
+// lookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable and
+// filters them using GenericLookup's RemoteSecretFilter.
 func (l GenericLookup) lookupRemoteSecrets(ctx context.Context, cl client.Client, matchable Matchable) ([]v1beta1.RemoteSecret, error) {
 	lg := log.FromContext(ctx)
 
@@ -224,6 +226,8 @@ func (l GenericLookup) lookupRemoteSecrets(ctx context.Context, cl client.Client
 	return matches, nil
 }
 
+// lookupRemoteSecretSecret finds a matching RemoteSecret based on the repoUrl of matchable. From this RemoteSecret it
+// finds and gets the target Secret from the same namespace as matchable.
 func (l GenericLookup) lookupRemoteSecretSecret(ctx context.Context, cl client.Client, matchable Matchable, remoteSecrets []v1beta1.RemoteSecret) (*v1.Secret, error) {
 	if len(remoteSecrets) == 0 {
 		return nil, nil
