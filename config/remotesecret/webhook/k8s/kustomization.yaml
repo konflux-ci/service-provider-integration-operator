@@ -1,0 +1,21 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+resources:
+  - ../base/
+
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  # generate a tls Secret
+  - name: webhook-server-cert
+    files:
+      - ./certs/tls.crt
+      - ./certs/tls.key
+    type: "kubernetes.io/tls"
+
+patchesStrategicMerge:
+  - webhookcainjection_patch.yaml
+
