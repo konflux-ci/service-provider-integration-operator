@@ -292,7 +292,7 @@ deploy_vault_minikube: kustomize
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
 deploy_remotesecret_minikube: kustomize
-	VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
 
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
