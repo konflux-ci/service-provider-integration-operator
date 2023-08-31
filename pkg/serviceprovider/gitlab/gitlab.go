@@ -220,24 +220,20 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 		ServiceProvider: api.ServiceProviderTypeGitLab,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
-
-	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
-		if errReason != "" {
-			status.ErrorReason = errReason
-			status.ErrorMessage = err.Error()
-			return status, nil
-		}
-		return nil, err
+	preserveError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
+		status.ErrorReason = errReason
+		status.ErrorMessage = err.Error()
+		return status, nil
 	}
 
 	owner, name, err := g.repoUrlMatcher.parseOwnerAndProjectFromUrl(ctx, accessCheck.Spec.RepoUrl)
 	if err != nil {
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorBadURL, err)
+		return preserveError(api.SPIAccessCheckErrorBadURL, err)
 	}
 
 	credentials, err := g.lookup.LookupCredentials(ctx, cl, accessCheck)
 	if err != nil {
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorTokenLookupFailed, err)
+		return preserveError(api.SPIAccessCheckErrorTokenLookupFailed, err)
 	}
 
 	if credentials == nil {
@@ -246,18 +242,18 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 
 	gitlabClient, err := g.glClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
 	if err != nil {
-		return nil, err
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
 	}
 
 	project, response, err := gitlabClient.Projects.GetProject(owner+"/"+name, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		if response != nil && response.StatusCode == http.StatusNotFound {
-			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
+			return preserveError(api.SPIAccessCheckErrorRepoNotFound, err)
 		}
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError, err)
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
 	}
 	if response != nil && response.StatusCode != http.StatusOK {
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError,
+		return preserveError(api.SPIAccessCheckErrorUnknownError,
 			fmt.Errorf("%w: %d", unexpectedStatusCodeError, response.StatusCode))
 	}
 

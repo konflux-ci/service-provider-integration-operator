@@ -251,23 +251,20 @@ func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 		ServiceProvider: api.ServiceProviderTypeGitHub,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
-
-	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
-		if errReason != "" {
-			status.ErrorReason = errReason
-			status.ErrorMessage = err.Error()
-			return status, nil
-		}
-		return nil, err
+	preserveError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
+		status.ErrorReason = errReason
+		status.ErrorMessage = err.Error()
+		return status, nil
 	}
+
 	owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
 	if err != nil {
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorBadURL, err)
+		return preserveError(api.SPIAccessCheckErrorBadURL, err)
 	}
 
 	credentials, err := g.lookup.LookupCredentials(ctx, cl, accessCheck)
 	if err != nil {
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorTokenLookupFailed, err)
+		return preserveError(api.SPIAccessCheckErrorTokenLookupFailed, err)
 	}
 	if credentials == nil {
 		return status, nil
@@ -275,16 +272,16 @@ func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 
 	githubClient, err := g.ghClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
 	if err != nil {
-		return nil, err
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
 	}
 
 	ghRepository, resp, err := githubClient.Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		checkRateLimitError(err)
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return returnRawOrPreservedError(api.SPIAccessCheckErrorRepoNotFound, err)
+			return preserveError(api.SPIAccessCheckErrorRepoNotFound, err)
 		}
-		return returnRawOrPreservedError(api.SPIAccessCheckErrorUnknownError, err)
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
 	}
 
 	status.Accessible = true
