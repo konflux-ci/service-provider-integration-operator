@@ -48,12 +48,6 @@ var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(con
 
 var _ serviceprovider.ServiceProvider = (*Gitlab)(nil)
 
-var defaultAccessCheckStatus = api.SPIAccessCheckStatus{
-	Type:            api.SPIRepoTypeGit,
-	ServiceProvider: api.ServiceProviderTypeGitLab,
-	Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-}
-
 type Gitlab struct {
 	Configuration          *opconfig.OperatorConfiguration
 	lookup                 serviceprovider.GenericLookup
@@ -200,7 +194,11 @@ func (g *Gitlab) GetType() config.ServiceProviderType {
 
 func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
 	// We currently only check access to git repository on GitLab.
-	status := defaultAccessCheckStatus
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitLab,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
 
 	publicRepo, err := g.checkPublicRepoAccess(ctx, accessCheck)
 	if err != nil {
@@ -209,7 +207,7 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 	status.Accessible = publicRepo
 	if publicRepo {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPublic
-		return &status, nil
+		return status, nil
 	}
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
@@ -217,7 +215,12 @@ func (g *Gitlab) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 }
 
 func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus.DeepCopy()
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitLab,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
+
 	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
 		if errReason != "" {
 			status.ErrorReason = errReason

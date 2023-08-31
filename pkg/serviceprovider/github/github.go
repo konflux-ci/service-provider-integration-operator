@@ -48,12 +48,6 @@ var _ serviceprovider.ServiceProvider = (*Github)(nil)
 var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
 var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
 
-var defaultAccessCheckStatus = api.SPIAccessCheckStatus{
-	Type:            api.SPIRepoTypeGit,
-	ServiceProvider: api.ServiceProviderTypeGitHub,
-	Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-}
-
 var unexpectedStatusCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: config.MetricsNamespace,
@@ -229,7 +223,11 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus.DeepCopy()
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
 
 	publicRepo, err := g.checkPublicRepoAccess(ctx, accessCheck)
 	if err != nil {
@@ -248,7 +246,11 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 
 // checkPrivateRepoAccess checks whether a repository is private and accessible.
 func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	status := defaultAccessCheckStatus.DeepCopy()
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
 
 	returnRawOrPreservedError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
 		if errReason != "" {
