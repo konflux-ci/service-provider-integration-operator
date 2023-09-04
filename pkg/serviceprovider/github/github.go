@@ -94,7 +94,7 @@ type Github struct {
 	lookup                 serviceprovider.GenericLookup
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
-	ghClientBuilder        githubClientBuilder
+	ghClientBuilder        serviceprovider.AuthenticatedClientBuilder[github.Client]
 	downloadFileCapability serviceprovider.DownloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
 	baseUrl                string

@@ -515,18 +515,21 @@ func TestGitHubRateLimitErrorMetric(t *testing.T) {
 		},
 	})
 	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
-	gh.ghClientBuilder.httpClient = &http.Client{
-		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
-			return nil, &github.RateLimitError{
-				Rate: github.Rate{
-					Limit:     5000,
-					Remaining: 0,
-					Reset:     github.Timestamp{},
-				},
-				Response: nil,
-				Message:  "rate limit exceeded",
-			}
-		}),
+	gh.ghClientBuilder = githubClientBuilder{
+		httpClient: &http.Client{
+			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+				return nil, &github.RateLimitError{
+					Rate: github.Rate{
+						Limit:     5000,
+						Remaining: 0,
+						Reset:     github.Timestamp{},
+					},
+					Response: nil,
+					Message:  "rate limit exceeded",
+				}
+			}),
+		},
+		tokenStorage: nil,
 	}
 	ac := &api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://github.com/user/repo"},

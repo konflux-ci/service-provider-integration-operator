@@ -39,7 +39,7 @@ var _ serviceprovider.AuthenticatedClientBuilder[gitlab.Client] = (*gitlabClient
 
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
-func (builder *gitlabClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*gitlab.Client, error) {
+func (builder gitlabClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*gitlab.Client, error) {
 	client, err := gitlab.NewOAuthClient(credentials.Token, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.gitlabBaseUrl))
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated GitLab client: %w", err)
@@ -47,7 +47,7 @@ func (builder *gitlabClientBuilder) CreateAuthenticatedClient(ctx context.Contex
 	return client, nil
 }
 
-func (builder *gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken) (*gitlab.Client, error) {
+func (builder gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken) (*gitlab.Client, error) {
 	lg := log.FromContext(ctx)
 	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
 	if err != nil {

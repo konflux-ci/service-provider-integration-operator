@@ -35,7 +35,7 @@ type githubClientBuilder struct {
 	tokenStorage tokenstorage.TokenStorage
 }
 
-func (g *githubClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*github.Client, error) {
+func (g githubClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*github.Client, error) {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: credentials.Token})
 	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
@@ -45,7 +45,7 @@ var _ serviceprovider.AuthenticatedClientBuilder[github.Client] = (*githubClient
 
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
-func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
+func (g githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
 	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	lg := log.FromContext(ctx)
 	if tsErr != nil {

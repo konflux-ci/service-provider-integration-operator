@@ -30,7 +30,7 @@ const (
 
 	// RSServiceProviderRepositoryAnnotation provides additional information on top of RSServiceProviderHostLabel.
 	// The value represents comma-separated names of repositories for which the credentials can be used.
-	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repo"
+	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repository"
 )
 
 // SPIAccessCheckSpec defines the desired state of SPIAccessCheck

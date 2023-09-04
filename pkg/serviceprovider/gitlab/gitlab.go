@@ -54,7 +54,7 @@ type Gitlab struct {
 	metadataProvider       *metadataProvider
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
-	glClientBuilder        gitlabClientBuilder
+	glClientBuilder        serviceprovider.AuthenticatedClientBuilder[gitlab.Client]
 	baseUrl                string
 	downloadFileCapability downloadFileCapability
 	refreshTokenCapability serviceprovider.RefreshTokenCapability
