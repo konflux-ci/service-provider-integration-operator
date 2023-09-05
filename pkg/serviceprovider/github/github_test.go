@@ -590,9 +590,6 @@ func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret",
 			Namespace: "ns",
-			Annotations: map[string]string{
-				v1beta1.ManagingRemoteSecretNameAnnotation: "ns/rs",
-			},
 		},
 	})
 	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
@@ -612,7 +609,6 @@ func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
 	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
 	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
-	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }

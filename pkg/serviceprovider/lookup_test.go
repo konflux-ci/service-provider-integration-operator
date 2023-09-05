@@ -302,9 +302,6 @@ func TestGenericLookup_LookupCredentials(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rs-secret",
 			Namespace: "default",
-			Annotations: map[string]string{
-				v1beta1.ManagingRemoteSecretNameAnnotation: "default/matching",
-			},
 		},
 		Data: map[string][]byte{
 			corev1.BasicAuthUsernameKey: []byte("rs-username"),
@@ -342,7 +339,6 @@ func TestGenericLookup_LookupCredentials(t *testing.T) {
 		assert.NotNil(t, credentials)
 		assert.Equal(t, "spi-username", credentials.Username)
 		assert.Equal(t, "spi-password", credentials.Token)
-		assert.Empty(t, credentials.SourceObjectName)
 	})
 
 	t.Run("credentials from RemoteSecret", func(t *testing.T) {
@@ -354,7 +350,6 @@ func TestGenericLookup_LookupCredentials(t *testing.T) {
 		assert.NotNil(t, credentials)
 		assert.Equal(t, "rs-username", credentials.Username)
 		assert.Equal(t, "rs-password", credentials.Token)
-		assert.Equal(t, "matching", credentials.SourceObjectName)
 	})
 
 	t.Run("no credentials", func(t *testing.T) {

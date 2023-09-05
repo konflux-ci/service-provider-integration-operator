@@ -679,9 +679,6 @@ func TestCheckRepositoryAccess(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "secret",
 				Namespace: "ac-namespace",
-				Annotations: map[string]string{
-					v1beta1.ManagingRemoteSecretNameAnnotation: "ac-namespace/rs",
-				},
 			},
 		})
 
@@ -700,7 +697,6 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
 		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
 		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
-		assert.Equal(t, "rs", status.Credentials.RemoteSecret)
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})

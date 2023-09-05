@@ -25,11 +25,13 @@ import (
 
 const (
 	// RSServiceProviderHostLabel is supposed to be present on RemoteSecret that contains credentials which can be used
-	// for SPIAccessCheck. The value represent service provider hostname.
+	// for SPIAccessCheck. The value represent service provider hostname. E.g. "github.com". SPIAccessCheck looks for
+	// RemoteSecrets with this label where value corresponds to the host from RepoUrl.
 	RSServiceProviderHostLabel = "appstudio.redhat.com/sp.host"
 
 	// RSServiceProviderRepositoryAnnotation provides additional information on top of RSServiceProviderHostLabel.
 	// The value represents comma-separated names of repositories for which the credentials can be used.
+	// E.g. "redhat/service-provider-integration,redhat/remote-secret".
 	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repository"
 )
 
@@ -47,12 +49,6 @@ type SPIAccessCheckStatus struct {
 	ServiceProvider ServiceProviderType         `json:"serviceProvider"`
 	ErrorReason     SPIAccessCheckErrorReason   `json:"errorReason,omitempty"`
 	ErrorMessage    string                      `json:"errorMessage,omitempty"`
-	Credentials     CredentialsReference        `json:"credentials,omitempty"`
-}
-
-// CredentialsReference represent the source of credentials used for SPIAccessCheck.
-type CredentialsReference struct {
-	RemoteSecret string `json:"remoteSecret,omitempty"`
 }
 
 type SPIRepoType string

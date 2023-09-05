@@ -285,7 +285,6 @@ func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	}
 
 	status.Accessible = true
-	status.Credentials.RemoteSecret = credentials.SourceObjectName
 	if pointer.BoolDeref(ghRepository.Private, false) {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 	}

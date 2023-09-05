@@ -79,13 +79,6 @@ spec:
                 type: string
               accessible:
                 type: boolean
-              credentials:
-                description: CredentialsReference represent the source of credentials
-                  used for SPIAccessCheck.
-                properties:
-                  remoteSecret:
-                    type: string
-                type: object
               errorMessage:
                 type: string
               errorReason:

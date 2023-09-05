@@ -235,7 +235,6 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	if err != nil {
 		return preserveError(api.SPIAccessCheckErrorTokenLookupFailed, err)
 	}
-
 	if credentials == nil {
 		return status, nil
 	}
@@ -258,7 +257,6 @@ func (g *Gitlab) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	}
 
 	status.Accessible = true
-	status.Credentials.RemoteSecret = credentials.SourceObjectName
 
 	// "Internal projects can be cloned by any signed-in user except external users."
 	// This means that a repo cannot be accessed without user context thus the repo is not public.

@@ -21,7 +21,6 @@ type AuthenticatedClientBuilder[C any] interface {
 }
 
 type Credentials struct {
-	Username         string
-	Token            string
-	SourceObjectName string
+	Username string
+	Token    string
 }

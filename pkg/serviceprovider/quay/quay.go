@@ -217,7 +217,6 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		status.ErrorMessage = err.Error()
 	} else if credentials != nil {
 		username, token = getUsernameAndPasswordFromCredentials(*credentials)
-		status.Credentials.RemoteSecret = credentials.SourceObjectName
 	}
 
 	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {

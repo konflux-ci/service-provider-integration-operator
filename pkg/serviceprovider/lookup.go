@@ -171,8 +171,7 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 		if tokenData == nil {
 			return nil, accessTokenNotFoundError
 		}
-		// for now, we leave this empty in case of SPIAccessToken
-		return &Credentials{Username: tokenData.Username, Token: tokenData.AccessToken, SourceObjectName: ""}, nil
+		return &Credentials{Username: tokenData.Username, Token: tokenData.AccessToken}, nil
 	}
 
 	remoteSecrets, err := l.lookupRemoteSecrets(ctx, cl, matchable)
@@ -184,16 +183,13 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 	if err != nil {
 		return nil, err
 	}
-
 	if secret == nil {
 		return nil, nil
 	}
-	// Potentially we could change the lookupRemoteSecretSecret to return the RemoteSecret as well.
-	_, rsName, _ := strings.Cut(secret.Annotations[v1beta1.ManagingRemoteSecretNameAnnotation], "/")
+
 	return &Credentials{
-		Username:         string(secret.Data[v1.BasicAuthUsernameKey]),
-		Token:            string(secret.Data[v1.BasicAuthPasswordKey]),
-		SourceObjectName: rsName,
+		Username: string(secret.Data[v1.BasicAuthUsernameKey]),
+		Token:    string(secret.Data[v1.BasicAuthPasswordKey]),
 	}, nil
 }
 

@@ -292,9 +292,6 @@ func TestCheckRepositoryAccess_Uses_RemoteSecret(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "secret",
 			Namespace: "ac-namespace",
-			Annotations: map[string]string{
-				v1beta1.ManagingRemoteSecretNameAnnotation: "ac-namespace/rs",
-			},
 		},
 	})
 
@@ -316,7 +313,6 @@ func TestCheckRepositoryAccess_Uses_RemoteSecret(t *testing.T) {
 	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
 	assert.Equal(t, api.ServiceProviderTypeGitLab, status.ServiceProvider)
 	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
-	assert.Equal(t, "rs", status.Credentials.RemoteSecret)
 	assert.Empty(t, status.ErrorReason)
 	assert.Empty(t, status.ErrorMessage)
 }
