@@ -19,6 +19,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"k8s.io/utils/strings/slices"
+
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -168,8 +170,16 @@ func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 }
 
 func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
-	// Dummy load. Real impl should reverse pass Env -> DTC -> DT -> SpaceRequest to find out full target details
-	return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	if slices.Contains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
+		return rapi.RemoteSecretTarget{
+			Namespace:                environment.Spec.UnstableConfigurationFields.TargetNamespace,
+			ApiUrl:                   environment.Spec.UnstableConfigurationFields.APIURL,
+			ClusterCredentialsSecret: environment.Spec.UnstableConfigurationFields.ClusterCredentialsSecret,
+		}, nil
+	} else {
+		// local environment, just return the namespace
+		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	}
 }
 
 type linkedRemoteSecretsFinalizer struct {
