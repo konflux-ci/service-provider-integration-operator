@@ -553,6 +553,23 @@ CRs are automatically deleted by the controller after some period of time (30 mi
 | errorReason            | enum   | Detailed error reason                                                                                                           |                                                                                                     | false     |
 | errorMessage           | string | Additional error message. Usually taken from a go error.                                                                        |                                                                                                     | false     |
 
+### SPIAccessCheck and RemoteSecrets
+The original way SPIAccessCheck tried to check access to a private repository (registry) was to find a matching
+SPIAccessToken and use the credentials from it to access the repository.
+
+We have extended the functionality so that if no matching SPIAccessToken is found, it searches for a matching RemoteSecret
+next (read more about RemoteSecrets [here](https://github.com/redhat-appstudio/remote-secret)).
+However, there are a few constraints put on the RemoteSecret before SPIAccessCheck can use the credentials from it:
+- It must be in the same namespace as SPIAccessCheck
+- It must have `appstudio.redhat.com/sp.host` label where the value is host of the service provider matching that of
+SPIAccessCheck's `spec.repoUrl`.
+- It must already contain some secret data (DataObtained condition is true).
+- RemoteSecret's `spec.secret.type` must be equal to `kubernetes.io/basic-auth`.
+- It must have a deployed target in the SPIAccessCheck's namespace.
+- (Optionally) RemoteSecret with the annotation `appstudio.redhat.com/sp.repository` will be prioritized if the value
+is a list of comma-separated repository names and this list contains the repository name inferred from SPIAccessCheck's `spec.repoUrl.`
+
+For example RemoteSecret yaml see [the sample](/samples/remotesecret-for-ac.yaml).
 
 ## SPIFileContentRequest
 Instances of this CRD are used to request specific file contents from the SCM repository.
