@@ -46,7 +46,6 @@ func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabCl
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 
 var (
-	unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
@@ -58,7 +57,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 	}
 
 	lg := log.FromContext(ctx)
-	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
+	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}

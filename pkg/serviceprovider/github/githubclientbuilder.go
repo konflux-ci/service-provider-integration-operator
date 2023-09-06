@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	"github.com/google/go-github/v45/github"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -33,9 +35,17 @@ type githubClientBuilder struct {
 	tokenStorage tokenstorage.TokenStorage
 }
 
+func (g githubClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*github.Client, error) {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: credentials.Token})
+	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
+}
+
+var _ serviceprovider.AuthenticatedClientBuilder[github.Client] = (*githubClientBuilder)(nil)
+
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
-func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
+func (g githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, spiToken *api.SPIAccessToken) (*github.Client, error) {
 	tokenData, tsErr := g.tokenStorage.Get(ctx, spiToken)
 	lg := log.FromContext(ctx)
 	if tsErr != nil {
@@ -47,13 +57,15 @@ func (g *githubClientBuilder) createAuthenticatedGhClient(ctx context.Context, s
 		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiToken.Name)
 		return nil, accessTokenNotFoundError
 	}
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tokenData.AccessToken})
-	lg.V(logs.DebugLevel).Info("Created new github client", "SPIAccessToken", spiToken)
+	client, err := g.CreateAuthenticatedClient(ctx, serviceprovider.Credentials{Token: tokenData.AccessToken})
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct authenticated GitHub client: %w", err)
+	}
+	lg.V(logs.DebugLevel).Info("Created new authenticated GitHub client", "SPIAccessToken", spiToken)
 
 	// We need the githubBaseUrl in the githubClientBuilder struct to decide whether to create
 	// regular GitHub client or an Enterprise client through the GitHub library's NewEnterpriseClient() function.
 	// However, the function takes 2 URLs as parameters: one for the API URL and one for the upload URL where files can be uploaded.
 	// As we currently do not allow uploading files to GitHub, we might omit the uploadURL.
-	return github.NewClient(oauth2.NewClient(ctx, ts)), nil
+	return client, nil
 }

@@ -100,7 +100,7 @@ func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 
 	state := &TokenState{}
 
-	glClient, err := p.glClientBuilder.createGitlabAuthClient(ctx, token, p.baseUrl)
+	glClient, err := p.glClientBuilder.createGitlabAuthClient(ctx, token)
 	if err != nil {
 		return nil, err
 	}

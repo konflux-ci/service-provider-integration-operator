@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -116,6 +118,12 @@ func getUsernameAndPasswordFromTokenData(tokenData *api.Token) (username, passwo
 	password = tokenData.AccessToken
 
 	return
+}
+func getUsernameAndPasswordFromCredentials(credentials serviceprovider.Credentials) (username, password string) {
+	if credentials.Username == "" {
+		return OAuthTokenUserName, credentials.Token
+	}
+	return credentials.Username, credentials.Token
 }
 
 // fetchOrganizationRecord fetches the metadata about what access does the token have on the provided organization.

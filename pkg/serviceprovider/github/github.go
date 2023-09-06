@@ -94,7 +94,7 @@ type Github struct {
 	lookup                 serviceprovider.GenericLookup
 	httpClient             rest.HTTPClient
 	tokenStorage           tokenstorage.TokenStorage
-	ghClientBuilder        githubClientBuilder
+	ghClientBuilder        serviceprovider.AuthenticatedClientBuilder[github.Client]
 	downloadFileCapability serviceprovider.DownloadFileCapability
 	oauthCapability        serviceprovider.OAuthCapability
 	baseUrl                string
@@ -128,14 +128,16 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		tokenStorage:  factory.TokenStorage,
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeGitHub,
+			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
 			MetadataProvider: &metadataProvider{
 				httpClient:      httpClient,
 				tokenStorage:    factory.TokenStorage,
 				ghClientBuilder: ghClientBuilder,
 			},
-			MetadataCache:  &cache,
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			MetadataCache: &cache,
+			RepoUrlParser: serviceprovider.RepoUrlFromString,
+			TokenStorage:  factory.TokenStorage,
 		},
 		httpClient:             factory.HttpClient,
 		ghClientBuilder:        ghClientBuilder,
@@ -221,22 +223,13 @@ func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *ap
 }
 
 func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
-	repoUrl := accessCheck.Spec.RepoUrl
-
 	status := &api.SPIAccessCheckStatus{
 		Type:            api.SPIRepoTypeGit,
 		ServiceProvider: api.ServiceProviderTypeGitHub,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
 	}
 
-	owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
-	if err != nil {
-		status.ErrorReason = api.SPIAccessCheckErrorBadURL
-		status.ErrorMessage = err.Error()
-		return status, nil //nolint:nilerr // we preserve the error in the status
-	}
-
-	publicRepo, err := g.publicRepo(ctx, accessCheck)
+	publicRepo, err := g.checkPublicRepoAccess(ctx, accessCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -248,59 +241,57 @@ func (g *Github) CheckRepositoryAccess(ctx context.Context, cl client.Client, ac
 
 	ctx = httptransport.ContextWithMetrics(ctx, fetchRepositoryMetricConfig)
 
-	lg := log.FromContext(ctx)
+	return g.checkPrivateRepoAccess(ctx, cl, accessCheck)
+}
 
-	tokens, lookupErr := g.lookup.Lookup(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		if !publicRepo {
-			status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-			status.ErrorMessage = lookupErr.Error()
-		}
+// checkPrivateRepoAccess checks whether a repository is private and accessible.
+func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, accessCheck *api.SPIAccessCheck) (*api.SPIAccessCheckStatus, error) {
+	status := &api.SPIAccessCheckStatus{
+		Type:            api.SPIRepoTypeGit,
+		ServiceProvider: api.ServiceProviderTypeGitHub,
+		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
+	}
+	preserveError := func(errReason api.SPIAccessCheckErrorReason, err error) (*api.SPIAccessCheckStatus, error) {
+		status.ErrorReason = errReason
+		status.ErrorMessage = err.Error()
 		return status, nil
 	}
 
-	if len(tokens) > 0 {
-		token := &tokens[0]
-		ghClient, err := g.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
-		if err != nil {
-			status.ErrorReason = api.SPIAccessCheckErrorUnknownError
-			status.ErrorMessage = err.Error()
-			return status, err
-		}
-		ghRepository, _, err := ghClient.Repositories.Get(ctx, owner, repo)
-		if err != nil {
-			checkRateLimitError(err)
-			status.ErrorReason = api.SPIAccessCheckErrorRepoNotFound
-			status.ErrorMessage = err.Error()
-			return status, nil
-		}
-
-		status.Accessible = true
-		if pointer.BoolDeref(ghRepository.Private, false) {
-			status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
-		}
-	} else {
-		lg.Info("we have no tokens for repository", "repo", repoUrl)
+	owner, repo, err := g.parseGithubRepoUrl(accessCheck.Spec.RepoUrl)
+	if err != nil {
+		return preserveError(api.SPIAccessCheckErrorBadURL, err)
 	}
 
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, accessCheck)
+	if err != nil {
+		return preserveError(api.SPIAccessCheckErrorTokenLookupFailed, err)
+	}
+	if credentials == nil {
+		return status, nil
+	}
+
+	githubClient, err := g.ghClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
+	if err != nil {
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
+	}
+
+	ghRepository, resp, err := githubClient.Repositories.Get(ctx, owner, repo)
+	if err != nil {
+		checkRateLimitError(err)
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return preserveError(api.SPIAccessCheckErrorRepoNotFound, err)
+		}
+		return preserveError(api.SPIAccessCheckErrorUnknownError, err)
+	}
+
+	status.Accessible = true
+	if pointer.BoolDeref(ghRepository.Private, false) {
+		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
+	}
 	return status, nil
 }
 
-func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
-	// only the additional scopes can be invalid. We support the translation for all types
-	// of the Permission in github.
-	ret := serviceprovider.ValidationResult{}
-	for _, s := range validated.Permissions().AdditionalScopes {
-		if !IsValidScope(s) {
-			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unknownScopeError, s))
-		}
-	}
-
-	return ret, nil
-}
-
-func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
+func (g *Github) checkPublicRepoAccess(ctx context.Context, accessCheck *api.SPIAccessCheck) (bool, error) {
 	ctx = httptransport.ContextWithMetrics(ctx, publicRepoMetricConfig)
 	lg := log.FromContext(ctx)
 	req, reqErr := http.NewRequestWithContext(ctx, "GET", accessCheck.Spec.RepoUrl, nil)
@@ -329,6 +320,19 @@ func (g *Github) publicRepo(ctx context.Context, accessCheck *api.SPIAccessCheck
 		unexpectedStatusCounter.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
 		return false, nil
 	}
+}
+
+func (g *Github) Validate(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
+	// only the additional scopes can be invalid. We support the translation for all types
+	// of the Permission in github.
+	ret := serviceprovider.ValidationResult{}
+	for _, s := range validated.Permissions().AdditionalScopes {
+		if !IsValidScope(s) {
+			ret.ScopeValidation = append(ret.ScopeValidation, fmt.Errorf("%w: '%s'", unknownScopeError, s))
+		}
+	}
+
+	return ret, nil
 }
 
 func (g *Github) parseGithubRepoUrl(repoUrl string) (owner, repo string, err error) {

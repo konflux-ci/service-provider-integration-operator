@@ -65,8 +65,9 @@ func TestGetFileHead(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
@@ -115,8 +116,9 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
@@ -165,8 +167,9 @@ func TestGetFileOnBranch(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
@@ -206,8 +209,9 @@ func TestGetUnexistingFile(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
 	repoUrlMatcher, matcherErr := newRepoUrlMatcher("https://fake.github.com")

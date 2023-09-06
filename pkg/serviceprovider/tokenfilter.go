@@ -17,9 +17,8 @@ package serviceprovider
 import (
 	"context"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
