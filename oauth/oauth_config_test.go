@@ -22,7 +22,7 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
@@ -135,8 +135,8 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
-							v1beta1.ServiceProviderHostLabel: "bleh.eh",
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderHostLabel: "bleh.eh",
 						},
 					},
 					Data: map[string][]byte{
@@ -198,7 +198,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{
@@ -255,7 +255,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{},
