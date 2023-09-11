@@ -134,14 +134,14 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
 		var targetEnvironments []string
-		if environmentLabelInSecret, set := remoteSecret.Labels[EnvironmentLabelName]; set {
-			targetEnvironments = append(targetEnvironments, environmentLabelInSecret)
-		} else if environmentAnnotationsInSecret, set := remoteSecret.Annotations[EnvironmentLabelName]; set {
+		if environmentLabelInSecret, labelSet := remoteSecret.Labels[EnvironmentLabelName]; labelSet {
+			targetEnvironments = []string{environmentLabelInSecret}
+		} else if environmentAnnotationsInSecret, annotationSet := remoteSecret.Annotations[EnvironmentLabelName]; annotationSet {
 			envs := strings.Split(environmentAnnotationsInSecret, ",")
 			for i := range envs {
 				envs[i] = strings.TrimSpace(envs[i])
 			}
-			targetEnvironments = append(targetEnvironments, envs...)
+			targetEnvironments = envs
 		}
 		if len(targetEnvironments) > 0 && !slices.Contains(targetEnvironments, environmentName) {
 			// this secret is intended for another environment, bypassing it
