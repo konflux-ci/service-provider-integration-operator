@@ -199,6 +199,10 @@ func (to TestObjects) GetDataUpdate(key client.ObjectKey) *api.SPIAccessTokenDat
 	return findByKey(key, to.DataUpdates)
 }
 
+func (to TestObjects) GetRemoteSecret(key client.ObjectKey) *rapi.RemoteSecret {
+	return findByKey(key, to.RemoteSecrets)
+}
+
 func (to TestObjects) GetDataUpdatesByNamePrefix(key client.ObjectKey) []*api.SPIAccessTokenDataUpdate {
 	return matchByNamePrefix(key, to.DataUpdates)
 }

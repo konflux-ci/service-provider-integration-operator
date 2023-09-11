@@ -18,6 +18,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 
 	"k8s.io/utils/strings/slices"
 
@@ -132,8 +133,17 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environmentName {
+		var targetEnvironments []string
+		if environmentLabelInSecret, set := remoteSecret.Labels[EnvironmentLabelName]; set {
+			targetEnvironments = append(targetEnvironments, environmentLabelInSecret)
+		} else if environmentAnnotationsInSecret, set := remoteSecret.Annotations[EnvironmentLabelName]; set {
+			envs := strings.Split(environmentAnnotationsInSecret, ",")
+			for i := range envs {
+				envs[i] = strings.TrimSpace(envs[i])
+			}
+			targetEnvironments = append(targetEnvironments, envs...)
+		}
+		if len(targetEnvironments) > 0 && !slices.Contains(targetEnvironments, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
