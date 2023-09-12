@@ -157,7 +157,7 @@ func addTargetIfNotExists(secret *rapi.RemoteSecret, target rapi.RemoteSecretTar
 }
 
 func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
-	tmp := secret.Spec.Targets[:0]
+	tmp := make([]rapi.RemoteSecretTarget, 0, len(secret.Spec.Targets))
 	for _, existingTarget := range secret.Spec.Targets {
 		if !targetsMatch(existingTarget, target) {
 			tmp = append(tmp, existingTarget)
