@@ -131,19 +131,8 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		var targetEnvironments []string
-		if environmentLabelInSecret, labelSet := remoteSecret.Labels[EnvironmentLabelName]; labelSet {
-			targetEnvironments = []string{environmentLabelInSecret}
-		} else if environmentAnnotationsInSecret, annotationSet := remoteSecret.Annotations[EnvironmentLabelName]; annotationSet {
-			envs := strings.Split(environmentAnnotationsInSecret, ",")
-			for i := range envs {
-				envs[i] = strings.TrimSpace(envs[i])
-			}
-			targetEnvironments = envs
-		}
-		if len(targetEnvironments) > 0 && !slices.Contains(targetEnvironments, environmentName) {
+	for _, remoteSecret := range remoteSecretsList.Items {
+		if !remoteSecretApplicableForEnvironment(remoteSecret, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -193,6 +182,23 @@ func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alp
 	}
 }
 
+func remoteSecretApplicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	var targetEnvironments []string
+	if environmentLabelInSecret, labelSet := remoteSecret.Labels[EnvironmentLabelName]; labelSet {
+		targetEnvironments = []string{environmentLabelInSecret}
+	} else if environmentAnnotationsInSecret, annotationSet := remoteSecret.Annotations[EnvironmentLabelName]; annotationSet {
+		envs := strings.Split(environmentAnnotationsInSecret, ",")
+		for i := range envs {
+			envs[i] = strings.TrimSpace(envs[i])
+		}
+		targetEnvironments = envs
+	}
+	if len(targetEnvironments) > 0 && !slices.Contains(targetEnvironments, environmentName) {
+		return false
+	}
+	return true
+}
+
 type linkedRemoteSecretsFinalizer struct {
 	client client.Client
 }
@@ -227,10 +233,8 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
 	}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != snapshotEnvBinding.Spec.Environment {
+	for _, remoteSecret := range remoteSecretsList.Items {
+		if !remoteSecretApplicableForEnvironment(remoteSecret, snapshotEnvBinding.Spec.Environment) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
