@@ -131,7 +131,8 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
-	for _, remoteSecret := range remoteSecretsList.Items {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
 		if !remoteSecretApplicableForEnvironment(remoteSecret, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
@@ -233,7 +234,8 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
 	}
 
-	for _, remoteSecret := range remoteSecretsList.Items {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
 		if !remoteSecretApplicableForEnvironment(remoteSecret, snapshotEnvBinding.Spec.Environment) {
 			// this secret is intended for another environment, bypassing it
 			continue
