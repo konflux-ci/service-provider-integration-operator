@@ -213,6 +213,9 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return finalizer.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 	target, err := detectTargetFromEnvironment(ctx, environment)
+	if err != nil {
+		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
+	}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
