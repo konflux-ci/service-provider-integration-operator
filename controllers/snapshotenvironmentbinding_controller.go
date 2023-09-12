@@ -157,12 +157,13 @@ func addTargetIfNotExists(secret *rapi.RemoteSecret, target rapi.RemoteSecretTar
 }
 
 func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
-	for idx := range secret.Spec.Targets {
-		existingTarget := secret.Spec.Targets[idx]
-		if targetsMatch(existingTarget, target) {
-			secret.Spec.Targets = append(secret.Spec.Targets[:idx], secret.Spec.Targets[idx+1:]...)
+	tmp := make([]rapi.RemoteSecretTarget, 0, len(secret.Spec.Targets))
+	for _, existingTarget := range secret.Spec.Targets {
+		if !targetsMatch(existingTarget, target) {
+			tmp = append(tmp, existingTarget)
 		}
 	}
+	secret.Spec.Targets = tmp
 }
 
 func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
@@ -205,7 +206,16 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return finalizer.Result{}, nil
 	}
 
-	target := rapi.RemoteSecretTarget{Namespace: snapshotEnvBinding.Namespace}
+	// Get the Environment CR
+	environment := appstudiov1alpha1.Environment{}
+	err := f.client.Get(ctx, types.NamespacedName{Name: snapshotEnvBinding.Spec.Environment, Namespace: snapshotEnvBinding.Namespace}, &environment)
+	if err != nil {
+		return finalizer.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
+	}
+	target, err := detectTargetFromEnvironment(ctx, environment)
+	if err != nil {
+		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
+	}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
