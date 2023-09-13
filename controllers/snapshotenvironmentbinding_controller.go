@@ -186,7 +186,7 @@ func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alp
 func remoteSecretApplicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
 	var targetEnvironments []string
 	if environmentLabelInSecret, labelSet := remoteSecret.Labels[EnvironmentLabelName]; labelSet {
-		targetEnvironments = []string{environmentLabelInSecret}
+		return environmentName == environmentLabelInSecret
 	} else if environmentAnnotationsInSecret, annotationSet := remoteSecret.Annotations[EnvironmentLabelName]; annotationSet {
 		envs := strings.Split(environmentAnnotationsInSecret, ",")
 		for i := range envs {
