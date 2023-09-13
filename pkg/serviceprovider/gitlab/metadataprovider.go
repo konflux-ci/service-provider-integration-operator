@@ -83,14 +83,6 @@ func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
 }
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
-	data, err := p.tokenStorage.Get(ctx, token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
-	}
-	if data == nil {
-		return nil, nil
-	}
-
 	timer := metadataFetchTimer()
 	return timer.ObserveValuesAndDuration(p.doFetch(ctx, token, includeState))
 }
@@ -98,11 +90,17 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, 
 func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
-	state := &TokenState{}
-
-	glClient, err := p.glClientBuilder.createGitlabAuthClient(ctx, token)
+	data, err := p.tokenStorage.Get(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while getting token data: %w", err)
+	}
+	if data == nil {
+		return nil, nil
+	}
+
+	glClient, err := p.glClientBuilder.CreateAuthenticatedClient(ctx, serviceprovider.CredentialsFromToken(*data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}
 
 	username, userId, err := p.fetchUser(ctx, glClient)
@@ -136,6 +134,7 @@ func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 		return metadata, nil
 	}
 
+	state := &TokenState{}
 	// Service provider state is currently expected to be empty json.
 	metadata.ServiceProviderState, err = json.Marshal(state)
 	if err != nil {

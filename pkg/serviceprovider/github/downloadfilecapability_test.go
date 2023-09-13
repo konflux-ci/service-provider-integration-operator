@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +72,7 @@ func TestGetFileHead(t *testing.T) {
 	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", &api.SPIAccessToken{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "HEAD", serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -120,7 +122,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", &api.SPIAccessToken{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo.git", "myfile", "HEAD", serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -169,7 +171,7 @@ func TestGetFileOnBranch(t *testing.T) {
 	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", &api.SPIAccessToken{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "v0.1.0", serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -220,7 +222,7 @@ func TestGetFileOnCommitId(t *testing.T) {
 	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -260,7 +262,7 @@ func TestGetUnexistingFile(t *testing.T) {
 	fileCapability, capabilityErr := NewDownloadFileCapability(&http.Client{}, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	_, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{}, 1024)
+	_, err := fileCapability.DownloadFile(context.TODO(), "https://github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", serviceprovider.Credentials{}, 1024)
 	if err == nil {
 		t.Error("error expected")
 	}
@@ -273,7 +275,7 @@ func TestInvalidRepoUrl(t *testing.T) {
 		fileCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{}, "https://github.com")
 		assert.NoError(t, err)
 
-		c, err := fileCapability.DownloadFile(context.TODO(), repoUrl, "myfile", "bla", &api.SPIAccessToken{}, 1024)
+		c, err := fileCapability.DownloadFile(context.TODO(), repoUrl, "myfile", "bla", serviceprovider.Credentials{}, 1024)
 
 		assert.Error(t, err)
 		assert.Empty(t, c)

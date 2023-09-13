@@ -14,7 +14,9 @@
 
 package v1beta1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type SPIFileContentRequestSpec struct {
 	// FilePath defines target file path inside repository
@@ -82,6 +84,14 @@ func init() {
 	SchemeBuilder.Register(&SPIFileContentRequest{}, &SPIFileContentRequestList{})
 }
 
-func (in *SPIFileContentRequest) RepoUrl() string {
-	return in.Spec.RepoUrl
+func (req *SPIFileContentRequest) RepoUrl() string {
+	return req.Spec.RepoUrl
+}
+
+func (req *SPIFileContentRequest) Permissions() *Permissions {
+	return &Permissions{}
+}
+
+func (req *SPIFileContentRequest) ObjNamespace() string {
+	return req.Namespace
 }

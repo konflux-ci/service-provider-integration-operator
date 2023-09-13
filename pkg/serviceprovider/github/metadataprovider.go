@@ -95,7 +95,7 @@ func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 
-	ghClient, err := s.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	ghClient, err := s.ghClientBuilder.CreateAuthenticatedClient(ctx, serviceprovider.CredentialsFromToken(*data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}

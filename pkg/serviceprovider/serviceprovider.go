@@ -41,6 +41,8 @@ type ServiceProvider interface {
 	// mechanism (usually an http client)).
 	LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 
+	CredentialsFromRS(ctx context.Context, cl client.Client, contentRequest *api.SPIFileContentRequest) (*Credentials, error)
+
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any
 	// state and metadata required for the token lookup. The metadata must be stored in the Status.TokenMetadata field
 	// of the provided token.

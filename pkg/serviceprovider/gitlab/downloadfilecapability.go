@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/xanzy/go-gitlab"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,7 +28,7 @@ import (
 
 type downloadFileCapability struct {
 	httpClient      *http.Client
-	glClientBuilder gitlabClientBuilder
+	glClientBuilder serviceprovider.AuthenticatedClientBuilder[gitlab.Client]
 	baseUrl         string
 	repoMatcher     gitlabRepoUrlMatcher
 }
@@ -50,14 +49,14 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, repoUrl)
 	if err != nil {
 		return "", err
 	}
 
 	lg := log.FromContext(ctx)
-	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token)
+	glClient, err := f.glClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}

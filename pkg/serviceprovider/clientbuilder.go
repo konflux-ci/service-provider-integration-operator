@@ -14,7 +14,11 @@
 
 package serviceprovider
 
-import "context"
+import (
+	"context"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+)
 
 type AuthenticatedClientBuilder[C any] interface {
 	CreateAuthenticatedClient(ctx context.Context, credentials Credentials) (*C, error)
@@ -23,4 +27,11 @@ type AuthenticatedClientBuilder[C any] interface {
 type Credentials struct {
 	Username string
 	Token    string
+}
+
+func CredentialsFromToken(token v1beta1.Token) Credentials {
+	return Credentials{
+		Username: token.Username,
+		Token:    token.AccessToken,
+	}
 }

@@ -137,6 +137,14 @@ func (g *Gitlab) LookupTokens(ctx context.Context, cl client.Client, binding *ap
 	return tokens, nil
 }
 
+func (g *Gitlab) CredentialsFromRS(ctx context.Context, cl client.Client, contentRequest *api.SPIFileContentRequest) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentialsFromRS(ctx, cl, contentRequest)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab token credentials lookup from RemoteSecret failure: %w", err)
+	}
+	return credentials, nil
+}
+
 func (g *Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := g.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persist gitlab metadata: %w", err)

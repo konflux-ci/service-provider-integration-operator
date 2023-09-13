@@ -186,6 +186,14 @@ func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.
 	return tokens, nil
 }
 
+func (q *Quay) CredentialsFromRS(ctx context.Context, cl client.Client, contentRequest *api.SPIFileContentRequest) (*serviceprovider.Credentials, error) {
+	credentials, err := q.lookup.LookupCredentialsFromRS(ctx, cl, contentRequest)
+	if err != nil {
+		return nil, fmt.Errorf("quay token credentials lookup from RemoteSecret failure: %w", err)
+	}
+	return credentials, nil
+}
+
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)

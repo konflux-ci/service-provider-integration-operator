@@ -16,17 +16,13 @@ package gitlab
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/xanzy/go-gitlab"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type gitlabClientBuilder struct {
@@ -37,33 +33,10 @@ type gitlabClientBuilder struct {
 
 var _ serviceprovider.AuthenticatedClientBuilder[gitlab.Client] = (*gitlabClientBuilder)(nil)
 
-var accessTokenNotFoundError = errors.New("token data is not found in token storage")
-
-func (builder gitlabClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*gitlab.Client, error) {
+func (builder gitlabClientBuilder) CreateAuthenticatedClient(_ context.Context, credentials serviceprovider.Credentials) (*gitlab.Client, error) {
 	client, err := gitlab.NewOAuthClient(credentials.Token, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.gitlabBaseUrl))
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated GitLab client: %w", err)
 	}
-	return client, nil
-}
-
-func (builder gitlabClientBuilder) createGitlabAuthClient(ctx context.Context, spiAccessToken *api.SPIAccessToken) (*gitlab.Client, error) {
-	lg := log.FromContext(ctx)
-	tokenData, err := builder.tokenStorage.Get(ctx, spiAccessToken)
-	if err != nil {
-		lg.Error(err, "failed to get token from storage for", "token", spiAccessToken)
-		return nil, fmt.Errorf("failed to get token from storage for %s/%s: %w",
-			spiAccessToken.Namespace, spiAccessToken.Name, err)
-	}
-
-	if tokenData == nil {
-		lg.Error(accessTokenNotFoundError, "token data not found", "token-name", spiAccessToken.Name)
-		return nil, accessTokenNotFoundError
-	}
-	client, err := builder.CreateAuthenticatedClient(ctx, serviceprovider.Credentials{Token: tokenData.AccessToken})
-	if err != nil {
-		return nil, err
-	}
-	lg.V(logs.DebugLevel).Info("new authenticated gitlab client successfully created", "SPIAccessToken", spiAccessToken)
 	return client, nil
 }

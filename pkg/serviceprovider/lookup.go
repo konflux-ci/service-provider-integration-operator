@@ -171,9 +171,14 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 		if tokenData == nil {
 			return nil, accessTokenNotFoundError
 		}
-		return &Credentials{Username: tokenData.Username, Token: tokenData.AccessToken}, nil
+		credentials := CredentialsFromToken(*tokenData)
+		return &credentials, nil
 	}
 
+	return l.LookupCredentialsFromRS(ctx, cl, matchable)
+}
+
+func (l GenericLookup) LookupCredentialsFromRS(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error) {
 	remoteSecrets, err := l.lookupRemoteSecrets(ctx, cl, matchable)
 	if err != nil {
 		return nil, err

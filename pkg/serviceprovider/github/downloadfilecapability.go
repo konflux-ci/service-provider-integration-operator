@@ -25,14 +25,13 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/google/go-github/v45/github"
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type downloadFileCapability struct {
 	httpClient      *http.Client
-	ghClientBuilder githubClientBuilder
+	ghClientBuilder serviceprovider.AuthenticatedClientBuilder[github.Client]
 	ghBaseUrl       string
 	ghRepoRegexp    *regexp.Regexp
 }
@@ -60,13 +59,13 @@ func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubCl
 	}, nil
 }
 
-func (d downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
+func (d downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	owner, repo, err := d.parseOwnerAndRepoFromUrl(ctx, repoUrl)
 	if err != nil {
 		return "", fmt.Errorf("could not parse repository name and owner from repoUrl: %w", err)
 	}
 	lg := log.FromContext(ctx)
-	ghClient, err := d.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	ghClient, err := d.ghClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
