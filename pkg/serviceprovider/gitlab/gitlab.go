@@ -101,17 +101,19 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		return nil, err
 	}
 
+	lookup := serviceprovider.GenericLookup{
+		ServiceProviderType: api.ServiceProviderTypeGitLab,
+		TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+		RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
+		MetadataProvider:    mp,
+		MetadataCache:       &cache,
+		RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
+		TokenStorage:        factory.TokenStorage,
+	}
+
 	return &Gitlab{
-		Configuration: factory.Configuration,
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitLab,
-			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
-			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
-			MetadataProvider:    mp,
-			MetadataCache:       &cache,
-			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
-			TokenStorage:        factory.TokenStorage,
-		},
+		Configuration:    factory.Configuration,
+		lookup:           lookup,
 		tokenStorage:     factory.TokenStorage,
 		metadataProvider: mp,
 		httpClient:       factory.HttpClient,
@@ -122,7 +124,7 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
 		},
 		baseUrl:                spConfig.ServiceProviderBaseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher),
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher, lookup),
 		oauthCapability:        oauthCapability,
 		repoUrlMatcher:         repoUrlMatcher,
 	}, nil

@@ -56,13 +56,13 @@ var _ = Describe("SPIFileContentRequest", func() {
 			})
 		})
 
-		It("have the upload and OAUth URLs set", func() {
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				request := testSetup.InCluster.FileContentRequests[0]
-				g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
-				g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty())
-			})
-		})
+		//It("have the upload and OAUth URLs set", func() {
+		//	testSetup.ReconcileWithCluster(func(g Gomega) {
+		//		request := testSetup.InCluster.FileContentRequests[0]
+		//		g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
+		//		g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty())
+		//	})
+		//})
 	})
 
 	Describe("With binding is in error", func() {

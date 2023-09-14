@@ -17,6 +17,8 @@ package serviceprovider
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
@@ -27,7 +29,13 @@ func (f FileDownloadNotSupportedError) Error() string {
 	return "provided repository URL does not supports file downloading"
 }
 
+type NoCredentialsFoundError struct{}
+
+func (f NoCredentialsFoundError) Error() string {
+	return "no suitable credentials found for the SPIFileContentRequest"
+}
+
 // DownloadFileCapability indicates an ability of given SCM provider to download files from repository.
 type DownloadFileCapability interface {
-	DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error)
+	DownloadFile(ctx context.Context, client client.Client, request *api.SPIFileContentRequest, maxFileSizeLimit int) (string, error)
 }

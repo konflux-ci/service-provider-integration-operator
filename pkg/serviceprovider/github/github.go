@@ -118,27 +118,29 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		httpClient:   factory.HttpClient,
 	}
 
-	downloadCapability, err := NewDownloadFileCapability(httpClient, ghClientBuilder, spConfig.ServiceProviderBaseUrl)
+	lookup := serviceprovider.GenericLookup{
+		ServiceProviderType: api.ServiceProviderTypeGitHub,
+		RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
+		TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+		MetadataProvider: &metadataProvider{
+			httpClient:      httpClient,
+			tokenStorage:    factory.TokenStorage,
+			ghClientBuilder: ghClientBuilder,
+		},
+		MetadataCache: &cache,
+		RepoUrlParser: serviceprovider.RepoUrlFromString,
+		TokenStorage:  factory.TokenStorage,
+	}
+
+	downloadCapability, err := NewDownloadFileCapability(httpClient, ghClientBuilder, spConfig.ServiceProviderBaseUrl, lookup)
 	if err != nil {
 		return nil, err
 	}
 
 	github := &Github{
-		Configuration: factory.Configuration,
-		tokenStorage:  factory.TokenStorage,
-		lookup: serviceprovider.GenericLookup{
-			ServiceProviderType: api.ServiceProviderTypeGitHub,
-			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
-			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
-			MetadataProvider: &metadataProvider{
-				httpClient:      httpClient,
-				tokenStorage:    factory.TokenStorage,
-				ghClientBuilder: ghClientBuilder,
-			},
-			MetadataCache: &cache,
-			RepoUrlParser: serviceprovider.RepoUrlFromString,
-			TokenStorage:  factory.TokenStorage,
-		},
+		Configuration:          factory.Configuration,
+		tokenStorage:           factory.TokenStorage,
+		lookup:                 lookup,
 		httpClient:             factory.HttpClient,
 		ghClientBuilder:        ghClientBuilder,
 		downloadFileCapability: downloadCapability,

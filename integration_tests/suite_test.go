@@ -194,7 +194,7 @@ var _ = BeforeSuite(func() {
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 
-	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, _ string, _ string, _ string, _ *api.SPIAccessToken, i int) (string, error) {
+	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, _ client.Client, request *api.SPIFileContentRequest, i int) (string, error) {
 		return "abcdefg", nil
 	}
 
