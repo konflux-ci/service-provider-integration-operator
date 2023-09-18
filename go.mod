@@ -25,7 +25,7 @@ require (
 	github.com/redhat-appstudio/remote-secret v0.0.0-20230917193340-2e4e49cfda1c
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.91.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/oauth2 v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.1
