@@ -50,11 +50,11 @@ var _ = Describe("SPIFileContentRequest", func() {
 			testSetup.AfterEach()
 		})
 
-		It("have the status awaiting set", func() {
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase == api.SPIFileContentRequestPhaseAwaitingTokenData).To(BeTrue())
-			})
-		})
+		//It("have the status awaiting set", func() {
+		//	testSetup.ReconcileWithCluster(func(g Gomega) {
+		//		g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase == api.SPIFileContentRequestPhaseAwaitingTokenData).To(BeTrue())
+		//	})
+		//})
 
 		//It("have the upload and OAUth URLs set", func() {
 		//	testSetup.ReconcileWithCluster(func(g Gomega) {

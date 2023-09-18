@@ -43,9 +43,8 @@ type SPIFileContentRequestStatus struct {
 type SPIFileContentRequestPhase string
 
 const (
-	SPIFileContentRequestPhaseAwaitingTokenData SPIFileContentRequestPhase = "AwaitingTokenData"
-	SPIFileContentRequestPhaseDelivered         SPIFileContentRequestPhase = "Delivered"
-	SPIFileContentRequestPhaseError             SPIFileContentRequestPhase = "Error"
+	SPIFileContentRequestPhaseDelivered SPIFileContentRequestPhase = "Delivered"
+	SPIFileContentRequestPhaseError     SPIFileContentRequestPhase = "Error"
 )
 
 //+kubebuilder:object:root=true

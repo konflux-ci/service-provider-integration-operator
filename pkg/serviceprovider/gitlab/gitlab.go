@@ -124,7 +124,7 @@ func newGitlab(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 			oauthServiceBaseUrl: factory.Configuration.BaseUrl,
 		},
 		baseUrl:                spConfig.ServiceProviderBaseUrl,
-		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher, lookup),
+		downloadFileCapability: NewDownloadFileCapability(factory.HttpClient, glClientBuilder, spConfig.ServiceProviderBaseUrl, repoUrlMatcher),
 		oauthCapability:        oauthCapability,
 		repoUrlMatcher:         repoUrlMatcher,
 	}, nil
@@ -137,6 +137,14 @@ func (g *Gitlab) LookupTokens(ctx context.Context, cl client.Client, binding *ap
 	}
 
 	return tokens, nil
+}
+
+func (g *Gitlab) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab credentials lookup failure: %w", err)
+	}
+	return credentials, nil
 }
 
 func (g *Gitlab) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {

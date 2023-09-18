@@ -75,8 +75,8 @@ func TestGetFileHead(t *testing.T) {
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
 	assert.NoError(t, err)
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher, serviceprovider.GenericLookup{})
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -126,8 +126,8 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
 	assert.NoError(t, err)
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher, serviceprovider.GenericLookup{})
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -177,8 +177,8 @@ func TestGetFileOnBranch(t *testing.T) {
 	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
 	assert.NoError(t, err)
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher, serviceprovider.GenericLookup{})
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -219,8 +219,8 @@ func TestGetUnexistingFile(t *testing.T) {
 	repoUrlMatcher, matcherErr := newRepoUrlMatcher("https://fake.github.com")
 	assert.NoError(t, matcherErr)
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher, serviceprovider.GenericLookup{})
-	_, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	_, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err == nil {
 		t.Error("error expected")
 	}

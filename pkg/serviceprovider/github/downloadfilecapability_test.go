@@ -69,10 +69,10 @@ func TestGetFileHead(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com", serviceprovider.GenericLookup{})
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -119,10 +119,10 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com", serviceprovider.GenericLookup{})
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -168,10 +168,10 @@ func TestGetFileOnBranch(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com", serviceprovider.GenericLookup{})
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -219,10 +219,10 @@ func TestGetFileOnCommitId(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com", serviceprovider.GenericLookup{})
+	fileCapability, capabilityErr := NewDownloadFileCapability(client, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -259,10 +259,10 @@ func TestGetUnexistingFile(t *testing.T) {
 		tokenStorage: ts,
 	}
 
-	fileCapability, capabilityErr := NewDownloadFileCapability(&http.Client{}, githubClientBuilder, "https://github.com", serviceprovider.GenericLookup{})
+	fileCapability, capabilityErr := NewDownloadFileCapability(&http.Client{}, githubClientBuilder, "https://github.com")
 	assert.NoError(t, capabilityErr)
 
-	_, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+	_, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 	if err == nil {
 		t.Error("error expected")
 	}
@@ -272,10 +272,10 @@ func TestGetUnexistingFile(t *testing.T) {
 func TestInvalidRepoUrl(t *testing.T) {
 	test := func(t *testing.T, repoUrl string) {
 
-		fileCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{}, "https://github.com", serviceprovider.GenericLookup{})
+		fileCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{}, "https://github.com")
 		assert.NoError(t, err)
 
-		c, err := fileCapability.DownloadFile(context.TODO(), nil, nil, 1024)
+		c, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
 
 		assert.Error(t, err)
 		assert.Empty(t, c)
@@ -290,7 +290,7 @@ func TestInvalidRepoUrl(t *testing.T) {
 
 func TestParseOwnerAndRepoFromUrl(t *testing.T) {
 	downloadCapability, err := NewDownloadFileCapability(&http.Client{}, githubClientBuilder{},
-		"https://github.com", serviceprovider.GenericLookup{})
+		"https://github.com")
 	assert.NoError(t, err)
 	ghCapability := downloadCapability.(downloadFileCapability)
 

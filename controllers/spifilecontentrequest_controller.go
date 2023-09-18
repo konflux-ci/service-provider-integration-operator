@@ -55,6 +55,7 @@ const LinkedFileRequestLabel = "spi.appstudio.redhat.com/file-content-request-na
 var (
 	noSuitableServiceProviderFound  = stderrors.New("unable to find a matching service provider for the given URL")
 	unableToValidateServiceProvider = stderrors.New("unable to validate service provider for the given URL")
+	noCredentialsFoundError         = stderrors.New("no suitable credentials found, please create SPIAccessToken or RemoteSecret")
 	labelSelectorPredicate          predicate.Predicate
 )
 
@@ -170,34 +171,35 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		var validationErr validator.ValidationErrors
 		if stderrors.As(err, &validationErr) {
 			lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
-			r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
-		} else {
-			lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
-			// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-			// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-			r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
+			return r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
 		}
-		return ctrl.Result{}, nil
+		lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
+		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+		return r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 	}
 	if sp.GetDownloadFileCapability() == nil {
-		r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
-		return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
+		return r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
+
+	}
+	credentials, err := sp.LookupCredentials(ctx, r.K8sClient, &request)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err)
 	}
 
-	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, r.K8sClient, &request, r.Configuration.MaxFileDownloadSize)
-	if err != nil {
-		if stderrors.As(err, &serviceprovider.NoCredentialsFoundError{}) {
-			request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
-			return reconcile.Result{}, nil
-		}
-		r.updateFileRequestStatusError(ctx, &request, err)
-		return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
-	} else {
-		request.Status.ErrorMessage = ""
-		request.Status.ContentEncoding = "base64"
-		request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
-		request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
+	if credentials == nil {
+		return r.updateFileRequestStatusError(ctx, &request, noCredentialsFoundError)
 	}
+
+	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, &request, *credentials, r.Configuration.MaxFileDownloadSize)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
+	}
+
+	request.Status.ErrorMessage = ""
+	request.Status.ContentEncoding = "base64"
+	request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
+	request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 
 	if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
 		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
@@ -230,13 +232,13 @@ func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *
 	return nil
 }
 
-func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) {
+func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
 	request.Status.ErrorMessage = err.Error()
 	request.Status.Phase = api.SPIFileContentRequestPhaseError
 	if err := r.K8sClient.Status().Update(ctx, request); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
+		return ctrl.Result{}, fmt.Errorf("failed to update SPIFileContentRequest status with error: %w", err)
 	}
-
+	return ctrl.Result{}, nil
 }
 
 type linkedFileRequestBindingsFinalizer struct {

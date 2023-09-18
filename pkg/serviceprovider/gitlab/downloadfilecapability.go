@@ -24,7 +24,6 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/xanzy/go-gitlab"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -33,16 +32,14 @@ type downloadFileCapability struct {
 	glClientBuilder gitlabClientBuilder
 	baseUrl         string
 	repoMatcher     gitlabRepoUrlMatcher
-	lookup          serviceprovider.GenericLookup
 }
 
-func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string, repoMatcher gitlabRepoUrlMatcher, lookup serviceprovider.GenericLookup) downloadFileCapability {
+func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string, repoMatcher gitlabRepoUrlMatcher) downloadFileCapability {
 	return downloadFileCapability{
 		httpClient,
 		glClientBuilder,
 		baseUrl,
 		repoMatcher,
-		lookup,
 	}
 }
 
@@ -53,22 +50,14 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func (f downloadFileCapability) DownloadFile(ctx context.Context, cl client.Client, request *api.SPIFileContentRequest, maxFileSizeLimit int) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, request *api.SPIFileContentRequest, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	lg := log.FromContext(ctx)
 	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, request.RepoUrl())
 	if err != nil {
 		return "", err
 	}
 
-	credentials, err := f.lookup.LookupCredentials(ctx, cl, request)
-	if err != nil {
-		return "", fmt.Errorf("failed to find suitable credentials: %w", err)
-	}
-	if credentials == nil {
-		return "", serviceprovider.NoCredentialsFoundError{}
-	}
-
-	glClient, err := f.glClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
+	glClient, err := f.glClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}

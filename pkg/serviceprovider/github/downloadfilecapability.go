@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"regexp"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/google/go-github/v45/github"
@@ -37,7 +35,6 @@ type downloadFileCapability struct {
 	ghClientBuilder githubClientBuilder
 	ghBaseUrl       string
 	ghRepoRegexp    *regexp.Regexp
-	lookup          serviceprovider.GenericLookup
 }
 
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
@@ -49,7 +46,7 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubClientBuilder, ghBaseUrl string, lookup serviceprovider.GenericLookup) (serviceprovider.DownloadFileCapability, error) {
+func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubClientBuilder, ghBaseUrl string) (serviceprovider.DownloadFileCapability, error) {
 	ghRepoRegexp, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(ghBaseUrl) + `/(?P<owner>[^/]+)/(?P<repo>[^/]+)(/|(.git)?)$`)
 	if err != nil {
 		return nil, fmt.Errorf("compiling repoUrl matching regex for GitHub with baseUrl %s failed with error: %w", ghBaseUrl, err)
@@ -60,26 +57,16 @@ func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubCl
 		ghClientBuilder,
 		ghBaseUrl,
 		ghRepoRegexp,
-		lookup,
 	}, nil
 }
 
-func (d downloadFileCapability) DownloadFile(ctx context.Context, cl client.Client, request *api.SPIFileContentRequest, maxFileSizeLimit int) (string, error) {
+func (d downloadFileCapability) DownloadFile(ctx context.Context, request *api.SPIFileContentRequest, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	owner, repo, err := d.parseOwnerAndRepoFromUrl(ctx, request.RepoUrl())
 	if err != nil {
 		return "", fmt.Errorf("could not parse repository name and owner from repoUrl: %w", err)
 	}
 	lg := log.FromContext(ctx)
-
-	credentials, err := d.lookup.LookupCredentials(ctx, cl, request)
-	if err != nil {
-		return "", fmt.Errorf("failed to find suitable credentials: %w", err)
-	}
-	if credentials == nil {
-		return "", serviceprovider.NoCredentialsFoundError{}
-	}
-
-	ghClient, err := d.ghClientBuilder.CreateAuthenticatedClient(ctx, *credentials)
+	ghClient, err := d.ghClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}

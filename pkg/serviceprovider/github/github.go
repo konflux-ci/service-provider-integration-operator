@@ -132,7 +132,7 @@ func newGithub(factory *serviceprovider.Factory, spConfig *config.ServiceProvide
 		TokenStorage:  factory.TokenStorage,
 	}
 
-	downloadCapability, err := NewDownloadFileCapability(httpClient, ghClientBuilder, spConfig.ServiceProviderBaseUrl, lookup)
+	downloadCapability, err := NewDownloadFileCapability(httpClient, ghClientBuilder, spConfig.ServiceProviderBaseUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,14 @@ func (g *Github) LookupTokens(ctx context.Context, cl client.Client, binding *ap
 		return nil, fmt.Errorf("github token lookup failure: %w", err)
 	}
 	return tokens, nil
+}
+
+func (g *Github) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("github credentials lookup failure: %w", err)
+	}
+	return credentials, nil
 }
 
 func (g *Github) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
