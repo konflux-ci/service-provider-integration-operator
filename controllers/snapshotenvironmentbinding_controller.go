@@ -206,16 +206,7 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 		return finalizer.Result{}, nil
 	}
 
-	// Get the Environment CR
-	environment := appstudiov1alpha1.Environment{}
-	err := f.client.Get(ctx, types.NamespacedName{Name: snapshotEnvBinding.Spec.Environment, Namespace: snapshotEnvBinding.Namespace}, &environment)
-	if err != nil {
-		return finalizer.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
-	}
-	target, err := detectTargetFromEnvironment(ctx, environment)
-	if err != nil {
-		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
-	}
+	target := rapi.RemoteSecretTarget{Namespace: snapshotEnvBinding.Namespace}
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
