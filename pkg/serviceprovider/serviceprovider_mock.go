@@ -145,7 +145,7 @@ func (t *TestServiceProvider) Reset() {
 // TestCapabilities is a test implementation for capabilities that Service Provider can have.
 // Currently, it aggregates DownloadFileCapability and OAuthCapability. All of these have valid results (i.e. do not result in any errors).
 type TestCapabilities struct {
-	DownloadFileImpl     func(context.Context, *api.SPIFileContentRequest, Credentials, int) (string, error)
+	DownloadFileImpl     func(context.Context, api.SPIFileContentRequestSpec, Credentials, int) (string, error)
 	GetOAuthEndpointImpl func() string
 	OAuthScopesForImpl   func(permission *api.Permissions) []string
 	RefreshTokenImpl     func(ctx context.Context, token *api.Token, config *oauth2.Config) (*api.Token, error)
@@ -155,7 +155,7 @@ var _ DownloadFileCapability = (*TestCapabilities)(nil)
 var _ OAuthCapability = (*TestCapabilities)(nil)
 var _ RefreshTokenCapability = (*TestCapabilities)(nil)
 
-func (t *TestCapabilities) DownloadFile(ctx context.Context, request *api.SPIFileContentRequest, credentials Credentials, maxFileSizeLimit int) (string, error) {
+func (t *TestCapabilities) DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials Credentials, maxFileSizeLimit int) (string, error) {
 	if t.DownloadFileImpl != nil {
 		return t.DownloadFileImpl(ctx, request, credentials, maxFileSizeLimit)
 	}

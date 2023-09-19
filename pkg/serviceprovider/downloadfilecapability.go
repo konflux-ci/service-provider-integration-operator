@@ -29,5 +29,14 @@ func (f FileDownloadNotSupportedError) Error() string {
 
 // DownloadFileCapability indicates an ability of given SCM provider to download files from repository.
 type DownloadFileCapability interface {
-	DownloadFile(ctx context.Context, request *api.SPIFileContentRequest, credentials Credentials, maxFileSizeLimit int) (string, error)
+	DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials Credentials, maxFileSizeLimit int) (string, error)
+}
+
+// DownloadFileFunc converts a function into the implementation of the DownloadFileCapability interface
+type DownloadFileFunc func(ctx context.Context, request api.SPIFileContentRequestSpec, credentials Credentials, maxFileSizeLimit int) (string, error)
+
+var _ DownloadFileCapability = (DownloadFileFunc)(nil)
+
+func (d DownloadFileFunc) DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials Credentials, maxFileSizeLimit int) (string, error) {
+	return d(ctx, request, credentials, maxFileSizeLimit)
 }

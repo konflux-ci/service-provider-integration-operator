@@ -76,7 +76,11 @@ func TestGetFileHead(t *testing.T) {
 	assert.NoError(t, err)
 
 	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo",
+		Ref:      "",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -127,7 +131,11 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 	assert.NoError(t, err)
 
 	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo.git",
+		Ref:      "",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -178,7 +186,11 @@ func TestGetFileOnBranch(t *testing.T) {
 	assert.NoError(t, err)
 
 	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
-	content, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo.git",
+		Ref:      "v0.1.0",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -220,7 +232,11 @@ func TestGetUnexistingFile(t *testing.T) {
 	assert.NoError(t, matcherErr)
 
 	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
-	_, err := fileCapability.DownloadFile(context.TODO(), nil, serviceprovider.Credentials{}, 1024)
+	_, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo",
+		Ref:      "efaf08a367921ae130c524db4a531b7696b7d967",
+	}, serviceprovider.Credentials{}, 1024)
 	if err == nil {
 		t.Error("error expected")
 	}

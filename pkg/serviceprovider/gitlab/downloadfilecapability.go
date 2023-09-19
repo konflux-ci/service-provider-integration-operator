@@ -50,9 +50,9 @@ var (
 	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func (f downloadFileCapability) DownloadFile(ctx context.Context, request *api.SPIFileContentRequest, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
+func (f downloadFileCapability) DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	lg := log.FromContext(ctx)
-	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, request.RepoUrl())
+	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, request.RepoUrl)
 	if err != nil {
 		return "", err
 	}
@@ -65,13 +65,13 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, request *api.S
 	var refOption gitlab.GetFileOptions
 
 	//ref is required, need to set ir retrieve it
-	if request.Spec.Ref != "" {
-		refOption = gitlab.GetFileOptions{Ref: gitlab.String(request.Spec.Ref)}
+	if request.Ref != "" {
+		refOption = gitlab.GetFileOptions{Ref: gitlab.String(request.Ref)}
 	} else {
 		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
 	}
 
-	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.Spec.FilePath, &refOption)
+	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.FilePath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
 		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)

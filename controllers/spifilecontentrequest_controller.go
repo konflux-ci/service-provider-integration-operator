@@ -161,8 +161,9 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// Controller logic usually should not be dependent on the object's status, but this helps us save some
+	// service provider API calls which lessens the chance we hit a rate limit on the API.
 	if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
-		// already injected, nothing to do
 		return ctrl.Result{}, nil
 	}
 
@@ -178,22 +179,21 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
 		return r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 	}
+
 	if sp.GetDownloadFileCapability() == nil {
 		return r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
-
 	}
 	credentials, err := sp.LookupCredentials(ctx, r.K8sClient, &request)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err)
+		return r.reconcileErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err))
 	}
-
 	if credentials == nil {
 		return r.updateFileRequestStatusError(ctx, &request, noCredentialsFoundError)
 	}
 
-	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, &request, *credentials, r.Configuration.MaxFileDownloadSize)
+	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec, *credentials, r.Configuration.MaxFileDownloadSize)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
+		return r.reconcileErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error fetching file content: %w", err))
 	}
 
 	request.Status.ErrorMessage = ""
@@ -232,7 +232,17 @@ func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *
 	return nil
 }
 
+func (r *SPIFileContentRequestReconciler) reconcileErrorWithStatusUpdate(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
+	_, updateErr := r.updateFileRequestStatusError(ctx, request, err)
+	if updateErr != nil {
+		return ctrl.Result{}, updateErr
+	}
+	return ctrl.Result{}, err
+}
+
 func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
+	request.Status.Content = ""
+	request.Status.ContentEncoding = ""
 	request.Status.ErrorMessage = err.Error()
 	request.Status.Phase = api.SPIFileContentRequestPhaseError
 	if err := r.K8sClient.Status().Update(ctx, request); err != nil {

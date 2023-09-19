@@ -573,9 +573,9 @@ For example RemoteSecret yaml see [the sample](/samples/remotesecret-for-ac.yaml
 
 ## SPIFileContentRequest
 Instances of this CRD are used to request specific file contents from the SCM repository.
-After creation, it successively creates an `SPIAccessTokenBinding` and waits until it is injected.
-After that it tries to read the file from the repository using the credentials obtained from secret linked with binding.
-As per now, `SPIFileContentRequests` are one-time objects, that means they reflect the file content only shortly after the moment of their creation, and never tries to update or check content availability later.
+It tries to read the file from the repository using the credentials obtained from SPIAccessToken or RemoteSecret.
+
+`SPIFileContentRequests` are one-time objects. That means they reflect the file content only shortly after the moment of their creation, and never try to update or check content availability later.
 
 
 ### Required Fields
@@ -588,15 +588,13 @@ As per now, `SPIFileContentRequests` are one-time objects, that means they refle
 
 ### Optional Fields
 
-| Name                     | Type   | Description                                                                                                                                                                                                                                                                | Example                                                           | Immutable |
-|--------------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|-----------|
-| status.phase             | enum   | This can be “AwaitingTokenData” or “Delivered” or “Error”. AwaitingTokenData - initial state before the token data is supplied to the subsequent token Token object either through OAuth flow or through manual upload. “Delivered” - the file data successfully injected. |                                                                   | false     |
-| status.errorMessage      | string | The details of the error                                                                                                                                                                                                                                                   | “failed to update the metadata”                                   | false     |
-| status.linkedBindingName | string | name of the SPIToken Binding used for repository authentication                                                                                                                                                                                                            |                                                                   | true      |
-| status.oauthUrl          | string | URL for initiating the OAuth flow copied from linked SPITokenBinding for convenience                                                                                                                                                                                       | https://spi-rest-api.acme.com/authenticate?state=kjfalasjdfl348fj | false     |
-| status.uploadUrl         | string | URL for manual upload token data copied from linked SPITokenBinding for convenience                                                                                                                                                                                        |                                                                   | true      |
-| status.content           | string | Encoded requested file content                                                                                                                                                                                                                                             |                                                                   | true      |
-| status.contentEncoding   | string | Encoding used for file content encoding                                                                                                                                                                                                                                    | base64                                                            | true      |
+| Name                   | Type   | Description                                                                                  | Example                         | Immutable |
+|------------------------|--------|----------------------------------------------------------------------------------------------|---------------------------------|-----------|
+| spec.ref               | string | Represents reference of a git branch. This can be a SHA, branch name, or a tag               | v1.0.1                          | true      |
+| status.phase           | enum   | This can be “Delivered” or “Error”. “Delivered” - the file content is successfully injected. |                                 | false     |
+| status.errorMessage    | string | The details of the error                                                                     | “failed to update the metadata” | false     |
+| status.content         | string | Encoded requested file content                                                               |                                 | true      |
+| status.contentEncoding | string | Encoding used for file content encoding                                                      | base64                          | true      |
 
 
 ## HTTP API Endpoints
