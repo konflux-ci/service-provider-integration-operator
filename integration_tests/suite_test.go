@@ -78,7 +78,8 @@ var testServiceProvider = config.ServiceProviderType{
 var remoteCrdURLs = []string{
 	"https://raw.githubusercontent.com/redhat-appstudio/remote-secret/main/config/crd/bases/appstudio.redhat.com_remotesecrets.yaml",
 	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_snapshotenvironmentbindings.yaml",
-	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_environments.yaml"}
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_environments.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_applications.yaml"}
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -41,11 +41,31 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - applications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - environments
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
 - apiGroups:
   - appstudio.redhat.com
   resources:
@@ -61,8 +81,6 @@ rules:
   verbs:
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - appstudio.redhat.com
@@ -76,8 +94,6 @@ rules:
   - snapshotenvironmentbindings/status
   verbs:
   - get
-  - patch
-  - update
 - apiGroups:
   - appstudio.redhat.com
   resources:

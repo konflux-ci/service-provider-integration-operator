@@ -122,6 +122,12 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
+
+		if err = (&ApplicationReconciler{
+			k8sClient: mgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	if cfg.EnableTokenUpload {
