@@ -41,6 +41,8 @@ type ServiceProvider interface {
 	// mechanism (usually an http client)).
 	LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error)
 
+	// LookupCredentials tries to find suitable Credentials for matchable. Usually this is done by searching for a matching
+	// SPIAccessToken or RemoteSecret. The function may return nil, nil if no Credentials have been found.
 	LookupCredentials(ctx context.Context, cl client.Client, matchable Matchable) (*Credentials, error)
 
 	// PersistMetadata tries to use the OAuth access token associated with the provided token (if any) and persists any

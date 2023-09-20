@@ -176,7 +176,7 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		}
 		lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
 		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-		// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
+		// user fixes that URL. So no need to repeat the reconciliation.
 		return r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 	}
 
@@ -185,7 +185,8 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	credentials, err := sp.LookupCredentials(ctx, r.K8sClient, &request)
 	if err != nil {
-		return r.reconcileErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err))
+		// We might fix the lookup error by retrying the reconciliation
+		return r.requeueErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err))
 	}
 	if credentials == nil {
 		return r.updateFileRequestStatusError(ctx, &request, noCredentialsFoundError)
@@ -193,7 +194,8 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec, *credentials, r.Configuration.MaxFileDownloadSize)
 	if err != nil {
-		return r.reconcileErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error fetching file content: %w", err))
+		// We might fix the download error by retrying the reconciliation
+		return r.requeueErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error fetching file content: %w", err))
 	}
 
 	request.Status.ErrorMessage = ""
@@ -202,15 +204,13 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 	request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
 
 	if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, fmt.Errorf("failed to update the file request status: %w", err)
 	}
-
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&request)}, nil
 }
 
-func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(cr *api.SPIFileContentRequest) time.Duration {
-	return time.Until(cr.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl).Add(r.Configuration.DeletionGracePeriod))
+func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(req *api.SPIFileContentRequest) time.Duration {
+	return time.Until(req.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl))
 }
 
 func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *api.SPIFileContentRequest) error {
@@ -232,7 +232,9 @@ func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *
 	return nil
 }
 
-func (r *SPIFileContentRequestReconciler) reconcileErrorWithStatusUpdate(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
+// requeueErrorWithStatusUpdate tries to update SPIFileContent's status with err, but prioritizes returning the updateErr
+// if the status update fails. It returns Result for convenient use from reconcile.
+func (r *SPIFileContentRequestReconciler) requeueErrorWithStatusUpdate(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
 	_, updateErr := r.updateFileRequestStatusError(ctx, request, err)
 	if updateErr != nil {
 		return ctrl.Result{}, updateErr
@@ -240,15 +242,18 @@ func (r *SPIFileContentRequestReconciler) reconcileErrorWithStatusUpdate(ctx con
 	return ctrl.Result{}, err
 }
 
+// updateFileRequestStatusError puts the SPIFileContentRequest into tan error phase. It returns Result for convenient use from reconcile.
 func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
 	request.Status.Content = ""
 	request.Status.ContentEncoding = ""
 	request.Status.ErrorMessage = err.Error()
 	request.Status.Phase = api.SPIFileContentRequestPhaseError
 	if err := r.K8sClient.Status().Update(ctx, request); err != nil {
+		// we might consider using `errors.IsConflict(err)` here
 		return ctrl.Result{}, fmt.Errorf("failed to update SPIFileContentRequest status with error: %w", err)
 	}
-	return ctrl.Result{}, nil
+	// We have successfully updated the status with error. We need to schedule reconciliation so that requests in error phase are cleaned as well.
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(request)}, nil
 }
 
 type linkedFileRequestBindingsFinalizer struct {
