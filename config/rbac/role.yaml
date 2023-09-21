@@ -46,6 +46,7 @@ rules:
   - get
   - list
   - watch
+  - update
 - apiGroups:
   - appstudio.redhat.com
   resources:
@@ -60,6 +61,7 @@ rules:
   - get
   - list
   - watch
+  - update
 - apiGroups:
   - appstudio.redhat.com
   resources:

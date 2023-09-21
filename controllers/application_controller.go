@@ -33,7 +33,7 @@ type ApplicationReconciler struct {
 	finalizers finalizer.Finalizers
 }
 
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications,verbs=get;list;watch;
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications/finalizers,verbs=update
 
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
