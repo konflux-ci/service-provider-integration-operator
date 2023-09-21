@@ -21,6 +21,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [SPIAccessTokenDataUpdate](#SPIAccessTokenDataUpdate)
     - [SPIAccessCheck](#SPIAccessCheck)
     - [SPIFileContentRequest](#SPIFileContentRequest)
+- [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
 - [HTTP API Endpoints](#http-api-endpoints)
     - [POST /login](#post-login)
     - [GET {sp_type}/authenticate](#get-sp_typeauthenticate)
@@ -117,10 +118,11 @@ will produce this json:
 ```
 
 ## Retrieving file content from SCM repository
-There is dedicated controller for file content requests, which can be performed by putting
-a `SPIFileContentRequest` CR in the namespace, as follows:
+There is dedicated controller for file content requests, which reacts on the creation, update, and delete of
+a `SPIFileContentRequest` CR.
+For example, you can create`SPIFileContentRequest` as follows:
 
-```
+```yaml
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIFileContentRequest
 metadata:
@@ -129,12 +131,11 @@ metadata:
 spec:
   repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
   filePath: hack/boilerplate.go.txt
-
 ```
-Controller then generates SPIAccessTokenBinding and waiting for it to be ready/injected.
-Once binding became ready, controller fetches requested content using credentials from injected secret. A successful attempt will result in base64 encoded file content
+Controller fetches requested content using credentials from SPIAccessToken or RemoteSecret. 
+A successful attempt will result in base64 encoded file content
 appearing in the `status.content` field on the `SPIFileContentRequest` CR.
-```
+```yaml
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIFileContentRequest
 metadata:
@@ -146,12 +147,35 @@ spec:
 status:
   content: LyoKQ29weXJpZ2h0IDIw....==
   contentEncoding: base64
-  linkedBindingName: ""
   phase: Delivered
 ```
+If no credentials are found that could be used to download the file contents, the SPIFileContent's status will instead
+show `Error` phase and errorMessage explaining the issue.
 
+To ensure that SPIFileContentRequest has the required credentials, upon creation, there should already exist
+SPIAccessToken in the same namespace, with read repository permission, `Ready` phase, and with the `serviceProviderUrl`
+corresponding to the `repoUrl` from `SPIFileContentRequest`. As an example, see the SPIAccessToken bellow.
 
-At this stage, file request CR-s are intended to be single-used, so no further content refresh
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessToken
+metadata:
+  name: spi-access-token
+  namespace: default
+spec:
+  permissions:
+    required:
+      - area: repository
+        type: r
+  serviceProviderUrl: https://github.com
+status:
+  phase: Ready
+# ... other fields
+```
+
+The other source of credentials for SPIFileContentRequest can be RemoteSecret. For more information see: [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
+
+File request CRs are intended to be single-used, so no further content refresh
 or accessibility checks must be expected. A new CR instance should be used to re-request the content.
 
 Currently, the file retrievals are limited to GitHub & GitLab repositories only, and files size up to 2 Megabytes.
@@ -534,6 +558,8 @@ These objects are automatically deleted by the controller as soon as they are pr
 This is basically a procedure call to check repository accessibility. Once a user creates a CR, the controller analyzes whether the repository is accessible for the user. In short, if the repository is public or the user has SPIAccessToken for this repository, the repository is accessible. In other cases (private without SPIAccessToken or does not exist), it is not accessible.
 CRs are automatically deleted by the controller after some period of time (30 min by default).
 
+SPIAccessChecks can use RemoteSecret as a source of credential. For more information see: [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
+
 ### Required Fields
 
 | Name         | Type   | Description                                  | Example | Immutable |
@@ -553,23 +579,6 @@ CRs are automatically deleted by the controller after some period of time (30 mi
 | errorReason            | enum   | Detailed error reason                                                                                                           |                                                                                                     | false     |
 | errorMessage           | string | Additional error message. Usually taken from a go error.                                                                        |                                                                                                     | false     |
 
-### SPIAccessCheck and RemoteSecrets
-The original way SPIAccessCheck tried to check access to a private repository (registry) was to find a matching
-SPIAccessToken and use the credentials from it to access the repository.
-
-We have extended the functionality so that if no matching SPIAccessToken is found, it searches for a matching RemoteSecret
-next (read more about RemoteSecrets [here](https://github.com/redhat-appstudio/remote-secret)).
-However, there are a few constraints put on the RemoteSecret before SPIAccessCheck can use the credentials from it:
-- It must be in the same namespace as SPIAccessCheck
-- It must have `appstudio.redhat.com/sp.host` label where the value is host of the service provider matching that of
-SPIAccessCheck's `spec.repoUrl`.
-- It must already contain some secret data (DataObtained condition is true).
-- RemoteSecret's `spec.secret.type` must be equal to `kubernetes.io/basic-auth`.
-- It must have a deployed target in the SPIAccessCheck's namespace.
-- (Optionally) RemoteSecret with the annotation `appstudio.redhat.com/sp.repository` will be prioritized if the value
-is a list of comma-separated repository names and this list contains the repository name inferred from SPIAccessCheck's `spec.repoUrl.`
-
-For example RemoteSecret yaml see [the sample](/samples/remotesecret-for-ac.yaml).
 
 ## SPIFileContentRequest
 Instances of this CRD are used to request specific file contents from the SCM repository.
@@ -596,6 +605,23 @@ It tries to read the file from the repository using the credentials obtained fro
 | status.content         | string | Encoded requested file content                                                               |                                 | true      |
 | status.contentEncoding | string | Encoding used for file content encoding                                                      | base64                          | true      |
 
+
+## Integration with RemoteSecrets
+
+We have extended the functionality of SPIAccessCheck and SPIFileContentRequest so that if no matching SPIAccessToken is found,
+it searches for a matching RemoteSecret next (read more about RemoteSecrets [here](https://github.com/redhat-appstudio/remote-secret)).
+However, there are a few constraints put on RemoteSecret before SPIAccessCheck or SPIFileContentRequest
+(let's refer to them collectively as Object, for simplicity) can use the credentials from it:
+- It must be in the same namespace as Object
+- It must have `appstudio.redhat.com/sp.host` label where the value is host of the service provider matching that of
+  Object's `spec.repoUrl`.
+- It must already contain some secret data (DataObtained condition is true).
+- RemoteSecret's `spec.secret.type` must be equal to `kubernetes.io/basic-auth`.
+- It must have a deployed target in the Object's namespace.
+- (Optionally) RemoteSecret with the annotation `appstudio.redhat.com/sp.repository` will be prioritized if the value
+  is a list of comma-separated repository names and this list contains the repository name inferred from Object's `spec.repoUrl.`
+
+For example RemoteSecret yaml, see [the sample](/samples/remotesecret-for-ac.yaml).
 
 ## HTTP API Endpoints
 

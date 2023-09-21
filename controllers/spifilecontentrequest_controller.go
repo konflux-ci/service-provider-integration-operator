@@ -37,8 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const LinkedFileRequestLabel = "spi.appstudio.redhat.com/file-content-request-name"
-
 var (
 	noSuitableServiceProviderFound  = stderrors.New("unable to find a matching service provider for the given URL")
 	unableToValidateServiceProvider = stderrors.New("unable to validate service provider for the given URL")
@@ -66,12 +64,10 @@ func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) err
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 	}
 	return err
-
 }
 
 func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIFileContentRequest")
 
 	request := api.SPIFileContentRequest{}
@@ -151,11 +147,11 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(req *api.SPIFileContentRequest) time.Duration {
-	return time.Until(req.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl).Add(r.Configuration.DeletionGracePeriod))
+	return time.Until(req.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl))
 }
 
-// requeueErrorWithStatusUpdate tries to update SPIFileContent's status with err, but prioritizes returning the updateErr
-// if the status update fails. It returns Result for convenient use from reconcile.
+// requeueErrorWithStatusUpdate tries to update SPIFileContent's status with err. It prioritizes returning the updateErr
+// over err if the status update fails. It returns Result for convenient use from reconcile.
 func (r *SPIFileContentRequestReconciler) requeueErrorWithStatusUpdate(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
 	_, updateErr := r.updateFileRequestStatusError(ctx, request, err)
 	if updateErr != nil {
@@ -164,7 +160,7 @@ func (r *SPIFileContentRequestReconciler) requeueErrorWithStatusUpdate(ctx conte
 	return ctrl.Result{}, err
 }
 
-// updateFileRequestStatusError puts the SPIFileContentRequest into tan error phase. It returns Result for convenient use from reconcile.
+// updateFileRequestStatusError puts the SPIFileContentRequest into an error phase. It returns Result for convenient use from reconcile.
 func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
 	request.Status.Content = ""
 	request.Status.ContentEncoding = ""
