@@ -34,7 +34,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 			Behavior: ITestBehavior{},
 		}
 
-		When("remote secret have environment label", func() {
+		When("RemoteSecret has the environment label", func() {
 
 			BeforeEach(func() {
 				testSetup.BeforeEach(nil)
@@ -44,7 +44,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 				testSetup.AfterEach()
 			})
 
-			It("have the target set", func() {
+			It("sets the target", func() {
 				rs := &rapi.RemoteSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-remotesecret-",
@@ -79,7 +79,7 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 			})
 		})
 
-		When("remote secret have environment annotations", func() {
+		When("RemoteSecrets has the environment annotations", func() {
 
 			BeforeEach(func() {
 				testSetup.BeforeEach(nil)
@@ -89,13 +89,13 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 				testSetup.AfterEach()
 			})
 
-			It("have the target set", func() {
+			It("sets the target", func() {
 				rs := &rapi.RemoteSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-remotesecret-",
 						Namespace:    env.Namespace,
 						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app"},
-						Annotations:  map[string]string{"appstudio.redhat.com/environment": " env-foo, env-bar, " + env.Name},
+						Annotations:  map[string]string{"appstudio.redhat.com/environment": " env-foo,env-bar, " + env.Name},
 					},
 					Spec: rapi.RemoteSecretSpec{
 						Secret: rapi.LinkableSecretSpec{

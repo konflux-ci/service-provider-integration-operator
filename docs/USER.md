@@ -26,6 +26,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [GET {sp_type}/authenticate](#get-sp_typeauthenticate)
     - [GET /{sp_type}/callback](#get-sp_typecallback)
     - [POST /token/{namespace}/{name}](#post-tokennamespacename)
+- [SnapshotEnvironmentBinding Controller](#SnapshotEnvironmentBinding-Controller)
 
 # Use Cases
 
@@ -662,4 +663,33 @@ This endpoint accepts a JSON object with the following structure:
 - 204 - when the data is processed successfully
 - 403 - on authorization error
 
+## SnapshotEnvironmentBinding Controller
+The SnapshotEnvironmentBinding controller is a part of the SPI Operator. The responsibility of the controller is to watch
+SnapshotEnvironmentBindings and infer which RemoteSecret needs to have target added or removed.
+
+RemoteSecrets belonging to a certain Environment (which means they are candidates for updating their targets) are
+identified by `appstudio.redhat.com/environment` label or annotation.
+
+When RemoteSecret has the label set, the value is interpreted as Environment name. When instead the RemoteSecret has annotation
+with such a key, the value is interpreted as comma-separated list of Environment names. This distinction is made because
+annotations are permitted longer values. If neither label nor annotation is set, the RemoteSecret is considered to belong
+to every environment. The annotation takes precedence over the label. In other words, specifying both label and
+annotation is the same as just specifying annotation. See examples below:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+  labels:
+    appstudio.redhat.com/environment: prod # This RemoteSecret belongs to the `prod` Environment
+```
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+  annotations:
+    appstudio.redhat.com/environment: prod,test,gama # This RemoteSecret belongs to the `prod`, `test`, and `gama` Environment
+  # adding a label with the same key would have no effect
+```
 
