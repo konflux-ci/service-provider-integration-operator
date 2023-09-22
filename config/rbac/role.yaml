@@ -45,8 +45,8 @@ rules:
   verbs:
   - get
   - list
-  - watch
   - update
+  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
@@ -60,8 +60,8 @@ rules:
   verbs:
   - get
   - list
-  - watch
   - update
+  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:
