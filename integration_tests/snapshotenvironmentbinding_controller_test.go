@@ -127,5 +127,4 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 		})
 
 	})
-
 })
