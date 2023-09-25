@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -156,7 +156,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 						},
 					},
 				},
@@ -176,7 +176,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeQuay.Name),
+							api.ServiceProviderTypeLabel: string(ServiceProviderTypeQuay.Name),
 						},
 					},
 				},
@@ -196,7 +196,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: "different-namespace",
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 						},
 					},
 				},
@@ -278,7 +278,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -287,8 +287,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
 			},
@@ -302,7 +302,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -311,8 +311,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "different-host.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "different-host.eh",
 					},
 				},
 			},
@@ -326,8 +326,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "different-host.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "different-host.eh",
 					},
 				},
 			},
@@ -336,8 +336,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "another-different-host.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "another-different-host.eh",
 					},
 				},
 			},
@@ -351,8 +351,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
 			},
@@ -361,8 +361,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
 			},
@@ -376,7 +376,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -385,7 +385,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -399,8 +399,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "github.com",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "github.com",
 					},
 				},
 			},
@@ -409,7 +409,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -423,7 +423,7 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 					},
 				},
 			},
@@ -432,8 +432,8 @@ func TestMultipleProviders(t *testing.T) {
 					Name:      "oauth-config-secret-hosted",
 					Namespace: secretNamespace,
 					Labels: map[string]string{
-						v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
-						v1beta1.ServiceProviderHostLabel: "blabol.eh",
+						api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+						api.ServiceProviderHostLabel: "blabol.eh",
 					},
 				},
 			},
