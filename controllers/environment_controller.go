@@ -114,8 +114,7 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environment.Name {
+		if !remoteSecretApplicableForEnvironment(remoteSecret, environment.Name) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}

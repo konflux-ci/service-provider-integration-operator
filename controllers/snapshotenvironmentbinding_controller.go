@@ -21,6 +21,7 @@ import (
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,9 +38,9 @@ import (
 )
 
 const (
-	ApplicationLabelName = "appstudio.redhat.com/application"
-	EnvironmentLabelName = "appstudio.redhat.com/environment"
-	ComponentLabelName   = "appstudio.redhat.com/component"
+	ApplicationLabelName              = "appstudio.redhat.com/application"
+	EnvironmentLabelAndAnnotationName = "appstudio.redhat.com/environment"
+	ComponentLabelName                = "appstudio.redhat.com/component"
 )
 
 var (
@@ -127,10 +128,9 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environmentName {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
+		if !remoteSecretApplicableForEnvironment(remoteSecret, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -168,4 +168,14 @@ func detectTargetFromEnvironment(_ context.Context, environment appstudiov1alpha
 		// local environment, just return the namespace
 		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
 	}
+}
+
+func remoteSecretApplicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
+		return slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName)
+	}
+	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
+		return labelValue == environmentName
+	}
+	return true
 }
