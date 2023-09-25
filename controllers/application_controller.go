@@ -19,6 +19,9 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -42,11 +45,11 @@ var unableToDeleteRemoteSecret = stderrors.New("unable to delete the remote secr
 
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedRemoteSecretsTargetFinalizerName, &linkedRemoteSecretTargetsFinalizer{client: r.k8sClient}); err != nil {
+	if err := r.finalizers.Register(linkedRemoteSecretsTargetFinalizerName, &linkedAppRemoteSecretFinalizer{client: r.k8sClient}); err != nil {
 		return fmt.Errorf("failed to register the linked remote secret finalizer: %w", err)
 	}
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&appstudiov1alpha1.Application{}).
+		For(&appstudiov1alpha1.Application{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("failed to configure the application reconciler: %w", err)
@@ -65,6 +68,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			lg.V(logs.DebugLevel).Info("Application already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
+		lg.Error(err, fmt.Sprintf("unable to get the Aplication %s %v", req.Name, req.NamespacedName))
 		return ctrl.Result{}, fmt.Errorf("failed to get the Application: %w", err)
 	}
 
@@ -80,14 +84,14 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-type linkedRemoteSecretTargetsFinalizer struct {
+type linkedAppRemoteSecretFinalizer struct {
 	client client.Client
 }
 
-var _ finalizer.Finalizer = (*linkedRemoteSecretTargetsFinalizer)(nil)
+var _ finalizer.Finalizer = (*linkedAppRemoteSecretFinalizer)(nil)
 
 // Finalize removes the remote secret targets synced to the actual application which is being deleted
-func (f *linkedRemoteSecretTargetsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
+func (f *linkedAppRemoteSecretFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
 	application, ok := obj.(*appstudiov1alpha1.Application)
 	if !ok {
 		return finalizer.Result{}, unexpectedObjectTypeError
@@ -104,7 +108,7 @@ func (f *linkedRemoteSecretTargetsFinalizer) Finalize(ctx context.Context, obj c
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		applicationInSecret, _ := remoteSecret.Labels[ApplicationLabelName]
+		applicationInSecret := remoteSecret.Labels[ApplicationLabelName]
 		if applicationInSecret != application.Name {
 			// this secret is intended for another application, bypassing it
 			continue

@@ -31,20 +31,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
-	ApplicationLabelName                   = "appstudio.redhat.com/application"
-	EnvironmentLabelName                   = "appstudio.redhat.com/environment"
-	ComponentLabelName                     = "appstudio.redhat.com/component"
-	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
+	ApplicationLabelName = "appstudio.redhat.com/application"
+	EnvironmentLabelName = "appstudio.redhat.com/environment"
+	ComponentLabelName   = "appstudio.redhat.com/component"
 )
 
 var (
@@ -64,45 +59,17 @@ type SnapshotEnvironmentBindingReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/status,verbs=get
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=list;update;watch
 
 func (r *SnapshotEnvironmentBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedRemoteSecretsTargetFinalizerName, &linkedRemoteSecretsFinalizer{client: r.k8sClient}); err != nil {
-		return fmt.Errorf("failed to register the linked remote secret finalizer: %w", err)
-	}
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&appstudiov1alpha1.SnapshotEnvironmentBinding{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &appstudiov1alpha1.Environment{}}, handler.EnqueueRequestsFromMapFunc(r.findSebForEnvironment), builder.WithPredicates(predicate.Funcs{
-			DeleteFunc: func(de event.DeleteEvent) bool { return true },
-		})).
 		Complete(r)
 
 	if err != nil {
 		return fmt.Errorf("failed to configure the reconciler: %w", err)
 	}
 	return nil
-}
-
-func (r *SnapshotEnvironmentBindingReconciler) findSebForEnvironment(environment client.Object) []reconcile.Request {
-	var sebList appstudiov1alpha1.SnapshotEnvironmentBindingList
-	if err := r.k8sClient.List(context.Background(), &sebList); err != nil {
-		log.FromContext(context.Background()).Error(err, "failed to list the SnapshotEnvironmentBinding objects")
-		return []reconcile.Request{}
-	}
-	ret := make([]reconcile.Request, 0, len(sebList.Items))
-	for _, seb := range sebList.Items {
-		if seb.Spec.Environment == environment.GetName() {
-			ret = append(ret, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: seb.GetNamespace(),
-					Name:      seb.GetName(),
-				},
-			})
-		}
-	}
-	return ret
 }
 
 func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -148,20 +115,6 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 
-	finalizationResult, err := r.finalizers.Finalize(ctx, &environment)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to finalize: %w", err)
-	}
-	if finalizationResult.Updated {
-		if err = r.k8sClient.Update(ctx, &environment); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update environment based on finalization result: %w", err)
-		}
-	}
-	if environment.DeletionTimestamp != nil {
-		lg.V(logs.DebugLevel).Info("environment being deleted, no other changes required after completed finalization")
-		return ctrl.Result{}, nil
-	}
-
 	target, err := detectTargetFromEnvironment(ctx, environment)
 	if err != nil {
 		lg.Error(err, fmt.Sprintf("error while resolving target for environment %s", environmentName))
@@ -200,16 +153,6 @@ func addTargetIfNotExists(secret *rapi.RemoteSecret, target rapi.RemoteSecretTar
 	secret.Spec.Targets = append(secret.Spec.Targets, target)
 }
 
-func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
-	tmp := make([]rapi.RemoteSecretTarget, 0, len(secret.Spec.Targets))
-	for _, existingTarget := range secret.Spec.Targets {
-		if !targetsMatch(existingTarget, target) {
-			tmp = append(tmp, existingTarget)
-		}
-	}
-	secret.Spec.Targets = tmp
-}
-
 func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 	return target1.Namespace == target2.Namespace && target1.ApiUrl == target2.ApiUrl && target1.ClusterCredentialsSecret == target2.ClusterCredentialsSecret
 }
@@ -225,46 +168,4 @@ func detectTargetFromEnvironment(_ context.Context, environment appstudiov1alpha
 		// local environment, just return the namespace
 		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
 	}
-}
-
-type linkedRemoteSecretsFinalizer struct {
-	client client.Client
-}
-
-var _ finalizer.Finalizer = (*linkedRemoteSecretsFinalizer)(nil)
-
-// Finalize removes the remote secret targets synced to the actual environment which is being deleted
-func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
-	environment, ok := obj.(*appstudiov1alpha1.Environment)
-	if !ok {
-		return finalizer.Result{}, unexpectedObjectTypeError
-	}
-
-	remoteSecretsList := rapi.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace)); err != nil {
-		return finalizer.Result{}, unableToFetchRemoteSecretsError
-	}
-
-	if len(remoteSecretsList.Items) == 0 {
-		return finalizer.Result{}, nil
-	}
-
-	target, err := detectTargetFromEnvironment(ctx, *environment)
-	if err != nil {
-		return finalizer.Result{}, fmt.Errorf("failed to detect target from environment: %w", err)
-	}
-
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environment.Name {
-			// this secret is intended for another environment, bypassing it
-			continue
-		}
-		removeTarget(&remoteSecret, target)
-		if err := f.client.Update(ctx, &remoteSecret); err != nil {
-			return finalizer.Result{}, unableToUpdateRemoteSecret
-		}
-	}
-	return finalizer.Result{}, nil
 }

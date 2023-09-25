@@ -73,14 +73,15 @@ var _ = Describe("Application", func() {
 		})
 
 		It("have the target cleared", func() {
+			// read RS
+			original := &rapi.RemoteSecret{}
+			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, original)).To(Succeed())
 			// delete application
 			Expect(ITest.Client.Delete(ITest.Context, &application)).To(Succeed())
-			// reconcile the cluster after deletion
-			testSetup.ReconcileWithCluster(nil)
 			// check remote secret is gone
 			Eventually(func(g Gomega) {
 				rs := &rapi.RemoteSecret{}
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(HaveField("ErrStatus.Code", int32(404)))
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: original.Name, Namespace: original.Namespace}, rs)).To(HaveField("ErrStatus.Code", int32(404)))
 			}).Should(Succeed())
 		})
 
