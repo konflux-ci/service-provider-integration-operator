@@ -73,10 +73,10 @@ rules:
   resources:
   - remotesecrets
   verbs:
+  - delete
   - list
   - update
   - watch
-  - delete
 - apiGroups:
   - appstudio.redhat.com
   resources:
