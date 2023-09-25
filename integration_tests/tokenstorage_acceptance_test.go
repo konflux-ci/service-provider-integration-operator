@@ -27,7 +27,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -157,13 +157,13 @@ func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenSt
 }
 
 var (
-	testToken          *v1beta1.Token
-	testSpiAccessToken *v1beta1.SPIAccessToken
+	testToken          *api.Token
+	testSpiAccessToken *api.SPIAccessToken
 )
 
 func refreshTestData() {
 	random, _, _ := strings.Cut(string(uuid.NewUUID()), "-")
-	testToken = &v1beta1.Token{
+	testToken = &api.Token{
 		Username:     "testUsername-" + random,
 		AccessToken:  "testAccessToken-" + random,
 		TokenType:    "testTokenType-" + random,
@@ -171,7 +171,7 @@ func refreshTestData() {
 		Expiry:       rand.Uint64() % 1000,
 	}
 
-	testSpiAccessToken = &v1beta1.SPIAccessToken{
+	testSpiAccessToken = &api.SPIAccessToken{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       uuid.NewUUID(),
 			Name:      "testSpiAccessToken-" + random,

@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +45,7 @@ func TestSpConfigFromUserSecret(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(ServiceProviderTypeGitHub.Name),
 						},
 					},
 				},

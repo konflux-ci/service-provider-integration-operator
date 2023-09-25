@@ -27,7 +27,7 @@ import (
 
 	authz "k8s.io/api/authorization/v1"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"k8s.io/client-go/kubernetes"
@@ -104,7 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(corev1.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(auth.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(authz.AddToScheme(IT.Scheme)).To(Succeed())
-	Expect(v1beta1.AddToScheme(IT.Scheme)).To(Succeed())
+	Expect(api.AddToScheme(IT.Scheme)).To(Succeed())
 
 	IT.ClientFactory = clientfactory.UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
 

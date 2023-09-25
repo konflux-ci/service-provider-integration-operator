@@ -34,7 +34,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -871,7 +870,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				gg.Expect(sas.Items).To(BeEmpty())
 			}).Should(Succeed())
 
-			log.Log.Info("service accounts deleted", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
+			log.Log.Info("service accounts deleted", "test", CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
 		}
 
 		Context("syncing", func() {
