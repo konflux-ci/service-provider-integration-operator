@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Application", func() {
 
-	Describe("Cleanups targets in RemoteSecret on application removal", func() {
+	Describe("Cleanups RemoteSecret on application removal", func() {
 
 		var application v1alpha1.Application
 
@@ -77,11 +77,10 @@ var _ = Describe("Application", func() {
 			Expect(ITest.Client.Delete(ITest.Context, &application)).To(Succeed())
 			// reconcile the cluster after deletion
 			testSetup.ReconcileWithCluster(nil)
-			// check target is gone
+			// check remote secret is gone
 			Eventually(func(g Gomega) {
 				rs := &rapi.RemoteSecret{}
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
-				g.Expect(rs.Spec.Targets).To(BeEmpty())
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(HaveField("ErrStatus.Code", int32(404)))
 			}).Should(Succeed())
 		})
 

@@ -76,6 +76,7 @@ rules:
   - list
   - update
   - watch
+  - delete
 - apiGroups:
   - appstudio.redhat.com
   resources:

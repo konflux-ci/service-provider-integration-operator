@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -35,6 +36,9 @@ type ApplicationReconciler struct {
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications/finalizers,verbs=update
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=list;update;watch;delete
+
+var unableToDeleteRemoteSecret = stderrors.New("unable to delete the remote secret with application removal")
 
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()
@@ -100,15 +104,14 @@ func (f *linkedRemoteSecretTargetsFinalizer) Finalize(ctx context.Context, obj c
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		applicationInSecret, set := remoteSecret.Labels[ApplicationLabelName]
-		if set && applicationInSecret != "" && applicationInSecret != application.Name {
+		applicationInSecret, _ := remoteSecret.Labels[ApplicationLabelName]
+		if applicationInSecret != application.Name {
 			// this secret is intended for another application, bypassing it
 			continue
 		}
-		// cleanup the targets
-		remoteSecret.Spec.Targets = []rapi.RemoteSecretTarget{}
-		if err := f.client.Update(ctx, &remoteSecret); err != nil {
-			return finalizer.Result{}, unableToUpdateRemoteSecret
+		// remove the secret
+		if err := f.client.Delete(ctx, &remoteSecret); err != nil {
+			return finalizer.Result{}, unableToDeleteRemoteSecret
 		}
 	}
 	return finalizer.Result{}, nil
