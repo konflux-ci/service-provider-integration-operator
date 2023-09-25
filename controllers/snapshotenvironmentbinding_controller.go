@@ -60,7 +60,7 @@ type SnapshotEnvironmentBindingReconciler struct {
 	finalizers    finalizer.Finalizers
 }
 
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings,verbs=get;list;watch;
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/status,verbs=get
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments,verbs=get;list;watch;update
