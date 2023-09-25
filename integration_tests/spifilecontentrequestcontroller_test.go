@@ -52,7 +52,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 
 		It("have the status awaiting set", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase == api.SPIFileContentRequestPhaseAwaitingTokenData).To(BeTrue())
+				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase).To(Equal(api.SPIFileContentRequestPhaseAwaitingTokenData))
 			})
 		})
 
