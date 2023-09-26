@@ -20,6 +20,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -36,6 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
 
 var (
 	noSuitableServiceProviderFound  = stderrors.New("unable to find a matching service provider for the given URL")
@@ -80,6 +83,13 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 
 		lg.Error(err, "failed to get the object")
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
+	}
+
+	// remove old finalizer
+	if removed := controllerutil.RemoveFinalizer(&request, linkedFileRequestBindingsFinalizerName); removed {
+		if err := r.K8sClient.Update(ctx, &request); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup old linkedBinding finalizer: %w", err)
+		}
 	}
 
 	if request.DeletionTimestamp != nil {

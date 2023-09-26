@@ -180,4 +180,30 @@ var _ = Describe("SPIFileContentRequest", func() {
 			})
 		})
 	})
+
+	Describe("contains old finalizer", func() {
+		request := StandardFileRequest("old-finalizer")
+		request.Finalizers = append(request.Finalizers, "spi.appstudio.redhat.com/file-linked-bindings")
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				FileContentRequests: []*api.SPIFileContentRequest{request},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("should remove remove the old finalizer", func() {
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				request := testSetup.InCluster.FileContentRequests[0]
+				g.Expect(request.Finalizers).To(BeEmpty())
+			})
+		})
+	})
+
 })
