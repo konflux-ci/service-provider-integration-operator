@@ -25,12 +25,26 @@ import (
 var _ = Describe("SnapshotEnvironmentBinding", func() {
 
 	Describe("Creates new target for RemoteSecret with local environment", func() {
-
 		env := StandardLocalEnvironment("test-env")
-
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
-				RemoteSecrets: []*rapi.RemoteSecret{{
+				Environments: []*v1alpha1.Environment{env},
+			},
+			Behavior: ITestBehavior{},
+		}
+
+		When("RemoteSecret has the environment label", func() {
+
+			BeforeEach(func() {
+				testSetup.BeforeEach(nil)
+			})
+
+			var _ = AfterEach(func() {
+				testSetup.AfterEach()
+			})
+
+			It("sets the target", func() {
+				rs := &rapi.RemoteSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-remotesecret-",
 						Namespace:    env.Namespace,
@@ -42,9 +56,10 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 							Type: "Opaque",
 						},
 					},
-				}},
-				Environments: []*v1alpha1.Environment{env},
-				SnapshotEnvBindings: []*v1alpha1.SnapshotEnvironmentBinding{{
+				}
+				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
+				// SEB must always be created after RS
+				seb := &v1alpha1.SnapshotEnvironmentBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "create-target-snapshotbinding-",
 						Namespace:    env.Namespace,
@@ -55,24 +70,59 @@ var _ = Describe("SnapshotEnvironmentBinding", func() {
 						Environment: env.Name,
 						Components:  []v1alpha1.BindingComponent{},
 					},
-				}},
-			},
-			Behavior: ITestBehavior{},
-		}
-		BeforeEach(func() {
-			testSetup.BeforeEach(nil)
-		})
-
-		var _ = AfterEach(func() {
-			testSetup.AfterEach()
-		})
-
-		It("have the target set", func() {
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal(env.Namespace))
+				}
+				Expect(ITest.Client.Create(ITest.Context, seb)).To(Succeed())
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal(env.Namespace))
+				})
 			})
 		})
 
+		When("RemoteSecrets has the environment annotations", func() {
+
+			BeforeEach(func() {
+				testSetup.BeforeEach(nil)
+			})
+
+			var _ = AfterEach(func() {
+				testSetup.AfterEach()
+			})
+
+			It("sets the target", func() {
+				rs := &rapi.RemoteSecret{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "create-target-remotesecret-",
+						Namespace:    env.Namespace,
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app"},
+						Annotations:  map[string]string{"appstudio.redhat.com/environment": " env-foo,env-bar, " + env.Name},
+					},
+					Spec: rapi.RemoteSecretSpec{
+						Secret: rapi.LinkableSecretSpec{
+							Name: "test-remote-secret",
+							Type: "Opaque",
+						},
+					},
+				}
+				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
+				// SEB must always be created after RS
+				seb := &v1alpha1.SnapshotEnvironmentBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "create-target-snapshotbinding-",
+						Namespace:    env.Namespace,
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": env.Name},
+					},
+					Spec: v1alpha1.SnapshotEnvironmentBindingSpec{
+						Application: "test-app",
+						Environment: env.Name,
+						Components:  []v1alpha1.BindingComponent{},
+					},
+				}
+				Expect(ITest.Client.Create(ITest.Context, seb)).To(Succeed())
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					g.Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets[0].Namespace).To(Equal(env.Namespace))
+				})
+			})
+		})
 	})
 
 	Describe("Creates new target for RemoteSecret with remote environment", func() {

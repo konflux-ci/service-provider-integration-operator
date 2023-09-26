@@ -34,13 +34,6 @@ var filterError = TokenFilterFunc(func(ctx context.Context, binding Matchable, t
 	return false, fmt.Errorf("some error")
 })
 
-var conditionTrue = func() bool {
-	return true
-}
-var conditionFalse = func() bool {
-	return false
-}
-
 func TestTokenFilterFunc_Matches(t *testing.T) {
 	type args struct {
 		ctx       context.Context

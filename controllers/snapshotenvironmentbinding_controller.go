@@ -19,6 +19,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"k8s.io/utils/strings/slices"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -38,7 +39,7 @@ import (
 
 const (
 	ApplicationLabelName                   = "appstudio.redhat.com/application"
-	EnvironmentLabelName                   = "appstudio.redhat.com/environment"
+	EnvironmentLabelAndAnnotationName      = "appstudio.redhat.com/environment"
 	ComponentLabelName                     = "appstudio.redhat.com/component"
 	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
 )
@@ -130,10 +131,9 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environmentName {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
+		if !remoteSecretApplicableForEnvironment(remoteSecret, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -183,6 +183,16 @@ func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alp
 	}
 }
 
+func remoteSecretApplicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
+		return slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName)
+	}
+	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
+		return labelValue == environmentName
+	}
+	return true
+}
+
 type linkedRemoteSecretsFinalizer struct {
 	client client.Client
 }
@@ -208,10 +218,9 @@ func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.
 
 	target := rapi.RemoteSecretTarget{Namespace: snapshotEnvBinding.Namespace}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != snapshotEnvBinding.Spec.Environment {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
+		if !remoteSecretApplicableForEnvironment(remoteSecret, snapshotEnvBinding.Spec.Environment) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}

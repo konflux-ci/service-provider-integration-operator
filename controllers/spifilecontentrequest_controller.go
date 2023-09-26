@@ -20,8 +20,9 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-playground/validator/v10"
 
