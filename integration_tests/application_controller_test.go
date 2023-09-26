@@ -72,7 +72,7 @@ var _ = Describe("Application", func() {
 			testSetup.AfterEach()
 		})
 
-		It("have the target cleared", func() {
+		It("have the remote secret removed", func() {
 			// read RS
 			original := &rapi.RemoteSecret{}
 			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, original)).To(Succeed())
