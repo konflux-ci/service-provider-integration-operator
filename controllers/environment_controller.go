@@ -119,6 +119,7 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
+		logs.AuditLog(ctx).Info("Cleaning up the remote secret targets due to environment deletion", "environment", environment.Name, "remoteSecret", remoteSecret.Name)
 		removeTarget(&remoteSecret, target)
 		if err := f.client.Update(ctx, &remoteSecret); err != nil {
 			return finalizer.Result{}, unableToUpdateRemoteSecret

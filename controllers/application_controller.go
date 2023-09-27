@@ -114,6 +114,7 @@ func (f *linkedAppRemoteSecretFinalizer) Finalize(ctx context.Context, obj clien
 			continue
 		}
 		// remove the secret
+		logs.AuditLog(ctx).Info("Cleaning up the remote secret due to application deletion", "application", application.Name, "remoteSecret", remoteSecret.Name)
 		if err := f.client.Delete(ctx, &remoteSecret); err != nil {
 			return finalizer.Result{}, unableToDeleteRemoteSecret
 		}

@@ -87,6 +87,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 
 	// remove old finalizers
 	if slices.Contains(snapshotEnvBinding.Finalizers, linkedRemoteSecretsTargetFinalizerName) {
+		logs.AuditLog(ctx).Info("Cleaning up the finalizer on snapshot environment binding", "snapshotenvironmentbinding", snapshotEnvBinding.Name)
 		controllerutil.RemoveFinalizer(&snapshotEnvBinding, linkedRemoteSecretsTargetFinalizerName)
 		if err := r.k8sClient.Update(ctx, &snapshotEnvBinding); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to cleanup old finalizer on snapshot env binding: %w", err)
