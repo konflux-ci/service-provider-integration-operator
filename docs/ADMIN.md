@@ -95,7 +95,6 @@ are also applicable to the operator. The configmap for operator-specific configu
 | --deletion-grace-period   | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
 | --max-download-size-bytes | MAXDOWNLOADSIZEBITYES       | 2097152 | A maximum file size in bytes for file downloading from SCM capabilities supporting providers.                                                                                    |
 | --enable-token-upload     | ENABLETOKENUPLOAD           | true    | Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets.                                                                            |
-| --enable-remote-secrets   | ENABLEREMOTESECRETS         | true    | Enable the RemoteSecret controller integration.                                                                                                                                  |
 
 ### OAuth service configuration parameters
 
