@@ -83,16 +83,18 @@ This table only contains the configuration parameters specific to the operator. 
 are also applicable to the operator. The configmap for operator-specific configuration is called
 `spi-controller-manager-environment-config`.
 
-| Command argument        | Environment variable        | Default | Description                                                                                                                                                                      |
-|-------------------------|-----------------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| --leader-elect          | ENABLELEADERELECTION        | false   | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.                                                            |
-| --metadata-cache-ttl    | TOKENMETADATACACHETTL       | 1h      | The maximum age of the token metadata cache. To reduce the load on the service providers, SPI only refreshes the metadata of the tokens when determined stale by this parameter. |
-| --token-ttl             | TOKENLIFETIMEDURATION       | 120h    | Access token lifetime in hours, minutes or seconds. Examples:  "3h",  "5h30m40s" etc.                                                                                            |
-| --binding-ttl           | BINDINGLIFETIMEDURATION     | 2h      | Access token binding lifetime in hours, minutes or seconds. Examples: "3h", "5h30m40s" etc.                                                                                      |
-| --access-check-ttl      | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
-| --file-request-ttl      | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
-| --token-match-policy    | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
-| --deletion-grace-period | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
+| Command argument          | Environment variable        | Default | Description                                                                                                                                                                      |
+|---------------------------|-----------------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --leader-elect            | ENABLELEADERELECTION        | false   | Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.                                                            |
+| --metadata-cache-ttl      | TOKENMETADATACACHETTL       | 1h      | The maximum age of the token metadata cache. To reduce the load on the service providers, SPI only refreshes the metadata of the tokens when determined stale by this parameter. |
+| --token-ttl               | TOKENLIFETIMEDURATION       | 120h    | Access token lifetime in hours, minutes or seconds. Examples:  "3h",  "5h30m40s" etc.                                                                                            |
+| --binding-ttl             | BINDINGLIFETIMEDURATION     | 2h      | Access token binding lifetime in hours, minutes or seconds. Examples: "3h", "5h30m40s" etc.                                                                                      |
+| --access-check-ttl        | ACCESSCHECKLIFETIMEDURATION | 30m     | Access check lifetime in hours, minutes or seconds.                                                                                                                              |
+| --file-request-ttl        | FILEREQUESTLIFETIMEDURATION | 30m     | File content request lifetime in hours, minutes or seconds.                                                                                                                      |
+| --token-match-policy      | TOKENMATCHPOLICY            | any     | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                   |
+| --deletion-grace-period   | DELETIONGRACEPERIOD         | 2s      | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                               |
+| --max-download-size-bytes | MAXDOWNLOADSIZEBITYES       | 2097152 | A maximum file size in bytes for file downloading from SCM capabilities supporting providers.                                                                                    |
+| --enable-token-upload     | ENABLETOKENUPLOAD           | true    | Enable Token Upload controller. Enabling this will make possible uploading access token with Secrets.                                                                            |
 
 ### OAuth service configuration parameters
 

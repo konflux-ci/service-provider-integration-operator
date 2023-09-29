@@ -25,12 +25,6 @@ function print() {
 print "Cleaning up resources from previous runs..."
 cleanup
 
-
-print "Enabling remote secrets..."
-kubectl -n spi-system patch configmap spi-controller-manager-environment-config --type=merge -p '{"data": {"ENABLEREMOTESECRETS": "true"}}'
-kubectl -n spi-system rollout restart deployment/spi-controller-manager
-
-
 print "Creating two test target namespaces..."
 kubectl create namespace "${TARGET_NS_1}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace "${TARGET_NS_2}" --dry-run=client -o yaml | kubectl apply -f -
