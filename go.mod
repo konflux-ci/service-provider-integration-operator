@@ -1,6 +1,6 @@
 module github.com/redhat-appstudio/service-provider-integration-operator
 
-go 1.20
+go 1.21
 
 require (
 	github.com/alexedwards/scs/v2 v2.5.1
@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230823105056-c172d75de35a
-	github.com/redhat-appstudio/remote-secret v0.0.0-20230924190816-c808fab68640
+	github.com/redhat-appstudio/remote-secret v0.0.0-20230927105850-80ca032b28a1
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.91.1
 	go.uber.org/zap v1.26.0
