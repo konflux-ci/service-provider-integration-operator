@@ -68,7 +68,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			lg.V(logs.DebugLevel).Info("Application already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
-		lg.Error(err, fmt.Sprintf("unable to get the Aplication %s %v", req.Name, req.NamespacedName))
+		lg.Error(err, "unable to get the Application", "name", req.Name, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to get the Application: %w", err)
 	}
 

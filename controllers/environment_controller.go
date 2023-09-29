@@ -70,7 +70,7 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			lg.V(logs.DebugLevel).Info("Environment already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
-		lg.Error(err, fmt.Sprintf("unable to get the Environment %s %v", req.Name, req.NamespacedName))
+		lg.Error(err, "unable to get the Environment", "name", req.Name, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 

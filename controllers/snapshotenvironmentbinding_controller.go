@@ -81,7 +81,7 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 			lg.V(logs.DebugLevel).Info("SnapshotEnvironmentBinding already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
-
+		lg.Error(err, "unable to get the SnapshotEnvironmentBinding", "name", req.Name, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to get the SnapshotEnvironmentBinding: %w", err)
 	}
 
@@ -111,13 +111,13 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 			lg.V(logs.DebugLevel).Info("Environment CR not found. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
-		lg.Error(err, fmt.Sprintf("unable to get the Environment %s %v", environmentName, req.NamespacedName))
+		lg.Error(err, "unable to get the Environment for target setting", "name", environmentName, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 
 	target, err := detectTargetFromEnvironment(ctx, environment)
 	if err != nil {
-		lg.Error(err, fmt.Sprintf("error while resolving target for environment %s", environmentName))
+		lg.Error(err, "error while resolving target for environment", "name", environmentName)
 		return ctrl.Result{}, fmt.Errorf("error resolving targer for environment %s: %w", environmentName, err)
 	}
 
