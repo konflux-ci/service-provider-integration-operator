@@ -15,22 +15,22 @@
 package integrationtests
 
 import (
+	"context"
 	"encoding/base64"
+	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("SPIFileContentRequest", func() {
 
-	Describe("Create without token data", func() {
+	Describe("without SPIAccessToken or RemoteSecret", func() {
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
 				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("create-wo-token-data")},
@@ -38,8 +38,67 @@ var _ = Describe("SPIFileContentRequest", func() {
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
-					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability { return &ITest.Capabilities }
 				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("should have the status in error phase", func() {
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
+				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.ErrorMessage).To(ContainSubstring("no suitable credentials"))
+			})
+		})
+	})
+
+	Describe("file download fails", func() {
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("create-with-binding-in-error")},
+			},
+			Behavior: ITestBehavior{
+				BeforeObjectsCreated: func() {
+					ITest.TestServiceProvider.LookupCredentialsImpl = func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+						return &serviceprovider.Credentials{Token: "abcd"}, nil
+					}
+					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability {
+						return serviceprovider.DownloadFileFunc(func(ctx context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
+							return "", fmt.Errorf("expected error")
+						})
+					}
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("should have the status in error phase", func() {
+			testSetup.ReconcileWithCluster(func(g Gomega) {
+				request := testSetup.InCluster.FileContentRequests[0]
+				g.Expect(request.Status.Content).To(BeEmpty())
+				g.Expect(request.Status.ContentEncoding).To(BeEmpty())
+				g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
+				g.Expect(request.Status.ErrorMessage).To(ContainSubstring("expected error"))
+			})
+		})
+	})
+
+	Describe("provider doesn't support file download", func() {
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("no-download")},
 			},
 		}
 		BeforeEach(func() {
@@ -50,66 +109,18 @@ var _ = Describe("SPIFileContentRequest", func() {
 			testSetup.AfterEach()
 		})
 
-		It("have the status awaiting set", func() {
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase).To(Equal(api.SPIFileContentRequestPhaseAwaitingTokenData))
-			})
-		})
-
-		It("have the upload and OAUth URLs set", func() {
+		It("sets request into error, too", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				request := testSetup.InCluster.FileContentRequests[0]
-				g.Expect(request.Status.TokenUploadUrl).NotTo(BeEmpty())
-				g.Expect(request.Status.OAuthUrl).NotTo(BeEmpty())
-			})
-		})
-	})
-
-	Describe("With binding is in error", func() {
-		testSetup := TestSetup{
-			ToCreate: TestObjects{
-				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("create-with-binding-in-error")},
-			},
-			Behavior: ITestBehavior{
-				BeforeObjectsCreated: func() {
-					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
-				},
-				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
-						Username:             "alois",
-						UserId:               "42",
-						Scopes:               []string{},
-						ServiceProviderState: []byte("state"),
-					})
-					err := ITest.TokenStorage.Store(ITest.Context, objects.Tokens[0], &api.Token{
-						AccessToken: "token",
-					})
-					Expect(err).NotTo(HaveOccurred())
-				},
-			},
-		}
-
-		BeforeEach(func() {
-			testSetup.BeforeEach(func(g Gomega) {
-				g.Expect(testSetup.InCluster.Bindings[0].Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseError))
-			})
-		})
-
-		var _ = AfterEach(func() {
-			testSetup.AfterEach()
-		})
-
-		It("sets request into error too", func() {
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				request := testSetup.InCluster.FileContentRequests[0]
+				g.Expect(request.Status.Content).To(BeEmpty())
+				g.Expect(request.Status.ContentEncoding).To(BeEmpty())
 				g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
-				g.Expect(request.Status.ErrorMessage).To(HavePrefix("linked binding is in error state"))
+				g.Expect(request.Status.ErrorMessage).To(ContainSubstring(serviceprovider.FileDownloadNotSupportedError{}.Error()))
 			})
 		})
-
 	})
 
-	Describe("Request is removed", func() {
+	Describe("request is removed", func() {
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
 				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("request-removal")},
@@ -124,29 +135,8 @@ var _ = Describe("SPIFileContentRequest", func() {
 		BeforeEach(func() {
 			testSetup.BeforeEach(nil)
 		})
-
 		AfterEach(func() {
 			testSetup.AfterEach()
-		})
-
-		It("it removes the binding, too", func() {
-			// let's just double-check that we indeed have the binding
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				req := testSetup.InCluster.FileContentRequests[0]
-				var linkedBinding *api.SPIAccessTokenBinding = nil
-				for _, binding := range testSetup.InCluster.Bindings {
-					if binding.GetLabels()[controllers.LinkedFileRequestLabel] == req.Name {
-						linkedBinding = binding
-					}
-				}
-				g.Expect(linkedBinding).NotTo(BeNil())
-			})
-
-			Expect(ITest.Client.Delete(ITest.Context, testSetup.InCluster.FileContentRequests[0])).To(Succeed())
-
-			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.Bindings).To(BeEmpty())
-			})
 		})
 
 		It("should delete request by timeout", func() {
@@ -157,30 +147,18 @@ var _ = Describe("SPIFileContentRequest", func() {
 		})
 	})
 
-	Describe("With binding is ready", func() {
+	Describe("Credentials are available", func() {
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
-				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("binding-ready")},
-				Tokens:              []*api.SPIAccessToken{StandardTestToken("binding-ready")},
+				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("credentials-ready")},
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability { return &ITest.Capabilities }
-				},
-				AfterObjectsCreated: func(objects TestObjects) {
-					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready", Namespace: "default"})[0]
-
-					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
-						Username:             "alois",
-						UserId:               "42",
-						Scopes:               []string{},
-						ServiceProviderState: []byte("state"),
-					})
-					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
-						AccessToken: "token",
-					})
-					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupCredentialsImpl =
+						func(ctx context.Context, c client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+							return &serviceprovider.Credentials{Token: "abcd"}, nil
+						}
 				},
 			},
 		}
@@ -193,51 +171,39 @@ var _ = Describe("SPIFileContentRequest", func() {
 			testSetup.AfterEach()
 		})
 
-		It("sets request into delivered, too", func() {
+		It("delivers the content", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
 				request := testSetup.InCluster.FileContentRequests[0]
 				g.Expect(request.Status.Phase).To(Equal(api.SPIFileContentRequestPhaseDelivered))
+				g.Expect(request.Status.ContentEncoding).To(Equal("base64"))
 				g.Expect(request.Status.Content).To(Equal(base64.StdEncoding.EncodeToString([]byte("abcdefg"))))
 			})
 		})
 	})
 
-	Describe("With binding is ready but provider doesn't support  downloads", func() {
+	Describe("contains old finalizer", func() {
+		request := StandardFileRequest("old-finalizer")
+		request.Finalizers = append(request.Finalizers, "spi.appstudio.redhat.com/file-linked-bindings")
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
-				FileContentRequests: []*api.SPIFileContentRequest{StandardFileRequest("binding-ready-no-download")},
-				Tokens:              []*api.SPIAccessToken{StandardTestToken("binding-ready-no-download")},
-			},
-			Behavior: ITestBehavior{
-				AfterObjectsCreated: func(objects TestObjects) {
-					token := objects.GetTokensByNamePrefix(client.ObjectKey{Name: "binding-ready-no-download", Namespace: "default"})[0]
-
-					ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
-						Username:             "alois",
-						UserId:               "42",
-						Scopes:               []string{},
-						ServiceProviderState: []byte("state"),
-					})
-					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
-						AccessToken: "token",
-					})
-					Expect(err).NotTo(HaveOccurred())
-					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
-				},
+				FileContentRequests: []*api.SPIFileContentRequest{request},
 			},
 		}
+
 		BeforeEach(func() {
 			testSetup.BeforeEach(nil)
 		})
 
-		var _ = AfterEach(func() {
+		AfterEach(func() {
 			testSetup.AfterEach()
 		})
 
-		It("sets request into error, too", func() {
+		It("should remove remove the old finalizer", func() {
 			testSetup.ReconcileWithCluster(func(g Gomega) {
-				g.Expect(testSetup.InCluster.FileContentRequests[0].Status.Phase).To(Equal(api.SPIFileContentRequestPhaseError))
+				request := testSetup.InCluster.FileContentRequests[0]
+				g.Expect(request.Finalizers).To(BeEmpty())
 			})
 		})
 	})
+
 })

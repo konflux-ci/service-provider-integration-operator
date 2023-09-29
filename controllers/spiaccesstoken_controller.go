@@ -61,7 +61,7 @@ const tokenRefreshLabelName = "spi.appstudio.redhat.com/refresh-token"     //#no
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
-	noCredentialsFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
+	noOauthConfigFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
@@ -394,7 +394,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		spConfig = config.SpConfigFromGlobalConfig(&r.Configuration.SharedConfiguration, sp.GetType(), at.Spec.ServiceProviderUrl)
 	}
 	if spConfig == nil || spConfig.OAuth2Config == nil {
-		return noCredentialsFoundError
+		return noOauthConfigFoundError
 	}
 
 	refreshCapability := sp.GetRefreshTokenCapability()

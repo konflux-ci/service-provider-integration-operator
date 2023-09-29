@@ -22,29 +22,17 @@ import (
 	"net/http"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	"github.com/go-playground/validator/v10"
 
-	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
 	"github.com/go-logr/logr"
-	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/finalizer"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -52,16 +40,11 @@ import (
 )
 
 const linkedFileRequestBindingsFinalizerName = "spi.appstudio.redhat.com/file-linked-bindings"
-const LinkedFileRequestLabel = "spi.appstudio.redhat.com/file-content-request-name"
 
 var (
-	linkedBindingErrorStateError    = stderrors.New("linked binding is in error state")
-	multipleLinkedBindingsError     = stderrors.New("multiple bindings found for the same file content request")
 	noSuitableServiceProviderFound  = stderrors.New("unable to find a matching service provider for the given URL")
-	unableToFetchBindingsError      = stderrors.New("unable to fetch the SPI Access token bindings list")
-	unableToFetchTokenError         = stderrors.New("unable to fetch the SPI Access token")
 	unableToValidateServiceProvider = stderrors.New("unable to validate service provider for the given URL")
-	labelSelectorPredicate          predicate.Predicate
+	noCredentialsFoundError         = stderrors.New("no suitable credentials found, please create SPIAccessToken or RemoteSecret")
 )
 
 type SPIFileContentRequestReconciler struct {
@@ -70,22 +53,6 @@ type SPIFileContentRequestReconciler struct {
 	Scheme                 *runtime.Scheme
 	HttpClient             *http.Client
 	ServiceProviderFactory serviceprovider.Factory
-	finalizers             finalizer.Finalizers
-}
-
-var spiFileContentRequestLog = log.Log.WithName("spifilecontentrequest-controller")
-
-func init() {
-	var err error
-	labelSelectorPredicate, err = predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Operator: metav1.LabelSelectorOpExists,
-				Key:      LinkedFileRequestLabel,
-			},
-		},
-	})
-	utilruntime.Must(err)
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=spifilecontentrequests,verbs=get;list;watch;create;update;patch;delete
@@ -94,33 +61,17 @@ func init() {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SPIFileContentRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedFileRequestBindingsFinalizerName, &linkedFileRequestBindingsFinalizer{client: r.K8sClient}); err != nil {
-		return fmt.Errorf("failed to register the linked bindings finalizer: %w", err)
-	}
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIFileContentRequest{}).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      o.GetLabels()[LinkedFileRequestLabel],
-						Namespace: o.GetNamespace(),
-					},
-				},
-			}
-		}), builder.WithPredicates(labelSelectorPredicate)).
 		Complete(r)
 	if err != nil {
 		err = fmt.Errorf("failed to build the controller manager: %w", err)
 	}
 	return err
-
 }
 
 func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
-
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile SPIFileContentRequest")
 
 	request := api.SPIFileContentRequest{}
@@ -135,20 +86,10 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("failed to read the object: %w", err)
 	}
 
-	finalizationResult, err := r.finalizers.Finalize(ctx, &request)
-	if err != nil {
-		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
-		// we get another reconciliation due to cluster state change
-		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
-	}
-	if finalizationResult.Updated {
-		if err = r.K8sClient.Update(ctx, &request); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update file request based on finalization result: %w", err)
-		}
-	}
-	if finalizationResult.StatusUpdated {
-		if err = r.K8sClient.Status().Update(ctx, &request); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the file request status based on finalization result: %w", err)
+	// remove old finalizer
+	if removed := controllerutil.RemoveFinalizer(&request, linkedFileRequestBindingsFinalizerName); removed {
+		if err := r.K8sClient.Update(ctx, &request); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup old linkedBinding finalizer: %w", err)
 		}
 	}
 
@@ -168,196 +109,78 @@ func (r *SPIFileContentRequestReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
+	// Controller logic usually should not be dependent on the object's status, but this helps us save some
+	// service provider API calls which lessens the chance we hit a rate limit on the API.
 	if request.Status.Phase == api.SPIFileContentRequestPhaseDelivered {
-		// already injected, nothing to do
-		return ctrl.Result{}, nil
-	}
-	// find associated binding
-	var associatedBinding *api.SPIAccessTokenBinding
-	bindingList := &api.SPIAccessTokenBindingList{}
-	if err := r.K8sClient.List(ctx, bindingList, client.InNamespace(request.GetNamespace()), client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
-		spiFileContentRequestLog.Error(err, "Unable to fetch bindings list", "namespace", request.GetNamespace())
-		return ctrl.Result{}, unableToFetchBindingsError
-	}
-	if len(bindingList.Items) == 1 {
-		associatedBinding = &bindingList.Items[0]
-	} else if len(bindingList.Items) > 1 {
-		lg.Error(multipleLinkedBindingsError, "found multiple bindings for the same SPIFileContentRequest", "request", request.Name)
-		r.updateFileRequestStatusError(ctx, &request, multipleLinkedBindingsError)
 		return ctrl.Result{}, nil
 	}
 
-	if associatedBinding == nil {
-		// check if the URL is processable and create binding, otherwise fail fast
-		sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
-		if err != nil {
-			var validationErr validator.ValidationErrors
-			if stderrors.As(err, &validationErr) {
-				lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
-				r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
-			} else {
-				lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
-				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
-			}
-			return ctrl.Result{}, nil
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
+	if err != nil {
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
+			lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
+			return r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
 		}
-		if sp.GetDownloadFileCapability() == nil {
-			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
-			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
-		}
-		bindingName, err := r.createAndLinkBinding(ctx, &request)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create the object: %w", err)
-		}
-		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingBinding
-		lg = lg.WithValues("linked_binding", bindingName)
-		if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
-			log.FromContext(ctx).Error(err, "failed to update the file binding link", "error", err)
-			return reconcile.Result{Requeue: true}, nil
-		}
-		return ctrl.Result{}, nil
-	}
-	//binding not yet fully ready to work with, let's try next time
-	if associatedBinding.Status.Phase == "" || associatedBinding.Status.UploadUrl == "" {
-		return reconcile.Result{}, nil
+		lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
+		// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
+		// user fixes that URL. So no need to repeat the reconciliation.
+		return r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
 	}
 
-	lg = lg.WithValues("linked_binding", associatedBinding.Name)
-
-	//binding not injected yet, let's just synchronize URL's and that's it
-	if associatedBinding.Status.Phase == api.SPIAccessTokenBindingPhaseAwaitingTokenData {
-		request.Status.Phase = api.SPIFileContentRequestPhaseAwaitingTokenData
-		request.Status.OAuthUrl = associatedBinding.Status.OAuthUrl
-		request.Status.TokenUploadUrl = associatedBinding.Status.UploadUrl
-	} else if associatedBinding.Status.Phase == api.SPIAccessTokenBindingPhaseInjected {
-		sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, request.Spec.RepoUrl, request.Namespace)
-		if err != nil {
-			var validationErr validator.ValidationErrors
-			if stderrors.As(err, &validationErr) {
-				lg.Error(err, "unable to validate the service provider for the SPIFileContentRequest")
-				r.updateFileRequestStatusError(ctx, &request, unableToValidateServiceProvider)
-			} else {
-				lg.Error(err, "unable to get the service provider for the SPIFileContentRequest")
-				// we determine the service provider from the URL in the spec. If we can't do that, nothing works until the
-				// user fixes that URL. So no need to repeat the reconciliation and therefore no error returned here.
-				r.updateFileRequestStatusError(ctx, &request, noSuitableServiceProviderFound)
-			}
-			return ctrl.Result{}, nil
-		}
-		if sp.GetDownloadFileCapability() == nil {
-			r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
-			return ctrl.Result{}, serviceprovider.FileDownloadNotSupportedError{}
-		}
-
-		token := &api.SPIAccessToken{}
-		err = r.K8sClient.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: associatedBinding.Status.LinkedAccessTokenName}, token)
-		if err != nil {
-			lg.Error(err, "unable to fetch the token")
-			r.updateFileRequestStatusError(ctx, &request, unableToFetchTokenError)
-			return ctrl.Result{}, fmt.Errorf("unable to fetch the SPI Access token: %w", err)
-		}
-		contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec.RepoUrl, request.Spec.FilePath, request.Spec.Ref, token, r.Configuration.MaxFileDownloadSize)
-		if err != nil {
-			r.updateFileRequestStatusError(ctx, &request, err)
-			return reconcile.Result{}, fmt.Errorf("error fetching file content: %w", err)
-		}
-		request.Status.OAuthUrl = ""
-		request.Status.ErrorMessage = ""
-		request.Status.ContentEncoding = "base64"
-		request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
-		request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
-		if err = deleteSyncedBinding(ctx, r.K8sClient, &request); err != nil {
-			log.FromContext(ctx).Error(err, "failed to cleanup the binding, re-queueing it", "error", err)
-			return reconcile.Result{Requeue: true}, err
-		}
-	} else {
-		err := fmt.Errorf("%w: %s", linkedBindingErrorStateError, associatedBinding.Status.ErrorMessage)
-		r.updateFileRequestStatusError(ctx, &request, err)
+	if sp.GetDownloadFileCapability() == nil {
+		return r.updateFileRequestStatusError(ctx, &request, serviceprovider.FileDownloadNotSupportedError{})
 	}
+	credentials, err := sp.LookupCredentials(ctx, r.K8sClient, &request)
+	if err != nil {
+		// We might fix the lookup error by retrying the reconciliation
+		return r.requeueErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error in credentials lookup for SPIFileContentRequest: %w", err))
+	}
+	if credentials == nil {
+		return r.updateFileRequestStatusError(ctx, &request, noCredentialsFoundError)
+	}
+
+	contents, err := sp.GetDownloadFileCapability().DownloadFile(ctx, request.Spec, *credentials, r.Configuration.MaxFileDownloadSize)
+	if err != nil {
+		// We might fix the download error by retrying the reconciliation
+		return r.requeueErrorWithStatusUpdate(ctx, &request, fmt.Errorf("error fetching file content: %w", err))
+	}
+
+	request.Status.ErrorMessage = ""
+	request.Status.ContentEncoding = "base64"
+	request.Status.Content = base64.StdEncoding.EncodeToString([]byte(contents))
+	request.Status.Phase = api.SPIFileContentRequestPhaseDelivered
+
 	if err := r.K8sClient.Status().Update(ctx, &request); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the file request status", "error", err)
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, fmt.Errorf("failed to update the file request status: %w", err)
 	}
-
 	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(&request)}, nil
 }
 
-func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(cr *api.SPIFileContentRequest) time.Duration {
-	return time.Until(cr.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl).Add(r.Configuration.DeletionGracePeriod))
+func (r *SPIFileContentRequestReconciler) durationUntilNextReconcile(req *api.SPIFileContentRequest) time.Duration {
+	return time.Until(req.CreationTimestamp.Add(r.Configuration.FileContentRequestTtl))
 }
 
-func (r *SPIFileContentRequestReconciler) createAndLinkBinding(ctx context.Context, request *api.SPIFileContentRequest) (string, error) {
-	newBinding := &api.SPIAccessTokenBinding{
-		ObjectMeta: metav1.ObjectMeta{GenerateName: "file-retriever-binding-", Namespace: request.GetNamespace(), Labels: map[string]string{LinkedFileRequestLabel: request.Name}},
-		Spec: api.SPIAccessTokenBindingSpec{
-			RepoUrl: request.RepoUrl(),
-			Permissions: api.Permissions{
-				Required: []api.Permission{
-					{
-						Type: api.PermissionTypeRead,
-						Area: api.PermissionAreaRepository,
-					},
-				},
-			},
-			Secret: api.SecretSpec{
-				LinkableSecretSpec: rapi.LinkableSecretSpec{
-					Type: corev1.SecretTypeBasicAuth,
-				},
-			},
-		},
+// requeueErrorWithStatusUpdate tries to update SPIFileContent's status with err. It prioritizes returning the updateErr
+// over err if the status update fails. It returns Result for convenient use from reconcile.
+func (r *SPIFileContentRequestReconciler) requeueErrorWithStatusUpdate(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
+	_, updateErr := r.updateFileRequestStatusError(ctx, request, err)
+	if updateErr != nil {
+		return ctrl.Result{}, updateErr
 	}
-	if err := r.K8sClient.Create(ctx, newBinding); err != nil {
-		return "", fmt.Errorf("failed to create token binding: %w", err)
-	}
-	return newBinding.Name, nil
+	return ctrl.Result{}, err
 }
 
-func deleteSyncedBinding(ctx context.Context, k8sClient client.Client, request *api.SPIFileContentRequest) error {
-	bindings := &api.SPIAccessTokenBindingList{}
-	if err := k8sClient.List(ctx, bindings, client.MatchingLabels{LinkedFileRequestLabel: request.Name}); err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("error getting Token Binding items during cleanup: %w", err)
-		} else {
-			// already deleted, nothing to do
-			return nil
-		}
-	}
-
-	for i := range bindings.Items {
-		if err := k8sClient.Delete(ctx, &bindings.Items[i]); err != nil {
-			return fmt.Errorf("failed to delete token binding: %w", err)
-		}
-	}
-	return nil
-}
-
-func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) {
+// updateFileRequestStatusError puts the SPIFileContentRequest into an error phase. It returns Result for convenient use from reconcile.
+func (r *SPIFileContentRequestReconciler) updateFileRequestStatusError(ctx context.Context, request *api.SPIFileContentRequest, err error) (ctrl.Result, error) {
+	request.Status.Content = ""
+	request.Status.ContentEncoding = ""
 	request.Status.ErrorMessage = err.Error()
 	request.Status.Phase = api.SPIFileContentRequestPhaseError
 	if err := r.K8sClient.Status().Update(ctx, request); err != nil {
-		log.FromContext(ctx).Error(err, "failed to update the status with error", "error", err)
+		// we might consider using `errors.IsConflict(err)` here
+		return ctrl.Result{}, fmt.Errorf("failed to update SPIFileContentRequest status with error: %w", err)
 	}
-
-}
-
-type linkedFileRequestBindingsFinalizer struct {
-	client client.Client
-}
-
-var _ finalizer.Finalizer = (*linkedFileRequestBindingsFinalizer)(nil)
-
-// Finalize removes the binding synced to the actual file content request which is being deleted
-func (f *linkedFileRequestBindingsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
-	res := finalizer.Result{}
-	contentRequest, ok := obj.(*api.SPIFileContentRequest)
-	if !ok {
-		return res, unexpectedObjectTypeError
-	}
-
-	if err := deleteSyncedBinding(ctx, f.client, contentRequest); err != nil {
-		return res, err
-	}
-	return finalizer.Result{}, nil
+	// We have successfully updated the status with error. We need to schedule reconciliation so that requests in error phase are cleaned as well.
+	return ctrl.Result{RequeueAfter: r.durationUntilNextReconcile(request)}, nil
 }
