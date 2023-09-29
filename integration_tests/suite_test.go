@@ -193,7 +193,7 @@ var _ = BeforeSuite(func() {
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 
-	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, _ string, _ string, _ string, _ *api.SPIAccessToken, i int) (string, error) {
+	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, i int) (string, error) {
 		return "abcdefg", nil
 	}
 
@@ -238,7 +238,6 @@ var _ = BeforeSuite(func() {
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
 		EnableTokenUpload:     true,
-		EnableRemoteSecrets:   true,
 	}
 
 	// start webhook server using Manager

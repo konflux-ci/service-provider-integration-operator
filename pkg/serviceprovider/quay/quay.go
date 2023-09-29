@@ -186,6 +186,14 @@ func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.
 	return tokens, nil
 }
 
+func (q *Quay) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := q.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("quay credentials lookup failure: %w", err)
+	}
+	return credentials, nil
+}
+
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)
