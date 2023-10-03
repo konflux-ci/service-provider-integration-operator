@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230823105056-c172d75de35a
-	github.com/redhat-appstudio/remote-secret v0.0.0-20230927105850-80ca032b28a1
+	github.com/redhat-appstudio/remote-secret v0.0.0-20231003082228-d6dcad3dc9ec
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.92.3
 	go.uber.org/zap v1.26.0
@@ -66,7 +66,7 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
-	github.com/aws/aws-sdk-go v1.45.15 // indirect
+	github.com/aws/aws-sdk-go v1.45.19 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.21.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.42 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.40 // indirect
