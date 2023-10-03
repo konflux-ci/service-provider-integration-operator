@@ -29,18 +29,9 @@ type SPIFileContentRequestSpec struct {
 type SPIFileContentRequestStatus struct {
 	// Phase of the current file request
 	Phase SPIFileContentRequestPhase `json:"phase"`
-	// LinkedBindingName name of the binding used for repository authentication
-	// +optional
-	LinkedBindingName string `json:"linkedBindingName"`
 	// ErrorMessage defines error message if file request failed
 	// + optional
 	ErrorMessage string `json:"errorMessage,omitempty"`
-	// OAuthUrl URL to authenticate into target repository using OAuth
-	// +optional
-	OAuthUrl string `json:"oAuthUrl,omitempty"`
-	// TokenUploadUrl URL to perform manual upload of the token to access target repository
-	// +optional
-	TokenUploadUrl string `json:"tokenUploadUrl,omitempty"`
 	// Content encoded target file content
 	// +optional
 	Content string `json:"content,omitempty"`
@@ -52,10 +43,8 @@ type SPIFileContentRequestStatus struct {
 type SPIFileContentRequestPhase string
 
 const (
-	SPIFileContentRequestPhaseAwaitingBinding   SPIFileContentRequestPhase = "AwaitingBinding"
-	SPIFileContentRequestPhaseAwaitingTokenData SPIFileContentRequestPhase = "AwaitingTokenData"
-	SPIFileContentRequestPhaseDelivered         SPIFileContentRequestPhase = "Delivered"
-	SPIFileContentRequestPhaseError             SPIFileContentRequestPhase = "Error"
+	SPIFileContentRequestPhaseDelivered SPIFileContentRequestPhase = "Delivered"
+	SPIFileContentRequestPhaseError     SPIFileContentRequestPhase = "Error"
 )
 
 //+kubebuilder:object:root=true
@@ -82,6 +71,20 @@ func init() {
 	SchemeBuilder.Register(&SPIFileContentRequest{}, &SPIFileContentRequestList{})
 }
 
-func (in *SPIFileContentRequest) RepoUrl() string {
-	return in.Spec.RepoUrl
+func (req *SPIFileContentRequest) RepoUrl() string {
+	return req.Spec.RepoUrl
+}
+
+func (req *SPIFileContentRequest) Permissions() *Permissions {
+	return &Permissions{
+		Required: []Permission{{
+			Type: PermissionTypeRead,
+			Area: PermissionAreaRepository,
+		}},
+		AdditionalScopes: nil,
+	}
+}
+
+func (req *SPIFileContentRequest) ObjNamespace() string {
+	return req.Namespace
 }

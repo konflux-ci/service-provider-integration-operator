@@ -60,14 +60,14 @@ var _ = Describe("TokenUploadController", func() {
 
 		It("updates existed SPIAccessToken's status", func() {
 			accessToken := api.SPIAccessToken{}
-			Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeFalse())
+			Expect(testSetup.InCluster.Tokens[0].Status.Phase).ToNot(Equal(api.SPIAccessTokenPhaseReady))
 			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
 			Eventually(func(g Gomega) {
 				// Token added to Storage...
 				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
 				// And SPIAccessToken updated...
-				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
-				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId == "42").To(BeTrue())
+				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId).To(Equal("42"))
 				// The secret should be deleted
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{}).Error())
 			})
@@ -83,8 +83,8 @@ var _ = Describe("TokenUploadController", func() {
 				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
 				// And new SPIAccessToken created and moved to Ready state...
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).To(Succeed())
-				g.Expect(accessToken.Name == spiTokenName).To(BeTrue())
-				g.Expect(accessToken.Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
+				g.Expect(accessToken.Name).To(Equal(spiTokenName))
+				g.Expect(accessToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
 				// And the secret deleted eventually
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).Error()
 			})
@@ -93,11 +93,11 @@ var _ = Describe("TokenUploadController", func() {
 			accessToken := api.SPIAccessToken{}
 
 			createSecret("secret", "my-spi-access-token_2023_03_02__15_37_28", "")
-			Eventually(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
+			Eventually(ITest.Client.Get).WithArguments(ITest.Context, types.NamespacedName{Name: "not-existed-spitoken", Namespace: "default"}, &accessToken).ShouldNot(Succeed())
 		})
 		It("leaves non-annotated secrets alone", func() {
 			accessToken := api.SPIAccessToken{}
-			Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeFalse())
+			Expect(testSetup.InCluster.Tokens[0].Status.Phase).ToNot(Equal(api.SPIAccessTokenPhaseReady))
 			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
 			noTouchSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -115,8 +115,8 @@ var _ = Describe("TokenUploadController", func() {
 				// Token added to Storage...
 				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
 				// And SPIAccessToken updated...
-				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase == api.SPIAccessTokenPhaseReady).To(BeTrue())
-				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId == "42").To(BeTrue())
+				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId).To(Equal("42"))
 				// The secret should be deleted
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})).NotTo(Succeed())
 			})
