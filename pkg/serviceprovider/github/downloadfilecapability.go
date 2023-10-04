@@ -73,8 +73,14 @@ func (d downloadFileCapability) DownloadFile(ctx context.Context, request api.SP
 	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, owner, repo, request.FilePath, &github.RepositoryContentGetOptions{Ref: request.Ref})
 	if err != nil {
 		checkRateLimitError(err)
-		bytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))
+		if resp != nil {
+			defer resp.Body.Close()
+			bytes, _ := io.ReadAll(resp.Body)
+			return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))
+		}
+		lg.Error(err, "not able to get content from github")
+		return "", unexpectedStatusCodeError
+
 	}
 	if file == nil && dir != nil {
 		return "", fmt.Errorf("%w: %s", pathIsADirectoryError, request.FilePath)
