@@ -21,7 +21,7 @@ require (
 	github.com/onsi/gomega v1.28.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
-	github.com/redhat-appstudio/application-api v0.0.0-20230823105056-c172d75de35a
+	github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222
 	github.com/redhat-appstudio/remote-secret v0.0.0-20231005075004-fd7d47180e75
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.92.3
