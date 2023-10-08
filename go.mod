@@ -8,7 +8,7 @@ require (
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.2.4
-	github.com/go-playground/validator/v10 v10.15.4
+	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-test/deep v1.1.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-github/v45 v45.2.0
@@ -21,7 +21,7 @@ require (
 	github.com/onsi/gomega v1.28.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
-	github.com/redhat-appstudio/application-api v0.0.0-20230823105056-c172d75de35a
+	github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222
 	github.com/redhat-appstudio/remote-secret v0.0.0-20231005075004-fd7d47180e75
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.92.3

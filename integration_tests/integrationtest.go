@@ -278,9 +278,6 @@ func StandardLocalEnvironment(name string) *v1alpha1.Environment {
 		},
 		Spec: v1alpha1.EnvironmentSpec{
 			Type: "Non-POC",
-			Configuration: v1alpha1.EnvironmentConfiguration{
-				Env: []v1alpha1.EnvVarPair{},
-			},
 		},
 	}
 }
@@ -293,9 +290,6 @@ func StandardRemoteEnvironment(name string) *v1alpha1.Environment {
 		},
 		Spec: v1alpha1.EnvironmentSpec{
 			Tags: []string{"managed"},
-			Configuration: v1alpha1.EnvironmentConfiguration{
-				Env: []v1alpha1.EnvVarPair{},
-			},
 			UnstableConfigurationFields: &v1alpha1.UnstableEnvironmentConfiguration{
 				KubernetesClusterCredentials: v1alpha1.KubernetesClusterCredentials{
 					APIURL:                   "https://api.example.com",
