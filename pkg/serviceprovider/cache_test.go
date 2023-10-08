@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +26,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 )
 
 func TestMetadataCache_Refresh(t *testing.T) {
@@ -112,7 +113,6 @@ func TestMetadataCache_Persist(t *testing.T) {
 			Name:      "test-token",
 			Namespace: "default",
 		},
-		Status: api.SPIAccessTokenStatus{},
 	}
 	cl := fake.NewClientBuilder().WithScheme(sch).WithObjects(token).WithStatusSubresource(token).Build()
 
@@ -154,7 +154,7 @@ func TestMetadataCache_Ensure(t *testing.T) {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
-	cl := fake.NewClientBuilder().WithScheme(sch).Build()
+	cl := fake.NewClientBuilder().WithScheme(sch).WithStatusSubresource(&api.SPIAccessToken{}).Build()
 
 	t.Run("no re-fetch when valid", func(t *testing.T) {
 		lastRefresh := time.Now()
@@ -163,13 +163,14 @@ func TestMetadataCache_Ensure(t *testing.T) {
 				Name:      "test-token-valid",
 				Namespace: "default",
 			},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					LastRefreshTime: lastRefresh.Unix(),
-				},
-			},
 		}
 		assert.NoError(t, cl.Create(context.TODO(), token))
+		token.Status = api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: lastRefresh.Unix(),
+			},
+		}
+		assert.NoError(t, cl.Status().Update(context.TODO(), token))
 
 		mc := MetadataCache{
 			Client:                    cl,
@@ -198,13 +199,14 @@ func TestMetadataCache_Ensure(t *testing.T) {
 				Name:      "test-token-stale",
 				Namespace: "default",
 			},
-			Status: api.SPIAccessTokenStatus{
-				TokenMetadata: &api.TokenMetadata{
-					LastRefreshTime: lastRefresh.Unix(),
-				},
-			},
 		}
 		assert.NoError(t, cl.Create(context.TODO(), token))
+		token.Status = api.SPIAccessTokenStatus{
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: lastRefresh.Unix(),
+			},
+		}
+		assert.NoError(t, cl.Status().Update(context.TODO(), token))
 
 		mc := MetadataCache{
 			Client:                    cl,
