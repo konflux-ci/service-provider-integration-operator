@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
@@ -227,7 +226,7 @@ func (r *TokenUploadReconciler) findSpiAccessToken(ctx context.Context, uploadSe
 	err := r.Get(ctx, types.NamespacedName{Name: spiTokenName, Namespace: uploadSecret.Namespace}, &accessToken)
 
 	if err != nil {
-		if kuberrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("SPI Access Token NOT found, will try to create  ", "SPIAccessToken.name", accessToken.Name)
 			return nil, nil
 		} else {

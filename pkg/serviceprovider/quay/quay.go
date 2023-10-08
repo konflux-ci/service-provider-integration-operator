@@ -93,9 +93,11 @@ func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderC
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			MetadataProvider:    mp,
 			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
+			TokenStorage:        factory.TokenStorage,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
@@ -184,6 +186,14 @@ func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.
 	return tokens, nil
 }
 
+func (q *Quay) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := q.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("quay credentials lookup failure: %w", err)
+	}
+	return credentials, nil
+}
+
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
 	if err := q.lookup.PersistMetadata(ctx, token); err != nil {
 		return fmt.Errorf("failed to persiste quay metadata: %w", err)
@@ -196,7 +206,6 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		Type:            api.SPIRepoTypeContainerRegistry,
 		ServiceProvider: api.ServiceProviderTypeQuay,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-		Accessible:      false,
 	}
 
 	lg := log.FromContext(ctx)
@@ -209,27 +218,13 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
-	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = lookupErr.Error()
-		// not returning here. We're still able to detect public repository without the token.
-		// The error will still be reported in status.
-	}
-
 	var username, token string
-	if len(tokens) > 0 {
-		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
-		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
-		if getTokenErr != nil {
-			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
-		}
-		if apiToken != nil {
-			username, token = getUsernameAndPasswordFromTokenData(apiToken)
-		}
-	} else {
-		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
+	credentials, err := q.lookup.LookupCredentials(ctx, cl, accessCheck)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+		status.ErrorMessage = err.Error()
+	} else if credentials != nil {
+		username, token = getUsernameAndPasswordFromCredentials(*credentials)
 	}
 
 	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {

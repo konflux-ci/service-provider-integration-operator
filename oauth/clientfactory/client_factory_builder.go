@@ -21,7 +21,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	authz "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,7 +45,7 @@ type K8sClientFactoryBuilder struct {
 func (r K8sClientFactoryBuilder) CreateInClusterClientFactory() (clientFactory kubernetesclient.K8sClientFactory, err error) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(corev1.SchemeGroupVersion.WithKind("Secret"), meta.RESTScopeNamespace)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
+	mapper.Add(api.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
 	clientOptions, errClientOptions := clientOptions(mapper)
 	if errClientOptions != nil {
 		return nil, errClientOptions
@@ -72,8 +72,8 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory ku
 	// client here thus making the mapper not reach out to the target cluster at all.
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 	mapper.Add(authz.SchemeGroupVersion.WithKind("SelfSubjectAccessReview"), meta.RESTScopeRoot)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
+	mapper.Add(api.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
+	mapper.Add(api.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
 	clientOptions, errClientOptions := clientOptions(mapper)
 	if errClientOptions != nil {
 		return nil, errClientOptions
@@ -139,7 +139,7 @@ func clientOptions(mapper meta.RESTMapper) (*client.Options, error) {
 	if err := corev1.AddToScheme(options.Scheme); err != nil {
 		return nil, fmt.Errorf("failed to add corev1 to scheme: %w", err)
 	}
-	if err := v1beta1.AddToScheme(options.Scheme); err != nil {
+	if err := api.AddToScheme(options.Scheme); err != nil {
 		return nil, fmt.Errorf("failed to add api to the scheme: %w", err)
 	}
 	if err := authz.AddToScheme(options.Scheme); err != nil {

@@ -21,24 +21,25 @@ import (
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/finalizer"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
-	ApplicationLabelName                   = "appstudio.redhat.com/application"
-	EnvironmentLabelName                   = "appstudio.redhat.com/environment"
-	ComponentLabelName                     = "appstudio.redhat.com/component"
-	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
+	ApplicationLabelName              = "appstudio.redhat.com/application"
+	EnvironmentLabelAndAnnotationName = "appstudio.redhat.com/environment"
+	ComponentLabelName                = "appstudio.redhat.com/component"
 )
 
 var (
@@ -51,20 +52,15 @@ type SnapshotEnvironmentBindingReconciler struct {
 	k8sClient     client.Client
 	Scheme        *runtime.Scheme
 	Configuration *opconfig.OperatorConfiguration
-	finalizers    finalizer.Finalizers
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/status,verbs=get
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=snapshotenvironmentbindings/finalizers,verbs=update
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments,verbs=get;list;watch
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=environments,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=list;update;watch
 
 func (r *SnapshotEnvironmentBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.finalizers = finalizer.NewFinalizers()
-	if err := r.finalizers.Register(linkedRemoteSecretsTargetFinalizerName, &linkedRemoteSecretsFinalizer{client: r.k8sClient}); err != nil {
-		return fmt.Errorf("failed to register the linked remote secret finalizer: %w", err)
-	}
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&appstudiov1alpha1.SnapshotEnvironmentBinding{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
@@ -85,17 +81,16 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 			lg.V(logs.DebugLevel).Info("SnapshotEnvironmentBinding already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
-
+		lg.Error(err, "unable to get the SnapshotEnvironmentBinding", "name", req.Name, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to get the SnapshotEnvironmentBinding: %w", err)
 	}
 
-	finalizationResult, err := r.finalizers.Finalize(ctx, &snapshotEnvBinding)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to finalize: %w", err)
-	}
-	if finalizationResult.Updated {
-		if err = r.k8sClient.Update(ctx, &snapshotEnvBinding); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update snapshot env binding based on finalization result: %w", err)
+	// remove old finalizers
+	if slices.Contains(snapshotEnvBinding.Finalizers, linkedRemoteSecretsTargetFinalizerName) {
+		logs.AuditLog(ctx).Info("Cleaning up the finalizer on snapshot environment binding", "snapshotenvironmentbinding", snapshotEnvBinding.Name)
+		controllerutil.RemoveFinalizer(&snapshotEnvBinding, linkedRemoteSecretsTargetFinalizerName)
+		if err := r.k8sClient.Update(ctx, &snapshotEnvBinding); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to cleanup old finalizer on snapshot env binding: %w", err)
 		}
 	}
 
@@ -110,15 +105,19 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 
 	// Get the Environment CR
 	environment := appstudiov1alpha1.Environment{}
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: environmentName, Namespace: snapshotEnvBinding.Namespace}, &environment)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: environmentName, Namespace: snapshotEnvBinding.Namespace}, &environment)
 	if err != nil {
-		lg.Error(err, fmt.Sprintf("unable to get the Environment %s %v", environmentName, req.NamespacedName))
+		if errors.IsNotFound(err) {
+			lg.V(logs.DebugLevel).Info("Environment CR not found. skipping reconciliation")
+			return ctrl.Result{}, nil
+		}
+		lg.Error(err, "unable to get the Environment for target setting", "name", environmentName, "namespace", req.NamespacedName)
 		return ctrl.Result{}, fmt.Errorf("failed to load environment from cluster: %w", err)
 	}
 
 	target, err := detectTargetFromEnvironment(ctx, environment)
 	if err != nil {
-		lg.Error(err, fmt.Sprintf("error while resolving target for environment %s", environmentName))
+		lg.Error(err, "error while resolving target for environment", "name", environmentName)
 		return ctrl.Result{}, fmt.Errorf("error resolving targer for environment %s: %w", environmentName, err)
 	}
 
@@ -128,10 +127,9 @@ func (r *SnapshotEnvironmentBindingReconciler) Reconcile(ctx context.Context, re
 		return ctrl.Result{}, unableToFetchRemoteSecretsError
 	}
 
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != environmentName {
+	for idx := range remoteSecretsList.Items {
+		remoteSecret := remoteSecretsList.Items[idx]
+		if !remoteSecretApplicableForEnvironment(remoteSecret, environmentName) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -154,60 +152,29 @@ func addTargetIfNotExists(secret *rapi.RemoteSecret, target rapi.RemoteSecretTar
 	secret.Spec.Targets = append(secret.Spec.Targets, target)
 }
 
-func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
-	for idx := range secret.Spec.Targets {
-		existingTarget := secret.Spec.Targets[idx]
-		if targetsMatch(existingTarget, target) {
-			secret.Spec.Targets = append(secret.Spec.Targets[:idx], secret.Spec.Targets[idx+1:]...)
-		}
-	}
-}
-
 func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
 	return target1.Namespace == target2.Namespace && target1.ApiUrl == target2.ApiUrl && target1.ClusterCredentialsSecret == target2.ClusterCredentialsSecret
 }
 
-func detectTargetFromEnvironment(ctx context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
-	// Dummy load. Real impl should reverse pass Env -> DTC -> DT -> SpaceRequest to find out full target details
-	return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+func detectTargetFromEnvironment(_ context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
+	if slices.Contains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
+		return rapi.RemoteSecretTarget{
+			Namespace:                environment.Spec.UnstableConfigurationFields.TargetNamespace,
+			ApiUrl:                   environment.Spec.UnstableConfigurationFields.APIURL,
+			ClusterCredentialsSecret: environment.Spec.UnstableConfigurationFields.ClusterCredentialsSecret,
+		}, nil
+	} else {
+		// local environment, just return the namespace
+		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	}
 }
 
-type linkedRemoteSecretsFinalizer struct {
-	client client.Client
-}
-
-var _ finalizer.Finalizer = (*linkedRemoteSecretsFinalizer)(nil)
-
-// Finalize removes the remote secret targets synced to the actual snapshot environment binding which is being deleted
-func (f *linkedRemoteSecretsFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
-	res := finalizer.Result{}
-	snapshotEnvBinding, ok := obj.(*appstudiov1alpha1.SnapshotEnvironmentBinding)
-	if !ok {
-		return res, unexpectedObjectTypeError
+func remoteSecretApplicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
+		return slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName)
 	}
-
-	remoteSecretsList := rapi.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(snapshotEnvBinding.Namespace), client.MatchingLabels{ApplicationLabelName: snapshotEnvBinding.Spec.Application}); err != nil {
-		return res, unableToFetchRemoteSecretsError
+	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
+		return labelValue == environmentName
 	}
-
-	if len(remoteSecretsList.Items) == 0 {
-		return finalizer.Result{}, nil
-	}
-
-	target := rapi.RemoteSecretTarget{Namespace: snapshotEnvBinding.Namespace}
-
-	for rs := range remoteSecretsList.Items {
-		remoteSecret := remoteSecretsList.Items[rs]
-		environmentInSecret, set := remoteSecret.Labels[EnvironmentLabelName]
-		if set && environmentInSecret != "" && environmentInSecret != snapshotEnvBinding.Spec.Environment {
-			// this secret is intended for another environment, bypassing it
-			continue
-		}
-		removeTarget(&remoteSecret, target)
-		if err := f.client.Update(ctx, &remoteSecret); err != nil {
-			return res, unableToUpdateRemoteSecret
-		}
-	}
-	return finalizer.Result{}, nil
+	return true
 }

@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -45,7 +45,7 @@ current-context: testkube
 
 func TestClientOptions(t *testing.T) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{})
-	mapper.Add(v1beta1.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
+	mapper.Add(api.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
 
 	opts, err := clientOptions(mapper)
 

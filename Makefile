@@ -219,7 +219,7 @@ docker-push-oauth:
 # - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 # - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
 # To properly provided solutions that supports more than one platform you should use this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+PLATFORMS ?= linux/arm64,linux/amd64
 docker-buildx:  ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
@@ -292,7 +292,7 @@ deploy_vault_minikube: kustomize
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
 deploy_remotesecret_minikube: kustomize
-	VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
 
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
