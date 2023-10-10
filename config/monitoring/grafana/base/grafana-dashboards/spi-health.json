@@ -466,7 +466,7 @@
         {
           "datasource": "$datasource",
           "editorMode": "builder",
-          "expr": "histogram_quantile(0.95, sum by(le, controller) (rate(controller_runtime_reconcile_time_seconds_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le, controller) (rate(controller_runtime_reconcile_time_seconds_bucket{namespace=\"spi-system\"}[$__rate_interval])))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
