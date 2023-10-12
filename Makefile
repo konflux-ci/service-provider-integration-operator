@@ -200,11 +200,9 @@ run_oauth: ## Run the OAuth service locally
 docker-build: docker-build-operator docker-build-oauth ## Builds the docker images for operator and OAuth service. Use SPI_IMG_BASE and TAG_NAME env vars to modify the image name of both at the same time.
 
 docker-build-operator:
-	echo 222
 	docker build -t ${SPIO_IMG} --build-arg=TARGETARCH=$(GOARCH)  . -f Dockerfile
 
 docker-build-oauth:
-	echo 333
 	docker build -t ${SPIS_IMG} --build-arg=TARGETARCH=$(GOARCH) . -f oauth.Dockerfile
 
 docker-push: docker-push-operator docker-push-oauth ## Pushes the built images to the docker registry. See docker-build target for how to configure the names of the images.
