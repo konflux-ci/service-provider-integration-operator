@@ -14,7 +14,7 @@ endif
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.3.0
 TAG_NAME ?= next
-
+GOARCH ?= $(shell go env GOARCH)
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -200,10 +200,10 @@ run_oauth: ## Run the OAuth service locally
 docker-build: docker-build-operator docker-build-oauth ## Builds the docker images for operator and OAuth service. Use SPI_IMG_BASE and TAG_NAME env vars to modify the image name of both at the same time.
 
 docker-build-operator:
-	docker build -t ${SPIO_IMG}  . -f Dockerfile
+	docker build -t ${SPIO_IMG} --build-arg=TARGETARCH=$(GOARCH)  . -f Dockerfile
 
 docker-build-oauth:
-	docker build -t ${SPIS_IMG} . -f oauth.Dockerfile
+	docker build -t ${SPIS_IMG} --build-arg=TARGETARCH=$(GOARCH) . -f oauth.Dockerfile
 
 docker-push: docker-push-operator docker-push-oauth ## Pushes the built images to the docker registry. See docker-build target for how to configure the names of the images.
 
