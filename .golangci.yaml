@@ -39,3 +39,6 @@ linters-settings:
       - .WithMessage(
       - .WithMessagef(
       - .WithStack(
+  gosec:
+    excludes:
+      - G101 # Look for hard coded credentials. Until https://github.com/securego/gosec/issues/1046
