@@ -30,11 +30,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
@@ -48,13 +45,17 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	ClientFactory       kubernetesclient.K8sClientFactory
-	InClusterK8sClient  client.Client
-	TokenStorage        tokenstorage.TokenStorage
-	RedirectTemplate    *template.Template
-	Authenticator       *Authenticator
-	StateStorage        StateStorage
-	ServiceProviderType config.ServiceProviderType
+	ClientFactory      kubernetesclient.K8sClientFactory
+	InClusterK8sClient client.Client
+	TokenStorage       tokenstorage.TokenStorage
+	RedirectTemplate   *template.Template
+	Authenticator      *Authenticator
+	StateStorage       StateStorage
+	tokenDataSyncStrategy
+}
+
+func (c *commonController) setSyncStrategy(strategy tokenDataSyncStrategy) {
+	c.tokenDataSyncStrategy = strategy
 }
 
 // exchangeResult this the result of the OAuth exchange with all the data necessary to store the token into the storage
@@ -65,15 +66,7 @@ type exchangeResult struct {
 	authorizationHeader string
 }
 
-// redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
-func (c *commonController) redirectUrl() string {
-	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
-		return c.OAuthServiceConfiguration.RedirectProxyUrl
-	}
-	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
-}
-
-func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
+func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo, oauthCfg *oauth2.Config) {
 	ctx := r.Context()
 	lg := log.FromContext(ctx)
 
@@ -86,7 +79,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 	}
 	ctx = clientfactory.WithAuthIntoContext(token, ctx)
 
-	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
+	hasAccess, err := c.tokenDataSyncStrategy.checkIdentityHasAccess(ctx, state.TokenNamespace)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
@@ -113,11 +106,6 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		params.Add("callback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
 		newStateString = params.Encode()
 	}
-	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
-	if oauthConfigErr != nil {
-		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
-		return
-	}
 	oauthCfg.Scopes = state.Scopes
 
 	templateData := struct {
@@ -133,11 +121,11 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
+func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo, oauthCfg *oauth2.Config) {
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/callback")
 
-	exchange, err := c.finishOAuthExchange(ctx, r, state)
+	exchange, err := c.finishOAuthExchange(ctx, r, state, oauthCfg)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, "error in Service Provider token exchange", err)
 		return
@@ -148,7 +136,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 
-	err = c.syncTokenData(ctx, &exchange)
+	err = c.tokenDataSyncStrategy.syncTokenData(ctx, &exchange)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to store token data to cluster", err)
 		return
@@ -160,7 +148,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 
 // finishOAuthExchange implements the bulk of the Callback function. It returns the token, if obtained, the decoded
 // state from the oauth flow, if available, and the result of the authentication.
-func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request, state *oauthstate.OAuthInfo) (exchangeResult, error) {
+func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Request, state *oauthstate.OAuthInfo, oauthCfg *oauth2.Config) (exchangeResult, error) {
 	// TODO support the implicit flow here, too?
 
 	// check that the state is correct
@@ -180,12 +168,6 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	}
 	ctx = clientfactory.WithAuthIntoContext(k8sToken, ctx)
 
-	// the state is ok, let's retrieve the token from the service provider
-	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
-	if oauthConfigErr != nil {
-		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to obtain oauth configuration: %w", oauthConfigErr)
-	}
-
 	code := r.FormValue("code")
 
 	// adding scopes to code exchange request is little out of spec, but quay wants them,
@@ -201,57 +183,4 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		token:               token,
 		authorizationHeader: k8sToken,
 	}, nil
-}
-
-// syncTokenData stores the data of the token to the configured TokenStorage.
-func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
-	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
-
-	accessToken := &api.SPIAccessToken{}
-	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
-	k8sClient, err := c.ClientFactory.CreateClient(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
-	}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
-		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
-	}
-
-	apiToken := api.Token{
-		AccessToken:  exchange.token.AccessToken,
-		TokenType:    exchange.token.TokenType,
-		RefreshToken: exchange.token.RefreshToken,
-		Expiry:       uint64(exchange.token.Expiry.Unix()),
-	}
-
-	if err := c.TokenStorage.Store(ctx, accessToken, &apiToken); err != nil {
-		return fmt.Errorf("failed to persist the token to storage: %w", err)
-	}
-
-	return nil
-}
-
-func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oauthstate.OAuthInfo) (bool, error) {
-	review := v1.SelfSubjectAccessReview{
-		Spec: v1.SelfSubjectAccessReviewSpec{
-			ResourceAttributes: &v1.ResourceAttributes{
-				Namespace: state.TokenNamespace,
-				Verb:      "create",
-				Group:     api.GroupVersion.Group,
-				Version:   api.GroupVersion.Version,
-				Resource:  "spiaccesstokendataupdates",
-			},
-		},
-	}
-
-	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, state.TokenNamespace))
-	if err != nil {
-		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", state.TokenNamespace, err)
-	}
-	if err := k8sClient.Create(ctx, &review); err != nil {
-		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
-	}
-
-	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review result", "review", &review)
-	return review.Status.Allowed, nil
 }

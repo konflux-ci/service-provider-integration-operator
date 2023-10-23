@@ -18,8 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+	"golang.org/x/oauth2"
 	"html/template"
 	"net/http"
+	"net/url"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,13 +36,21 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
-var errUnknownServiceProviderType = errors.New("unknown service provider type")
+var (
+	errUnknownServiceProviderType = errors.New("unknown service provider type")
+	errNoOAuthConfiguration       = errors.New("no OAuth configuration found for the service provider")
+	errConfigNoOAuth              = errors.New("found sp configuration has no OAuth information. This should never happen, because Operator should find same configuration and thus not generate OAuth URL and we should not get to the OAuth service at all")
+)
 
 // Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
-	controllers map[config.ServiceProviderName]Controller
+	controller      Controller
+	spiSyncStrategy SPIAccessTokenSyncStrategy
+	rsSyncStrategy  RemoteSecretSyncStrategy
+	OAuthServiceConfiguration
 
-	stateStorage StateStorage
+	stateStorage       StateStorage
+	InClusterK8sClient client.Client
 }
 
 // CallbackRoute route for /oauth/callback requests
@@ -63,15 +76,40 @@ type RouterConfiguration struct {
 
 func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config.ServiceProviderType) (*Router, error) {
 	router := &Router{
-		controllers:  map[config.ServiceProviderName]Controller{},
+		controller:   InitController(cfg),
 		stateStorage: cfg.StateStorage,
+		spiSyncStrategy: SPIAccessTokenSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+			TokenStorage:  cfg.TokenStorage,
+		},
+		rsSyncStrategy: RemoteSecretSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+		},
 	}
 
-	for _, sp := range spDefaults {
-		if controller, initControllerErr := InitController(ctx, sp, cfg); initControllerErr == nil {
-			router.controllers[sp.Name] = controller
-		} else {
-			return nil, fmt.Errorf("failed to initialize controller '%s': %w", sp.Name, initControllerErr)
+	initializedServiceProviders := map[string]bool{}
+
+	for _, spType := range spDefaults {
+		for _, sp := range cfg.ServiceProviders {
+			if sp.ServiceProviderType.Name != spType.Name {
+				continue
+			}
+
+			spHost := spType.DefaultHost
+			if sp.ServiceProviderBaseUrl != "" {
+				baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
+				if parseUrlErr != nil {
+					return nil, fmt.Errorf("failed to parse service provider url: %w", parseUrlErr)
+				}
+				spHost = baseUrlParsed.Host
+			}
+
+			if _, alreadyInitialized := initializedServiceProviders[spHost]; alreadyInitialized {
+				return nil, fmt.Errorf("%w '%s' base url '%s'", errMultipleConfigsForSameHost, spType.Name, spHost)
+			} else {
+				initializedServiceProviders[spHost] = true
+				log.FromContext(ctx).Info("initializing service provider", "type", sp.ServiceProviderType.Name, "url", spHost)
+			}
 		}
 	}
 
@@ -105,12 +143,64 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 		return nil, nil, fmt.Errorf("failed to parse state string: %w", err)
 	}
 
-	controller := r.controllers[state.ServiceProviderName]
-	if controller == nil {
-		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl)
+	if state.IsRemoteSecret {
+		r.controller.setSyncStrategy(r.rsSyncStrategy)
+	} else {
+		r.controller.setSyncStrategy(r.spiSyncStrategy)
 	}
 
-	return controller, state, nil
+	return r.controller, state, nil
+}
+
+// redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
+func (r *Router) redirectUrl() string {
+	if r.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		return r.OAuthServiceConfiguration.RedirectProxyUrl
+	}
+	return strings.TrimSuffix(r.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
+}
+
+// findOauthConfig is responsible for getting oauth configuration of service provider.
+// Currently, this can be configured with labeled secret living in namespace together with SPIAccessToken.
+// If no such secret is found, global configuration of oauth service is used.
+func (r *Router) findOauthConfig(ctx context.Context, info *oauthstate.OAuthInfo) (*oauth2.Config, error) {
+	spUrl, urlParseErr := url.Parse(info.ServiceProviderUrl)
+	if urlParseErr != nil {
+		return nil, fmt.Errorf("failed to parse serviceprovider url: %w", urlParseErr)
+	}
+
+	spType, err := config.GetServiceProviderTypeByName(info.ServiceProviderName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find service provider type: %w", urlParseErr)
+	}
+
+	// first try to find configuration in user's secret
+	spConfig, errSpConfig := config.SpConfigFromUserSecret(ctx, r.InClusterK8sClient, info.TokenNamespace, spType, spUrl)
+	if errSpConfig != nil {
+		return nil, fmt.Errorf("failed to create service provider config from user config secret: %w", errSpConfig)
+	}
+
+	redirectUrl := r.redirectUrl()
+	if spConfig != nil {
+		if spConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("user config error: %w", errConfigNoOAuth)
+		}
+		oauthConfig := spConfig.OAuth2Config
+		oauthConfig.RedirectURL = redirectUrl
+		return oauthConfig, nil
+	}
+
+	// if we don't have user's config, we
+	if globalSpConfig := config.SpConfigFromGlobalConfig(&r.SharedConfiguration, spType, config.GetBaseUrl(spUrl)); globalSpConfig != nil {
+		if globalSpConfig.OAuth2Config == nil {
+			return nil, fmt.Errorf("global config error: %w", errConfigNoOAuth)
+		}
+		oauthConfig := globalSpConfig.OAuth2Config
+		oauthConfig.RedirectURL = redirectUrl
+		return oauthConfig, nil
+	}
+
+	return nil, fmt.Errorf("%w '%s' url: '%s'", errNoOAuthConfiguration, info.ServiceProviderName, info.ServiceProviderUrl)
 }
 
 func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
@@ -120,8 +210,11 @@ func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ctrl.Callback(req.Context(), wrt, req, state)
-
+	oauthConfig, err := r.router.findOauthConfig(req.Context(), state)
+	if err != nil {
+		return
+	}
+	ctrl.Callback(req.Context(), wrt, req, state, oauthConfig)
 	veiledAt, err := r.router.stateStorage.StateVeiledAt(req.Context(), req)
 	if err != nil {
 		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
@@ -137,5 +230,10 @@ func (r *AuthenticateRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request
 		return
 	}
 
-	ctrl.Authenticate(wrt, req, state)
+	oauthConfig, err := r.router.findOauthConfig(req.Context(), state)
+	if err != nil {
+		return
+	}
+
+	ctrl.Authenticate(wrt, req, state, oauthConfig)
 }

@@ -133,6 +133,12 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
+	if err = (&RemoteSecretOAuthReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	if cfg.EnableTokenUpload {
 		// Setup tokenUpload controller if configured
 		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken and RemoteSecret

@@ -16,14 +16,10 @@ package oauth
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"golang.org/x/oauth2"
+	"net/http"
 )
 
 // Controller implements the OAuth flow. There are specific implementations for each service provider type. These
@@ -31,10 +27,12 @@ import (
 type Controller interface {
 	// Authenticate handles the initial OAuth request. It should validate that the request is authenticated in Kubernetes
 	// compose the authenticated OAuth state and return a redirect to the service-provider OAuth endpoint with the state.
-	Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
+	Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo, oauthCfg *oauth2.Config)
 
 	// Callback finishes the OAuth flow. It handles the final redirect from the OAuth flow of the service provider.
-	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
+	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo, oauthCfg *oauth2.Config)
+
+	setSyncStrategy(strategy tokenDataSyncStrategy)
 }
 
 // oauthFinishResult is an enum listing the possible results of authentication during the commonController.finishOAuthExchange
@@ -51,9 +49,7 @@ var (
 	errMultipleConfigsForSameHost = errors.New("failed to initialize - multiple configurations for one service provider host")
 )
 
-func InitController(ctx context.Context, spType config.ServiceProviderType, cfg RouterConfiguration) (Controller, error) {
-	lg := log.FromContext(ctx)
-
+func InitController(cfg RouterConfiguration) Controller {
 	// use the notifying token storage to automatically inform the cluster about changes in the token storage
 	ts := &tokenstorage.NotifyingTokenStorage{
 		ClientFactory: cfg.ClientFactory,
@@ -68,32 +64,12 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		Authenticator:             cfg.Authenticator,
 		StateStorage:              cfg.StateStorage,
 		RedirectTemplate:          cfg.RedirectTemplate,
-		ServiceProviderType:       spType,
+		// set default strategy to SPIAccessToken
+		tokenDataSyncStrategy: SPIAccessTokenSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+			TokenStorage:  cfg.TokenStorage,
+		},
 	}
 
-	initializedServiceProviders := map[string]bool{}
-
-	for _, sp := range cfg.ServiceProviders {
-		if sp.ServiceProviderType.Name != spType.Name {
-			continue
-		}
-
-		spHost := spType.DefaultHost
-		if sp.ServiceProviderBaseUrl != "" {
-			baseUrlParsed, parseUrlErr := url.Parse(sp.ServiceProviderBaseUrl)
-			if parseUrlErr != nil {
-				return nil, fmt.Errorf("failed to parse service provider url: %w", parseUrlErr)
-			}
-			spHost = baseUrlParsed.Host
-		}
-
-		if _, alreadyInitialized := initializedServiceProviders[spHost]; alreadyInitialized {
-			return nil, fmt.Errorf("%w '%s' base url '%s'", errMultipleConfigsForSameHost, spType.Name, spHost)
-		} else {
-			initializedServiceProviders[spHost] = true
-			lg.Info("initializing service provider controller", "type", sp.ServiceProviderType.Name, "url", spHost)
-		}
-	}
-
-	return controller, nil
+	return controller
 }
