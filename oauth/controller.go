@@ -17,12 +17,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
-
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"net/http"
+	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -35,6 +34,8 @@ type Controller interface {
 
 	// Callback finishes the OAuth flow. It handles the final redirect from the OAuth flow of the service provider.
 	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
+
+	setSyncStrategy(strategy tokenDataSyncStrategy)
 }
 
 // oauthFinishResult is an enum listing the possible results of authentication during the commonController.finishOAuthExchange

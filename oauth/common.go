@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -30,11 +31,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
@@ -55,6 +53,11 @@ type commonController struct {
 	Authenticator       *Authenticator
 	StateStorage        StateStorage
 	ServiceProviderType config.ServiceProviderType
+	tokenDataSyncStrategy
+}
+
+func (c *commonController) setSyncStrategy(strategy tokenDataSyncStrategy) {
+	c.tokenDataSyncStrategy = strategy
 }
 
 // exchangeResult this the result of the OAuth exchange with all the data necessary to store the token into the storage
@@ -86,7 +89,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 	}
 	ctx = clientfactory.WithAuthIntoContext(token, ctx)
 
-	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
+	hasAccess, err := c.tokenDataSyncStrategy.checkIdentityHasAccess(ctx, state.TokenNamespace)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
@@ -148,7 +151,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 
-	err = c.syncTokenData(ctx, &exchange)
+	err = c.tokenDataSyncStrategy.syncTokenData(ctx, &exchange)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to store token data to cluster", err)
 		return
@@ -201,57 +204,4 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		token:               token,
 		authorizationHeader: k8sToken,
 	}, nil
-}
-
-// syncTokenData stores the data of the token to the configured TokenStorage.
-func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
-	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
-
-	accessToken := &api.SPIAccessToken{}
-	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
-	k8sClient, err := c.ClientFactory.CreateClient(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
-	}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
-		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
-	}
-
-	apiToken := api.Token{
-		AccessToken:  exchange.token.AccessToken,
-		TokenType:    exchange.token.TokenType,
-		RefreshToken: exchange.token.RefreshToken,
-		Expiry:       uint64(exchange.token.Expiry.Unix()),
-	}
-
-	if err := c.TokenStorage.Store(ctx, accessToken, &apiToken); err != nil {
-		return fmt.Errorf("failed to persist the token to storage: %w", err)
-	}
-
-	return nil
-}
-
-func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oauthstate.OAuthInfo) (bool, error) {
-	review := v1.SelfSubjectAccessReview{
-		Spec: v1.SelfSubjectAccessReviewSpec{
-			ResourceAttributes: &v1.ResourceAttributes{
-				Namespace: state.TokenNamespace,
-				Verb:      "create",
-				Group:     api.GroupVersion.Group,
-				Version:   api.GroupVersion.Version,
-				Resource:  "spiaccesstokendataupdates",
-			},
-		},
-	}
-
-	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, state.TokenNamespace))
-	if err != nil {
-		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", state.TokenNamespace, err)
-	}
-	if err := k8sClient.Create(ctx, &review); err != nil {
-		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
-	}
-
-	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review result", "review", &review)
-	return review.Status.Allowed, nil
 }

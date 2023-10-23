@@ -38,6 +38,11 @@ type OAuthInfo struct {
 
 	// ServiceProviderUrl the URL where the service provider is to be reached
 	ServiceProviderUrl string `json:"serviceProviderUrl"`
+
+	// Might be a bit ugly but let's add this flag here to specify that OAuth flow is for RemoteSecret.
+	// This way we change as little as possible while staying backward compatible.
+	// Later we can rework this struct or think about other solution.
+	IsRemoteSecret bool `json:"isRemoteSecret,omitempty"`
 }
 
 // ParseOAuthInfo parses the state from the URL query parameter and returns the anonymous state struct. It is just

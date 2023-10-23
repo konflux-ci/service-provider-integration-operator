@@ -35,9 +35,10 @@ var errUnknownServiceProviderType = errors.New("unknown service provider type")
 
 // Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
-	controllers map[config.ServiceProviderName]Controller
-
-	stateStorage StateStorage
+	controllers     map[config.ServiceProviderName]Controller
+	spiSyncStrategy SPIAccessTokenSyncStrategy
+	rsSyncStrategy  RemoteSecretSyncStrategy
+	stateStorage    StateStorage
 }
 
 // CallbackRoute route for /oauth/callback requests
@@ -65,6 +66,13 @@ func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config
 	router := &Router{
 		controllers:  map[config.ServiceProviderName]Controller{},
 		stateStorage: cfg.StateStorage,
+		spiSyncStrategy: SPIAccessTokenSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+			TokenStorage:  cfg.TokenStorage,
+		},
+		rsSyncStrategy: RemoteSecretSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+		},
 	}
 
 	for _, sp := range spDefaults {
@@ -109,6 +117,11 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if controller == nil {
 		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl)
 	}
+	if state.IsRemoteSecret {
+		controller.setSyncStrategy(r.rsSyncStrategy)
+	} else {
+		controller.setSyncStrategy(r.spiSyncStrategy)
+	}
 
 	return controller, state, nil
 }
@@ -121,7 +134,6 @@ func (r *CallbackRoute) ServeHTTP(wrt http.ResponseWriter, req *http.Request) {
 	}
 
 	ctrl.Callback(req.Context(), wrt, req, state)
-
 	veiledAt, err := r.router.stateStorage.StateVeiledAt(req.Context(), req)
 	if err != nil {
 		LogErrorAndWriteResponse(req.Context(), wrt, http.StatusBadRequest, "failed to find the service provider", err)
