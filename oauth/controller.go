@@ -17,11 +17,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"net/http"
-	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -70,6 +71,11 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		StateStorage:              cfg.StateStorage,
 		RedirectTemplate:          cfg.RedirectTemplate,
 		ServiceProviderType:       spType,
+		// setup SPI sync strategy as default
+		tokenDataSyncStrategy: SPIAccessTokenSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+			TokenStorage:  cfg.TokenStorage,
+		},
 	}
 
 	initializedServiceProviders := map[string]bool{}

@@ -25,6 +25,9 @@ import (
 type NopController struct {
 }
 
+func (n NopController) setSyncStrategy(strategy tokenDataSyncStrategy) {
+}
+
 var _ Controller = (*NopController)(nil)
 
 func (n NopController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {

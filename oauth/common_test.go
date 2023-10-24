@@ -126,6 +126,10 @@ var _ = Describe("Controller", func() {
 			RedirectTemplate:    tmpl,
 			StateStorage:        NewStateStorage(IT.SessionManager),
 			ServiceProviderType: config.ServiceProviderTypeGitHub,
+			tokenDataSyncStrategy: SPIAccessTokenSyncStrategy{
+				ClientFactory: IT.ClientFactory,
+				TokenStorage:  IT.TokenStorage,
+			},
 		}
 	}
 

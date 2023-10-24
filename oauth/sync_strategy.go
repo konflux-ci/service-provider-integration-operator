@@ -16,6 +16,8 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -26,7 +28,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strconv"
 )
 
 type tokenDataSyncStrategy interface {
@@ -146,10 +147,13 @@ func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *e
 	remoteSecret.StringUploadData = data
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		return k8sClient.Update(ctx, remoteSecret)
+		if err := k8sClient.Update(ctx, remoteSecret); err != nil {
+			return fmt.Errorf("failed to persist token to RemoteSecret: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to persist the token to RemoteSecret: %w", err)
+		return fmt.Errorf("failed to persist the token to RemoteSecret after multiple retries: %w", err)
 	}
 
 	return nil

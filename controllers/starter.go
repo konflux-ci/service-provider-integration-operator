@@ -134,7 +134,8 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	}
 
 	if err = (&RemoteSecretOAuthReconciler{
-		Client: mgr.GetClient(),
+		Client:                 mgr.GetClient(),
+		ServiceProviderFactory: spf,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

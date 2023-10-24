@@ -16,7 +16,12 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"time"
+
+	"github.com/go-playground/validator/v10"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -36,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const oauthUrlLabel = "appstudio.redhat.com/sp.oauthurl"
@@ -46,7 +50,7 @@ type RemoteSecretOAuthReconciler struct {
 	ServiceProviderFactory serviceprovider.Factory
 }
 
-//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets/status,verbs=get;update;patch
 
 var _ reconcile.Reconciler = (*RemoteSecretOAuthReconciler)(nil)
@@ -55,7 +59,7 @@ var oauthRemoteSecretSelector = metav1.LabelSelector{
 	MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      api.RSServiceProviderHostLabel,
-			Values:   []string{""},
+			Values:   []string{},
 			Operator: metav1.LabelSelectorOpExists,
 		},
 	},
@@ -67,6 +71,7 @@ func (r *RemoteSecretOAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to construct the predicate for matching RemoteSecret. This should not happen: %w", err)
 	}
 	err = ctrl.NewControllerManagedBy(mgr).
+		Named("remoteSecretOauth").
 		Watches(
 			&source.Kind{Type: &v1beta1.RemoteSecret{}},
 			&handler.EnqueueRequestForObject{},
@@ -111,15 +116,16 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 		return ctrl.Result{}, nil
 	}
 
-	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, "https://"+repoHost, remoteSecret.Namespace)
+	serviceProviderUrl := "https://" + repoHost
+	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, serviceProviderUrl, remoteSecret.Namespace)
 	if err != nil {
 		// TODO: how to handle errors
-		//var validationErr validator.ValidationErrors
-		//if stderrors.As(err, &validationErr) {
-		//	return "", fmt.Errorf("failed to validate the service provider for URL %s: %w", at.Spec.ServiceProviderUrl, validationErr)
-		//} else {
-		//	return "", fmt.Errorf("failed to determine the service provider from URL %s: %w", at.Spec.ServiceProviderUrl, err)
-		//}
+		var validationErr validator.ValidationErrors
+		if stderrors.As(err, &validationErr) {
+			return ctrl.Result{}, fmt.Errorf("failed to validate the service provider for URL %s: %w", serviceProviderUrl, validationErr)
+		} else {
+			return ctrl.Result{}, fmt.Errorf("failed to determine the service provider from URL %s: %w", serviceProviderUrl, err)
+		}
 	}
 	oauthCapability := sp.GetOAuthCapability()
 	if oauthCapability == nil {
@@ -146,10 +152,13 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 	remoteSecret.Annotations[oauthUrlLabel] = oauthBaseUrl + "?state=" + state
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		return r.Update(ctx, remoteSecret)
+		if err := r.Update(ctx, remoteSecret); err != nil {
+			return fmt.Errorf("failed to update RemoteSecret with OAuth URL: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update RemoteSecret with OAuth URL: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to update RemoteSecret after multiple retries: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -162,17 +171,26 @@ func getFixedPermissionsForProvider(spType config.ServiceProviderType) api.Permi
 	switch spType.Name {
 	case config.ServiceProviderTypeQuay.Name:
 		return api.Permissions{
-			Required: []api.Permission{{
-				Type: api.PermissionTypeReadWrite,
-				Area: api.PermissionAreaRegistry,
-			}},
+			Required: []api.Permission{
+				{
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaRegistry,
+				},
+				{
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaUser,
+				}},
 		}
 	default:
 		return api.Permissions{
-			Required: []api.Permission{{
-				Type: api.PermissionTypeReadWrite,
-				Area: api.PermissionAreaRepository,
-			}},
+			Required: []api.Permission{
+				{
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaRepository,
+				}, {
+					Type: api.PermissionTypeReadWrite,
+					Area: api.PermissionAreaUser,
+				}},
 		}
 	}
 }
