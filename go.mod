@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222
-	github.com/redhat-appstudio/remote-secret v0.0.0-20231023204532-023da45a0836
+	github.com/redhat-appstudio/remote-secret v0.0.0-20231024123646-0015934c1d7a
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.93.2
 	go.uber.org/zap v1.26.0
