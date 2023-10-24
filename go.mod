@@ -22,17 +22,17 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222
-	github.com/redhat-appstudio/remote-secret v0.0.0-20231022105841-5fecb37a28ff
+	github.com/redhat-appstudio/remote-secret v0.0.0-20231023204532-023da45a0836
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.93.2
 	go.uber.org/zap v1.26.0
 	golang.org/x/oauth2 v0.13.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.26.1
+	k8s.io/api v0.26.10
 	k8s.io/apiextensions-apiserver v0.26.1
-	k8s.io/apimachinery v0.27.4
-	k8s.io/client-go v0.26.1
-	k8s.io/utils v0.0.0-20230209194617-a36077c30491
+	k8s.io/apimachinery v0.27.7
+	k8s.io/client-go v0.26.10
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.14.6
 )
 
