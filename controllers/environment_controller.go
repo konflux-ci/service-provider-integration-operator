@@ -141,9 +141,9 @@ func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 	secret.Spec.Targets = tmp
 }
 
+// for cleanup, we check the environment name both in annotations and label
 func applicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
 	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
-		//not just return contains() result, but also check if the environmentName is in the label
 		if slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName) {
 			return true
 		}
