@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.21 as builder
+FROM golang:1.21.3 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -25,7 +25,7 @@ COPY controllers/ controllers/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/ -a ./cmd/operator/operator.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.2-750 as spi-operator
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.2-750.1697625013 as spi-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf -y install shadow-utils \
 	&& groupadd --gid 65532 nonroot \
