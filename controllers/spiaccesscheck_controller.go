@@ -28,7 +28,7 @@ import (
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -78,7 +78,7 @@ func (r *SPIAccessCheckReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if sp, spErr := r.ServiceProviderFactory.FromRepoUrl(ctx, ac.Spec.RepoUrl, req.Namespace); spErr == nil {
 		auditLog := log.FromContext(ctx, "audit", "true", "namespace", ac.Namespace, "token", ac.Name, "repository", ac.Spec.RepoUrl)
-		auditLog.Info("performing repository access check")
+		auditLog.Info("performing repository access check", "action", "UPDATE")
 		if status, repoCheckErr := sp.CheckRepositoryAccess(ctx, r.Client, &ac); repoCheckErr == nil {
 			ac.Status = *status
 			auditLog.Info("repository access check succeeded")

@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,11 +34,11 @@ import (
 func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	//given
 	scheme := runtime.NewScheme()
-	utilruntime.Must(v1beta1.AddToScheme(scheme))
-	cntx := context.TODO()
+	utilruntime.Must(api.AddToScheme(scheme))
+	cntx := clientfactory.NamespaceIntoContext(context.TODO(), "ns-1")
 	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&v1beta1.SPIAccessToken{
+		&api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "token-123",
 				Namespace: "ns-1",
@@ -45,10 +47,12 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
-		TokenStorage: vaultstorage.TestTokenStorage{
-			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
-				assert.Equal(t, cntx, ctx)
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		TokenStorage: tokenstorage.TestTokenStorage{
+			StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, data *api.Token) error {
+				nsFromBaseCntx, _ := clientfactory.NamespaceFromContext(cntx)
+				nsFromInvokedCtx, _ := clientfactory.NamespaceFromContext(ctx)
+				assert.Equal(t, nsFromBaseCntx, nsFromInvokedCtx)
 				assert.Equal(t, "jdoe", data.Username)
 				assert.Equal(t, "2345-2345-2345-234-46456", data.AccessToken)
 				assert.Equal(t, "ns-1", token.Namespace)
@@ -59,8 +63,8 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		Storage:       strg,
 	}
 
 	//when
@@ -75,11 +79,11 @@ func TestTokenUploader_ShouldUploadWithNoError(t *testing.T) {
 func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	//given
 	scheme := runtime.NewScheme()
-	utilruntime.Must(v1beta1.AddToScheme(scheme))
+	utilruntime.Must(api.AddToScheme(scheme))
 	cntx := context.TODO()
 	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&v1beta1.SPIAccessToken{
+		&api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "token-324",
 				Namespace: "ns-1",
@@ -88,9 +92,9 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
-		TokenStorage: vaultstorage.TestTokenStorage{
-			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		TokenStorage: tokenstorage.TestTokenStorage{
+			StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, data *api.Token) error {
 				assert.Fail(t, "This line should not be reached")
 				return nil
 			},
@@ -98,8 +102,8 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		Storage:       strg,
 	}
 	//when
 	err := uploader.Upload(cntx, "token-123", "ns-1", tokenData)
@@ -113,11 +117,11 @@ func TestTokenUploader_ShouldFailTokenNotFound(t *testing.T) {
 func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	//given
 	scheme := runtime.NewScheme()
-	utilruntime.Must(v1beta1.AddToScheme(scheme))
+	utilruntime.Must(api.AddToScheme(scheme))
 	cntx := context.TODO()
 	tokenData := &api.Token{AccessToken: "2345-2345-2345-234-46456", Username: "jdoe"}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&v1beta1.SPIAccessToken{
+		&api.SPIAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "token-123",
 				Namespace: "ns-1",
@@ -126,17 +130,17 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 	).Build()
 
 	strg := tokenstorage.NotifyingTokenStorage{
-		Client: cl,
-		TokenStorage: vaultstorage.TestTokenStorage{
-			StoreImpl: func(ctx context.Context, token *v1beta1.SPIAccessToken, data *v1beta1.Token) error {
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		TokenStorage: tokenstorage.TestTokenStorage{
+			StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, data *api.Token) error {
 				return fmt.Errorf("storage disconnected")
 			},
 		},
 	}
 
 	uploader := SpiTokenUploader{
-		K8sClient: cl,
-		Storage:   strg,
+		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
+		Storage:       strg,
 	}
 	//when
 	err := uploader.Upload(cntx, "token-123", "ns-1", tokenData)

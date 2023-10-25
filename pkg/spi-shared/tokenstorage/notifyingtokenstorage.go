@@ -18,16 +18,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NotifyingTokenStorage is a wrapper around TokenStorage that also automatically creates
 // the v1beta1.SPIAccessTokenDataUpdate objects.
 type NotifyingTokenStorage struct {
-	// Client is the kubernetes client to use to create the v1beta1.SPIAccessTokenDataUpdate objects.
-	Client client.Client
+	// Client is the kubernetesclient client to use to create the v1beta1.SPIAccessTokenDataUpdate objects.
+	ClientFactory kubernetesclient.K8sClientFactory
 
 	// TokenStorage is the token storage to delegate the actual storage operations to.
 	TokenStorage TokenStorage
@@ -70,11 +72,18 @@ func (n NotifyingTokenStorage) createDataUpdate(ctx context.Context, owner *api.
 			Namespace:    owner.Namespace,
 		},
 		Spec: api.SPIAccessTokenDataUpdateSpec{
-			TokenName: owner.Name,
+			DataOwner: corev1.TypedLocalObjectReference{
+				APIGroup: &api.GroupVersion.Group,
+				Kind:     "SPIAccessToken",
+				Name:     owner.Name,
+			},
 		},
 	}
-
-	err := n.Client.Create(ctx, update)
+	client, err := n.ClientFactory.CreateClient(ctx)
+	if err != nil {
+		return fmt.Errorf("error creating client: %w", err)
+	}
+	err = client.Create(ctx, update)
 	if err != nil {
 		return fmt.Errorf("error creating data update: %w", err)
 	}

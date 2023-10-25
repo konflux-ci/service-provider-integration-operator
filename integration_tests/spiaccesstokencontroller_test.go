@@ -47,11 +47,15 @@ var _ = Describe("SPIAccessToken", func() {
 				},
 			},
 			Behavior: ITestBehavior{
-				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+				// We need to set OAuth capability prior to the first reconciliation. Alternatively, it can be set in AfterObjectsCreated
+				// and checked in testSetup.BeforeEach post-condition, but that kind of duplicates the OAuth URL test case itself.
+				BeforeObjectsCreated: func() {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
 					}
+				},
+				AfterObjectsCreated: func(objects TestObjects) {
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -96,7 +100,7 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -237,7 +241,7 @@ var _ = Describe("SPIAccessToken", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -337,7 +341,7 @@ var _ = Describe("SPIAccessToken", func() {
 			testSetup := TestSetup{
 				ToCreate: TestObjects{Tokens: []*api.SPIAccessToken{StandardTestToken("phase-test")}},
 				Behavior: ITestBehavior{AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				}},
 			}
 			BeforeEach(func() {

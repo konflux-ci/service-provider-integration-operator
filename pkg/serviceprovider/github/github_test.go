@@ -18,8 +18,13 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
+	"github.com/google/go-github/v45/github"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"golang.org/x/oauth2"
 
 	"errors"
@@ -32,8 +37,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +84,7 @@ func TestCheckPublicRepo(t *testing.T) {
 			}}
 			spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-			publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
+			publicRepo, err := gh.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 
 			assert.NoError(t, err)
 			assert.Equal(t, expected, publicRepo)
@@ -100,7 +105,7 @@ func TestCheckPublicRepo(t *testing.T) {
 		}}
 		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
 
-		publicRepo, err := gh.publicRepo(context.TODO(), spiAccessCheck)
+		publicRepo, err := gh.checkPublicRepoAccess(context.TODO(), spiAccessCheck)
 
 		assert.Error(t, err)
 		assert.Equal(t, false, publicRepo)
@@ -108,7 +113,7 @@ func TestCheckPublicRepo(t *testing.T) {
 }
 
 func TestParseGithubRepositoryUrl(t *testing.T) {
-	gh := Github{}
+	gh := Github{baseUrl: "https://github.com"}
 
 	testOk := func(url, expectedOwner, expectedRepo string) {
 		t.Run(fmt.Sprintf("%s => %s:%s", url, expectedOwner, expectedRepo), func(t *testing.T) {
@@ -367,7 +372,8 @@ func TestNewGithub(t *testing.T) {
 		},
 		HttpClient: http.DefaultClient,
 	}
-	spConfig := &config.ServiceProviderConfiguration{}
+	baseUrl := "https://github.com"
+	spConfig := &config.ServiceProviderConfiguration{ServiceProviderBaseUrl: baseUrl}
 
 	sp, err := newGithub(factory, spConfig)
 
@@ -376,7 +382,7 @@ func TestNewGithub(t *testing.T) {
 	assert.Nil(t, sp.GetOAuthCapability())
 	assert.NotNil(t, sp.GetDownloadFileCapability())
 	assert.Equal(t, config.ServiceProviderTypeGitHub, sp.GetType())
-	assert.Equal(t, config.ServiceProviderTypeGitHub.DefaultBaseUrl, sp.GetBaseUrl())
+	assert.Equal(t, baseUrl, sp.GetBaseUrl())
 }
 
 func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError error) *Github {
@@ -385,7 +391,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 		ExpirationPolicy:          &serviceprovider.NeverMetadataExpirationPolicy{},
 		CacheServiceProviderState: true,
 	}
-	ts := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 		return &api.Token{AccessToken: "blabol"}, nil
 	}}
 
@@ -400,6 +406,17 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 		}),
 	}
 
+	mockForAuthClient := &http.Client{
+		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{},
+				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"private": true}`))),
+				Request:    r,
+			}, nil
+		}),
+	}
+
 	return &Github{httpClient: mockedHTTPClient,
 
 		lookup: serviceprovider.GenericLookup{
@@ -410,19 +427,196 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 					return true, lookupError
 				},
 			},
-			RepoHostParser: serviceprovider.RepoHostFromUrl,
+			RepoUrlParser: serviceprovider.RepoUrlFromString,
+			TokenStorage:  ts,
 		},
 		tokenStorage: ts,
 		ghClientBuilder: githubClientBuilder{
-			httpClient:   mockedHTTPClient,
+			httpClient:   mockForAuthClient,
 			tokenStorage: ts,
 		},
 	}
+}
+
+func TestGitHubUnexpectedStatusMetric(t *testing.T) {
+	// given
+	unexpectedStatusCounter.Reset()
+	numberOfResponses := 3
+	expectedLabels := map[string]string{"unexpected_status": "429"}
+	gh := mockGithub(nil, http.StatusTooManyRequests, nil, nil)
+	for i := 0; i < numberOfResponses; i++ {
+		public, err := gh.checkPublicRepoAccess(context.TODO(), &api.SPIAccessCheck{
+			Spec: api.SPIAccessCheckSpec{RepoUrl: "test.com"},
+		})
+		assert.NoError(t, err)
+		assert.False(t, public)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_public_repo_unexpected_response_status" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				for _, lp := range m.Label {
+					assert.Equal(t, expectedLabels[*lp.Name], *lp.Value)
+				}
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
+}
+
+func TestGithubProbe_Examine(t *testing.T) {
+	probe := githubProbe{}
+	test := func(t *testing.T, url string, expectedMatch bool) {
+		baseUrl, err := probe.Examine(nil, url)
+		expectedBaseUrl := ""
+		if expectedMatch {
+			expectedBaseUrl = config.ServiceProviderTypeGitHub.DefaultBaseUrl
+		}
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBaseUrl, baseUrl)
+	}
+
+	test(t, "https://github.com/name/repo", true)
+	test(t, "https://github.com.foo.bar/name/repo", false)
+	test(t, "github.com/name/repo", false)
+	test(t, "https://www.github.com/name/repo", false)
+	test(t, "quay.io.foo.bar/name/repo", false)
+}
+
+func TestGitHubRateLimitErrorMetric(t *testing.T) {
+	// given
+	numberOfResponses := 3
+	cl := mockK8sClient(&api.SPIAccessToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "token",
+			Namespace: "ac-namespace",
+			Labels: map[string]string{
+				api.ServiceProviderTypeLabel: string(api.ServiceProviderTypeGitHub),
+				api.ServiceProviderHostLabel: config.ServiceProviderTypeGitHub.DefaultHost,
+			},
+		},
+		Spec: api.SPIAccessTokenSpec{
+			ServiceProviderUrl: config.ServiceProviderTypeGitHub.DefaultBaseUrl,
+		},
+		Status: api.SPIAccessTokenStatus{
+			Phase: api.SPIAccessTokenPhaseReady,
+			TokenMetadata: &api.TokenMetadata{
+				LastRefreshTime: time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	})
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
+	gh.ghClientBuilder = githubClientBuilder{
+		httpClient: &http.Client{
+			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
+				return nil, &github.RateLimitError{
+					Rate: github.Rate{
+						Limit:     5000,
+						Remaining: 0,
+						Reset:     github.Timestamp{},
+					},
+					Response: nil,
+					Message:  "rate limit exceeded",
+				}
+			}),
+		},
+		tokenStorage: nil,
+	}
+	ac := &api.SPIAccessCheck{
+		Spec: api.SPIAccessCheckSpec{RepoUrl: "https://github.com/user/repo"},
+	}
+	for i := 0; i < numberOfResponses; i++ {
+		accessCheckStatus, err := gh.CheckRepositoryAccess(context.TODO(), cl, ac)
+		assert.NoError(t, err)
+		assert.NotNil(t, accessCheckStatus)
+	}
+
+	// when
+	mfs, err := metrics.Registry.Gather()
+	assert.NoError(t, err)
+
+	// then
+	metricPresent := false
+	for _, mf := range mfs {
+		if mf.GetName() == "redhat_appstudio_spi_github_rate_limit_errors" {
+			for _, m := range mf.GetMetric() {
+				assert.Equal(t, float64(numberOfResponses), *m.Counter.Value)
+				metricPresent = true
+			}
+		}
+	}
+	assert.True(t, metricPresent)
+}
+
+func TestCheckPrivateRepositoryAccessWithRemoteSecret(t *testing.T) {
+	cl := mockK8sClient(&v1beta1.RemoteSecret{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs",
+			Namespace: "ns",
+			Labels: map[string]string{
+				api.RSServiceProviderHostLabel: "github.com",
+			},
+		},
+		Spec: v1beta1.RemoteSecretSpec{
+			Secret: v1beta1.LinkableSecretSpec{
+				Name: "secret",
+				Type: corev1.SecretTypeBasicAuth,
+			},
+			Targets: []v1beta1.RemoteSecretTarget{{
+				Namespace: "ns",
+			}},
+		},
+		Status: v1beta1.RemoteSecretStatus{
+			Conditions: []metav1.Condition{{
+				Type:   string(v1beta1.RemoteSecretConditionTypeDataObtained),
+				Status: metav1.ConditionTrue,
+			}},
+			Targets: []v1beta1.TargetStatus{{
+				Namespace:  "ns",
+				SecretName: "secret",
+			}},
+		},
+	}, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret",
+			Namespace: "ns",
+		},
+	})
+	gh := mockGithub(cl, http.StatusNotFound, nil, nil)
+	ac := &api.SPIAccessCheck{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "check",
+			Namespace: "ns",
+		},
+		Spec:   api.SPIAccessCheckSpec{RepoUrl: "https://github.com/user/repo"},
+		Status: api.SPIAccessCheckStatus{},
+	}
+	status, err := gh.CheckRepositoryAccess(context.TODO(), cl, ac)
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.True(t, status.Accessible)
+	assert.Equal(t, api.SPIRepoTypeGit, status.Type)
+	assert.Equal(t, api.ServiceProviderTypeGitHub, status.ServiceProvider)
+	assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
+	assert.Empty(t, status.ErrorReason)
+	assert.Empty(t, status.ErrorMessage)
 }
 
 func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
+	utilruntime.Must(v1beta1.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }

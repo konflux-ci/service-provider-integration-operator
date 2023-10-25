@@ -16,10 +16,23 @@ package oauth
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"html"
 	"html/template"
 	"io/ioutil"
+
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"golang.org/x/oauth2"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,20 +40,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"github.com/go-jose/go-jose/v3/json"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"golang.org/x/oauth2"
 )
 
 var _ = Describe("Controller", func() {
@@ -94,7 +94,7 @@ var _ = Describe("Controller", func() {
 	}
 
 	prepareAuthenticator := func(g Gomega) *Authenticator {
-		return NewAuthenticator(IT.SessionManager, IT.Client)
+		return NewAuthenticator(IT.SessionManager, IT.ClientFactory)
 	}
 	prepareController := func(g Gomega) *commonController {
 		tmpl, err := template.ParseFiles("../static/redirect_notice.html")
@@ -119,8 +119,8 @@ var _ = Describe("Controller", func() {
 					BaseUrl: "https://spi.on.my.machine",
 				},
 			},
-			UserAuthK8sClient:   IT.Client,
-			InClusterK8sClient:  IT.Client,
+			ClientFactory:       IT.ClientFactory,
+			InClusterK8sClient:  IT.InClusterClient,
 			TokenStorage:        IT.TokenStorage,
 			Authenticator:       prepareAuthenticator(g),
 			RedirectTemplate:    tmpl,
@@ -211,6 +211,23 @@ var _ = Describe("Controller", func() {
 		Expect(res.Result().Cookies()).NotTo(BeEmpty())
 	})
 
+	It("invalidates the user session cookie", func() {
+
+		req := httptest.NewRequest("GET", "/logout", nil)
+		res := httptest.NewRecorder()
+
+		c := prepareAuthenticator(Default)
+		IT.SessionManager.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.Logout(w, r)
+		})).ServeHTTP(res, req)
+
+		Expect(res.Code).To(Equal(http.StatusOK))
+		Expect(res.Result().Cookies()).To(HaveLen(1))
+		Expect(res.Result().Cookies()[0].Value).To(BeEmpty())
+		Expect(res.Result().Cookies()[0].MaxAge).To(BeNumerically("<=", 0))
+		Expect(res.Result().Cookies()[0].Expires).To(BeTemporally("<=", time.Now()))
+	})
+
 	It("redirects to SP OAuth URL with state and scopes", func() {
 		_, res := loginFlow(Default)
 		Expect(res.Code).To(Equal(http.StatusOK))
@@ -251,28 +268,28 @@ var _ = Describe("Controller", func() {
 
 	When("OAuth initiated", func() {
 		BeforeEach(func() {
-			Expect(IT.Client.Create(IT.Context, &v1beta1.SPIAccessToken{
+			Expect(IT.InClusterClient.Create(IT.Context, &api.SPIAccessToken{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mytoken",
 					Namespace: IT.Namespace,
 				},
-				Spec: v1beta1.SPIAccessTokenSpec{
+				Spec: api.SPIAccessTokenSpec{
 					ServiceProviderUrl: "https://special.sp",
 				},
 			})).To(Succeed())
 
-			t := &v1beta1.SPIAccessToken{}
+			t := &api.SPIAccessToken{}
 			Eventually(func() error {
-				return IT.Client.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)
+				return IT.InClusterClient.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)
 			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
-			t := &v1beta1.SPIAccessToken{}
-			Expect(IT.Client.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)).To(Succeed())
-			Expect(IT.Client.Delete(IT.Context, t)).To(Succeed())
+			t := &api.SPIAccessToken{}
+			Expect(IT.InClusterClient.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)).To(Succeed())
+			Expect(IT.InClusterClient.Delete(IT.Context, t)).To(Succeed())
 			Eventually(func() error {
-				return IT.Client.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)
+				return IT.InClusterClient.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)
 			}).ShouldNot(Succeed())
 		})
 
@@ -380,7 +397,7 @@ var _ = Describe("Controller", func() {
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))
-				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://redirect.to?foo=bar"))
+				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://spi.on.my.machine/callback_success"))
 			}).Should(Succeed())
 		})
 	})

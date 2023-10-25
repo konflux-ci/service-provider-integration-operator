@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"golang.org/x/oauth2"
 
@@ -33,9 +35,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/util"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -69,6 +71,8 @@ func TestQuayProbe_Examine(t *testing.T) {
 
 	test(t, "quay.io/name/repo", true)
 	test(t, "https://quay.io/name/repo", true)
+	test(t, "https://quay.io.foo.bar/name/repo", false)
+	test(t, "quay.io.foo.bar/name/repo", false)
 	test(t, "https://github.com/name/repo", false)
 	test(t, "github.com/name/repo", false)
 }
@@ -92,7 +96,7 @@ func TestMapToken(t *testing.T) {
 		KubernetesClient: k8sClient,
 		HttpClient:       httpClient,
 		Initializers:     initializers,
-		TokenStorage: vaultstorage.TestTokenStorage{
+		TokenStorage: tokenstorage.TestTokenStorage{
 			GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 				return &api.Token{
 					AccessToken: "accessToken",
@@ -304,7 +308,7 @@ func TestCheckRepositoryAccessPublic(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 		}},
 		lookup: serviceprovider.GenericLookup{
-			RepoHostParser: serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser: serviceprovider.RepoUrlFromSchemalessString,
 		},
 	}
 	k8sClient := mockK8sClient()
@@ -358,8 +362,12 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		CacheServiceProviderState: true,
 	}
 
+	ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+		return &api.Token{AccessToken: "blabol"}, nil
+	}}
+
 	lookupMock := serviceprovider.GenericLookup{
-		RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+		RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
 		ServiceProviderType: api.ServiceProviderTypeQuay,
 		MetadataCache:       &metadataCache,
 		TokenFilter: tokenFilterMock{
@@ -367,10 +375,8 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return true, nil
 			},
 		},
+		TokenStorage: ts,
 	}
-	ts := vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-		return &api.Token{AccessToken: "blabol"}, nil
-	}}
 
 	t.Run("public repository", func(t *testing.T) {
 		quay := &Quay{
@@ -583,7 +589,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -606,7 +612,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(publicRepoResponseJson))}, nil
 			}},
 			lookup: lookupMock,
-			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			tokenStorage: tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
 				return nil, nil
 			}},
 		}
@@ -624,14 +630,17 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	})
 
 	t.Run("robot token on private", func(t *testing.T) {
+		ts := tokenstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
+			return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
+		}}
+		lookup := lookupMock
+		lookup.TokenStorage = ts
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusUnauthorized}, nil
 			}},
-			lookup: lookupMock,
-			tokenStorage: vaultstorage.TestTokenStorage{GetImpl: func(ctx context.Context, owner *api.SPIAccessToken) (*api.Token, error) {
-				return &api.Token{AccessToken: "tkn", Username: "alois"}, nil
-			}},
+			lookup:       lookup,
+			tokenStorage: ts,
 		}
 
 		status, err := quay.CheckRepositoryAccess(context.TODO(), cl, accessCheck)
@@ -645,6 +654,53 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		assert.Empty(t, status.ErrorReason)
 		assert.Empty(t, status.ErrorMessage)
 	})
+
+	t.Run("uses RemoteSecret when SPIAccessToken not found", func(t *testing.T) {
+		mockedCl := mockK8sClient(&v1beta1.RemoteSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rs",
+				Namespace: "ac-namespace",
+				Labels: map[string]string{
+					api.RSServiceProviderHostLabel: "quay.io",
+				},
+			},
+			Spec: v1beta1.RemoteSecretSpec{
+				Secret:  v1beta1.LinkableSecretSpec{},
+				Targets: nil,
+			},
+			Status: v1beta1.RemoteSecretStatus{
+				Targets: []v1beta1.TargetStatus{{
+					Namespace:  "ac-namespace",
+					SecretName: "secret",
+				}},
+			},
+		}, &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret",
+				Namespace: "ac-namespace",
+			},
+		})
+
+		quay := &Quay{
+			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(privateRepoResponseJson))}, nil
+			}},
+			lookup: lookupMock,
+		}
+
+		status, err := quay.CheckRepositoryAccess(context.TODO(), mockedCl, accessCheck)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.True(t, status.Accessible)
+		assert.Equal(t, api.SPIRepoTypeContainerRegistry, status.Type)
+		assert.Equal(t, api.ServiceProviderTypeQuay, status.ServiceProvider)
+		assert.Equal(t, api.SPIAccessCheckAccessibilityPrivate, status.Accessibility)
+		assert.Empty(t, status.ErrorReason)
+		assert.Empty(t, status.ErrorMessage)
+	})
+
 }
 
 func TestNewQuay(t *testing.T) {
@@ -687,6 +743,7 @@ func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
+	utilruntime.Must(v1beta1.AddToScheme(sch))
 	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
 }
 

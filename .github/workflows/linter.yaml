@@ -6,11 +6,11 @@ jobs:
     name: golangci
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Go 1.x
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
-      - uses: actions/checkout@v3
+          go-version: "1.21"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -21,7 +21,7 @@ jobs:
           # working-directory: somedir
 
           # Optional: golangci-lint command line arguments.
-          args: --timeout=5m
+          args: --timeout=10m
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
@@ -37,25 +37,31 @@ jobs:
       GO111MODULE: on
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.18.0
         with:
           args: ./...
   kube-linter:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # This prepares directory where github/codeql-action/upload-sarif@v1 looks up report files by default.
       - name: Create ./.kube-linter/ for deployment files
         shell: bash
         run: mkdir -p ./.kube-linter/
-      - name: Generate production configuration
+      - name: Generate openshift with vault configuration
         shell: bash
-        run: kustomize build config/openshift/ >  ./.kube-linter/deploy-spi-openshift.yaml
+        run: kustomize build config/overlays/openshift_vault/ >  ./.kube-linter/deploy-spi-openshift-vault.yaml
+      - name: Generate openshift with aws configuration
+        shell: bash
+        run: kustomize build config/overlays/openshift_aws/ >  ./.kube-linter/deploy-spi-openshift-aws.yaml
       - name: Generate monitoring configuration
         shell: bash
-        run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml
+        run: kustomize build config/monitoring/grafana/base >  ./.kube-linter/monitorings.yaml
+      - name: Generate prometheus configuration
+        shell: bash
+        run: kustomize build config/monitoring/prometheus/base >  ./.kube-linter/prometheus.yaml
       - name: Generate vault configuration
         shell: bash
         run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml

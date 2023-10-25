@@ -41,6 +41,67 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - applications/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - remotesecrets
+  verbs:
+  - delete
+  - list
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - snapshotenvironmentbindings
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - snapshotenvironmentbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - snapshotenvironmentbindings/status
+  verbs:
+  - get
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - spiaccesschecks
   verbs:
   - create

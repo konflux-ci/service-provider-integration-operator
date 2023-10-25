@@ -17,8 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
+	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
+
 	"os"
+
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -26,10 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
-	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
+	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/gitlab"
@@ -44,7 +52,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	appstudiov1beta1 "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -61,7 +69,9 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
-	utilruntime.Must(appstudiov1beta1.AddToScheme(scheme))
+	utilruntime.Must(api.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	initServiceProviders()
@@ -81,7 +91,7 @@ func main() {
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
 	var err error
-	err = sharedconfig.SetupCustomValidations(sharedconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
@@ -90,7 +100,8 @@ func main() {
 	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
-	ctx = log.IntoContext(ctx, ctrl.Log)
+	ctx = context.WithValue(ctx, rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
+	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.InstanceId))
 
 	mgr, mgrErr := createManager(args)
 	if mgrErr != nil {
@@ -104,13 +115,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs.CommonCliArgs)
 	if err != nil {
-		setupLog.Error(err, "failed to initialize the token storage")
+		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, strg, initializers); err != nil {
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, initializers); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
@@ -157,7 +168,6 @@ func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: args.ProbeAddr,
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",

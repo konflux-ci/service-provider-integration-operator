@@ -25,7 +25,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -66,6 +66,32 @@ func TestOkHandler(t *testing.T) {
 	}
 }
 
+func TestCSPHandler(t *testing.T) {
+	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
+	// pass 'nil' as the third parameter.
+	req, err := http.NewRequest("GET", "/health", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	rr := httptest.NewRecorder()
+	handler := CSPHandler(http.HandlerFunc(OkHandler))
+
+	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+	// directly and pass in our Request and ResponseRecorder.
+	handler.ServeHTTP(rr, req)
+
+	// Check the status code is what we expect.
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	//Check header value ok
+	assert.Equal(t, rr.Header().Get("Content-Security-Policy"), "default-src 'none'; style-src 'unsafe-inline'; img-src https://*.redhat.com; frame-ancestors 'none';")
+}
+
 func TestReadyCheckHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
@@ -99,7 +125,7 @@ func TestCallbackSuccessHandler(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(CallbackSuccessHandler)
+	handler := CallbackSuccessHandler()
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -122,7 +148,7 @@ func TestCallbackErrorHandler(t *testing.T) {
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(CallbackErrorHandler)
+	handler := CallbackErrorHandler()
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
@@ -250,12 +276,12 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.Contains(t, string(data), errorMsg)
+		assert.Equal(t, string(data), errorMsg)
 	}
-	testResponse(uploaderNotFound, http.StatusNotFound, "mocking a missing SPIAccessToken")
-	testResponse(uploaderForbidden, http.StatusForbidden, "mocking a token with forbidden access")
-	testResponse(uploaderUnauthorized, http.StatusUnauthorized, "mocking an invalid token")
-	testResponse(uploaderInternal, http.StatusInternalServerError, "mocking internal unrelated error")
+	testResponse(uploaderNotFound, http.StatusNotFound, "specified SPIAccessToken does not exist")
+	testResponse(uploaderForbidden, http.StatusForbidden, "authorization token does not have permission to update SPIAccessToken")
+	testResponse(uploaderUnauthorized, http.StatusUnauthorized, "invalid authorization token, cannot update SPIAccessToken")
+	testResponse(uploaderInternal, http.StatusInternalServerError, "failed to upload the token")
 }
 
 func TestUploader_FailWithoutAuthorization(t *testing.T) {
@@ -290,7 +316,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed extract authorization information from headers: no bearer token found"
+	var expected = "failed extract authorization information from headers"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
@@ -328,7 +354,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed to decode request body as token JSON: invalid character 'h' in literal true (expecting 'r')"
+	var expected = "failed to decode request body as token JSON"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}
@@ -443,7 +469,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected = "failed to upload the token: failed to store the token data into storage"
+	var expected = "failed to upload the token"
 	if string(data) != expected {
 		t.Errorf("expected '"+expected+"' got '%v'", string(data))
 	}

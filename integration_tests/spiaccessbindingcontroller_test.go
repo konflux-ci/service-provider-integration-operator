@@ -22,6 +22,9 @@ import (
 	"strings"
 	"time"
 
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -31,7 +34,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -62,7 +64,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					ITest.TestServiceProvider.OAuthCapability = func() serviceprovider.OAuthCapability {
 						return &ITest.Capabilities
 					}
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 				},
 			},
 		}
@@ -180,7 +182,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 				},
 			},
 		}
@@ -275,11 +277,11 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 
 				Expect(ITest.Client.Create(ITest.Context, otherToken)).To(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+				ITest.TestServiceProvider.LookupTokensImpl = func(ctx context.Context, c client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 					if strings.HasSuffix(binding.Spec.RepoUrl, "test") {
-						return createdToken, nil
+						return []api.SPIAccessToken{*createdToken}, nil
 					} else if strings.HasSuffix(binding.Spec.RepoUrl, "other") {
-						return otherToken, nil
+						return []api.SPIAccessToken{*otherToken}, nil
 					} else {
 						return nil, fmt.Errorf("request for invalid test token")
 					}
@@ -320,7 +322,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				AfterObjectsCreated: func(objects TestObjects) {
 					token := objects.Tokens[0]
 
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&token)
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&token)
 
 					err := ITest.TokenStorage.Store(ITest.Context, token, &api.Token{
 						AccessToken: "token",
@@ -391,8 +393,10 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 	Describe("Syncing", func() {
 		binding := StandardTestBinding("sync-test")
 		binding.Spec.Secret = api.SecretSpec{
-			Name: "binding-secret",
-			Type: corev1.SecretTypeBasicAuth,
+			LinkableSecretSpec: rapi.LinkableSecretSpec{
+				Name: "binding-secret",
+				Type: corev1.SecretTypeBasicAuth,
+			},
 		}
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
@@ -402,7 +406,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -484,7 +488,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 					secret.Data["password"] = []byte("wrong")
 					g.Expect(ITest.Client.Update(ITest.Context, secret)).To(Succeed())
-				})
+				}).Should(Succeed())
 
 				By("waiting for the secret data to be reverted back to the correct values")
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -493,6 +497,22 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
 					g.Expect(string(secret.Data["password"])).To(Equal("access"))
 				})
+
+				By("changing token data")
+				err = ITest.TokenStorage.Store(ITest.Context, testSetup.InCluster.Tokens[0], &api.Token{
+					AccessToken:  "access-new",
+					RefreshToken: "refresh",
+					TokenType:    "awesome",
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("waiting for the secret data to be updated to the correct values")
+				Eventually(func(g Gomega) {
+					binding := testSetup.InCluster.Bindings[0]
+					secret := &corev1.Secret{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: binding.Status.SyncedObjectRef.Name, Namespace: binding.Namespace}, secret)).To(Succeed())
+					g.Expect(string(secret.Data["password"])).To(Equal("access-new"))
+				}).Should(Succeed())
 			})
 		})
 
@@ -515,7 +535,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				AfterObjectsCreated: func(objects TestObjects) {
-					ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+					ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					ITest.TestServiceProvider.MapTokenImpl = func(_ context.Context, _ *api.SPIAccessTokenBinding, token *api.SPIAccessToken, data *api.Token) (serviceprovider.AccessTokenMapper, error) {
 						return serviceprovider.DefaultMapToken(token, data), nil
 					}
@@ -535,7 +555,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 		When("linked token is ready and secret not injected", func() {
 			BeforeEach(func() {
 				// We have the token in the ready state... let's not look it up during token matching
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 
 				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(&api.TokenMetadata{
 					Username:             "alois",
@@ -595,7 +615,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://acme/acme",
 						Secret: api.SecretSpec{
-							Type: corev1.SecretTypeBasicAuth,
+							LinkableSecretSpec: rapi.LinkableSecretSpec{
+								Type: corev1.SecretTypeBasicAuth,
+							},
 						},
 					},
 				}
@@ -616,7 +638,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				// we're trying to use the token defined by the outer layer first.
 				// This token is not ready, so we should be in a situation that should
 				// still enable swapping the token for a better fitting one.
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&createdToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&createdToken)
 
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).To(Succeed())
 			})
@@ -629,7 +651,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 
 				// now start returning the better token from the lookup
-				ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&betterToken)
+				ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&betterToken)
 
 				// and check that the binding switches to the better token
 				testSetup.ReconcileWithCluster(func(g Gomega) {
@@ -663,12 +685,26 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				})
 			})
 
-			It("deletes the secret and flips back to awaiting phase", func() {
-				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+			It("deletes the secret and flips back to awaiting phase when token data disappears", func() {
 				Expect(ITest.TokenStorage.Delete(ITest.Context, createdToken)).To(Succeed())
 
 				testSetup.ReconcileWithCluster(func(g Gomega) {
 					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
+					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
+
+					err := ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(secret), &corev1.Secret{})
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				})
+			})
+
+			It("deletes the secret and flips back to awaiting phase when token is in awaiting state", func() {
+				ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
+
+				testSetup.ReconcileWithCluster(func(g Gomega) {
+					binding := testSetup.InCluster.Bindings[0]
+					g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseAwaitingTokenData))
 					g.Expect(binding.Status.Phase).To(Equal(api.SPIAccessTokenBindingPhaseAwaitingTokenData))
 					g.Expect(binding.Status.SyncedObjectRef.Name).To(BeEmpty())
 
@@ -758,7 +794,9 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				Spec: api.SPIAccessTokenBindingSpec{
 					RepoUrl: "test-provider://acme/acme",
 					Secret: api.SecretSpec{
-						Type: corev1.SecretTypeBasicAuth,
+						LinkableSecretSpec: rapi.LinkableSecretSpec{
+							Type: corev1.SecretTypeBasicAuth,
+						},
 					},
 				},
 			}
@@ -781,7 +819,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					g.Expect(ITest.Client.Update(ITest.Context, updatedCRD)).To(Succeed())
 				}).Should(Succeed())
 
-				ITest.TestServiceProvider.LookupTokenImpl = nil
+				ITest.TestServiceProvider.LookupTokensImpl = nil
 				Expect(ITest.Client.Create(ITest.Context, testBinding)).Should(Succeed())
 			})
 
@@ -832,7 +870,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 				gg.Expect(sas.Items).To(BeEmpty())
 			}).Should(Succeed())
 
-			log.Log.Info("service accounts deleted", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
+			log.Log.Info("service accounts deleted", "test", CurrentGinkgoTestDescription().FullTestText, "deletedSAs", deleted)
 		}
 
 		Context("syncing", func() {
@@ -847,16 +885,18 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
-									Type: corev1.SecretTypeServiceAccountToken,
-									Annotations: map[string]string{
-										corev1.ServiceAccountNameKey: "sa-token",
-									},
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Reference: corev1.LocalObjectReference{
-													Name: "sa-token",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										// service account tokens are a corner case without much utility in SPI but we have supported them for a long time...
+										Type: corev1.SecretTypeServiceAccountToken,
+										Annotations: map[string]string{
+											corev1.ServiceAccountNameKey: "sa-token",
+										},
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													Reference: corev1.LocalObjectReference{
+														Name: "sa-token",
+													},
 												},
 											},
 										},
@@ -872,12 +912,14 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeOpaque,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-secret-sa-",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										Type: corev1.SecretTypeOpaque,
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													Managed: rapi.ManagedServiceAccountSpec{
+														GenerateName: "sa-secret-sa-",
+													},
 												},
 											},
 										},
@@ -893,13 +935,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-image-pull-secret-sa-",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
+													Managed: rapi.ManagedServiceAccountSpec{
+														GenerateName: "sa-image-pull-secret-sa-",
+													},
 												},
 											},
 										},
@@ -934,7 +978,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1048,13 +1092,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					Spec: api.SPIAccessTokenBindingSpec{
 						RepoUrl: "test-provider://test/",
 						Secret: api.SecretSpec{
-							Type: corev1.SecretTypeOpaque,
-							LinkedTo: []api.SecretLink{
-								{
-									ServiceAccount: api.ServiceAccountLink{
-										As: api.ServiceAccountLinkTypeImagePullSecret,
-										Managed: api.ManagedServiceAccountSpec{
-											GenerateName: "sa-secret-sa-",
+							LinkableSecretSpec: rapi.LinkableSecretSpec{
+								Type: corev1.SecretTypeOpaque,
+								LinkedTo: []rapi.SecretLink{
+									{
+										ServiceAccount: rapi.ServiceAccountLink{
+											As: rapi.ServiceAccountLinkTypeImagePullSecret,
+											Managed: rapi.ManagedServiceAccountSpec{
+												GenerateName: "sa-secret-sa-",
+											},
 										},
 									},
 								},
@@ -1117,12 +1163,14 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeBasicAuth,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												Reference: corev1.LocalObjectReference{
-													Name: "test-service-account",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										Type: corev1.SecretTypeBasicAuth,
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													Reference: corev1.LocalObjectReference{
+														Name: "test-service-account",
+													},
 												},
 											},
 										},
@@ -1138,13 +1186,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Reference: corev1.LocalObjectReference{
-													Name: "test-service-account",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
+													Reference: corev1.LocalObjectReference{
+														Name: "test-service-account",
+													},
 												},
 											},
 										},
@@ -1168,7 +1218,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1342,13 +1392,15 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Spec: api.SPIAccessTokenBindingSpec{
 								RepoUrl: "test-provider://test/",
 								Secret: api.SecretSpec{
-									Type: corev1.SecretTypeDockerConfigJson,
-									LinkedTo: []api.SecretLink{
-										{
-											ServiceAccount: api.ServiceAccountLink{
-												As: api.ServiceAccountLinkTypeImagePullSecret,
-												Managed: api.ManagedServiceAccountSpec{
-													GenerateName: "sa-managed-sa-",
+									LinkableSecretSpec: rapi.LinkableSecretSpec{
+										Type: corev1.SecretTypeDockerConfigJson,
+										LinkedTo: []rapi.SecretLink{
+											{
+												ServiceAccount: rapi.ServiceAccountLink{
+													As: rapi.ServiceAccountLinkTypeImagePullSecret,
+													Managed: rapi.ManagedServiceAccountSpec{
+														GenerateName: "sa-managed-sa-",
+													},
 												},
 											},
 										},
@@ -1372,7 +1424,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 							Scopes:               []string{},
 							ServiceProviderState: []byte("state"),
 						})
-						ITest.TestServiceProvider.LookupTokenImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
+						ITest.TestServiceProvider.LookupTokensImpl = serviceprovider.LookupConcreteToken(&objects.Tokens[0])
 					},
 				},
 			}
@@ -1427,7 +1479,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			},
 			Behavior: ITestBehavior{
 				BeforeObjectsCreated: func() {
-					ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: false}
+					ITest.ValidationOptions = rconfig.CustomValidationOptions{AllowInsecureURLs: false}
 					ITest.TestServiceProvider.GetBaseUrlImpl = func() string {
 						return "http://abc.foo"
 					}

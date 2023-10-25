@@ -22,10 +22,13 @@ import (
 	"net/http"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var errUnknownServiceProviderType = errors.New("unknown service provider type")
@@ -52,7 +55,7 @@ type RouterConfiguration struct {
 	OAuthServiceConfiguration
 	Authenticator      *Authenticator
 	StateStorage       StateStorage
-	UserAuthK8sClient  AuthenticatingClient
+	ClientFactory      kubernetesclient.K8sClientFactory
 	InClusterK8sClient client.Client
 	TokenStorage       tokenstorage.TokenStorage
 	RedirectTemplate   *template.Template

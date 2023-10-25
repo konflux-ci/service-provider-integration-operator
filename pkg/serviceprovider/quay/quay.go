@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
@@ -92,9 +93,11 @@ func newQuay(factory *serviceprovider.Factory, spConfig *config.ServiceProviderC
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeQuay,
 			TokenFilter:         serviceprovider.NewFilter(factory.Configuration.TokenMatchPolicy, &tokenFilter{}),
+			RemoteSecretFilter:  serviceprovider.DefaultRemoteSecretFilterFunc,
 			MetadataProvider:    mp,
 			MetadataCache:       &cache,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
+			TokenStorage:        factory.TokenStorage,
 		},
 		httpClient:       factory.HttpClient,
 		tokenStorage:     factory.TokenStorage,
@@ -175,17 +178,20 @@ func translateToQuayScopes(permission api.Permission) []string {
 	return []string{}
 }
 
-func (q *Quay) LookupToken(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) (*api.SPIAccessToken, error) {
+func (q *Quay) LookupTokens(ctx context.Context, cl client.Client, binding *api.SPIAccessTokenBinding) ([]api.SPIAccessToken, error) {
 	tokens, err := q.lookup.Lookup(ctx, cl, binding)
 	if err != nil {
 		return nil, fmt.Errorf("quay token lookup failure: %w", err)
 	}
+	return tokens, nil
+}
 
-	if len(tokens) == 0 {
-		return nil, nil
+func (q *Quay) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := q.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("quay credentials lookup failure: %w", err)
 	}
-
-	return &tokens[0], nil
+	return credentials, nil
 }
 
 func (q *Quay) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {
@@ -200,7 +206,6 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		Type:            api.SPIRepoTypeContainerRegistry,
 		ServiceProvider: api.ServiceProviderTypeQuay,
 		Accessibility:   api.SPIAccessCheckAccessibilityUnknown,
-		Accessible:      false,
 	}
 
 	lg := log.FromContext(ctx)
@@ -213,27 +218,13 @@ func (q *Quay) CheckRepositoryAccess(ctx context.Context, cl client.Client, acce
 		return status, nil // return nil error, because we don't want to reconcile this again
 	}
 
-	tokens, lookupErr := q.lookup.Lookup(ctx, cl, accessCheck)
-	if lookupErr != nil {
-		lg.Error(lookupErr, "failed to lookup token for accesscheck", "accessCheck", accessCheck)
-		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
-		status.ErrorMessage = lookupErr.Error()
-		// not returning here. We're still able to detect public repository without the token.
-		// The error will still be reported in status.
-	}
-
 	var username, token string
-	if len(tokens) > 0 {
-		lg.Info("found tokens", "count", len(tokens), "taking 1st", tokens[0])
-		apiToken, getTokenErr := q.tokenStorage.Get(ctx, &tokens[0])
-		if getTokenErr != nil {
-			return status, fmt.Errorf("failed to get token: %w", getTokenErr)
-		}
-		if apiToken != nil {
-			username, token = getUsernameAndPasswordFromTokenData(apiToken)
-		}
-	} else {
-		lg.Info("we have no tokens for repository", "repoUrl", accessCheck.Spec.RepoUrl)
+	credentials, err := q.lookup.LookupCredentials(ctx, cl, accessCheck)
+	if err != nil {
+		status.ErrorReason = api.SPIAccessCheckErrorTokenLookupFailed
+		status.ErrorMessage = err.Error()
+	} else if credentials != nil {
+		username, token = getUsernameAndPasswordFromCredentials(*credentials)
 	}
 
 	if responseCode, repoInfo, err := q.requestRepoInfo(ctx, owner, repository, token); err != nil {
@@ -383,8 +374,14 @@ type quayProbe struct{}
 
 var _ serviceprovider.Probe = (*quayProbe)(nil)
 
-func (q quayProbe) Examine(_ *http.Client, url string) (string, error) {
-	if strings.HasPrefix(url, config.ServiceProviderTypeQuay.DefaultBaseUrl) || strings.HasPrefix(url, config.ServiceProviderTypeQuay.DefaultHost) {
+func (q quayProbe) Examine(_ *http.Client, repoBaseurl string) (string, error) {
+	baseUrl, err := url.Parse(repoBaseurl)
+	if err != nil {
+		return "", fmt.Errorf("%w '%s'", failedToParseRepoUrlError, repoBaseurl)
+	}
+	if (baseUrl.Host != "" && fmt.Sprintf("%s://%s", baseUrl.Scheme, baseUrl.Host) == config.ServiceProviderTypeQuay.DefaultBaseUrl) ||
+		// no proto, so considering host as a first part until "/"
+		(baseUrl.Host == "" && strings.Split(repoBaseurl, "/")[0] == config.ServiceProviderTypeQuay.DefaultHost) {
 		return config.ServiceProviderTypeQuay.DefaultBaseUrl, nil
 	} else {
 		return "", nil

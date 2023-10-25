@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +54,7 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 
 	secrets := &corev1.SecretList{}
 	if listErr := k8sClient.List(ctx, secrets, client.InNamespace(tokenNamespace), client.MatchingLabels{
-		v1beta1.ServiceProviderTypeLabel: string(spType.Name),
+		api.ServiceProviderTypeLabel: string(spType.Name),
 	}); listErr != nil {
 		if kuberrors.IsForbidden(listErr) {
 			lg.Info("not enough permissions to list the secrets")
@@ -80,7 +80,7 @@ func findUserServiceProviderConfigSecret(ctx context.Context, k8sClient client.C
 	// go through all found sp config secrets
 	for _, oauthSecret := range secrets.Items {
 		// if we find one labeled for sp host, we store it as a candidate
-		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[v1beta1.ServiceProviderHostLabel]; hasLabel {
+		if labelSpHost, hasLabel := oauthSecret.ObjectMeta.Labels[api.ServiceProviderHostLabel]; hasLabel {
 			if labelSpHost == spHost {
 				oauthSecretsWithHost = append(oauthSecretsWithHost, oauthSecret.DeepCopy())
 			}

@@ -57,20 +57,8 @@ spec:
               errorMessage:
                 description: ErrorMessage defines error message if file request failed
                 type: string
-              linkedBindingName:
-                description: LinkedBindingName name of the binding used for repository
-                  authentication
-                type: string
-              oAuthUrl:
-                description: OAuthUrl URL to authenticate into target repository using
-                  OAuth
-                type: string
               phase:
                 description: Phase of the current file request
-                type: string
-              tokenUploadUrl:
-                description: TokenUploadUrl URL to perform manual upload of the token
-                  to access target repository
                 type: string
             required:
             - phase

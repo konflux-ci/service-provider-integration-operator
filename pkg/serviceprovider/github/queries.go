@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 
 	"github.com/google/go-github/v45/github"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -54,6 +54,7 @@ func (r *AllAccessibleRepos) FetchAll(ctx context.Context, githubClient *github.
 	for {
 		repos, resp, err := githubClient.Repositories.List(ctx, "", opt)
 		if err != nil {
+			checkRateLimitError(err)
 			lg.Error(err, "Error during fetching Github repositories list")
 			return fmt.Errorf("failed to list github repositories: %w", err)
 		}

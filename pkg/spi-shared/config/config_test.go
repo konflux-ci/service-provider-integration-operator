@@ -23,12 +23,12 @@ import (
 	"testing"
 
 	"github.com/go-playground/validator/v10"
-
+	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRead(t *testing.T) {
-	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: true})
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
 	t.Run("all supported service providers are set", func(t *testing.T) {
 		configFileContent := `
 serviceProviders:
@@ -111,7 +111,7 @@ func (r *r) Read(p []byte) (n int, err error) {
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
-	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: true})
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
 	configFileContent := `
 serviceProviders:
 - type: GitHub
@@ -128,7 +128,7 @@ serviceProviders:
 }
 
 func TestBaseUrlIsValidated(t *testing.T) {
-	SetupCustomValidations(CustomValidationOptions{AllowInsecureURLs: false})
+	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
 	t.Run("config is validated", func(t *testing.T) {
 
 		configFileContent := `

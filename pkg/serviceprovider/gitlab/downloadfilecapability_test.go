@@ -25,8 +25,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +56,7 @@ func TestGetFileHead(t *testing.T) {
 		}),
 	}
 
-	ts := vaultstorage.TestTokenStorage{
+	ts := tokenstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -65,12 +67,20 @@ func TestGetFileHead(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "", &api.SPIAccessToken{}, 1024)
+	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
+	assert.NoError(t, err)
+
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo",
+		Ref:      "",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -101,7 +111,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		}),
 	}
 
-	ts := vaultstorage.TestTokenStorage{
+	ts := tokenstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -112,12 +122,20 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "", &api.SPIAccessToken{}, 1024)
+	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
+	assert.NoError(t, err)
+
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo.git",
+		Ref:      "",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -148,7 +166,7 @@ func TestGetFileOnBranch(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
 		}),
 	}
-	ts := vaultstorage.TestTokenStorage{
+	ts := tokenstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -159,12 +177,20 @@ func TestGetFileOnBranch(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
-	content, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo.git", "myfile", "v0.1.0", &api.SPIAccessToken{}, 1024)
+	repoUrlMatcher, err := newRepoUrlMatcher("https://fake.github.com")
+	assert.NoError(t, err)
+
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	content, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo.git",
+		Ref:      "v0.1.0",
+	}, serviceprovider.Credentials{}, 1024)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -186,7 +212,7 @@ func TestGetUnexistingFile(t *testing.T) {
 		}),
 	}
 
-	ts := vaultstorage.TestTokenStorage{
+	ts := tokenstorage.TestTokenStorage{
 		GetImpl: func(ctx context.Context, token *api.SPIAccessToken) (*api.Token, error) {
 			return &api.Token{
 				AccessToken:  "access",
@@ -197,12 +223,20 @@ func TestGetUnexistingFile(t *testing.T) {
 		},
 	}
 	gitlabClientBuilder := gitlabClientBuilder{
-		httpClient:   client,
-		tokenStorage: ts,
+		httpClient:    client,
+		tokenStorage:  ts,
+		gitlabBaseUrl: "https://fake.github.com",
 	}
 
-	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com")
-	_, err := fileCapability.DownloadFile(context.TODO(), "https://fake.github.com/foo-user/foo-repo", "myfile", "efaf08a367921ae130c524db4a531b7696b7d967", &api.SPIAccessToken{}, 1024)
+	repoUrlMatcher, matcherErr := newRepoUrlMatcher("https://fake.github.com")
+	assert.NoError(t, matcherErr)
+
+	fileCapability := NewDownloadFileCapability(client, gitlabClientBuilder, "https://fake.github.com", repoUrlMatcher)
+	_, err := fileCapability.DownloadFile(context.TODO(), api.SPIFileContentRequestSpec{
+		FilePath: "myfile",
+		RepoUrl:  "https://fake.github.com/foo-user/foo-repo",
+		Ref:      "efaf08a367921ae130c524db4a531b7696b7d967",
+	}, serviceprovider.Credentials{}, 1024)
 	if err == nil {
 		t.Error("error expected")
 	}

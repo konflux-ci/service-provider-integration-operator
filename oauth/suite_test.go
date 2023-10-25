@@ -19,16 +19,17 @@ import (
 	"testing"
 	"time"
 
+	kubernetes2 "github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 
 	authz "k8s.io/api/authorization/v1"
 
-	"github.com/hashicorp/vault/vault"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/vaultstorage"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,23 +40,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	k8szap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var IT = struct {
-	TestEnvironment  *envtest.Environment
-	Context          context.Context
-	Cancel           context.CancelFunc
-	Scheme           *runtime.Scheme
-	Namespace        string
-	Client           client.Client
-	Clientset        *kubernetes.Clientset
-	TokenStorage     tokenstorage.TokenStorage
-	VaultTestCluster *vault.TestCluster
-	SessionManager   *scs.SessionManager
+	TestEnvironment *envtest.Environment
+	Context         context.Context
+	Cancel          context.CancelFunc
+	Scheme          *runtime.Scheme
+	Namespace       string
+	InClusterClient client.Client
+	ClientFactory   kubernetes2.K8sClientFactory
+	Clientset       *kubernetes.Clientset
+	TokenStorage    tokenstorage.TokenStorage
+	SessionManager  *scs.SessionManager
 }{}
 
 func TestSuite(t *testing.T) {
@@ -80,7 +81,7 @@ var _ = BeforeSuite(func() {
 	// The commented-out sections are enclosed within [SELF_CONTAINED_TEST_ATTEMPT] [/SELF_CONTAINED_TEST_ATTEMPT].
 	By("bootstrapping test environment")
 	IT.TestEnvironment = &envtest.Environment{
-		UseExistingCluster: pointer.BoolPtr(true),
+		UseExistingCluster: ptr.To(true),
 		//[SELF_CONTAINED_TEST_ATTEMPT]
 		//ControlPlane: envtest.ControlPlane{
 		//	APIServer: &envtest.APIServer{},
@@ -103,27 +104,31 @@ var _ = BeforeSuite(func() {
 	Expect(corev1.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(auth.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(authz.AddToScheme(IT.Scheme)).To(Succeed())
-	Expect(v1beta1.AddToScheme(IT.Scheme)).To(Succeed())
+	Expect(api.AddToScheme(IT.Scheme)).To(Succeed())
+
+	IT.ClientFactory = clientfactory.UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
 
 	// create the test namespace which we'll use for the tests
-	IT.Client, err = client.New(IT.TestEnvironment.Config, client.Options{Scheme: IT.Scheme})
+	IT.InClusterClient, err = client.New(IT.TestEnvironment.Config, client.Options{Scheme: IT.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.Clientset, err = kubernetes.NewForConfig(IT.TestEnvironment.Config)
 	Expect(err).NotTo(HaveOccurred())
 
-	IT.VaultTestCluster, IT.TokenStorage = vaultstorage.CreateTestVaultTokenStorage(GinkgoT())
+	IT.TokenStorage = &memorystorage.MemoryTokenStorage{}
 
 	err = IT.TokenStorage.Initialize(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
 	IT.TokenStorage = tokenstorage.NotifyingTokenStorage{
-		Client:       IT.Client,
-		TokenStorage: IT.TokenStorage,
+		ClientFactory: kubernetes2.SingleInstanceClientFactory{Client: IT.InClusterClient},
+		TokenStorage:  IT.TokenStorage,
 	}
 
 	IT.SessionManager = scs.New()
 	IT.SessionManager.Store = memstore.NewWithCleanupInterval(5 * time.Minute)
+	IT.SessionManager.Lifetime = time.Hour
+	IT.SessionManager.Cookie.Persist = false
 	IT.SessionManager.IdleTimeout = 15 * time.Minute
 	IT.SessionManager.Cookie.Name = "appstudio_spi_session"
 	IT.SessionManager.Cookie.SameSite = http.SameSiteNoneMode
@@ -134,7 +139,7 @@ var _ = BeforeSuite(func() {
 			GenerateName: "spi-oauth-test-",
 		},
 	}
-	Expect(IT.Client.Create(context.TODO(), ns)).To(Succeed())
+	Expect(IT.InClusterClient.Create(context.TODO(), ns)).To(Succeed())
 	IT.Namespace = ns.Name
 
 	//[SELF_CONTAINED_TEST_ATTEMPT]
@@ -180,9 +185,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	ns := &corev1.Namespace{}
-	Expect(IT.Client.Get(context.TODO(), client.ObjectKey{Name: IT.Namespace}, ns)).To(Succeed())
-	Expect(IT.Client.Delete(context.TODO(), ns)).To(Succeed())
+	Expect(IT.InClusterClient.Get(context.TODO(), client.ObjectKey{Name: IT.Namespace}, ns)).To(Succeed())
+	Expect(IT.InClusterClient.Delete(context.TODO(), ns)).To(Succeed())
 	IT.Cancel()
 	Expect(IT.TestEnvironment.Stop()).To(Succeed())
-	IT.VaultTestCluster.Cleanup()
 })

@@ -15,26 +15,51 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
+	rsecretstorage "github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, ts tokenstorage.TokenStorage, initializers *serviceprovider.Initializers) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage rsecretstorage.SecretStorage, initializers *serviceprovider.Initializers) error {
+	ctx := context.Background()
+
+	// note that calling the initialize method on the different storages constructed here is essentially useless
+	// at the moment because they require an already initialized secret storage and the returned token
+	// storage doesn't hold any state of its own at the moment. But let's stick to the protocol so that this
+	// doesn't bite us in the future where we may add some state.
+
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
+	if err := tokenStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the token storage: %w", err)
+	}
+
+	remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
+	if err := remoteSecretStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
+	}
+
 	spf := serviceprovider.Factory{
 		Configuration:    cfg,
 		KubernetesClient: mgr.GetClient(),
 		HttpClient:       &http.Client{Transport: httptransport.HttpMetricCollectingRoundTripper{RoundTripper: http.DefaultTransport}},
 		Initializers:     initializers,
-		TokenStorage:     ts,
+		TokenStorage:     tokenStorage,
 	}
 
 	var err error
@@ -46,7 +71,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if err = (&SPIAccessTokenReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ts,
+		TokenStorage:           tokenStorage,
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
 	}).SetupWithManager(mgr); err != nil {
@@ -56,7 +81,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if err = (&SPIAccessTokenBindingReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
-		TokenStorage:           ts,
+		TokenStorage:           tokenStorage,
 		ServiceProviderFactory: spf,
 		Configuration:          cfg,
 	}).SetupWithManager(mgr); err != nil {
@@ -88,18 +113,57 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
+	if err = (&SnapshotEnvironmentBindingReconciler{
+		k8sClient:     mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		Configuration: cfg,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&ApplicationReconciler{
+		k8sClient: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err = (&EnvironmentReconciler{
+		k8sClient: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	if cfg.EnableTokenUpload {
 		// Setup tokenUpload controller if configured
-		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken
-		notifyingStorage := tokenstorage.NotifyingTokenStorage{
-			Client:       mgr.GetClient(),
-			TokenStorage: ts,
+		// Important: need NotifyingTokenStorage to reconcile related SPIAccessToken and RemoteSecret
+		notifTokenStorage := tokenstorage.NewJSONSerializingTokenStorage(&secretstorage.NotifyingSecretStorage{
+			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
+				Client: mgr.GetClient(),
+			},
+			SecretStorage: secretStorage,
+			Group:         api.GroupVersion.Group,
+			Kind:          "SPIAccessToken",
+		})
+		if err = notifTokenStorage.Initialize(ctx); err != nil {
+			return fmt.Errorf("failed to initialize the notifying token storage: %w", err)
+		}
+
+		notifRemoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&secretstorage.NotifyingSecretStorage{
+			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
+				Client: mgr.GetClient(),
+			},
+			SecretStorage: secretStorage,
+			Group:         api.GroupVersion.Group,
+			Kind:          "RemoteSecret",
+		})
+		if err = notifRemoteSecretStorage.Initialize(ctx); err != nil {
+			return fmt.Errorf("failed to initialize the notifying remote secret storage: %w", err)
 		}
 
 		if err = (&TokenUploadReconciler{
 			Client:       mgr.GetClient(),
 			Scheme:       mgr.GetScheme(),
-			TokenStorage: notifyingStorage,
+			TokenStorage: notifTokenStorage,
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}

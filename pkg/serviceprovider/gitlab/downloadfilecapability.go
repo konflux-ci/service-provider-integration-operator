@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -32,34 +31,33 @@ type downloadFileCapability struct {
 	httpClient      *http.Client
 	glClientBuilder gitlabClientBuilder
 	baseUrl         string
-	gitLabUrlRegexp *regexp.Regexp
+	repoMatcher     gitlabRepoUrlMatcher
 }
 
-func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string) downloadFileCapability {
+func NewDownloadFileCapability(httpClient *http.Client, glClientBuilder gitlabClientBuilder, baseUrl string, repoMatcher gitlabRepoUrlMatcher) downloadFileCapability {
 	return downloadFileCapability{
-		httpClient:      httpClient,
-		glClientBuilder: glClientBuilder,
-		baseUrl:         baseUrl,
-		gitLabUrlRegexp: regexp.MustCompile(`(?Um)^` + baseUrl + `/(?P<owner>[^/]+)/(?P<project>[^/]+)(.git)?$`),
+		httpClient,
+		glClientBuilder,
+		baseUrl,
+		repoMatcher,
 	}
 }
 
 var _ serviceprovider.DownloadFileCapability = (*downloadFileCapability)(nil)
 
 var (
-	unexpectedStatusCodeError  = errors.New("unexpected status code from GitLab API")
 	fileSizeLimitExceededError = errors.New("failed to retrieve file: size too big")
+	unexpectedRepoUrlError     = errors.New("repoUrl has unexpected format")
 )
 
-func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
-	gitLabURLRegexpNames := f.gitLabUrlRegexp.SubexpNames()
-	submatches := f.gitLabUrlRegexp.FindAllStringSubmatch(repoUrl, -1)
-	matchesMap := map[string]string{}
-	for i, n := range submatches[0] {
-		matchesMap[gitLabURLRegexpNames[i]] = n
-	}
+func (f downloadFileCapability) DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
 	lg := log.FromContext(ctx)
-	glClient, err := f.glClientBuilder.createGitlabAuthClient(ctx, token, f.baseUrl)
+	owner, project, err := f.repoMatcher.parseOwnerAndProjectFromUrl(ctx, request.RepoUrl)
+	if err != nil {
+		return "", err
+	}
+
+	glClient, err := f.glClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitLab client: %w", err)
 	}
@@ -67,13 +65,13 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filep
 	var refOption gitlab.GetFileOptions
 
 	//ref is required, need to set ir retrieve it
-	if ref != "" {
-		refOption = gitlab.GetFileOptions{Ref: gitlab.String(ref)}
+	if request.Ref != "" {
+		refOption = gitlab.GetFileOptions{Ref: gitlab.String(request.Ref)}
 	} else {
 		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
 	}
 
-	file, resp, err := glClient.RepositoryFiles.GetFile(matchesMap["owner"]+"/"+matchesMap["project"], filepath, &refOption)
+	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.FilePath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
 		return "", fmt.Errorf("%w: %d", unexpectedStatusCodeError, resp.StatusCode)

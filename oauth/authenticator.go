@@ -19,14 +19,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/alexedwards/scs/v2"
 )
 
 type Authenticator struct {
-	K8sClient      AuthenticatingClient
+	ClientFactory  kubernetesclient.K8sClientFactory
 	SessionManager *scs.SessionManager
 }
 
@@ -78,7 +82,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("k8s_token")
 
 	if token == "" {
-		token = ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
+		token = clientfactory.ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
 	}
 
 	if token == "" {
@@ -102,13 +106,27 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.SessionManager.Put(r.Context(), "k8s_token", token)
-	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token")
+	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token", "action", "ADD")
 	w.WriteHeader(http.StatusOK)
 }
 
-func NewAuthenticator(sessionManager *scs.SessionManager, cl AuthenticatingClient) *Authenticator {
+func (a Authenticator) Logout(w http.ResponseWriter, r *http.Request) {
+	lg := log.FromContext(r.Context())
+	defer logs.TimeTrack(lg, time.Now(), "/logout")
+
+	if err := a.SessionManager.Destroy(r.Context()); err != nil {
+		LogErrorAndWriteResponse(r.Context(), w, http.StatusInternalServerError, "failed to destroy the user session", err)
+		logs.AuditLog(r.Context()).Info("unsuccessful attempt to clear the user session")
+		return
+	}
+
+	logs.AuditLog(r.Context()).Info("successfully cleared the user session", "action", "DELETE")
+	w.WriteHeader(http.StatusOK)
+}
+
+func NewAuthenticator(sessionManager *scs.SessionManager, clientFactory kubernetesclient.K8sClientFactory) *Authenticator {
 	return &Authenticator{
-		K8sClient:      cl,
+		ClientFactory:  clientFactory,
 		SessionManager: sessionManager,
 	}
 }

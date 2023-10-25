@@ -25,7 +25,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -81,6 +81,8 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, fmt.Errorf("failed to load the token data update from the cluster: %w", err)
 	}
 
+	lg = lg.WithValues("owner", update.Spec.DataOwner)
+
 	if update.DeletionTimestamp != nil {
 		lg.V(logs.DebugLevel).Info("token data update being deleted, no other changes required after completed finalization")
 		return ctrl.Result{}, nil
@@ -96,7 +98,7 @@ func (r *SPIAccessTokenDataUpdateReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, fmt.Errorf("failed to delete the processed data token update: %w", err)
 	}
 
-	lg.V(logs.DebugLevel).Info("token data update deleted: %s", "SPIAccessTokenDataUpdate.name", req.Name)
+	lg.V(logs.DebugLevel).Info("token data update deleted")
 
 	objectLifetimeMetric.Observe(time.Since(creationTime.Time).Seconds())
 

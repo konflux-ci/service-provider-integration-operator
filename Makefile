@@ -14,7 +14,7 @@ endif
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.3.0
 TAG_NAME ?= next
-
+GOARCH ?= $(shell go env GOARCH)
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -100,6 +100,9 @@ all: build
 # http://linuxcommand.org/lc3_adv_awk.php
 
 help: ## Display this help.
+	@echo "For more detailed information consult:"
+	@echo
+	@echo "https://github.com/redhat-appstudio/service-provider-integration-operator/blob/main/docs/DEVELOP.md"
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
@@ -164,7 +167,7 @@ go.mod:
 
 check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
 
-ready: fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
+ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
 
 test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
@@ -180,35 +183,60 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 
 ##@ Build
 
-build: generate ## Build manager binary.
+build: generate ## Build the operator and oauth service Binaries.
 	go build -o bin/ ./cmd/...
 
-run_as_current_user: manifests generate install ## Run a controller from your host as the current user in ~/.kubeconfig
+run_as_current_user: manifests generate install ## Run the operator from your host as the current user in ~/.kubeconfig
 	go run ./cmd/operator/operator.go
 
-run: ensure-tmp manifests generate prepare ## Run a controller from your host using the same RBAC as if deployed in the cluster
+run: ensure-tmp manifests generate prepare ## Run the operator from your host using the same RBAC as if deployed in the cluster
 	$(eval KUBECONFIG:=$(shell hack/generate-restricted-kubeconfig.sh $(TEMP_DIR) spi-controller-manager spi-system))
 	KUBECONFIG=$(KUBECONFIG) go run ./cmd/operator/operator.go || true
 	rm $(KUBECONFIG)
 
-run_oauth:
+run_oauth: ## Run the OAuth service locally
 	go run ./cmd/oauth/oauth.go
 
-docker-build: docker-build-operator docker-build-oauth
+docker-build: docker-build-operator docker-build-oauth ## Builds the docker images for operator and OAuth service. Use SPI_IMG_BASE and TAG_NAME env vars to modify the image name of both at the same time.
 
 docker-build-operator:
-	docker build -t ${SPIO_IMG}  . -f Dockerfile
+	docker build -t ${SPIO_IMG} --build-arg=TARGETARCH=$(GOARCH)  . -f Dockerfile
 
 docker-build-oauth:
-	docker build -t ${SPIS_IMG} . -f oauth.Dockerfile
+	docker build -t ${SPIS_IMG} --build-arg=TARGETARCH=$(GOARCH) . -f oauth.Dockerfile
 
-docker-push: docker-push-operator docker-push-oauth
+docker-push: docker-push-operator docker-push-oauth ## Pushes the built images to the docker registry. See docker-build target for how to configure the names of the images.
 
 docker-push-operator:
 	docker push ${SPIO_IMG}
 
 docker-push-oauth:
 	docker push ${SPIS_IMG}
+
+# PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
+# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
+# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
+# To properly provided solutions that supports more than one platform you should use this option.
+PLATFORMS ?= linux/arm64,linux/amd64
+docker-buildx:  ## Build and push docker image for the manager for cross-platform support
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push --platform=$(PLATFORMS) --tag ${SPIO_IMG} -f Dockerfile.cross .
+	- docker buildx rm project-v3-builder
+	rm Dockerfile.cross
+
+docker-buildx-oauth:  ## Build and push docker image for the manager for cross-platform support
+	# copy existing oauth.Dockerfile and insert --platform=${BUILDPLATFORM} into oauth.Dockerfile.cross, and preserve the original oauth.Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' oauth.Dockerfile > oauth.Dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push --platform=$(PLATFORMS) --tag ${SPIS_IMG} -f oauth.Dockerfile.cross .
+	- docker buildx rm project-v3-builder
+	rm oauth.Dockerfile.cross
 
 ##@ Deployment
 
@@ -221,46 +249,53 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "default" "default"
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_minikube_rhtap deploy_remotesecret_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
+	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	kubectl apply -f .tmp/approle_remote_secret.yaml -n remotesecret
 
-deploy_k8s: ensure-tmp manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "k8s" "k8s"
-	hack/vault-init.sh
+deploy_minikube_rhtap: kustomize ## Deploy RHTAP CRD-s to the Minikube cluster
+	 $(KUSTOMIZE) build config/rhtap/overlays/minikube_vault | kubectl apply -f -
+
+deploy_minikube_aws: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config with AWS tokenstorage.
+	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_aws"
+	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
+
+deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
+	OAUTH_HOST=`hack/spi-host-openshift.sh` VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config.
-	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "minikube"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with AWS tokenstorage
+	OAUTH_HOST=`hack/spi-host-openshift.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
+	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
 
-deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the K8s cluster specified in ~/.kube/config using the OpenShift kustomization
-	VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "openshift"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
-
-undeploy_k8s: undeploy_vault_k8s ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	if [ ! -d ${TEMP_DIR}/deployment_k8s ]; then echo "No deployment files found in .tmp/deployment_k8s"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_k8s/k8s | kubectl delete -f -
-
-undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
+undeploy_minikube: undeploy_vault_k8s undeploy_minikube_rhtap ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/k8s | kubectl delete -f -
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/default | kubectl delete -f -
 
-undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_default/default | kubectl delete -f -
+undeploy_minikube_rhtap: kustomize ## Undeploy RHTAP CRD-s
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/rhtap/overlays/minikube_vault | kubectl delete -f - || true
+
+undeploy_openshift: undeploy_vault_openshift ## Undeploy controller from the Openshift cluster specified in ~/.kube/config.
+	if [ ! -d ${TEMP_DIR}/deployment_openshift ]; then echo "No deployment files found in .tmp/deployment_openshift"; exit 1; fi
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_openshift/default | kubectl delete -f -
 
 deploy_vault_openshift:
 	$(KUSTOMIZE) build config/vault/openshift | kubectl apply -f -
 	POD_NAME=vault-0 NAMESPACE=spi-vault hack/vault-init.sh
 
 undeploy_vault_openshift: kustomize
-	$(KUSTOMIZE) build config/vault/openshift | kubectl delete -f -
+	$(KUSTOMIZE) build config/vault/openshift | kubectl delete -f - || true
 
 deploy_vault_minikube: kustomize
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
 
+deploy_remotesecret_minikube: kustomize
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
+
 undeploy_vault_k8s: kustomize
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f -
+	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
 
 ##@ Build Dependencies
 

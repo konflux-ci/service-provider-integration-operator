@@ -23,12 +23,16 @@ import (
 	"strings"
 	"time"
 
+	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	"github.com/alexedwards/scs/v2"
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexflint/go-arg"
@@ -38,19 +42,25 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func main() {
 	args := cli.OAuthServiceCliArgs{}
 	arg.MustParse(&args)
 
+	ctx := context.WithValue(context.Background(), rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
+
 	logs.InitLoggers(args.ZapDevel, args.ZapEncoder, args.ZapLogLevel, args.ZapStackTraceLevel, args.ZapTimeEncoding)
 
-	setupLog := ctrl.Log.WithName("setup")
+	setupLog := ctrl.Log.WithValues("instanceId", args.CommonCliArgs.InstanceId)
+	ctx = log.IntoContext(ctx, setupLog)
+	setupLog = log.FromContext(ctx).WithName("setup")
+
 	setupLog.Info("Starting OAuth service with environment", "env", os.Environ(), "configuration", &args)
 
 	var err error
-	err = config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
+	err = rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: args.AllowInsecureURLs})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the validators")
 		os.Exit(1)
@@ -62,34 +72,49 @@ func main() {
 		os.Exit(1)
 	}
 
-	go metrics.ServeMetrics(context.Background(), args.MetricsAddr)
+	go metrics.ServeMetrics(ctx, args.MetricsAddr)
 	router := mux.NewRouter()
 
-	clientFactoryConfig := createClientFactoryConfig(args)
+	builder := clientfactory.K8sClientFactoryBuilder{
+		Args: args,
+	}
 
-	userAuthClient, errUserAuthClient := oauth.CreateUserAuthClient(&clientFactoryConfig)
-	if errUserAuthClient != nil {
-		setupLog.Error(errUserAuthClient, "failed to create user auth kubernetes client")
+	inClusterK8sClientFactory, errK8sClient := builder.CreateInClusterClientFactory()
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client factory")
 		os.Exit(1)
 	}
 
-	inClusterK8sClient, errK8sClient := oauth.CreateInClusterClient(&clientFactoryConfig)
+	inClusterK8sClient, errK8sClient := inClusterK8sClientFactory.CreateClient(ctx)
 	if errK8sClient != nil {
 		setupLog.Error(errK8sClient, "failed to create ServiceAccount k8s client")
 		os.Exit(1)
 	}
 
-	strg, err := cmd.InitTokenStorage(context.Background(), &args.CommonCliArgs)
+	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs.CommonCliArgs)
 	if err != nil {
+		setupLog.Error(err, "failed to construct the secret storage")
+		os.Exit(1)
+	}
+
+	tokenStorage := tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
+	// The initialization of the token storage is currently a noop, but let's stick
+	// to the protocol in case it actually does something in the future.
+	if err := tokenStorage.Initialize(ctx); err != nil {
 		setupLog.Error(err, "failed to initialize the token storage")
 		os.Exit(1)
 	}
 
+	userAuthK8sClientFactory, errK8sClient := builder.CreateUserAuthClientFactory()
+	if errK8sClient != nil {
+		setupLog.Error(errK8sClient, "failed to create user auth k8s client factory")
+		os.Exit(1)
+	}
 	tokenUploader := oauth.SpiTokenUploader{
-		K8sClient: userAuthClient,
+		ClientFactory: userAuthK8sClientFactory,
 		Storage: tokenstorage.NotifyingTokenStorage{
-			Client:       userAuthClient,
-			TokenStorage: strg,
+			ClientFactory: userAuthK8sClientFactory,
+			TokenStorage:  tokenStorage,
 		},
 	}
 
@@ -102,7 +127,7 @@ func main() {
 	sessionManager.Cookie.Name = "appstudio_spi_session"
 	sessionManager.Cookie.SameSite = http.SameSiteNoneMode
 	sessionManager.Cookie.Secure = true
-	authenticator := oauth.NewAuthenticator(sessionManager, userAuthClient)
+	authenticator := oauth.NewAuthenticator(sessionManager, userAuthK8sClientFactory)
 	stateStorage := oauth.NewStateStorage(sessionManager)
 
 	// service state routes
@@ -111,6 +136,7 @@ func main() {
 
 	// auth
 	router.HandleFunc("/login", authenticator.Login).Methods("POST")
+	router.HandleFunc("/logout", authenticator.Logout).Methods("POST")
 
 	// token upload
 	router.NewRoute().Path("/token/{namespace}/{name}").HandlerFunc(oauth.HandleUpload(&tokenUploader)).Methods("POST")
@@ -125,21 +151,21 @@ func main() {
 		OAuthServiceConfiguration: cfg,
 		Authenticator:             authenticator,
 		StateStorage:              stateStorage,
-		UserAuthK8sClient:         userAuthClient,
+		ClientFactory:             userAuthK8sClientFactory,
 		InClusterK8sClient:        inClusterK8sClient,
-		TokenStorage:              strg,
+		TokenStorage:              tokenStorage,
 		RedirectTemplate:          redirectTpl,
 	}
-	oauthRouter, routerErr := oauth.NewRouter(context.Background(), routerCfg, config.SupportedServiceProviderTypes)
+	oauthRouter, routerErr := oauth.NewRouter(ctx, routerCfg, config.SupportedServiceProviderTypes)
 	if routerErr != nil {
 		setupLog.Error(routerErr, "failed to initialize oauth router")
 		os.Exit(1)
 	}
 
-	router.HandleFunc("/callback_success", oauth.CallbackSuccessHandler).Methods("GET")
-	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").HandlerFunc(oauth.CallbackErrorHandler)
+	router.Handle("/callback_success", oauth.CSPHandler(oauth.CallbackSuccessHandler())).Methods("GET")
+	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").Handler(oauth.CSPHandler(oauth.CallbackErrorHandler()))
 	router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
-	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauthRouter.Authenticate())
+	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate()))
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
@@ -167,7 +193,7 @@ func main() {
 	<-stop
 	setupLog.Info("Server got interrupt signal, going to gracefully shutdown the server", "signal", stop)
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
@@ -187,15 +213,10 @@ func loadOAuthServiceConfiguration(args cli.OAuthServiceCliArgs) (oauth.OAuthSer
 	if err != nil {
 		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("failed to load the configuration from file %s: %w", args.ConfigFile, err)
 	}
-
-	return oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg}, nil
-}
-
-func createClientFactoryConfig(args cli.OAuthServiceCliArgs) oauth.ClientFactoryConfig {
-	return oauth.ClientFactoryConfig{
-		KubeConfig:      args.KubeConfig,
-		KubeInsecureTLS: args.KubeInsecureTLS,
-		ApiServer:       args.ApiServer,
-		ApiServerCAPath: args.ApiServerCAPath,
+	cfg := oauth.OAuthServiceConfiguration{SharedConfiguration: baseCfg, RedirectProxyUrl: args.OAuthRedirectProxyUrl}
+	err = rconfig.ValidateStruct(cfg)
+	if err != nil {
+		return oauth.OAuthServiceConfiguration{}, fmt.Errorf("oauth service configuration validation failed: %w", err)
 	}
+	return cfg, nil
 }

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -27,7 +27,7 @@ func LogErrorAndWriteResponse(ctx context.Context, w http.ResponseWriter, status
 	log.Error(err, msg)
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, err = fmt.Fprintf(w, "%s: %s", msg, err.Error())
+	_, err = fmt.Fprint(w, msg)
 	if err != nil {
 		log.Error(err, "error recording response error message")
 	}

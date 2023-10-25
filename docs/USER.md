@@ -4,11 +4,12 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 - [Use Cases](#use-cases)
     - [Accessing the private repository](#accessing-the-private-repository) - TODO
     - [Checking permission to the particular repository](#checking-permission-to-the-particular-repository) - TODO
+    - [Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson](#creating-spiaccesstokenbinding-with-secret-type-kubernetesiodockerconfigjson)
     - [Retrieving file content from SCM repository](#retrieving-file-content-from-scm-repository)
     - [Storing username and password credentials for any provider by it's URL](#storing-username-and-password-credentials-for-any-provider-by-its-url)
     - [Uploading Access Token to SPI using Kubernetes Secret](#uploading-access-token-to-spi-using-kubernetes-secret)
     - [Providing secrets to a service account](#providing-secrets-to-a-service-account)
-	- [Refreshing OAuth Access Tokens](#refreshing-oauth-access-tokens)
+    - [Refreshing OAuth Access Tokens](#refreshing-oauth-access-tokens)
 
 - [SPI OAuth Service](#spi-oauth-service)
     - [Go through the OAuth flow manually](#go-through-the-oauth-flow-manually)
@@ -20,11 +21,13 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [SPIAccessTokenDataUpdate](#SPIAccessTokenDataUpdate)
     - [SPIAccessCheck](#SPIAccessCheck)
     - [SPIFileContentRequest](#SPIFileContentRequest)
+- [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
 - [HTTP API Endpoints](#http-api-endpoints)
     - [POST /login](#post-login)
     - [GET {sp_type}/authenticate](#get-sp_typeauthenticate)
     - [GET /{sp_type}/callback](#get-sp_typecallback)
     - [POST /token/{namespace}/{name}](#post-tokennamespacename)
+- [SnapshotEnvironmentBinding Controller](#SnapshotEnvironmentBinding-Controller)
 
 # Use Cases
 
@@ -36,11 +39,91 @@ TODO
 
 TODO
 
-## Retrieving file content from SCM repository
-There is dedicated controller for file content requests, which can be performed by putting
-a `SPIFileContentRequest` CR in the namespace, as follows:
+## Creating SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson
+An SPIAccessTokenBinding with Secret type kubernetes.io/dockerconfigjson is used when the user requires a Secret that 
+enables Pods to pull images from private image registry to Kubernetes. This Secret contains so-called
+Docker config.json. Kubernetes' interpretation of config.json differs from Docker's in that Kubernetes is more permissive.
+That is why SPI provides options to alter the content of config.json.
+You can read more about this topic [here](https://kubernetes.io/docs/concepts/containers/images/#config-json).
 
+Users can configure the specific value of `_host_` (see example json bellow) in config.json through two annotations which can be set
+in the SPIAccessTokenBinding's `spec.secret.annotations` field.
+
+### Annotation 'spi.appstudio.redhat.com/config-json-type'
+
+This annotation can have three values: `docker`, `kubernetes`, and `explicit`.
+
+#### 'docker'
+Specifying `docker` is the same as
+not specifying any annotation at all. In this case, SPI creates the Secret with config.json in this format where the 
+value of `_host_` is the URL host of the specific service provider, e.g. `quay.io` for Quay.:
+```json
+{
+    "auths": {
+        "_host_": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM=" // base64 encoded username:token123
+        }
+    }
+}
 ```
+#### 'kubernetes'
+
+Setting the annotation value to`kubernetes` means that the `_host_` will be filled with URL host and path from the
+`repoUrl` of SPIAccessTokenBinding. For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  repoUrl: https://quay.io/repo/spi-test
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-type: kubernetes
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "quay.io/repo/spi-test": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
+        }
+    }
+}
+```
+For concrete example SPIAccessTokenBinding can take a look at this [sample](../samples/binding-kubetype-dockerconfigjson.yaml).
+
+WARNING: Avoid using the `kubernetes` value when your SPIAccessTokenBinding's `repoUrl` contains a tag of an image, as the tag
+will also be present in the `_host_` and Kubernetes may not be able to pull the image with such config.json.
+
+#### 'explicit' and annotation spi.appstudio.redhat.com/config-json-auth-key
+This is where the second annotation comes into play.
+Adding the annotation `spi.appstudio.redhat.com/config-json-type: explicit` means that the `_host_` will be filled with 
+explicit value specified in the `spi.appstudio.redhat.com/config-json-auth-key` annotation.
+
+  For example Binding with this spec (ignoring other fields for simplicity):
+```yaml
+spec:
+  secret:
+    type: kubernetes.io/dockerconfigjson
+    annotations:
+      spi.appstudio.redhat.com/config-json-type: explicit
+      spi.appstudio.redhat.com/config-json-auth-key: my.custom.host/test
+```
+will produce this json:
+```json
+{
+    "auths": {
+        "my.custom.host/test": {
+            "auth": "dXNlcm5hbWU6dG9rZW4xMjM="
+        }
+    }
+}
+```
+
+## Retrieving file content from SCM repository
+There is dedicated controller for file content requests, which reacts on the creation, update, and delete of
+a `SPIFileContentRequest` CR.
+For example, you can create`SPIFileContentRequest` as follows:
+
+```yaml
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIFileContentRequest
 metadata:
@@ -49,12 +132,11 @@ metadata:
 spec:
   repoUrl: https://github.com/redhat-appstudio/service-provider-integration-operator
   filePath: hack/boilerplate.go.txt
-
 ```
-Controller then generates SPIAccessTokenBinding and waiting for it to be ready/injected.
-Once binding became ready, controller fetches requested content using credentials from injected secret. A successful attempt will result in base64 encoded file content
+Controller fetches requested content using credentials from SPIAccessToken or RemoteSecret. 
+A successful attempt will result in base64 encoded file content
 appearing in the `status.content` field on the `SPIFileContentRequest` CR.
-```
+```yaml
 apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIFileContentRequest
 metadata:
@@ -66,12 +148,35 @@ spec:
 status:
   content: LyoKQ29weXJpZ2h0IDIw....==
   contentEncoding: base64
-  linkedBindingName: ""
   phase: Delivered
 ```
+If no credentials are found that could be used to download the file contents, the SPIFileContent's status will instead
+show `Error` phase and errorMessage explaining the issue.
 
+To ensure that SPIFileContentRequest has the required credentials, upon creation, there should already exist
+SPIAccessToken in the same namespace, with read repository permission, `Ready` phase, and with the `serviceProviderUrl`
+corresponding to the `repoUrl` from `SPIFileContentRequest`. As an example, see the SPIAccessToken bellow.
 
-At this stage, file request CR-s are intended to be single-used, so no further content refresh
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: SPIAccessToken
+metadata:
+  name: spi-access-token
+  namespace: default
+spec:
+  permissions:
+    required:
+      - area: repository
+        type: r
+  serviceProviderUrl: https://github.com
+status:
+  phase: Ready
+# ... other fields
+```
+
+The other source of credentials for SPIFileContentRequest can be RemoteSecret. For more information see: [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
+
+File request CRs are intended to be single-used, so no further content refresh
 or accessibility checks must be expected. A new CR instance should be used to re-request the content.
 
 Currently, the file retrievals are limited to GitHub & GitLab repositories only, and files size up to 2 Megabytes.
@@ -140,26 +245,33 @@ spec:
 There is an ability to upload Personal Access Token using very short living K8s Secret.
 Controller recognizes the Secret by `label.spi.appstudio.redhat.com/upload-secret: token` label, gets the PAT and the Name of the SPIAccessToken associated with it, then deletes the Secret (for better security reason) and uploads the Token (which in turn updates the Status of associated SPIAccess/Token/TokenBinding).
 
-- To enable this option SPI Operator should be configured with `ENABLETOKENUPLOAD=true` (see Admin Guide for details).
-- Find the name of SPIAccessToken you want to associate Access Token to like:
+- If you want to associate it to existed SPIAccessToken, find the name of SPIAccessToken you want to associate Access Token to like:
 `TOKEN_NAME=$(kubectl get spiaccesstokenbinding/$Name-Of-SPIAccessTokenBinding -n $TARGET_NAMESPACE -o  json | jq -r .status.linkedAccessTokenName)`
 - Obtain your Access Token data ($AT_DATA) from the Service Provider. For example from GitHub->Settings->Developer Settings->Personal Access Tokens
-- Create Kubernetes Secret with labeled with `label.spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
+- Create Kubernetes Secret with labeled with `spi.appstudio.redhat.com/upload-secret: token` and `spi.appstudio.redhat.com/token-name: $TOKEN_NAME`:
+- Field `userName` can be used to set concrete provider's username that should be associated with token.
+- If you want new SPIAccessToken to be created and associate it with the Token, so the SPIAccessToken will be Ready right away, put the name of (non-existed) SPIAccessToken you want to be assigned to the `stringData.spiTokenName`  or do not have this field, in the latter case SPIAccessToken name will be randomly generated. In this case make sure you added `providerUrl` and point it to the valid, registered `URL_PROVIDER` 
 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: upload-secret
+  name: $UPLOAD-SECRET_NAME
   labels:
     spi.appstudio.redhat.com/upload-secret: token
-    spi.appstudio.redhat.com/token-name: $TOKEN_NAME
 type: Opaque
 stringData:
+  spiTokenName: $TOKEN_NAME
+  providerUrl: $PROVIDER_URL
+  userName: $USER_NAME
   tokenData: $AT_DATA
 ```
 After reconciliation SPIAccessToken should be filled with the Access Token metadata, it's `status.Phase` should be `Injected` and upload Secret is removed.
-In a case if something goes wrong the reason will be written to K8s Event, you can check it with `kubectl get event $upload-secret`.
+
+### Error Handling
+Since the Secret is removed in any case (since point is to make the Secret live time as short as possible), there are no chance to read any status and error information we may put in it.    
+So, in a case if something goes wrong the reason is written to K8s Event named with Secret name, user can can check it with `kubectl get event $UPLOAD-SECRET_NAME`.
+This event is refreshed or deleted after next creation of some-named Secret or normally by Kubernetes (in 60 minutes by default)    
 
 ## Providing secrets to a service account
 
@@ -184,10 +296,10 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-	linkedTo:
-	- serviceAccount:
-		reference:
-			name: mysa
+    linkedTo:
+    - serviceAccount:
+        reference:
+            name: mysa
   ...
 ```
 
@@ -208,11 +320,11 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/dockerconfigjson
-	linkedTo:
-	- serviceAccount:
-		as: imagePullSecret
-		reference:
-			name: mysa
+    linkedTo:
+    - serviceAccount:
+        as: imagePullSecret
+        reference:
+            name: mysa
   ...
 ```
 
@@ -234,10 +346,10 @@ kind: SPIAccessTokenBinding
 spec:
   secret:
     type: kubernetes.io/basic-auth
-	linkedTo:
-	- serviceAccount:
-		managed:
-			generateName: mysa-
+    linkedTo:
+    - serviceAccount:
+        managed:
+            generateName: mysa-
   ...
 ```
 ## Refreshing OAuth Access Tokens
@@ -447,6 +559,8 @@ These objects are automatically deleted by the controller as soon as they are pr
 This is basically a procedure call to check repository accessibility. Once a user creates a CR, the controller analyzes whether the repository is accessible for the user. In short, if the repository is public or the user has SPIAccessToken for this repository, the repository is accessible. In other cases (private without SPIAccessToken or does not exist), it is not accessible.
 CRs are automatically deleted by the controller after some period of time (30 min by default).
 
+SPIAccessChecks can use RemoteSecret as a source of credential. For more information see: [Integration with RemoteSecrets](#Integration-with-RemoteSecrets)
+
 ### Required Fields
 
 | Name         | Type   | Description                                  | Example | Immutable |
@@ -469,9 +583,9 @@ CRs are automatically deleted by the controller after some period of time (30 mi
 
 ## SPIFileContentRequest
 Instances of this CRD are used to request specific file contents from the SCM repository.
-After creation, it successively creates an `SPIAccessTokenBinding` and waits until it is injected.
-After that it tries to read the file from the repository using the credentials obtained from secret linked with binding.
-As per now, `SPIFileContentRequests` are one-time objects, that means they reflect the file content only shortly after the moment of their creation, and never tries to update or check content availability later.
+It tries to read the file from the repository using the credentials obtained from SPIAccessToken or RemoteSecret.
+
+`SPIFileContentRequests` are one-time objects. That means they reflect the file content only shortly after the moment of their creation, and never try to update or check content availability later.
 
 
 ### Required Fields
@@ -484,16 +598,31 @@ As per now, `SPIFileContentRequests` are one-time objects, that means they refle
 
 ### Optional Fields
 
-| Name                     | Type   | Description                                                                                                                                                                                                                                                                | Example                                                           | Immutable |
-|--------------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|-----------|
-| status.phase             | enum   | This can be “AwaitingTokenData” or “Delivered” or “Error”. AwaitingTokenData - initial state before the token data is supplied to the subsequent token Token object either through OAuth flow or through manual upload. “Delivered” - the file data successfully injected. |                                                                   | false     |
-| status.errorMessage      | string | The details of the error                                                                                                                                                                                                                                                   | “failed to update the metadata”                                   | false     |
-| status.linkedBindingName | string | name of the SPIToken Binding used for repository authentication                                                                                                                                                                                                            |                                                                   | true      |
-| status.oauthUrl          | string | URL for initiating the OAuth flow copied from linked SPITokenBinding for convenience                                                                                                                                                                                       | https://spi-rest-api.acme.com/authenticate?state=kjfalasjdfl348fj | false     |
-| status.uploadUrl         | string | URL for manual upload token data copied from linked SPITokenBinding for convenience                                                                                                                                                                                        |                                                                   | true      |
-| status.content           | string | Encoded requested file content                                                                                                                                                                                                                                             |                                                                   | true      |
-| status.contentEncoding   | string | Encoding used for file content encoding                                                                                                                                                                                                                                    | base64                                                            | true      |
+| Name                   | Type   | Description                                                                                  | Example                         | Immutable |
+|------------------------|--------|----------------------------------------------------------------------------------------------|---------------------------------|-----------|
+| spec.ref               | string | Represents reference of a git branch. This can be a SHA, branch name, or a tag               | v1.0.1                          | true      |
+| status.phase           | enum   | This can be “Delivered” or “Error”. “Delivered” - the file content is successfully injected. |                                 | false     |
+| status.errorMessage    | string | The details of the error                                                                     | “failed to update the metadata” | false     |
+| status.content         | string | Encoded requested file content                                                               |                                 | true      |
+| status.contentEncoding | string | Encoding used for file content encoding                                                      | base64                          | true      |
 
+
+## Integration with RemoteSecrets
+
+We have extended the functionality of SPIAccessCheck and SPIFileContentRequest so that if no matching SPIAccessToken is found,
+it searches for a matching RemoteSecret next (read more about RemoteSecrets [here](https://github.com/redhat-appstudio/remote-secret)).
+However, there are a few constraints put on RemoteSecret before SPIAccessCheck or SPIFileContentRequest
+(let's refer to them collectively as Object, for simplicity) can use the credentials from it:
+- It must be in the same namespace as Object
+- It must have `appstudio.redhat.com/sp.host` label where the value is host of the service provider matching that of
+  Object's `spec.repoUrl`.
+- It must already contain some secret data (DataObtained condition is true).
+- RemoteSecret's `spec.secret.type` must be equal to `kubernetes.io/basic-auth`.
+- It must have a deployed target in the Object's namespace.
+- (Optionally) RemoteSecret with the annotation `appstudio.redhat.com/sp.repository` will be prioritized if the value
+  is a list of comma-separated repository names and this list contains the repository name inferred from Object's `spec.repoUrl.`
+
+For example RemoteSecret yaml, see [the sample](/samples/remotesecret-for-ac.yaml).
 
 ## HTTP API Endpoints
 
@@ -501,6 +630,10 @@ As per now, `SPIFileContentRequests` are one-time objects, that means they refle
 This endpoint is used to authenticate `/{sp_type}/authenticate` method with Kubernetes (SSO) bearer token in the `Authorization` header.
 
 This endpoint sets a session cookie that is required to be present when completing the OAuth flow in the `/{sp_type}/authenticate` and `/{sp_type}/callback` endpoints.
+
+### POST /logout
+This endpoint is used to invalidate the session cookie set by the `/login` endpoint. 
+It is not required to call this endpoint, as the session cookie expires in 15 minutes after the last request.
 
 #### Response
 - 200 - authorization data successfully accepted.
@@ -554,4 +687,33 @@ This endpoint accepts a JSON object with the following structure:
 - 204 - when the data is processed successfully
 - 403 - on authorization error
 
+## SnapshotEnvironmentBinding Controller
+The SnapshotEnvironmentBinding controller is a part of the SPI Operator. The responsibility of the controller is to watch
+SnapshotEnvironmentBindings and infer which RemoteSecret needs to have target added or removed.
+
+RemoteSecrets belonging to a certain Environment (which means they are candidates for updating their targets) are
+identified by `appstudio.redhat.com/environment` label or annotation.
+
+When RemoteSecret has the label set, the value is interpreted as Environment name. When instead the RemoteSecret has annotation
+with such a key, the value is interpreted as comma-separated list of Environment names. This distinction is made because
+annotations are permitted longer values. If neither label nor annotation is set, the RemoteSecret is considered to belong
+to every environment. The annotation takes precedence over the label. In other words, specifying both label and
+annotation is the same as just specifying annotation. See examples below:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+  labels:
+    appstudio.redhat.com/environment: prod # This RemoteSecret belongs to the `prod` Environment
+```
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+  annotations:
+    appstudio.redhat.com/environment: prod,test,gama # This RemoteSecret belongs to the `prod`, `test`, and `gama` Environment
+  # adding a label with the same key would have no effect
+```
 

@@ -19,16 +19,21 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -43,7 +48,7 @@ var (
 // commonController is the implementation of the Controller interface that assumes typical OAuth flow.
 type commonController struct {
 	OAuthServiceConfiguration
-	UserAuthK8sClient   AuthenticatingClient
+	ClientFactory       kubernetesclient.K8sClientFactory
 	InClusterK8sClient  client.Client
 	TokenStorage        tokenstorage.TokenStorage
 	RedirectTemplate    *template.Template
@@ -62,6 +67,9 @@ type exchangeResult struct {
 
 // redirectUrl constructs the URL to the callback endpoint so that it can be handled by this controller.
 func (c *commonController) redirectUrl() string {
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		return c.OAuthServiceConfiguration.RedirectProxyUrl
+	}
 	return strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/") + oauth.CallBackRoutePath
 }
 
@@ -76,7 +84,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
 		return
 	}
-	ctx = WithAuthIntoContext(token, ctx)
+	ctx = clientfactory.WithAuthIntoContext(token, ctx)
 
 	hasAccess, err := c.checkIdentityHasAccess(ctx, state)
 	if err != nil {
@@ -98,7 +106,13 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-
+	//encode original state and callback to the new state. it allows to make redirection proxy stateless.
+	if c.OAuthServiceConfiguration.RedirectProxyUrl != "" {
+		params := url.Values{}
+		params.Add("state", newStateString)
+		params.Add("callback", strings.TrimSuffix(c.OAuthServiceConfiguration.BaseUrl, "/")+oauth.CallBackRoutePath)
+		newStateString = params.Encode()
+	}
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
 	if oauthConfigErr != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to create oauth confgiuration", oauthConfigErr)
@@ -140,10 +154,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
-	redirectLocation := r.FormValue("redirect_after_login")
-	if redirectLocation == "" {
-		redirectLocation = strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
-	}
+	redirectLocation := strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
 }
 
@@ -167,7 +178,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
-	ctx = WithAuthIntoContext(k8sToken, ctx)
+	ctx = clientfactory.WithAuthIntoContext(k8sToken, ctx)
 
 	// the state is ok, let's retrieve the token from the service provider
 	oauthCfg, oauthConfigErr := c.obtainOauthConfig(ctx, state)
@@ -194,14 +205,19 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 
 // syncTokenData stores the data of the token to the configured TokenStorage.
 func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
-	ctx = WithAuthIntoContext(exchange.authorizationHeader, ctx)
+	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
-	accessToken := &v1beta1.SPIAccessToken{}
-	if err := c.UserAuthK8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
+	accessToken := &api.SPIAccessToken{}
+	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
+	k8sClient, err := c.ClientFactory.CreateClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
+	}
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
 		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
 	}
 
-	apiToken := v1beta1.Token{
+	apiToken := api.Token{
 		AccessToken:  exchange.token.AccessToken,
 		TokenType:    exchange.token.TokenType,
 		RefreshToken: exchange.token.RefreshToken,
@@ -221,14 +237,18 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 			ResourceAttributes: &v1.ResourceAttributes{
 				Namespace: state.TokenNamespace,
 				Verb:      "create",
-				Group:     v1beta1.GroupVersion.Group,
-				Version:   v1beta1.GroupVersion.Version,
+				Group:     api.GroupVersion.Group,
+				Version:   api.GroupVersion.Version,
 				Resource:  "spiaccesstokendataupdates",
 			},
 		},
 	}
 
-	if err := c.UserAuthK8sClient.Create(ctx, &review); err != nil {
+	k8sClient, err := c.ClientFactory.CreateClient(clientfactory.NamespaceIntoContext(ctx, state.TokenNamespace))
+	if err != nil {
+		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", state.TokenNamespace, err)
+	}
+	if err := k8sClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
 	}
 

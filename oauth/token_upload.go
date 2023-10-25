@@ -17,6 +17,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+
+	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
+
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,14 +47,19 @@ func (u UploadFunc) Upload(ctx context.Context, tokenObjectName string, tokenObj
 var _ TokenUploader = (UploadFunc)(nil)
 
 type SpiTokenUploader struct {
-	K8sClient client.Client
-	Storage   tokenstorage.TokenStorage
+	ClientFactory kubernetesclient.K8sClientFactory
+	Storage       tokenstorage.TokenStorage
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName)
+	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
-	if err := u.K8sClient.Get(ctx, client.ObjectKey{Name: tokenObjectName, Namespace: tokenObjectNamespace}, token); err != nil {
+	ctx = clientfactory.NamespaceIntoContext(ctx, tokenObjectNamespace)
+	cl, err := u.ClientFactory.CreateClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create K8S client for namespace %s: %w", tokenObjectNamespace, err)
+	}
+	if err := cl.Get(ctx, client.ObjectKey{Name: tokenObjectName, Namespace: tokenObjectNamespace}, token); err != nil {
 		return fmt.Errorf("failed to get SPIAccessToken object %s/%s: %w", tokenObjectNamespace, tokenObjectName, err)
 	}
 
