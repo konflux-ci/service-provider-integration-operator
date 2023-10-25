@@ -142,7 +142,10 @@ func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 
 func applicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
 	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
-		return slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName)
+		//not just return contains, but also check if the environmentName is in the label
+		if slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName) {
+			return true
+		}
 	}
 	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
 		return labelValue == environmentName
