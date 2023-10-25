@@ -1175,8 +1175,6 @@ github.com/prometheus/procfs v0.11.1/go.mod h1:eesXgaPo1q7lBpVMoMy0ZOFTth9hBn4W/
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/rboyer/safeio v0.2.1 h1:05xhhdRNAdS3apYm7JRjOqngf4xruaW959jmRxGDuSU=
 github.com/rboyer/safeio v0.2.1/go.mod h1:Cq/cEPK+YXFn622lsQ0K4KsPZSPtaptHHEldsy7Fmig=
-github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222 h1:mrfZp1as7cd6XsY+w6qKworxD2hlTHFi2bF0Wmw49Pg=
-github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222/go.mod h1:E277KEEjL6rEXUHIhc0FQd6jyf3CzCQ7MOkauqF3gt4=
 github.com/redhat-appstudio/application-api v0.0.0-20231025105224-2790bb451725 h1:9808yVdQmzCLGrbedW6h4brggYqdnMpyMwKhFpx9/pE=
 github.com/redhat-appstudio/application-api v0.0.0-20231025105224-2790bb451725/go.mod h1:OvmeiVOItG2OSX/QE+vQwzOYfbOMBhBy43ZFxkWZJyc=
 github.com/redhat-appstudio/remote-secret v0.0.0-20231025105424-1fa9b60e9c42 h1:S4JMF0DENCl0J1HgWs6VKgjlHmoJreyWXInJv+z1AjA=
