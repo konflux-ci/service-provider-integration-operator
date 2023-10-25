@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.21.3 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.19.13 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -47,6 +47,12 @@ COPY --from=builder /workspace/static/callback_success.html /static/callback_suc
 COPY --from=builder /workspace/static/callback_error.html /static/callback_error.html
 COPY --from=builder /workspace/static/redirect_notice.html /static/redirect_notice.html
 
+# It is mandatory to set these labels
+LABEL description="RHTAP SPI OAuth service"
+LABEL io.k8s.description="RHTAP OAuth service"
+LABEL io.k8s.display-name="spi-oauth-service"
+LABEL summary="RHTAP SPI OAuth service"
+LABEL io.openshift.tags="rhtap"
 USER 65532:65532
 
 ENTRYPOINT ["/spi-oauth"]
