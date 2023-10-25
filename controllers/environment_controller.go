@@ -17,6 +17,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
+	"k8s.io/utils/strings/slices"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -115,7 +117,7 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		if !remoteSecretApplicableForEnvironment(remoteSecret, environment.Name) {
+		if !applicableForEnvironment(remoteSecret, environment.Name) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -136,4 +138,14 @@ func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 		}
 	}
 	secret.Spec.Targets = tmp
+}
+
+func applicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
+		return slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName)
+	}
+	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
+		return labelValue == environmentName
+	}
+	return false
 }
