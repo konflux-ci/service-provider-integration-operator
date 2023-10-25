@@ -34,7 +34,7 @@ import (
 var state = &oauthstate.OAuthInfo{
 	ObjectName:          "mytoken",
 	ObjectNamespace:     IT.Namespace,
-	ObjectKind:          "SPIAccessToken",
+	ObjectKind:          spiAccessTokenKind,
 	Scopes:              []string{"a", "b"},
 	ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 	ServiceProviderUrl:  "http://spi",
@@ -173,6 +173,7 @@ func TestFindController(t *testing.T) {
 
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
 			ServiceProviderName: config.ServiceProviderTypeGitLab.Name,
+			ObjectKind:          spiAccessTokenKind,
 		})
 		assert.NoError(t, stateErr)
 
@@ -181,6 +182,23 @@ func TestFindController(t *testing.T) {
 		testReq.Form = url.Values{"state": []string{statestring}}
 
 		controller, state, err := router.findController(testReq, false)
+
+		assert.Nil(t, controller)
+		assert.Nil(t, state)
+		assert.Error(t, err)
+	})
+
+	t.Run("fail with empty object kind", func(t *testing.T) {
+		stateString, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
+			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
+		})
+		assert.NoError(t, stateErr)
+
+		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		assert.NoError(t, reqErr)
+		testReq.Form = url.Values{"state": []string{stateString}}
+
+		controller, state, err := router.findController(testReq, true)
 
 		assert.Nil(t, controller)
 		assert.Nil(t, state)
@@ -209,21 +227,10 @@ func TestFindController(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("fail with empty request veiled", func(t *testing.T) {
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
-		assert.NoError(t, reqErr)
-
-		controller, state, err := router.findController(testReq, true)
-
-		assert.Nil(t, controller)
-		assert.Nil(t, state)
-		assert.Error(t, err)
-	})
-
 	t.Run("ok find sp type", func(t *testing.T) {
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
-			ObjectKind:          "SPIAccessToken",
+			ObjectKind:          spiAccessTokenKind,
 		})
 		assert.NoError(t, stateErr)
 

@@ -31,6 +31,11 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 )
 
+const (
+	spiAccessTokenKind = "SPIAccessToken"
+	remoteSecretKind   = "RemoteSecret"
+)
+
 var errUnknownServiceProviderType = errors.New("unknown service provider type")
 var errUnknownObjectKind = errors.New("unknown object kind for which OAuth flow is requested")
 
@@ -120,9 +125,9 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	}
 
 	switch state.ObjectKind {
-	case "RemoteSecret":
+	case remoteSecretKind:
 		controller.setSyncStrategy(r.rsSyncStrategy)
-	case "SPIAccessToken":
+	case spiAccessTokenKind:
 		controller.setSyncStrategy(r.spiSyncStrategy)
 	default:
 		return nil, nil, fmt.Errorf("%w: kind '%s'", errUnknownObjectKind, state.ObjectKind)
