@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/event"
+
 	"github.com/go-playground/validator/v10"
 
 	"github.com/go-logr/logr"
@@ -30,12 +32,10 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -43,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const oauthUrlLabel = "appstudio.redhat.com/sp.oauthurl"
+const OAuthUrlAnnotation = "appstudio.redhat.com/sp.oauthurl"
 
 type RemoteSecretOAuthReconciler struct {
 	client.Client
@@ -55,34 +55,29 @@ type RemoteSecretOAuthReconciler struct {
 
 var _ reconcile.Reconciler = (*RemoteSecretOAuthReconciler)(nil)
 
-var oauthRemoteSecretSelector = metav1.LabelSelector{
-	MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      api.RSServiceProviderHostLabel,
-			Values:   []string{},
-			Operator: metav1.LabelSelectorOpExists,
-		},
-	},
-}
-
 func (r *RemoteSecretOAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred, err := predicate.LabelSelectorPredicate(oauthRemoteSecretSelector)
-	if err != nil {
-		return fmt.Errorf("failed to construct the predicate for matching RemoteSecret. This should not happen: %w", err)
+	// for newly created objects we are interested in those that have the host label and in update we check
+	// if host label or oauth url annotation changed
+	pred := predicate.Funcs{
+		CreateFunc: func(de event.CreateEvent) bool {
+			return de.Object.GetLabels()[api.RSServiceProviderHostLabel] != ""
+		},
+		UpdateFunc: func(ue event.UpdateEvent) bool {
+			if ue.ObjectOld.GetLabels()[api.RSServiceProviderHostLabel] != ue.ObjectNew.GetLabels()[api.RSServiceProviderHostLabel] {
+				return true
+			}
+			return ue.ObjectOld.GetAnnotations()[OAuthUrlAnnotation] != ue.ObjectNew.GetAnnotations()[OAuthUrlAnnotation]
+		},
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
-	err = ctrl.NewControllerManagedBy(mgr).
+
+	err := ctrl.NewControllerManagedBy(mgr).
 		Named("remoteSecretOauth").
 		Watches(
 			&source.Kind{Type: &v1beta1.RemoteSecret{}},
 			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(pred, predicate.Funcs{
-				CreateFunc:  func(de event.CreateEvent) bool { return true },
-				UpdateFunc:  func(de event.UpdateEvent) bool { return true },
-				DeleteFunc:  func(de event.DeleteEvent) bool { return false },
-				GenericFunc: func(de event.GenericEvent) bool { return false },
-			}),
-		).
-		Complete(r)
+			builder.WithPredicates(pred)).Complete(r)
 	if err != nil {
 		return fmt.Errorf("failed to configure the reconciler: %w", err)
 	}
@@ -112,20 +107,30 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 
 	repoHost, labelPresent := remoteSecret.Labels[api.RSServiceProviderHostLabel]
 	if !labelPresent {
-		lg.V(logs.DebugLevel).Info("RemoteSecret does not have host label. nothing left to be done")
-		return ctrl.Result{}, nil
+		if _, annoPresent := remoteSecret.Annotations[OAuthUrlAnnotation]; !annoPresent {
+			lg.V(logs.DebugLevel).Info("RemoteSecret does not have host label or oauth url annotation. nothing left to be done")
+			return ctrl.Result{}, nil
+		}
+		lg.V(logs.DebugLevel).Info("RemoteSecret does not have host label but has oauth url annotation. removing the annotation")
+		delete(remoteSecret.Annotations, OAuthUrlAnnotation)
+		return r.retryableUpdate(ctx, remoteSecret, "failed to update RemoteSecret after removing oauth url annotation")
 	}
 
+	// We assume https schema for every service provider.
 	serviceProviderUrl := "https://" + repoHost
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, serviceProviderUrl, remoteSecret.Namespace)
 	if err != nil {
-		// TODO: how to handle errors
+		// Currently we do not update the RemoteSecret with any error. One possibility of doing so would be through
+		// condition in status.
 		var validationErr validator.ValidationErrors
 		if stderrors.As(err, &validationErr) {
-			return ctrl.Result{}, fmt.Errorf("failed to validate the service provider for URL %s: %w", serviceProviderUrl, validationErr)
-		} else {
-			return ctrl.Result{}, fmt.Errorf("failed to determine the service provider from URL %s: %w", serviceProviderUrl, err)
+			// Reconciling here would not resolve the problem because either repoHost is malformed and must be changed
+			// or service provider configuration has to be changed to fix the error. So just log it without reconciling.
+			lg.Error(validationErr, "failed to validate the service provider", "serviceProviderUrl", serviceProviderUrl)
+			return ctrl.Result{}, nil
 		}
+		// In this case reconciling again might fix the problem.
+		return ctrl.Result{}, fmt.Errorf("failed to determine the service provider from URL %s: %w", serviceProviderUrl, err)
 	}
 	oauthCapability := sp.GetOAuthCapability()
 	if oauthCapability == nil {
@@ -133,34 +138,37 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 		return ctrl.Result{}, nil
 	}
 
-	oauthBaseUrl := oauthCapability.GetOAuthEndpoint()
 	permissions := getFixedPermissionsForProvider(sp.GetType())
-	scopes := oauthCapability.OAuthScopesFor(&permissions)
-
 	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
-		TokenName:           remoteSecret.Name,
-		TokenNamespace:      remoteSecret.Namespace,
-		Scopes:              scopes,
+		ObjectName:          remoteSecret.Name,
+		ObjectNamespace:     remoteSecret.Namespace,
+		ObjectKind:          remoteSecret.Kind,
+		Scopes:              oauthCapability.OAuthScopesFor(&permissions),
 		ServiceProviderName: sp.GetType().Name,
 		ServiceProviderUrl:  sp.GetBaseUrl(),
-		IsRemoteSecret:      true,
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to encode the OAuth state: %w", err)
 	}
 
-	remoteSecret.Annotations[oauthUrlLabel] = oauthBaseUrl + "?state=" + state
+	if remoteSecret.Annotations == nil {
+		remoteSecret.Annotations = make(map[string]string)
+	}
+	remoteSecret.Annotations[OAuthUrlAnnotation] = oauthCapability.GetOAuthEndpoint() + "?state=" + state
 
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	return r.retryableUpdate(ctx, remoteSecret, "failed to update RemoteSecret with OAuth URL")
+}
+
+func (r *RemoteSecretOAuthReconciler) retryableUpdate(ctx context.Context, remoteSecret *v1beta1.RemoteSecret, errMsg string) (reconcile.Result, error) {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := r.Update(ctx, remoteSecret); err != nil {
-			return fmt.Errorf("failed to update RemoteSecret with OAuth URL: %w", err)
+			return fmt.Errorf("%s: %w", errMsg, err)
 		}
 		return nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update RemoteSecret after multiple retries: %w", err)
 	}
-
 	return ctrl.Result{}, nil
 }
 

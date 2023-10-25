@@ -47,8 +47,8 @@ var _ = Describe("Controller", func() {
 
 	createAnonymousState := func() *oauthstate.OAuthInfo {
 		return &oauthstate.OAuthInfo{
-			TokenName:           "mytoken",
-			TokenNamespace:      IT.Namespace,
+			ObjectName:          "mytoken",
+			ObjectNamespace:     IT.Namespace,
 			Scopes:              []string{"a", "b"},
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 			ServiceProviderUrl:  "https://special.sp",

@@ -90,7 +90,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 	}
 	ctx = clientfactory.WithAuthIntoContext(token, ctx)
 
-	hasAccess, err := c.tokenDataSyncStrategy.checkIdentityHasAccess(ctx, state.TokenNamespace)
+	hasAccess, err := c.tokenDataSyncStrategy.checkIdentityHasAccess(ctx, state.ObjectNamespace)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to determine if the authenticated user has access", err)
 		lg.Error(err, "The token is incorrect or the SPI OAuth service is not configured properly "+
@@ -104,7 +104,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 		LogDebugAndWriteResponse(ctx, w, http.StatusUnauthorized, "authenticating the request in Kubernetes unsuccessful")
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.TokenNamespace, state.TokenName, "scopes", state.Scopes, "providerName", state.ServiceProviderName, "providerUrl", state.ServiceProviderUrl)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication flow started", state.ObjectNamespace, state.ObjectName, "scopes", state.Scopes, "providerName", state.ServiceProviderName, "providerUrl", state.ServiceProviderUrl)
 	newStateString, err := c.StateStorage.VeilRealState(r)
 	if err != nil {
 		LogErrorAndWriteResponse(ctx, w, http.StatusBadRequest, err.Error(), err)
@@ -157,7 +157,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		LogErrorAndWriteResponse(ctx, w, http.StatusInternalServerError, "failed to store token data to cluster", err)
 		return
 	}
-	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
+	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.ObjectNamespace, exchange.ObjectName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
 	redirectLocation := strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
 }

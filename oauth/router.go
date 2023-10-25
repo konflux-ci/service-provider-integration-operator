@@ -32,6 +32,7 @@ import (
 )
 
 var errUnknownServiceProviderType = errors.New("unknown service provider type")
+var errUnknownObjectKind = errors.New("unknown object kind for which OAuth flow is requested")
 
 // Router holds service provider controllers and is responsible for providing matching controller for incoming requests.
 type Router struct {
@@ -117,10 +118,14 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if controller == nil {
 		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl)
 	}
-	if state.IsRemoteSecret {
+
+	switch state.ObjectKind {
+	case "RemoteSecret":
 		controller.setSyncStrategy(r.rsSyncStrategy)
-	} else {
+	case "SPIAccessToken":
 		controller.setSyncStrategy(r.spiSyncStrategy)
+	default:
+		return nil, nil, fmt.Errorf("%w: kind '%s'", errUnknownObjectKind, state.ObjectKind)
 	}
 
 	return controller, state, nil

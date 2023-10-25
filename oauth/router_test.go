@@ -32,8 +32,9 @@ import (
 )
 
 var state = &oauthstate.OAuthInfo{
-	TokenName:           "mytoken",
-	TokenNamespace:      IT.Namespace,
+	ObjectName:          "mytoken",
+	ObjectNamespace:     IT.Namespace,
+	ObjectKind:          "SPIAccessToken",
 	Scopes:              []string{"a", "b"},
 	ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 	ServiceProviderUrl:  "http://spi",
@@ -222,6 +223,7 @@ func TestFindController(t *testing.T) {
 	t.Run("ok find sp type", func(t *testing.T) {
 		statestring, stateErr := oauthstate.Encode(&oauthstate.OAuthInfo{
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
+			ObjectKind:          "SPIAccessToken",
 		})
 		assert.NoError(t, stateErr)
 

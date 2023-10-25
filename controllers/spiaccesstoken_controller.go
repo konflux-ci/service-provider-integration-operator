@@ -360,8 +360,9 @@ func (r *SPIAccessTokenReconciler) oAuthUrlFor(ctx context.Context, at *api.SPIA
 	}
 
 	state, err := oauthstate.Encode(&oauthstate.OAuthInfo{
-		TokenName:           at.Name,
-		TokenNamespace:      at.Namespace,
+		ObjectName:          at.Name,
+		ObjectNamespace:     at.Namespace,
+		ObjectKind:          at.Kind,
 		Scopes:              oauthCapability.OAuthScopesFor(&at.Spec.Permissions),
 		ServiceProviderName: sp.GetType().Name,
 		ServiceProviderUrl:  sp.GetBaseUrl(),

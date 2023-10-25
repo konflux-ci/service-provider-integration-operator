@@ -71,13 +71,13 @@ func (s SPIAccessTokenSyncStrategy) syncTokenData(ctx context.Context, exchange 
 	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	accessToken := &api.SPIAccessToken{}
-	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
+	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.ObjectNamespace)
 	k8sClient, err := s.ClientFactory.CreateClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
+		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.ObjectNamespace, err)
 	}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, accessToken); err != nil {
-		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.ObjectName, Namespace: exchange.ObjectNamespace}, accessToken); err != nil {
+		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.ObjectNamespace, exchange.ObjectName, err)
 	}
 
 	apiToken := api.Token{
@@ -101,7 +101,19 @@ type RemoteSecretSyncStrategy struct {
 var _ tokenDataSyncStrategy = (*RemoteSecretSyncStrategy)(nil)
 
 func (r RemoteSecretSyncStrategy) checkIdentityHasAccess(ctx context.Context, namespace string) (bool, error) {
-	review := v1.SelfSubjectAccessReview{
+	getReview := v1.SelfSubjectAccessReview{
+		Spec: v1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &v1.ResourceAttributes{
+				Namespace: namespace,
+				Verb:      "get",
+				Group:     v1beta1.GroupVersion.Group,
+				Version:   v1beta1.GroupVersion.Version,
+				Resource:  "remotesecrets",
+			},
+		},
+	}
+
+	updateReview := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &v1.ResourceAttributes{
 				Namespace: namespace,
@@ -117,32 +129,42 @@ func (r RemoteSecretSyncStrategy) checkIdentityHasAccess(ctx context.Context, na
 	if err != nil {
 		return false, fmt.Errorf("failed to create K8S client for namespace %s: %w", namespace, err)
 	}
-	if err := k8sClient.Create(ctx, &review); err != nil {
+	if err := k8sClient.Create(ctx, &getReview); err != nil {
 		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
 	}
+	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review of 'get' verb result", "review", &getReview)
+	if !getReview.Status.Allowed {
+		return false, nil
+	}
 
-	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review result", "review", &review)
-	return review.Status.Allowed, nil
+	if err := k8sClient.Create(ctx, &updateReview); err != nil {
+		return false, fmt.Errorf("failed to create SelfSubjectAccessReview: %w", err)
+	}
+	log.FromContext(ctx).V(logs.DebugLevel).Info("self subject review of 'update' verb result", "review", &updateReview)
+
+	return updateReview.Status.Allowed, nil
 }
 
 func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
 	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
 	remoteSecret := &v1beta1.RemoteSecret{}
-	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
+	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.ObjectNamespace)
 	k8sClient, err := r.ClientFactory.CreateClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.TokenNamespace, err)
+		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.ObjectNamespace, err)
 	}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.TokenName, Namespace: exchange.TokenNamespace}, remoteSecret); err != nil {
-		return fmt.Errorf("failed to get the RemoteSecret object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
+	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.ObjectName, Namespace: exchange.ObjectNamespace}, remoteSecret); err != nil {
+		return fmt.Errorf("failed to get the RemoteSecret object %s/%s: %w", exchange.ObjectNamespace, exchange.ObjectName, err)
 	}
 
 	data := map[string]string{
-		"accessToken":  exchange.token.AccessToken,
-		"tokenType":    exchange.token.TokenType,
-		"refreshToken": exchange.token.RefreshToken,
-		"expiry":       strconv.FormatInt(exchange.token.Expiry.Unix(), 10),
+		// mapping access token to password key so that it can be used from basic-auth secret
+		"password": exchange.token.AccessToken,
+		// for now, we will ignore the refresh token to avoid spreading this powerful token because there is no mechanism
+		// in RemoteSecret for picking which key-value pair ends up in target secret.
+		"tokenType": exchange.token.TokenType,
+		"expiry":    strconv.FormatInt(exchange.token.Expiry.Unix(), 10),
 	}
 	remoteSecret.StringUploadData = data
 

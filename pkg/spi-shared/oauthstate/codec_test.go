@@ -24,8 +24,8 @@ import (
 
 func TestAnonymous(t *testing.T) {
 	encoded, err := Encode(&OAuthInfo{
-		TokenName:           "token-name",
-		TokenNamespace:      "default",
+		ObjectName:          "token-name",
+		ObjectNamespace:     "default",
 		Scopes:              []string{"a", "b", "c"},
 		ServiceProviderName: "sp type",
 		ServiceProviderUrl:  "https://sp",
@@ -35,8 +35,8 @@ func TestAnonymous(t *testing.T) {
 	decoded, err := ParseOAuthInfo(encoded)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "token-name", decoded.TokenName)
-	assert.Equal(t, "default", decoded.TokenNamespace)
+	assert.Equal(t, "token-name", decoded.ObjectName)
+	assert.Equal(t, "default", decoded.ObjectNamespace)
 	assert.Equal(t, []string{"a", "b", "c"}, decoded.Scopes)
 	assert.Equal(t, config.ServiceProviderName("sp type"), decoded.ServiceProviderName)
 	assert.Equal(t, "https://sp", decoded.ServiceProviderUrl)
