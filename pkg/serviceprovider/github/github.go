@@ -30,7 +30,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"k8s.io/client-go/rest"
 
@@ -45,8 +45,10 @@ import (
 
 var _ serviceprovider.ServiceProvider = (*Github)(nil)
 
-var publicRepoMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
-var fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
+var (
+	publicRepoMetricConfig      = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_public_repo")
+	fetchRepositoryMetricConfig = serviceprovider.CommonRequestMetricsConfig(config.ServiceProviderTypeGitHub, "fetch_single_repo")
+)
 
 var unexpectedStatusCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
@@ -295,7 +297,7 @@ func (g *Github) checkPrivateRepoAccess(ctx context.Context, cl client.Client, a
 	}
 
 	status.Accessible = true
-	if pointer.BoolDeref(ghRepository.Private, false) {
+	if ptr.Deref(ghRepository.Private, false) {
 		status.Accessibility = api.SPIAccessCheckAccessibilityPrivate
 	}
 	return status, nil
