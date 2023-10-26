@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -95,7 +97,7 @@ func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *e
 
 	data := map[string]string{
 		// mapping access token to password key so that it can be used from basic-auth secret
-		"password": exchange.token.AccessToken,
+		corev1.BasicAuthPasswordKey: exchange.token.AccessToken,
 		// for now, we will ignore the refresh token to avoid spreading this powerful token because there is no mechanism
 		// in RemoteSecret for picking which key-value pair ends up in target secret.
 		"tokenType": exchange.token.TokenType,

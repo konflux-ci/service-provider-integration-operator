@@ -17,65 +17,61 @@ package oauth
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestRSCheckIdentityHasAccess(t *testing.T) {
+func TestSPICheckIdentityHasAccess(t *testing.T) {
 	// TODO: finish
 }
 
-func TestRSSyncTokenData(t *testing.T) {
+func TestSPISyncTokenData(t *testing.T) {
 	exchange := &exchangeResult{
 		OAuthInfo: oauthstate.OAuthInfo{
-			ObjectName:      "test-rs",
+			ObjectName:      "test-token",
 			ObjectNamespace: "default",
 		},
 		result: 0,
 		token: &oauth2.Token{
-			AccessToken:  "token",
-			RefreshToken: "no-no-value",
-			TokenType:    "Bearer",
-			Expiry:       time.Now(),
+			AccessToken: "token",
 		},
 		authorizationHeader: "",
 	}
-	rs := &v1beta1.RemoteSecret{
+	spiToken := &api.SPIAccessToken{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-rs",
+			Name:      "test-token",
 			Namespace: "default",
 		},
 	}
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
-	utilruntime.Must(v1beta1.AddToScheme(sch))
-	client := fake.NewClientBuilder().WithScheme(sch).WithObjects(rs).Build()
+	utilruntime.Must(api.AddToScheme(sch))
+	client := fake.NewClientBuilder().WithScheme(sch).WithObjects(spiToken).Build()
 
-	strategy := RemoteSecretSyncStrategy{
+	ts := tokenstorage.TestTokenStorage{
+		StoreImpl: func(ctx context.Context, spiToken *api.SPIAccessToken, token *api.Token) error {
+			assert.Equal(t, "token", token.AccessToken)
+			assert.Equal(t, "test-token", spiToken.Name)
+			assert.Equal(t, "default", spiToken.Namespace)
+			return nil
+		},
+	}
+	strategy := SPIAccessTokenSyncStrategy{
 		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: client},
+		TokenStorage:  ts,
 	}
 
 	err := strategy.syncTokenData(context.TODO(), exchange)
 	assert.NoError(t, err)
-
-	err = client.Get(context.TODO(), client2.ObjectKeyFromObject(rs), rs)
-	assert.NoError(t, err)
-
-	// no webhook here so we can check the data straight from RemoteSecret
-	assert.Len(t, rs.StringUploadData, 3)
-	assert.Equal(t, "token", rs.StringUploadData[corev1.BasicAuthPasswordKey])
-	assert.Equal(t, "Bearer", rs.StringUploadData["tokenType"])
-	assert.NotEmpty(t, rs.StringUploadData["expiry"])
 }

@@ -73,7 +73,7 @@ func (r *RemoteSecretOAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
-		Named("remoteSecretOauth").
+		Named("remotesecretoauth").
 		Watches(
 			&source.Kind{Type: &v1beta1.RemoteSecret{}},
 			&handler.EnqueueRequestForObject{},
@@ -129,7 +129,7 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 			lg.Error(validationErr, "failed to validate the service provider", "serviceProviderUrl", serviceProviderUrl)
 			return ctrl.Result{}, nil
 		}
-		// In this case reconciling again might fix the problem.
+		// In this case, reconciling again might fix the problem.
 		return ctrl.Result{}, fmt.Errorf("failed to determine the service provider from URL %s: %w", serviceProviderUrl, err)
 	}
 	oauthCapability := sp.GetOAuthCapability()
