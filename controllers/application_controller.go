@@ -100,7 +100,7 @@ func (f *linkedAppRemoteSecretFinalizer) Finalize(ctx context.Context, obj clien
 		return finalizer.Result{}, unexpectedObjectTypeError
 	}
 
-	buildReq, _ := labels.NewRequirement(ignoredBuildSecretLabelName, selection.NotIn, ignoredBuildSecretLabelValues)
+	buildReq, _ := labels.NewRequirement(ignoredSecretsLabelName, selection.NotIn, ignoredSecretsLabelValues)
 	selector := labels.NewSelector().Add(*buildReq)
 
 	remoteSecretsList := rapi.RemoteSecretList{}

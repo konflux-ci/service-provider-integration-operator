@@ -42,8 +42,8 @@ const (
 )
 
 var (
-	ignoredBuildSecretLabelName   = "ui.appstudio.redhat.com/secret-for"
-	ignoredBuildSecretLabelValues = []string{"Build"}
+	ignoredSecretsLabelName   = "ui.appstudio.redhat.com/secret-for"
+	ignoredSecretsLabelValues = []string{"Build"}
 )
 
 type EnvironmentReconciler struct {
@@ -110,7 +110,7 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 		return finalizer.Result{}, unexpectedObjectTypeError
 	}
 
-	buildReq, _ := labels.NewRequirement(ignoredBuildSecretLabelName, selection.NotIn, ignoredBuildSecretLabelValues)
+	buildReq, _ := labels.NewRequirement(ignoredSecretsLabelName, selection.NotIn, ignoredSecretsLabelValues)
 	selector := labels.NewSelector().Add(*buildReq)
 
 	remoteSecretsList := rapi.RemoteSecretList{}
