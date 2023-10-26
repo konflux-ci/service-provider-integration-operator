@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"k8s.io/utils/strings/slices"
 
@@ -36,6 +39,11 @@ import (
 
 const (
 	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
+)
+
+var (
+	ignoredBuildSecretLabelName   = "ui.appstudio.redhat.com/secret-for"
+	ignoredBuildSecretLabelValues = []string{"Build"}
 )
 
 type EnvironmentReconciler struct {
@@ -102,8 +110,11 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 		return finalizer.Result{}, unexpectedObjectTypeError
 	}
 
+	buildReq, _ := labels.NewRequirement(ignoredBuildSecretLabelName, selection.NotIn, ignoredBuildSecretLabelValues)
+	selector := labels.NewSelector().Add(*buildReq)
+
 	remoteSecretsList := rapi.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace)); err != nil {
+	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace), &client.ListOptions{LabelSelector: selector}); err != nil {
 		return finalizer.Result{}, unableToFetchRemoteSecretsError
 	}
 

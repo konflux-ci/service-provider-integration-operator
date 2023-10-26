@@ -19,6 +19,9 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -97,8 +100,11 @@ func (f *linkedAppRemoteSecretFinalizer) Finalize(ctx context.Context, obj clien
 		return finalizer.Result{}, unexpectedObjectTypeError
 	}
 
+	buildReq, _ := labels.NewRequirement(ignoredBuildSecretLabelName, selection.NotIn, ignoredBuildSecretLabelValues)
+	selector := labels.NewSelector().Add(*buildReq)
+
 	remoteSecretsList := rapi.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(application.Namespace)); err != nil {
+	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(application.Namespace), &client.ListOptions{LabelSelector: selector}); err != nil {
 		return finalizer.Result{}, unableToFetchRemoteSecretsError
 	}
 
