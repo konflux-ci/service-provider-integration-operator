@@ -7,9 +7,8 @@ metadata:
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main" && ( "./***".pathChanged() || ".tekton/spi-operator-pull-request.yaml".pathChanged()
-      || "Dockerfile".pathChanged() )
+    pipelinesascode.tekton.dev/on-event: '[pull_request]'
+    pipelinesascode.tekton.dev/on-target-branch: '[main]'
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: spi
@@ -227,7 +226,7 @@ spec:
         - name: name
           value: buildah
         - name: bundle
-          value: quay.io/redhat-appstudio-tekton-catalog/task-buildah:0.1@sha256:93c318074716173ac4f77ec873fc2ab58fc102c8c49d525e7f7d6a12c13338c1
+          value: quay.io/redhat-appstudio-tekton-catalog/task-buildah:0.1@sha256:21cdb86ec6137c0bf234c37e12c5dab5190edc26413603dd062b73be7de2acfc
         - name: kind
           value: task
         resolver: bundles
