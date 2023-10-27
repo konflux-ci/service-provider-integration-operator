@@ -41,6 +41,7 @@ const (
 	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
 )
 
+// completely ignore secrets with this label as they're not meant to be used by the application directly
 var (
 	ignoredSecretsLabelName   = "ui.appstudio.redhat.com/secret-for"
 	ignoredSecretsLabelValues = []string{"Build"}
