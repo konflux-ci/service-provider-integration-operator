@@ -43,7 +43,7 @@ const (
 
 // completely ignore secrets with this label as they're not meant to be used by the application directly
 var (
-	ignoredSecretsLabelName   = "ui.appstudio.redhat.com/secret-for" //nolint:gosec // false positive, just label name
+	ignoredSecretsLabelName   = "ui.appstudio.redhat.com/secret-for" //#nosec G101 -- false positive, just label name
 	ignoredSecretsLabelValues = []string{"Build"}
 )
 
