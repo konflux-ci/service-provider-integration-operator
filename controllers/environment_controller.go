@@ -18,6 +18,12 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
+	"k8s.io/utils/strings/slices"
+
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -33,6 +39,12 @@ import (
 
 const (
 	linkedRemoteSecretsTargetFinalizerName = "spi.appstudio.redhat.com/remote-secrets" //#nosec G101 -- false positive, just label name
+)
+
+// completely ignore secrets with this label as they're not meant to be used by the application directly
+var (
+	ignoredSecretsLabelName   = "ui.appstudio.redhat.com/secret-for" //#nosec G101 -- false positive, just label name
+	ignoredSecretsLabelValues = []string{"Build"}
 )
 
 type EnvironmentReconciler struct {
@@ -99,8 +111,11 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 		return finalizer.Result{}, unexpectedObjectTypeError
 	}
 
+	buildReq, _ := labels.NewRequirement(ignoredSecretsLabelName, selection.NotIn, ignoredSecretsLabelValues)
+	selector := labels.NewSelector().Add(*buildReq)
+
 	remoteSecretsList := rapi.RemoteSecretList{}
-	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace)); err != nil {
+	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace), &client.ListOptions{LabelSelector: selector}); err != nil {
 		return finalizer.Result{}, unableToFetchRemoteSecretsError
 	}
 
@@ -115,7 +130,7 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 
 	for rs := range remoteSecretsList.Items {
 		remoteSecret := remoteSecretsList.Items[rs]
-		if !remoteSecretApplicableForEnvironment(remoteSecret, environment.Name) {
+		if !applicableForEnvironment(remoteSecret, environment.Name) {
 			// this secret is intended for another environment, bypassing it
 			continue
 		}
@@ -136,4 +151,17 @@ func removeTarget(secret *rapi.RemoteSecret, target rapi.RemoteSecretTarget) {
 		}
 	}
 	secret.Spec.Targets = tmp
+}
+
+// for cleanup, we check the environment name both in annotations and label
+func applicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName string) bool {
+	if annotationValue, annSet := remoteSecret.Annotations[EnvironmentLabelAndAnnotationName]; annSet {
+		if slices.Contains(commaseparated.Value(annotationValue).Values(), environmentName) {
+			return true
+		}
+	}
+	if labelValue, labSet := remoteSecret.Labels[EnvironmentLabelAndAnnotationName]; labSet {
+		return labelValue == environmentName
+	}
+	return false
 }

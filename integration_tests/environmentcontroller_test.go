@@ -80,4 +80,103 @@ var _ = Describe("Environment", func() {
 			}).Should(Succeed())
 		})
 	})
+
+	Describe("Leaves the targets in place for RemoteSecrets with no specific environment", func() {
+
+		env := StandardRemoteEnvironment("test-remote-env")
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				RemoteSecrets: []*rapi.RemoteSecret{{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "keep-target-remotesecret-",
+						Namespace:    env.Namespace,
+						Labels:       map[string]string{},
+					},
+					Spec: rapi.RemoteSecretSpec{
+						Targets: []rapi.RemoteSecretTarget{
+							{Namespace: "test-ns-1"},
+						},
+						Secret: rapi.LinkableSecretSpec{
+							Name: "test-remote-secret",
+							Type: "Opaque",
+						},
+					},
+				}},
+				Environments: []*v1alpha1.Environment{env},
+			},
+
+			Behavior: ITestBehavior{},
+		}
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("have the target in place", func() {
+			//check target is there
+			Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets).ToNot(BeEmpty())
+			// delete environment
+			Expect(ITest.Client.Delete(ITest.Context, env)).To(Succeed())
+			// check target is there
+			Eventually(func(g Gomega) {
+				rs := &rapi.RemoteSecret{}
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
+				g.Expect(len(rs.Spec.Targets)).To(Equal(1))
+				g.Expect(rs.Spec.Targets[0].Namespace).To(Equal("test-ns-1"))
+			}).Should(Succeed())
+		})
+	})
+
+	Describe("Ignores the build secrets", func() {
+
+		env := StandardRemoteEnvironment("test-remote-env")
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				RemoteSecrets: []*rapi.RemoteSecret{{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "ignore-target-remotesecret-",
+						Namespace:    env.Namespace,
+						Labels:       map[string]string{"ui.appstudio.redhat.com/secret-for": "Build", "appstudio.redhat.com/environment": env.Name},
+					},
+					Spec: rapi.RemoteSecretSpec{
+						Targets: []rapi.RemoteSecretTarget{
+							{Namespace: "test-ns-2"},
+						},
+						Secret: rapi.LinkableSecretSpec{
+							Name: "test-remote-secret",
+							Type: "Opaque",
+						},
+					},
+				}},
+				Environments: []*v1alpha1.Environment{env},
+			},
+			Behavior: ITestBehavior{},
+		}
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("have the target in place", func() {
+			//check target is there
+			Expect(testSetup.InCluster.RemoteSecrets[0].Spec.Targets).ToNot(BeEmpty())
+			// delete environment
+			Expect(ITest.Client.Delete(ITest.Context, env)).To(Succeed())
+			// check target is still there
+			Eventually(func(g Gomega) {
+				rs := &rapi.RemoteSecret{}
+				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
+				g.Expect(len(rs.Spec.Targets)).To(Equal(1))
+				g.Expect(rs.Spec.Targets[0].Namespace).To(Equal("test-ns-2"))
+			}).Should(Succeed())
+		})
+	})
 })
