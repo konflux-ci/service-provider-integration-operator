@@ -1,13 +1,13 @@
 module github.com/redhat-appstudio/service-provider-integration-operator
 
-go 1.21
+go 1.19
 
 require (
 	github.com/alexedwards/scs/v2 v2.6.0
 	github.com/alexflint/go-arg v1.4.3
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
 	github.com/go-jose/go-jose/v3 v3.0.0
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-test/deep v1.1.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
@@ -16,13 +16,13 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/hashicorp/vault v1.13.2
-	github.com/migueleliasweb/go-github-mock v0.0.20
+	github.com/migueleliasweb/go-github-mock v0.0.21
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.28.1
+	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
-	github.com/redhat-appstudio/application-api v0.0.0-20231025105224-2790bb451725
-	github.com/redhat-appstudio/remote-secret v0.0.0-20231025105424-1fa9b60e9c42
+	github.com/redhat-appstudio/application-api v0.0.0-20231005124600-8b646f622222
+	github.com/redhat-appstudio/remote-secret v0.0.0-20231029193443-7efb83749d48
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.93.2
 	go.uber.org/zap v1.26.0
@@ -66,9 +66,9 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
-	github.com/aws/aws-sdk-go v1.46.1 // indirect
+	github.com/aws/aws-sdk-go v1.46.6 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.21.2 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.19.1 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.43 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.13 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.43 // indirect
@@ -128,7 +128,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/go-github/v55 v55.0.0 // indirect
+	github.com/google/go-github/v56 v56.0.0 // indirect
 	github.com/google/go-metrics-stackdriver v0.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
@@ -265,7 +265,7 @@ require (
 	google.golang.org/genproto v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
-	google.golang.org/grpc v1.55.0 // indirect
+	google.golang.org/grpc v1.56.3 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect

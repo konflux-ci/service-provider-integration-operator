@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.21.3 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.19.13 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -38,6 +38,13 @@ RUN microdnf -y install shadow-utils \
 
 WORKDIR /
 COPY --from=builder /workspace/bin/operator .
+
+# It is mandatory to set these labels
+LABEL description="RHTAP SPI Operator"
+LABEL io.k8s.description="RHTAP SPI Operator"
+LABEL io.k8s.display-name="spi-operator"
+LABEL summary="RHTAP SPI Operator"
+LABEL io.openshift.tags="rhtap"
 USER 65532:65532
 
 ENTRYPOINT ["/operator"]
