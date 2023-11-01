@@ -33,9 +33,9 @@ var _ = Describe("Application", func() {
 			ToCreate: TestObjects{
 				RemoteSecrets: []*rapi.RemoteSecret{{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "create-target-remotesecret-",
+						GenerateName: "cleanup-remotesecret-",
 						Namespace:    "default",
-						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": "myenv"},
+						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app"},
 					},
 					Spec: rapi.RemoteSecretSpec{
 						Secret: rapi.LinkableSecretSpec{
@@ -83,6 +83,63 @@ var _ = Describe("Application", func() {
 				rs := &rapi.RemoteSecret{}
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: original.Name, Namespace: original.Namespace}, rs)).To(HaveField("ErrStatus.Code", int32(404)))
 			}).Should(Succeed())
+		})
+
+	})
+
+	Describe("Ignores the build secrets", func() {
+
+		var application v1alpha1.Application
+
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				RemoteSecrets: []*rapi.RemoteSecret{{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "ignore-remotesecret-",
+						Namespace:    "default",
+						Labels:       map[string]string{"ui.appstudio.redhat.com/secret-for": "Build", "appstudio.redhat.com/application": "test-app"},
+					},
+					Spec: rapi.RemoteSecretSpec{
+						Secret: rapi.LinkableSecretSpec{
+							Name: "test-remote-secret",
+							Type: "Opaque",
+						},
+						Targets: []rapi.RemoteSecretTarget{{
+							Namespace: "test-namespace",
+							ApiUrl:    "https://test-target",
+						}},
+					},
+				}},
+			},
+			Behavior: ITestBehavior{},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+			application = v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-app",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ApplicationSpec{
+					DisplayName: "test-app",
+				},
+			}
+			Expect(ITest.Client.Create(ITest.Context, &application)).To(Succeed())
+			// reconcile the cluster after creation
+			testSetup.ReconcileWithCluster(nil)
+		})
+
+		var _ = AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("have the remote secret in place", func() {
+			// delete application
+			Expect(ITest.Client.Delete(ITest.Context, &application)).To(Succeed())
+			// read RS, must be there
+			rs := &rapi.RemoteSecret{}
+			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
 		})
 
 	})
