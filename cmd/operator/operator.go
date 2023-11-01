@@ -18,13 +18,15 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
-
-	"os"
 
 	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 
@@ -103,7 +105,7 @@ func main() {
 	ctx = context.WithValue(ctx, rconfig.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
 	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("spiInstanceId", args.CommonCliArgs.InstanceId))
 
-	mgr, mgrErr := createManager(args)
+	mgr, mgrErr := createManager(setupLog, args)
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
@@ -164,7 +166,7 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 	return ret, nil
 }
 
-func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
+func createManager(lg logr.Logger, args cli.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
@@ -174,6 +176,13 @@ func createManager(args cli.OperatorCliArgs) (manager.Manager, error) {
 		Logger:                 ctrl.Log,
 	}
 	restConfig := ctrl.GetConfigOrDie()
+
+	if args.DisableHTTP2 {
+		lg.Info("Disabling HTTP/2")
+		options.TLSOpts = append(options.TLSOpts, func(c *tls.Config) {
+			c.NextProtos = cmd.TLSConfigWithDisabledHTTP2.NextProtos
+		})
+	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
