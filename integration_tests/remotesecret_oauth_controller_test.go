@@ -17,6 +17,8 @@ package integrationtests
 import (
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -56,6 +58,12 @@ var _ = Describe("RemoteSecretOAuth", func() {
 				g.Expect(testSetup.InCluster.RemoteSecrets[0].Annotations[controllers.OAuthUrlAnnotation]).To(Not(BeEmpty()))
 			})
 		})
+		It("adds OAuth condition to status", func() {
+			testSetup.settleWithCluster(false, func(g Gomega) {
+				conditions := testSetup.InCluster.RemoteSecrets[0].Status.Conditions
+				g.Expect(meta.IsStatusConditionPresentAndEqual(conditions, controllers.OAuthConditionType, metav1.ConditionTrue)).To(BeTrue())
+			})
+		})
 	})
 
 	When(" existing RemoteSecret has its host label removed", func() {
@@ -79,25 +87,62 @@ var _ = Describe("RemoteSecretOAuth", func() {
 			testSetup.BeforeEach(func(g Gomega) {
 				g.Expect(testSetup.InCluster.RemoteSecrets[0].Annotations[controllers.OAuthUrlAnnotation]).To(Not(BeEmpty()))
 			})
-		})
-		AfterEach(func() {
-			testSetup.AfterEach()
-		})
-
-		It("removes OAuth URL annotation from RemoteSecret", func() {
 			// delete label
 			Eventually(func(g Gomega) {
 				rs := testSetup.InCluster.RemoteSecrets[0]
 				delete(rs.Labels, api.RSServiceProviderHostLabel)
 				g.Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
 			}).Should(Succeed())
+		})
+		AfterEach(func() {
+			testSetup.AfterEach()
+		})
 
-			// ensure annotation is deleted as well
+		It("removes OAuth URL annotation from RemoteSecret", func() {
 			testSetup.settleWithCluster(false, func(g Gomega) {
 				g.Expect(testSetup.InCluster.RemoteSecrets[0].Annotations[controllers.OAuthUrlAnnotation]).To(BeEmpty())
 			})
 		})
+
+		It("removes OAuth condition from RemoteSecret status", func() {
+			testSetup.settleWithCluster(false, func(g Gomega) {
+				conditions := testSetup.InCluster.RemoteSecrets[0].Status.Conditions
+				g.Expect(meta.FindStatusCondition(conditions, controllers.OAuthConditionType)).To(BeNil())
+			})
+		})
 	})
+
+	When("service provider doesn't support OAuth", func() {
+		testSetup := TestSetup{
+			ToCreate: TestObjects{
+				RemoteSecrets: []*v1beta1.RemoteSecret{StandardRemoteSecret()},
+			},
+			Behavior: ITestBehavior{
+				BeforeObjectsCreated: func() {
+					ITest.TestServiceProviderProbe = serviceprovider.ProbeFunc(func(_ *http.Client, baseUrl string) (string, error) {
+						return "https://someprovider.com", nil
+					})
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			testSetup.BeforeEach(nil)
+		})
+		AfterEach(func() {
+			testSetup.AfterEach()
+		})
+
+		It("adds OAuth not supported condition to RemoteSecret status", func() {
+			testSetup.settleWithCluster(false, func(g Gomega) {
+				oauthCondition := meta.FindStatusCondition(testSetup.InCluster.RemoteSecrets[0].Status.Conditions, controllers.OAuthConditionType)
+				g.Expect(oauthCondition).NotTo(BeNil())
+				g.Expect(oauthCondition.Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(oauthCondition.Reason).To(Equal(string(controllers.OAuthConditionReasonNotSupported)))
+			})
+		})
+	})
+
 })
 
 func StandardRemoteSecret() *v1beta1.RemoteSecret {

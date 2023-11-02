@@ -32,7 +32,7 @@ import (
 )
 
 func TestSPICheckIdentityHasAccess(t *testing.T) {
-	// TODO: finish
+	t.Skip("not testable until we use controller-runtime >= 0.15.x because we need to fake SubjectAccessReview using interceptors")
 }
 
 func TestSPISyncTokenData(t *testing.T) {

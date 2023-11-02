@@ -37,6 +37,8 @@ type RemoteSecretSyncStrategy struct {
 
 var _ tokenDataSyncStrategy = (*RemoteSecretSyncStrategy)(nil)
 
+const oAuthAssociatedUsername = "$oauthtoken"
+
 func (r RemoteSecretSyncStrategy) checkIdentityHasAccess(ctx context.Context, namespace string) (bool, error) {
 	getReview := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
@@ -96,12 +98,16 @@ func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *e
 	}
 
 	data := map[string]string{
-		// mapping access token to password key so that it can be used from basic-auth secret
+		// Mapping access token to password key so that it can be used from basic-auth secret.
 		corev1.BasicAuthPasswordKey: exchange.token.AccessToken,
-		// for now, we will ignore the refresh token to avoid spreading this powerful token because there is no mechanism
-		// in RemoteSecret for picking which key-value pair ends up in target secret.
+		// Hard-coding the username to this value because it is required for Quay and other providers should not need
+		// username at all.
+		corev1.BasicAuthUsernameKey: oAuthAssociatedUsername,
+		// For now, we will ignore the refresh token to avoid spreading this powerful token because there is no mechanism
+		// in RemoteSecret for selecting which key-value pair ends up in target secret. We keep tokenType and expiry as it
+		// is just metadata.
 		"tokenType": exchange.token.TokenType,
-		"expiry":    strconv.FormatInt(exchange.token.Expiry.Unix(), 10),
+		"expiry":    strconv.FormatUint(uint64(exchange.token.Expiry.Unix()), 10),
 	}
 	remoteSecret.StringUploadData = data
 

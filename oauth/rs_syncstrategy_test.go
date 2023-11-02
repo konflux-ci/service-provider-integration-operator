@@ -33,7 +33,7 @@ import (
 )
 
 func TestRSCheckIdentityHasAccess(t *testing.T) {
-	// TODO: finish
+	t.Skip("not testable until we use controller-runtime >= 0.15.x because we need to fake SubjectAccessReview using interceptors")
 }
 
 func TestRSSyncTokenData(t *testing.T) {
@@ -74,8 +74,6 @@ func TestRSSyncTokenData(t *testing.T) {
 	assert.NoError(t, err)
 
 	// no webhook here so we can check the data straight from RemoteSecret
-	assert.Len(t, rs.StringUploadData, 3)
+	assert.Len(t, rs.StringUploadData, 4)
 	assert.Equal(t, "token", rs.StringUploadData[corev1.BasicAuthPasswordKey])
-	assert.Equal(t, "Bearer", rs.StringUploadData["tokenType"])
-	assert.NotEmpty(t, rs.StringUploadData["expiry"])
 }

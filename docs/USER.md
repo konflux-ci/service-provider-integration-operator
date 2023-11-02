@@ -624,6 +624,34 @@ However, there are a few constraints put on RemoteSecret before SPIAccessCheck o
 
 For example RemoteSecret yaml, see [the sample](/samples/remotesecret-for-ac.yaml).
 
+## OAuth Flow for RemoteSecrets
+RemoteSecret now supports OAuth flow. This means you can go through OAuth in the same way as with SPIAccessToken and
+the OAuth token will be uploaded to RemoteSecret.
+
+To trigger OAuth URL generation, RemoteSecret should have a label `appstudio.redhat.com/sp.host` with the value representing
+host part of the service provider URL, such as `github.com`.
+The `remotesecretoauth` controller adds the `appstudio.redhat.com/sp.oauthurl` annotation to the RemoteSecret with value
+representing the OAuth URL. Additionally, a condition of type `OAuthURLGenerated` will present in status with status equal
+to `True`.
+
+In case the service provider does not support OAuth, SPI operator will not add the `appstudio.redhat.com/sp.oauthurl` annotation,
+but it will add a `OAuthURLGenerated` condition with status `False` and reason `NotSupported`.
+
+Finishing the OAuth flow will result in a RemoteSecret that has 4 data key-value pairs:
+```yaml
+username: "$oauthtoken" # username, hardcoded
+password: # oauth token value, such as "ght_abcd123..."
+tokenType: # token type of the oauth token, most likely "Bearer"
+expiry: # expiry time in Unix Timestamp format, such as "1698912947"
+```
+
+### OAuth Scopes
+Currently, there is no feature that allows for selecting which set of scopes should be requested in the OAuth flow.
+A set of scopes is hardcoded for each service provider to enable read-write access to repository/registry and user.
+
+
+
+
 ## HTTP API Endpoints
 
 ### POST /login

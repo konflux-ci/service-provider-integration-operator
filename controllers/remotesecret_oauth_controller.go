@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/go-playground/validator/v10"
@@ -32,7 +35,6 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +45,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const OAuthUrlAnnotation = "appstudio.redhat.com/sp.oauthurl"
+type OAuthConditionReason string
+
+const (
+	OAuthUrlAnnotation = "appstudio.redhat.com/sp.oauthurl"
+
+	OAuthConditionType = "OAuthURLGenerated"
+
+	OAuthConditionReasonNotSupported OAuthConditionReason = "NotSupported"
+	OAuthConditionReasonSuccess      OAuthConditionReason = "Success"
+	OAuthConditionReasonError        OAuthConditionReason = "Error"
+)
 
 type RemoteSecretOAuthReconciler struct {
 	client.Client
@@ -104,37 +116,68 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 		lg.V(logs.DebugLevel).Info("RemoteSecret is being deleted. skipping reconciliation")
 		return ctrl.Result{}, nil
 	}
+	patch := client.MergeFrom(remoteSecret.DeepCopy())
 
 	repoHost, labelPresent := remoteSecret.Labels[api.RSServiceProviderHostLabel]
 	if !labelPresent {
-		if _, annoPresent := remoteSecret.Annotations[OAuthUrlAnnotation]; !annoPresent {
-			lg.V(logs.DebugLevel).Info("RemoteSecret does not have host label or oauth url annotation. nothing left to be done")
-			return ctrl.Result{}, nil
+		if _, annoPresent := remoteSecret.Annotations[OAuthUrlAnnotation]; annoPresent {
+			lg.V(logs.DebugLevel).Info("RemoteSecret doesn't have host label but has oauth condition left. cleaning it up")
+			delete(remoteSecret.Annotations, OAuthUrlAnnotation)
+			if err := r.Patch(ctx, remoteSecret, patch); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to remove oauth annotation by patching remoteSecret: %w", err)
+			}
 		}
-		lg.V(logs.DebugLevel).Info("RemoteSecret does not have host label but has oauth url annotation. removing the annotation")
-		delete(remoteSecret.Annotations, OAuthUrlAnnotation)
-		return r.retryableUpdate(ctx, remoteSecret, "failed to update RemoteSecret after removing oauth url annotation")
+		if meta.FindStatusCondition(remoteSecret.Status.Conditions, OAuthConditionType) != nil {
+			lg.V(logs.DebugLevel).Info("RemoteSecret doesn't have host label but has oauth condition left. cleaning up")
+			meta.RemoveStatusCondition(&remoteSecret.Status.Conditions, OAuthConditionType)
+			if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to remove oauth condition by patching remoteSecret: %w", err)
+			}
+		}
+		lg.Info("RemoteSecret doesn't have host label. nothing left to be done")
+		return ctrl.Result{}, nil
 	}
 
 	// We assume https schema for every service provider.
 	serviceProviderUrl := "https://" + repoHost
 	sp, err := r.ServiceProviderFactory.FromRepoUrl(ctx, serviceProviderUrl, remoteSecret.Namespace)
 	if err != nil {
-		// Currently we do not update the RemoteSecret with any error. One possibility of doing so would be through
-		// condition in status.
 		var validationErr validator.ValidationErrors
 		if stderrors.As(err, &validationErr) {
 			// Reconciling here would not resolve the problem because either repoHost is malformed and must be changed
-			// or service provider configuration has to be changed to fix the error. So just log it without reconciling.
+			// or service provider configuration has to be changed to fix the error.
+			// So just log it and update condition without reconciling (note that reconcile will happen IF patching errors).
 			lg.Error(validationErr, "failed to validate the service provider", "serviceProviderUrl", serviceProviderUrl)
+			meta.SetStatusCondition(&remoteSecret.Status.Conditions, conditionFromError(validationErr))
+			if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to add oauth error condition by patching remoteSecret: %w", err)
+			}
 			return ctrl.Result{}, nil
 		}
+
 		// In this case, reconciling again might fix the problem.
+		meta.SetStatusCondition(&remoteSecret.Status.Conditions, conditionFromError(err))
+		if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to add oauth error condition by patching remoteSecret: %w", err)
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to determine the service provider from URL %s: %w", serviceProviderUrl, err)
 	}
 	oauthCapability := sp.GetOAuthCapability()
 	if oauthCapability == nil {
-		lg.Info("service provider does not support oauth capability. nothing left to be done", "serviceprovider", sp.GetType())
+		condition := metav1.Condition{
+			Type:    OAuthConditionType,
+			Status:  metav1.ConditionFalse,
+			Reason:  string(OAuthConditionReasonNotSupported),
+			Message: fmt.Sprintf("Service provider with host '%s' does not support OAuth flow.", repoHost),
+		}
+
+		lg.Info("service provider does not support oauth capability. nothing left to be done",
+			"serviceprovider", sp.GetType(),
+			"host", repoHost)
+		meta.SetStatusCondition(&remoteSecret.Status.Conditions, condition)
+		if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to add oauth not supported condition by patching remoteSecret: %w", err)
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -148,26 +191,29 @@ func (r *RemoteSecretOAuthReconciler) Reconcile(ctx context.Context, req reconci
 		ServiceProviderUrl:  sp.GetBaseUrl(),
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to encode the OAuth state: %w", err)
+		meta.SetStatusCondition(&remoteSecret.Status.Conditions, conditionFromError(err))
+		if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to add oauth error condition by patching remoteSecret: %w", err)
+		}
+		return ctrl.Result{}, fmt.Errorf("failed to encode the OAuth state, this might indicate that some part of OAuth state is malformed: %w", err)
 	}
 
 	if remoteSecret.Annotations == nil {
 		remoteSecret.Annotations = make(map[string]string)
 	}
 	remoteSecret.Annotations[OAuthUrlAnnotation] = oauthCapability.GetOAuthEndpoint() + "?state=" + state
+	if err := r.Patch(ctx, remoteSecret, patch); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to add oauth annotation by patching remoteSecret: %w", err)
+	}
 
-	return r.retryableUpdate(ctx, remoteSecret, "failed to update RemoteSecret with OAuth URL")
-}
-
-func (r *RemoteSecretOAuthReconciler) retryableUpdate(ctx context.Context, remoteSecret *v1beta1.RemoteSecret, errMsg string) (reconcile.Result, error) {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.Update(ctx, remoteSecret); err != nil {
-			return fmt.Errorf("%s: %w", errMsg, err)
-		}
-		return nil
+	meta.SetStatusCondition(&remoteSecret.Status.Conditions, metav1.Condition{
+		Type:    OAuthConditionType,
+		Status:  metav1.ConditionTrue,
+		Reason:  string(OAuthConditionReasonSuccess),
+		Message: "OAuth URL successfully generated.",
 	})
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update RemoteSecret after multiple retries: %w", err)
+	if err := r.Status().Patch(ctx, remoteSecret, patch); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to add oauth success condition by patching remoteSecret: %w", err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -200,5 +246,14 @@ func getFixedPermissionsForProvider(spType config.ServiceProviderType) api.Permi
 					Area: api.PermissionAreaUser,
 				}},
 		}
+	}
+}
+
+func conditionFromError(err error) metav1.Condition {
+	return metav1.Condition{
+		Type:    OAuthConditionType,
+		Status:  metav1.ConditionFalse,
+		Reason:  string(OAuthConditionReasonError),
+		Message: err.Error(),
 	}
 }
