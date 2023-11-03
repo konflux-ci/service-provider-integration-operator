@@ -31,7 +31,7 @@ env:
 jobs:
   go:
     name: Check sources
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
