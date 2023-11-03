@@ -26,6 +26,7 @@ import (
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
 	"github.com/alexedwards/scs/v2"
@@ -176,6 +177,11 @@ func main() {
 		ReadHeaderTimeout: time.Second * 15,
 		IdleTimeout:       time.Second * 60,
 		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, strings.Split(args.AllowedOrigins, ","), router)),
+	}
+
+	if args.DisableHTTP2 {
+		setupLog.Info("Disabling HTTP/2")
+		server.TLSConfig = cmd.TLSConfigWithDisabledHTTP2
 	}
 
 	// Run our server in a goroutine so that it doesn't block.
