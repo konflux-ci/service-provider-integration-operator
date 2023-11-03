@@ -33,7 +33,6 @@ jobs:
         with:
           k8s-version: ${{ env.K8S_VERSION }}
           kind-version: ${{ env.KIND_VERSION }}
-          kind-worker-count: 2
       - name: Run Go Tests
         run: |
           make test
