@@ -25,8 +25,8 @@ env:
   GINKGO_VERSION: 'v2.8.0'
   GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: '10s'
   DOCKER_BUILDX_VERSION: 'v0.4.2'
-  KIND_VERSION: 'v0.17.0'
-  KIND_IMAGE: 'kindest/node:v1.26.0'
+  KIND_VERSION: 'v0.20.0'
+  K8S_VERSION: '1.26.x'
 
 jobs:
   go:
@@ -75,12 +75,19 @@ jobs:
             git --no-pager diff
             exit 1
           fi
-      - uses: engineerd/setup-kind@v0.5.0
+      - name: Setup KinD
+        uses: chainguard-dev/actions/setup-kind@main
         with:
-          version: ${{ env.KIND_VERSION }}
-          wait: 10m
-          image: ${{ env.KIND_IMAGE }}
-          name: remote-secrets
+          k8s-version: ${{ env.K8S_VERSION }}
+          kind-version: ${{ env.KIND_VERSION }}
+          kind-worker-count: 2
+      - uses: chainguard-dev/actions/kind-diag@main
+        # Only upload logs on failure.
+        if: ${{ failure() }}
+        with:
+          cluster-resources: nodes,namespaces,
+          namespace-resources: configmaps,pods,svc
+          artifact-name: kind-logs
       - name: Run Go Tests
         run: |
           make test
