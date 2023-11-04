@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/hashicorp/vault v1.13.2
-	github.com/migueleliasweb/go-github-mock v0.0.21
+	github.com/migueleliasweb/go-github-mock v0.0.22
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
