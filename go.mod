@@ -8,7 +8,7 @@ require (
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
 	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/go-logr/logr v1.3.0
-	github.com/go-playground/validator/v10 v10.15.5
+	github.com/go-playground/validator/v10 v10.16.0
 	github.com/go-test/deep v1.1.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-github/v45 v45.2.0
@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/hashicorp/vault v1.13.2
-	github.com/migueleliasweb/go-github-mock v0.0.21
+	github.com/migueleliasweb/go-github-mock v0.0.22
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
