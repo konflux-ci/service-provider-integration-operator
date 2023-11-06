@@ -22,6 +22,6 @@ type tokenDataSyncStrategy interface {
 	// checkIdentityHasAccess verifies that the user who is going through OAuth flow has the appropriate k8s permissions
 	// to save the token data.
 	checkIdentityHasAccess(ctx context.Context, namespace string) (bool, error)
-	// syncTokenData syncs the token data from exchange into its underlying storage.
+	// syncTokenData syncs the token data from exchange into the tokenDataSyncStrategy's underlying storage.
 	syncTokenData(ctx context.Context, exchange *exchangeResult) error
 }

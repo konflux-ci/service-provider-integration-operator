@@ -52,7 +52,7 @@ type SpiTokenUploader struct {
 }
 
 func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-	AuditLogWithTokenInfo(ctx, "manual token upload initiated", tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
+	AuditLogWithTokenInfo(ctx, "manual token upload initiated", spiAccessTokenKind, tokenObjectNamespace, tokenObjectName, "action", "UPDATE")
 	token := &api.SPIAccessToken{}
 	ctx = clientfactory.NamespaceIntoContext(ctx, tokenObjectNamespace)
 	cl, err := u.ClientFactory.CreateClient(ctx)
@@ -66,6 +66,6 @@ func (u *SpiTokenUploader) Upload(ctx context.Context, tokenObjectName string, t
 	if err := u.Storage.Store(ctx, token, data); err != nil {
 		return fmt.Errorf("failed to store the token data into storage: %w", err)
 	}
-	AuditLogWithTokenInfo(ctx, "manual token upload done", tokenObjectNamespace, tokenObjectName)
+	AuditLogWithTokenInfo(ctx, "manual token upload done", spiAccessTokenKind, tokenObjectNamespace, tokenObjectName)
 	return nil
 }

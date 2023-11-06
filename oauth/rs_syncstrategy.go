@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -27,10 +29,12 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 	v1 "k8s.io/api/authorization/v1"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// RemoteSecretSyncStrategy is used to check before OAuth flow whether user has permissions to sync (save) the OAuth
+// token data to RemoteSecret, as well as uploading the OAuth token to RemoteSecret's data field using user's k8s token,
+// after OAuth flow is done.
 type RemoteSecretSyncStrategy struct {
 	ClientFactory kubernetesclient.K8sClientFactory
 }
@@ -39,6 +43,8 @@ var _ tokenDataSyncStrategy = (*RemoteSecretSyncStrategy)(nil)
 
 const oAuthAssociatedUsername = "$oauthtoken"
 
+// checkIdentityHasAccess, using user's k8s token, creates two SelfSubjectAccessReviews for RemoteSecrets in namespace,
+// for 'get' and 'update' verbs. User has access if both objects have status allowed.
 func (r RemoteSecretSyncStrategy) checkIdentityHasAccess(ctx context.Context, namespace string) (bool, error) {
 	getReview := v1.SelfSubjectAccessReview{
 		Spec: v1.SelfSubjectAccessReviewSpec{
@@ -84,17 +90,14 @@ func (r RemoteSecretSyncStrategy) checkIdentityHasAccess(ctx context.Context, na
 	return updateReview.Status.Allowed, nil
 }
 
+// syncTokenData, using user's token, updates RemoteSecret with the OAuth token data. The RemoteSecret webhook should
+// react to this update and store the data in secret storage.
 func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
 	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
-
-	remoteSecret := &v1beta1.RemoteSecret{}
 	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.ObjectNamespace)
 	k8sClient, err := r.ClientFactory.CreateClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create K8S client for namespace %s: %w", exchange.ObjectNamespace, err)
-	}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.ObjectName, Namespace: exchange.ObjectNamespace}, remoteSecret); err != nil {
-		return fmt.Errorf("failed to get the RemoteSecret object %s/%s: %w", exchange.ObjectNamespace, exchange.ObjectName, err)
 	}
 
 	data := map[string]string{
@@ -109,9 +112,15 @@ func (r RemoteSecretSyncStrategy) syncTokenData(ctx context.Context, exchange *e
 		"tokenType": exchange.token.TokenType,
 		"expiry":    strconv.FormatUint(uint64(exchange.token.Expiry.Unix()), 10),
 	}
-	remoteSecret.StringUploadData = data
 
+	remoteSecret := &v1beta1.RemoteSecret{}
+	// We are using RetryOnConflict as we want to avoid error-ing out because of conflict on RemoteSecret update,
+	// which would cause the whole OAuthFlow to be wasted.
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := k8sClient.Get(ctx, client.ObjectKey{Name: exchange.ObjectName, Namespace: exchange.ObjectNamespace}, remoteSecret); err != nil {
+			return fmt.Errorf("failed to get the RemoteSecret object %s/%s: %w", exchange.ObjectNamespace, exchange.ObjectName, err)
+		}
+		remoteSecret.StringUploadData = data
 		if err := k8sClient.Update(ctx, remoteSecret); err != nil {
 			return fmt.Errorf("failed to persist token to RemoteSecret: %w", err)
 		}

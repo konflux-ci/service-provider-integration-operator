@@ -28,6 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// SPIAccessTokenSyncStrategy is used to check before the OAuth flow started whether user has permission to create
+// SPIAccessTokenDataUpdate, and after OAuth flow is done it stores the OAuth token to (notifying) Token Storage.
+// This triggers creation of SPIAccessTokenDataUpdate using user's k8s token.
 type SPIAccessTokenSyncStrategy struct {
 	ClientFactory kubernetesclient.K8sClientFactory
 	TokenStorage  tokenstorage.TokenStorage
