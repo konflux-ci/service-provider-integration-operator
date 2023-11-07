@@ -48,7 +48,6 @@ import (
 
 var IT = struct {
 	TestEnvironment *envtest.Environment
-	Context         context.Context
 	Cancel          context.CancelFunc
 	Scheme          *runtime.Scheme
 	Namespace       string
@@ -59,9 +58,10 @@ var IT = struct {
 	SessionManager  *scs.SessionManager
 }{}
 
-func StartTestEnv() struct {
+var ctx context.Context
+
+func StartTestEnv() (struct {
 	TestEnvironment *envtest.Environment
-	Context         context.Context
 	Cancel          context.CancelFunc
 	Scheme          *runtime.Scheme
 	Namespace       string
@@ -70,16 +70,14 @@ func StartTestEnv() struct {
 	Clientset       *kubernetes.Clientset
 	TokenStorage    tokenstorage.TokenStorage
 	SessionManager  *scs.SessionManager
-} {
+}, context.Context) {
 
 	logf.SetLogger(k8szap.New(k8szap.WriteTo(GinkgoWriter), k8szap.UseDevMode(true)))
 	logger, err := zap.NewDevelopment()
 	Expect(err).NotTo(HaveOccurred())
 	zap.ReplaceGlobals(logger)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	IT.Context = ctx
-	IT.Cancel = cancel
+	ctx, IT.Cancel = context.WithCancel(context.TODO())
 
 	// The commented out sections below are from an attempt to use the envtest itself for our integration tests. This
 	// is not working because we need fully functional service accounts in the cluster which seem not to be the case
@@ -187,5 +185,5 @@ func StartTestEnv() struct {
 	//sec, err = cl.CoreV1().Secrets("default").Update(context.TODO(), sec, metav1.UpdateOptions{})
 	//Expect(err).NotTo(HaveOccurred())
 	//[/SELF_CONTAINED_TEST_ATTEMPT]
-	return IT
+	return IT, ctx
 }
