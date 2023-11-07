@@ -124,7 +124,8 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 
 	controller := r.controllers[state.ServiceProviderName]
 	if controller == nil {
-		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s'", errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl)
+		return nil, nil, fmt.Errorf("%w: type '%s', base URL '%s', state parameter: %s",
+			errUnknownServiceProviderType, state.ServiceProviderName, state.ServiceProviderUrl, stateString)
 	}
 
 	switch state.ObjectKind {
