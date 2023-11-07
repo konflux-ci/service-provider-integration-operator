@@ -18,11 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"html/template"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -120,7 +120,7 @@ func (r *Router) findController(req *http.Request, veiled bool) (Controller, *oa
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse state string: %w", err)
 	}
-	log.FromContext(req.Context()).V(logs.DebugLevel).Info("parsed stateString into OAuthInfo struct", "stateString", stateString)
+	log.FromContext(req.Context()).Info("parsed stateString into OAuthInfo struct", "stateString", stateString)
 
 	controller := r.controllers[state.ServiceProviderName]
 	if controller == nil {
