@@ -63,6 +63,9 @@ func (a *Authenticator) GetToken(ctx context.Context, r *http.Request) (string, 
 
 	token := r.URL.Query().Get("k8s_token")
 	if token == "" {
+		token = r.FormValue("k8s_token")
+	}
+	if token == "" {
 		token = a.SessionManager.GetString(ctx, "k8s_token")
 	} else {
 		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8s_token` query parameter to the session")

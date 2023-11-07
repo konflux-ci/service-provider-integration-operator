@@ -166,7 +166,7 @@ func main() {
 	router.Handle("/callback_success", oauth.CSPHandler(oauth.CallbackSuccessHandler())).Methods("GET")
 	router.NewRoute().Path(oauth2.CallBackRoutePath).Queries("error", "", "error_description", "").Handler(oauth.CSPHandler(oauth.CallbackErrorHandler()))
 	router.NewRoute().Path(oauth2.CallBackRoutePath).Handler(oauthRouter.Callback())
-	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate()))
+	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate())).Methods("GET", "POST")
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
 	server := &http.Server{
