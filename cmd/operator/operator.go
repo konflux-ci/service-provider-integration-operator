@@ -25,15 +25,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/operator/operatorcli"
 
 	"github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/alexflint/go-arg"
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
@@ -47,6 +43,9 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/quay"
 	sharedconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
@@ -167,6 +166,20 @@ func LoadFrom(args *cli.OperatorCliArgs) (opconfig.OperatorConfiguration, error)
 }
 
 func createManager(lg logr.Logger, args cli.OperatorCliArgs) (manager.Manager, error) {
+	restConfig := ctrl.GetConfigOrDie()
+	disableHTTP2 := func(c *tls.Config) {
+		if !args.DisableHTTP2 {
+			return
+		}
+		lg.Info("Disabling HTTP/2")
+		c.NextProtos = []string{"http/1.1"}
+	}
+
+	webhookServerOptions := crwebhook.Options{
+		TLSOpts: []func(config *tls.Config){disableHTTP2},
+	}
+
+	webhookServer := crwebhook.NewServer(webhookServerOptions)
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
@@ -174,14 +187,7 @@ func createManager(lg logr.Logger, args cli.OperatorCliArgs) (manager.Manager, e
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
-	}
-	restConfig := ctrl.GetConfigOrDie()
-
-	if args.DisableHTTP2 {
-		lg.Info("Disabling HTTP/2")
-		options.TLSOpts = append(options.TLSOpts, func(c *tls.Config) {
-			c.NextProtos = cmd.TLSConfigWithDisabledHTTP2.NextProtos
-		})
+		WebhookServer:          webhookServer,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
