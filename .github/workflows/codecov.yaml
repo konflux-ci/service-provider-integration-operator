@@ -12,7 +12,7 @@
 name: Code Coverage Report
 on: [push]
 env:
-  GO_VERSION: '1.19'
+  GO_VERSION: '1.20'
   KIND_VERSION: '0.20.0'
   K8S_VERSION: '1.26.x'
   GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
