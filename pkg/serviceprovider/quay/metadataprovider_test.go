@@ -284,7 +284,7 @@ func TestMetadataProvider_FetchRepo(t *testing.T) {
 		utilruntime.Must(api.AddToScheme(scheme))
 
 		testWithToken := func(token *api.SPIAccessToken, t *testing.T) {
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).WithStatusSubresource(token).Build()
 
 			mp := metadataProvider{
 				tokenStorage: tokenstorage.TestTokenStorage{
@@ -356,7 +356,7 @@ func TestMetadataProvider_ShouldRecoverFromTokenWithOldStateFormat(t *testing.T)
 			},
 		}
 
-		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).Build()
+		k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(token).WithStatusSubresource(token).Build()
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Host != config.ServiceProviderTypeQuay.DefaultHost {

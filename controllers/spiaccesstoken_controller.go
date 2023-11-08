@@ -33,15 +33,13 @@ import (
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -91,12 +89,12 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
 		// We're watching the bindings so that we can remove abandoned tokens without data
-		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		Watches(&api.SPIAccessTokenBinding{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenBinding", func() string {
 				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		Watches(&api.SPIAccessTokenDataUpdate{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			return requestForDataUpdateOwner(object, "SPIAccessToken", true)
 		})).
 		Complete(r)
