@@ -74,7 +74,7 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		// setup SPI sync strategy as default
 		tokenDataSyncStrategy: SPIAccessTokenSyncStrategy{
 			ClientFactory: cfg.ClientFactory,
-			TokenStorage:  cfg.TokenStorage,
+			TokenStorage:  ts,
 		},
 	}
 

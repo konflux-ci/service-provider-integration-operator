@@ -71,12 +71,17 @@ type RouterConfiguration struct {
 }
 
 func NewRouter(ctx context.Context, cfg RouterConfiguration, spDefaults []config.ServiceProviderType) (*Router, error) {
+	// use the notifying token storage to automatically inform the cluster about changes in the token storage
+	ts := &tokenstorage.NotifyingTokenStorage{
+		ClientFactory: cfg.ClientFactory,
+		TokenStorage:  cfg.TokenStorage,
+	}
 	router := &Router{
 		controllers:  map[config.ServiceProviderName]Controller{},
 		stateStorage: cfg.StateStorage,
 		spiSyncStrategy: SPIAccessTokenSyncStrategy{
 			ClientFactory: cfg.ClientFactory,
-			TokenStorage:  cfg.TokenStorage,
+			TokenStorage:  ts,
 		},
 		rsSyncStrategy: RemoteSecretSyncStrategy{
 			ClientFactory: cfg.ClientFactory,

@@ -95,7 +95,7 @@ func TestOAuthScopesFor(t *testing.T) {
 	}
 
 	t.Run("read repository",
-		hasExpectedScopes([]string{string(ScopeReadRepository), string(ScopeReadUser)},
+		hasExpectedScopes([]string{string(ScopeReadRepository), string(ScopeReadUser), string(ScopeReadApi)},
 			api.Permissions{Required: []api.Permission{
 				{
 					Area: api.PermissionAreaRepository,
@@ -104,7 +104,7 @@ func TestOAuthScopesFor(t *testing.T) {
 			}}))
 
 	t.Run("write repository and registry",
-		hasExpectedScopes([]string{string(ScopeWriteRepository), string(ScopeWriteRegistry), string(ScopeReadUser)},
+		hasExpectedScopes([]string{string(ScopeWriteRepository), string(ScopeWriteRegistry), string(ScopeReadUser), string(ScopeReadApi)},
 			api.Permissions{Required: []api.Permission{
 				{
 					Area: api.PermissionAreaRepository,
