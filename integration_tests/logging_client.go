@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var fakeError error = errors.New("print the callstack of successful invocation")
+var fakeError = errors.New("print the callstack of successful invocation")
 
 // LoggingKubernetesClient is a wrapper aroung a Kubernetes client that is capable of logging the calls to the
 // Kubernetes API. It is meant to be used only in tests and integration tests!
@@ -268,10 +270,17 @@ func (c *LoggingKubernetesClient) Scheme() *runtime.Scheme {
 	return c.Client.Scheme()
 }
 
-var _ (client.Client) = (*LoggingKubernetesClient)(nil)
+var _ client.Client = (*LoggingKubernetesClient)(nil)
 
 func (c *LoggingKubernetesClient) getKind(obj runtime.Object) string {
 	return getKind(c.Client.Scheme(), obj)
+}
+func (c *LoggingKubernetesClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return c.Client.GroupVersionKindFor(obj)
+}
+
+func (c *LoggingKubernetesClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return c.Client.IsObjectNamespaced(obj)
 }
 
 func getKind(scheme *runtime.Scheme, obj runtime.Object) string {

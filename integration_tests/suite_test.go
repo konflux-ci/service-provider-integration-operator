@@ -24,7 +24,6 @@ import (
 	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"context"
@@ -48,8 +47,6 @@ import (
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -249,8 +246,8 @@ var _ = BeforeSuite(func() {
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
 		LeaderElection:     false,
 		MetricsBindAddress: "0",
-		NewClient: func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-			cl, err := cluster.DefaultNewClient(cache, config, options, uncachedObjects...)
+		NewClient: func(config *rest.Config, options client.Options) (client.Client, error) {
+			cl, err := client.New(config, options)
 			if err != nil {
 				return nil, err
 			}
