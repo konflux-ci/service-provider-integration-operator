@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/google/go-github/v45/github"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -60,24 +60,30 @@ func NewDownloadFileCapability(httpClient *http.Client, ghClientBuilder githubCl
 	}, nil
 }
 
-func (d downloadFileCapability) DownloadFile(ctx context.Context, repoUrl, filepath, ref string, token *api.SPIAccessToken, maxFileSizeLimit int) (string, error) {
-	owner, repo, err := d.parseOwnerAndRepoFromUrl(ctx, repoUrl)
+func (d downloadFileCapability) DownloadFile(ctx context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
+	owner, repo, err := d.parseOwnerAndRepoFromUrl(ctx, request.RepoUrl)
 	if err != nil {
 		return "", fmt.Errorf("could not parse repository name and owner from repoUrl: %w", err)
 	}
 	lg := log.FromContext(ctx)
-	ghClient, err := d.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	ghClient, err := d.ghClientBuilder.CreateAuthenticatedClient(ctx, credentials)
 	if err != nil {
 		return "", fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}
-	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, owner, repo, filepath, &github.RepositoryContentGetOptions{Ref: ref})
+	file, dir, resp, err := ghClient.Repositories.GetContents(ctx, owner, repo, request.FilePath, &github.RepositoryContentGetOptions{Ref: request.Ref})
 	if err != nil {
 		checkRateLimitError(err)
-		bytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))
+		if resp != nil {
+			defer resp.Body.Close()
+			bytes, _ := io.ReadAll(resp.Body)
+			return "", fmt.Errorf("%w: %d. Response: %s", unexpectedStatusCodeError, resp.StatusCode, string(bytes))
+		}
+		lg.Error(err, "not able to get content from github")
+		return "", unexpectedStatusCodeError
+
 	}
 	if file == nil && dir != nil {
-		return "", fmt.Errorf("%w: %s", pathIsADirectoryError, filepath)
+		return "", fmt.Errorf("%w: %s", pathIsADirectoryError, request.FilePath)
 	}
 	if file.GetSize() > maxFileSizeLimit {
 		lg.Error(err, "file size too big")

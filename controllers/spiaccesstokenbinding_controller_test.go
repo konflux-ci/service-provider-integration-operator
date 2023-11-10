@@ -120,5 +120,5 @@ func mockK8sClient(objects ...client.Object) client.WithWatch {
 	sch := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(sch))
 	utilruntime.Must(api.AddToScheme(sch))
-	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).Build()
+	return fake.NewClientBuilder().WithScheme(sch).WithObjects(objects...).WithStatusSubresource(objects...).Build()
 }

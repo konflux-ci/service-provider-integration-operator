@@ -25,15 +25,15 @@ import (
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	v1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
@@ -154,10 +154,7 @@ func (c *commonController) Callback(ctx context.Context, w http.ResponseWriter, 
 		return
 	}
 	AuditLogWithTokenInfo(ctx, "OAuth authentication completed successfully", exchange.TokenNamespace, exchange.TokenName, "scopes", exchange.Scopes, "providerName", exchange.ServiceProviderName, "providerUrl", exchange.ServiceProviderUrl)
-	redirectLocation := r.FormValue("redirect_after_login")
-	if redirectLocation == "" {
-		redirectLocation = strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
-	}
+	redirectLocation := strings.TrimSuffix(c.SharedConfiguration.BaseUrl, "/") + "/" + "callback_success"
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
 }
 
@@ -210,7 +207,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 func (c *commonController) syncTokenData(ctx context.Context, exchange *exchangeResult) error {
 	ctx = clientfactory.WithAuthIntoContext(exchange.authorizationHeader, ctx)
 
-	accessToken := &v1beta1.SPIAccessToken{}
+	accessToken := &api.SPIAccessToken{}
 	ctx = clientfactory.NamespaceIntoContext(ctx, exchange.TokenNamespace)
 	k8sClient, err := c.ClientFactory.CreateClient(ctx)
 	if err != nil {
@@ -220,7 +217,7 @@ func (c *commonController) syncTokenData(ctx context.Context, exchange *exchange
 		return fmt.Errorf("failed to get the SPIAccessToken object %s/%s: %w", exchange.TokenNamespace, exchange.TokenName, err)
 	}
 
-	apiToken := v1beta1.Token{
+	apiToken := api.Token{
 		AccessToken:  exchange.token.AccessToken,
 		TokenType:    exchange.token.TokenType,
 		RefreshToken: exchange.token.RefreshToken,
@@ -240,8 +237,8 @@ func (c *commonController) checkIdentityHasAccess(ctx context.Context, state *oa
 			ResourceAttributes: &v1.ResourceAttributes{
 				Namespace: state.TokenNamespace,
 				Verb:      "create",
-				Group:     v1beta1.GroupVersion.Group,
-				Version:   v1beta1.GroupVersion.Version,
+				Group:     api.GroupVersion.Group,
+				Version:   api.GroupVersion.Version,
 				Resource:  "spiaccesstokendataupdates",
 			},
 		},

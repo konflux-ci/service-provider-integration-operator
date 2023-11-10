@@ -23,23 +23,23 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
+
 	"github.com/go-playground/validator/v10"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 
 	sperrors "github.com/redhat-appstudio/service-provider-integration-operator/pkg/errors"
 
+	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 
@@ -59,7 +59,7 @@ const tokenRefreshLabelName = "spi.appstudio.redhat.com/refresh-token"     //#no
 var (
 	unexpectedObjectTypeError = stderrors.New("unexpected object type")
 	linkedBindingPresentError = stderrors.New("linked bindings present")
-	noCredentialsFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
+	noOauthConfigFoundError   = stderrors.New("no oauth configuration found matching service provider URL of the token")
 )
 
 // SPIAccessTokenReconciler reconciles a SPIAccessToken object
@@ -89,12 +89,12 @@ func (r *SPIAccessTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.SPIAccessToken{}).
 		// We're watching the bindings so that we can remove abandoned tokens without data
-		Watches(&source.Kind{Type: &api.SPIAccessTokenBinding{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		Watches(&api.SPIAccessTokenBinding{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			return requestsForTokenInObjectNamespace(object, "SPIAccessTokenBinding", func() string {
 				return object.GetLabels()[SPIAccessTokenLinkLabel]
 			})
 		})).
-		Watches(&source.Kind{Type: &api.SPIAccessTokenDataUpdate{}}, handler.EnqueueRequestsFromMapFunc(func(object client.Object) []reconcile.Request {
+		Watches(&api.SPIAccessTokenDataUpdate{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			return requestForDataUpdateOwner(object, "SPIAccessToken", true)
 		})).
 		Complete(r)
@@ -217,7 +217,7 @@ func (r *SPIAccessTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("failed to validate the object: %w", err)
 	}
 	if len(validation.ScopeValidation) > 0 {
-		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonUnsupportedPermissions, NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
+		if uerr := r.flipToExceptionalPhase(ctx, &at, api.SPIAccessTokenPhaseInvalid, api.SPIAccessTokenErrorReasonUnsupportedPermissions, rerror.NewAggregatedError(validation.ScopeValidation...)); uerr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", uerr)
 		}
 		return ctrl.Result{}, nil
@@ -392,7 +392,7 @@ func (r *SPIAccessTokenReconciler) refreshToken(ctx context.Context, at *api.SPI
 		spConfig = config.SpConfigFromGlobalConfig(&r.Configuration.SharedConfiguration, sp.GetType(), at.Spec.ServiceProviderUrl)
 	}
 	if spConfig == nil || spConfig.OAuth2Config == nil {
-		return noCredentialsFoundError
+		return noOauthConfigFoundError
 	}
 
 	refreshCapability := sp.GetRefreshTokenCapability()

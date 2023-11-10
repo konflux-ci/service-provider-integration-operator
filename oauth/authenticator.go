@@ -19,11 +19,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/alexedwards/scs/v2"
@@ -62,6 +62,9 @@ func (a *Authenticator) GetToken(ctx context.Context, r *http.Request) (string, 
 	defer logs.TimeTrack(lg, time.Now(), "/GetToken")
 
 	token := r.URL.Query().Get("k8s_token")
+	if token == "" {
+		token = r.FormValue("k8s_token")
+	}
 	if token == "" {
 		token = a.SessionManager.GetString(ctx, "k8s_token")
 	} else {

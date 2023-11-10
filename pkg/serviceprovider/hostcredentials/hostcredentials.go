@@ -53,11 +53,12 @@ func newHostCredentialsProvider(factory *serviceprovider.Factory, spConfig *conf
 		lookup: serviceprovider.GenericLookup{
 			ServiceProviderType: api.ServiceProviderTypeHostCredentials,
 			TokenFilter:         serviceprovider.MatchAllTokenFilter,
-			RepoHostParser:      serviceprovider.RepoHostFromSchemelessUrl,
+			RepoUrlParser:       serviceprovider.RepoUrlFromSchemalessString,
 			MetadataCache:       &cache,
 			MetadataProvider: &metadataProvider{
 				tokenStorage: factory.TokenStorage,
 			},
+			TokenStorage: factory.TokenStorage,
 		},
 		httpClient: factory.HttpClient,
 		repoUrl:    spConfig.ServiceProviderBaseUrl,
@@ -84,6 +85,14 @@ func (g *HostCredentialsProvider) LookupTokens(ctx context.Context, cl client.Cl
 		return nil, fmt.Errorf("token lookup failed: %w", err)
 	}
 	return tokens, nil
+}
+
+func (g *HostCredentialsProvider) LookupCredentials(ctx context.Context, cl client.Client, matchable serviceprovider.Matchable) (*serviceprovider.Credentials, error) {
+	credentials, err := g.lookup.LookupCredentials(ctx, cl, matchable)
+	if err != nil {
+		return nil, fmt.Errorf("credentials lookup failure: %w", err)
+	}
+	return credentials, nil
 }
 
 func (g *HostCredentialsProvider) PersistMetadata(ctx context.Context, _ client.Client, token *api.SPIAccessToken) error {

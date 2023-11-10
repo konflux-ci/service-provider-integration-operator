@@ -25,65 +25,33 @@ on:
 jobs:
 
   build-imgs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout service-provider-integration-operator source code
-        uses: actions/checkout@v3
+      - name: Checkout operator source code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
       - name: Login to docker.io
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           registry: docker.io
       - name: Login to quay.io
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
         with:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
           registry: quay.io
-      - name: Docker meta operator
-        id: meta_operator
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            quay.io/redhat-appstudio/service-provider-integration-operator
-          tags: |
-            type=semver,pattern={{version}}
-            type=sha,format=long
-            type=raw,value=next,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-      - name: Build and push spi-operator
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta_operator.outputs.tags }}
-          labels: ${{ steps.meta_operator.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          file: Dockerfile
-      - name: Docker meta oauth
-        id: meta_oauth
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            quay.io/redhat-appstudio/service-provider-integration-oauth
-          tags: |
-            type=semver,pattern={{version}}
-            type=sha,format=long
-            type=raw,value=next,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-      - name: Build and push spi-oauth
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta_oauth.outputs.tags }}
-          labels: ${{ steps.meta_oauth.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          file: oauth.Dockerfile
+      - name: Build controller images
+        id: make_docker_buildx
+        run: |
+          make docker-buildx
+      - name: Build OAuth images
+        id: make_docker_buildx_oauth
+        run: |
+          make docker-buildx-oauth

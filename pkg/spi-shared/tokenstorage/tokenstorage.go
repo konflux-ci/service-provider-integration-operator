@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage"
 )
 
 // TokenStorage is an interface similar to SecretStorage that has historically been used to work with tokens.

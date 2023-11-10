@@ -19,15 +19,15 @@ import (
 	"testing"
 	"time"
 
+	kubernetes2 "github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
-	kubernetes2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
 
 	authz "k8s.io/api/authorization/v1"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage/memorystorage"
 	"k8s.io/client-go/kubernetes"
@@ -40,7 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	k8szap "sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 	// The commented-out sections are enclosed within [SELF_CONTAINED_TEST_ATTEMPT] [/SELF_CONTAINED_TEST_ATTEMPT].
 	By("bootstrapping test environment")
 	IT.TestEnvironment = &envtest.Environment{
-		UseExistingCluster: pointer.BoolPtr(true),
+		UseExistingCluster: ptr.To(true),
 		//[SELF_CONTAINED_TEST_ATTEMPT]
 		//ControlPlane: envtest.ControlPlane{
 		//	APIServer: &envtest.APIServer{},
@@ -104,7 +104,7 @@ var _ = BeforeSuite(func() {
 	Expect(corev1.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(auth.AddToScheme(IT.Scheme)).To(Succeed())
 	Expect(authz.AddToScheme(IT.Scheme)).To(Succeed())
-	Expect(v1beta1.AddToScheme(IT.Scheme)).To(Succeed())
+	Expect(api.AddToScheme(IT.Scheme)).To(Succeed())
 
 	IT.ClientFactory = clientfactory.UserAuthK8sClientFactory{ClientOptions: &client.Options{Scheme: IT.Scheme}, RestConfig: cfg}
 

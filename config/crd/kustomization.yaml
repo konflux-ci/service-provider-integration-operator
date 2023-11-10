@@ -7,5 +7,4 @@ resources:
 - bases/appstudio.redhat.com_spiaccesstokendataupdates.yaml
 - bases/appstudio.redhat.com_spiaccesschecks.yaml
 - bases/appstudio.redhat.com_spifilecontentrequests.yaml
-- bases/appstudio.redhat.com_remotesecrets.yaml
 #+kubebuilder:scaffold:crdkustomizeresource

@@ -22,7 +22,7 @@ import (
 	"html/template"
 	"io/ioutil"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
@@ -268,24 +268,24 @@ var _ = Describe("Controller", func() {
 
 	When("OAuth initiated", func() {
 		BeforeEach(func() {
-			Expect(IT.InClusterClient.Create(IT.Context, &v1beta1.SPIAccessToken{
+			Expect(IT.InClusterClient.Create(IT.Context, &api.SPIAccessToken{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "mytoken",
 					Namespace: IT.Namespace,
 				},
-				Spec: v1beta1.SPIAccessTokenSpec{
+				Spec: api.SPIAccessTokenSpec{
 					ServiceProviderUrl: "https://special.sp",
 				},
 			})).To(Succeed())
 
-			t := &v1beta1.SPIAccessToken{}
+			t := &api.SPIAccessToken{}
 			Eventually(func() error {
 				return IT.InClusterClient.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)
 			}).Should(Succeed())
 		})
 
 		AfterEach(func() {
-			t := &v1beta1.SPIAccessToken{}
+			t := &api.SPIAccessToken{}
 			Expect(IT.InClusterClient.Get(IT.Context, client.ObjectKey{Name: "mytoken", Namespace: IT.Namespace}, t)).To(Succeed())
 			Expect(IT.InClusterClient.Delete(IT.Context, t)).To(Succeed())
 			Eventually(func() error {
@@ -397,7 +397,7 @@ var _ = Describe("Controller", func() {
 				})).ServeHTTP(res, req)
 
 				g.Expect(res.Code).To(Equal(http.StatusFound))
-				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://redirect.to?foo=bar"))
+				g.Expect(res.Result().Header.Get("Location")).To(Equal("https://spi.on.my.machine/callback_success"))
 			}).Should(Succeed())
 		})
 	})

@@ -1,0 +1,28 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+namespace: remotesecret
+
+resources:
+  - https://github.com/redhat-appstudio/remote-secret/config/bases/vault?ref=9dd701910fbf971c9ad770af5ee1f6776d89df12
+  - ../../webhook/k8s
+
+patches:
+  - path: controller-manager-environment-config.yaml
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: controller-manager-environment-config
+      namespace: remotesecret
+    patch: |-
+      - op: add
+        path: /data/VAULTINSECURETLS
+        value: "true"
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: shared-configuration-file
+    files:
+      - config.yaml

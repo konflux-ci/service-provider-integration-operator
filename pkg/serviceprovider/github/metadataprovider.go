@@ -30,8 +30,8 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 
 	"github.com/google/go-github/v45/github"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -95,7 +95,10 @@ func (s metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken
 		AccessibleRepos: map[RepositoryUrl]RepositoryRecord{},
 	}
 
-	ghClient, err := s.ghClientBuilder.createAuthenticatedGhClient(ctx, token)
+	ghClient, err := s.ghClientBuilder.CreateAuthenticatedClient(ctx, serviceprovider.Credentials{
+		Username: data.Username,
+		Token:    data.AccessToken,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create authenticated GitHub client: %w", err)
 	}

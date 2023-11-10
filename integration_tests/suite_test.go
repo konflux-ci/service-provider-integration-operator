@@ -15,11 +15,15 @@
 package integrationtests
 
 import (
-	"github.com/onsi/ginkgo"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
-	"golang.org/x/oauth2"
+	"io"
 
-	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	"github.com/redhat-appstudio/application-api/api/v1alpha1"
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
+	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
+	"golang.org/x/oauth2"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"context"
@@ -31,21 +35,18 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	apiexv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
 
 	config2 "github.com/onsi/ginkgo/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/secretstorage/memorystorage"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
-
+	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	corev1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -62,13 +63,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var testServiceProvider = config.ServiceProviderType{
 	Name: "TestServiceProvider",
 }
+
+var remoteCrdURLs = []string{
+	"https://raw.githubusercontent.com/redhat-appstudio/remote-secret/main/config/crd/bases/appstudio.redhat.com_remotesecrets.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_snapshotenvironmentbindings.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_environments.yaml",
+	"https://raw.githubusercontent.com/redhat-appstudio/application-api/main/config/crd/bases/appstudio.redhat.com_applications.yaml"}
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -84,7 +90,7 @@ var _ = BeforeSuite(func() {
 		Fail("This testsuite cannot be run in parallel")
 	}
 	logs.InitDevelLoggers()
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	log.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	ITest.Context = ctx
@@ -97,6 +103,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		//UseExistingCluster: pointer.BoolPtr(true),
+		CRDs: getRemoteCRDs(),
 	}
 	ITest.TestEnvironment = testEnv
 
@@ -127,9 +134,17 @@ var _ = BeforeSuite(func() {
 	err = rbac.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = v1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = apiexv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = rapi.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = v1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
 	//+kubebuilder:scaffold:scheme
 
 	cl, err := client.New(cfg, client.Options{Scheme: scheme})
@@ -171,11 +186,11 @@ var _ = BeforeSuite(func() {
 		return "", nil
 	})
 	config.SupportedServiceProviderTypes = []config.ServiceProviderType{ITest.TestServiceProvider.GetType()}
-	ITest.ValidationOptions = config.CustomValidationOptions{AllowInsecureURLs: true}
+	ITest.ValidationOptions = rconfig.CustomValidationOptions{AllowInsecureURLs: true}
 
 	ITest.Capabilities = serviceprovider.TestCapabilities{}
 
-	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, _ string, _ string, _ string, _ *api.SPIAccessToken, i int) (string, error) {
+	ITest.Capabilities.DownloadFileImpl = func(_ context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, i int) (string, error) {
 		return "abcdefg", nil
 	}
 
@@ -220,7 +235,6 @@ var _ = BeforeSuite(func() {
 		FileContentRequestTtl: 10 * time.Second,
 		DeletionGracePeriod:   10 * time.Second,
 		EnableTokenUpload:     true,
-		EnableRemoteSecrets:   true,
 	}
 
 	// start webhook server using Manager
@@ -232,8 +246,8 @@ var _ = BeforeSuite(func() {
 		CertDir:            webhookInstallOptions.LocalServingCertDir,
 		LeaderElection:     false,
 		MetricsBindAddress: "0",
-		NewClient: func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-			cl, err := cluster.DefaultNewClient(cache, config, options, uncachedObjects...)
+		NewClient: func(config *rest.Config, options client.Options) (client.Client, error) {
+			cl, err := client.New(config, options)
 			if err != nil {
 				return nil, err
 			}
@@ -288,12 +302,41 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
+		defer GinkgoRecover()
 		err = mgr.Start(ctx)
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}()
 }, 3600)
+
+func getRemoteCRDs() []*apiexv1.CustomResourceDefinition {
+	var ret []*apiexv1.CustomResourceDefinition
+	for _, remoteCRDUrl := range remoteCrdURLs {
+		log.Log.Info("Downloading CRD from " + remoteCRDUrl)
+		resp, err := http.Get(remoteCRDUrl)
+
+		if err != nil {
+			log.Log.Error(err, "Unable to download CRD", "URL", remoteCRDUrl)
+			continue
+		}
+		bytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Log.Error(err, "Unable to read CRD content", "URL", remoteCRDUrl)
+			continue
+		}
+		var crd apiexv1.CustomResourceDefinition
+		err = yaml.Unmarshal(bytes, &crd)
+		if err != nil {
+			log.Log.Error(err, "Unable to unmarshal CRD", "URL", remoteCRDUrl)
+			continue
+		}
+		log.Log.Info("Downloaded CRD:" + crd.Name)
+		ret = append(ret, &crd)
+	}
+	return ret
+}
 
 var _ = AfterSuite(func() {
 	if ITest.Cancel != nil {
@@ -315,7 +358,7 @@ var _ = BeforeEach(func() {
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
-	log.Log.Info(">>>>>>>", "test", ginkgo.CurrentGinkgoTestDescription().FullTestText)
+	log.Log.Info(">>>>>>>", "test", CurrentGinkgoTestDescription().FullTestText)
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
@@ -323,7 +366,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testDesc := CurrentGinkgoTestDescription()
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")

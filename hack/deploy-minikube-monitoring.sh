@@ -134,33 +134,7 @@ spec:
     - port: web
 EOF
 
-echo 'Create a SPI ServiceMonitor.'
-cat <<EOF | kubectl apply -n default -f -
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  namespace: default
-  name: spi-operator-service-monitor
-  labels:
-    prometheus: appstudio-sre
-spec:
-  endpoints:
-    - path: /metrics
-      port: metrics
-      scheme: https
-      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-      tlsConfig:
-          insecureSkipVerify: true
-  namespaceSelector:
-    matchNames:
-      - spi-system
-  selector:
-    matchLabels:
-      control-plane: "controller-manager"
-
-EOF
-
-
+kustomize build ${SCRIPT_DIR}/../config/monitoring/prometheus/base | kubectl apply -f -
 
 echo 'Installing Grafana'
 kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v4.6.0" | kubectl apply -f -
@@ -250,7 +224,7 @@ spec:
         timeInterval: "30s"
 EOF
 
-kustomize build ${SCRIPT_DIR}/../config/monitoring/minikube | kubectl apply -f -
+kustomize build ${SCRIPT_DIR}/../config/monitoring/grafana/minikube | kubectl apply -f -
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
 cat <<EOF | kubectl apply -n grafana-operator-system -f -

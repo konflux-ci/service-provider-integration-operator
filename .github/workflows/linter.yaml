@@ -6,11 +6,11 @@ jobs:
     name: golangci
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Go 1.x
         uses: actions/setup-go@v4
         with:
           go-version: "1.20"
-      - uses: actions/checkout@v3
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -37,15 +37,15 @@ jobs:
       GO111MODULE: on
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.18.0
         with:
           args: ./...
   kube-linter:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # This prepares directory where github/codeql-action/upload-sarif@v1 looks up report files by default.
       - name: Create ./.kube-linter/ for deployment files
         shell: bash
@@ -58,7 +58,10 @@ jobs:
         run: kustomize build config/overlays/openshift_aws/ >  ./.kube-linter/deploy-spi-openshift-aws.yaml
       - name: Generate monitoring configuration
         shell: bash
-        run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml
+        run: kustomize build config/monitoring/grafana/base >  ./.kube-linter/monitorings.yaml
+      - name: Generate prometheus configuration
+        shell: bash
+        run: kustomize build config/monitoring/prometheus/base >  ./.kube-linter/prometheus.yaml
       - name: Generate vault configuration
         shell: bash
         run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml

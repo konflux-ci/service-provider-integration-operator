@@ -14,7 +14,6 @@
 package oauth
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -23,7 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -81,7 +80,7 @@ func CallbackErrorHandler() http.Handler {
 		} else {
 			log.FromContext(r.Context()).Error(err, "failed to process template")
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(fmt.Sprintf("Error response returned to OAuth callback: %s. Message: %s ", errorMsg, errorDescription)))
+			_, _ = w.Write([]byte("Error processing the OAuth response template. This may be caused by malformed response parameters."))
 		}
 	})
 }

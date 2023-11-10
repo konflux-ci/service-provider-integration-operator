@@ -29,7 +29,7 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/metrics"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
@@ -83,14 +83,6 @@ func metadataFetchTimer() metrics.ValueTimer2[*api.TokenMetadata, error] {
 }
 
 func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
-	data, err := p.tokenStorage.Get(ctx, token)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
-	}
-	if data == nil {
-		return nil, nil
-	}
-
 	timer := metadataFetchTimer()
 	return timer.ObserveValuesAndDuration(p.doFetch(ctx, token, includeState))
 }
@@ -98,9 +90,19 @@ func (p metadataProvider) Fetch(ctx context.Context, token *api.SPIAccessToken, 
 func (p metadataProvider) doFetch(ctx context.Context, token *api.SPIAccessToken, includeState bool) (*api.TokenMetadata, error) {
 	lg := log.FromContext(ctx, "tokenName", token.Name, "tokenNamespace", token.Namespace)
 
+	data, err := p.tokenStorage.Get(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the token metadata: %w", err)
+	}
+	if data == nil {
+		return nil, nil
+	}
 	state := &TokenState{}
 
-	glClient, err := p.glClientBuilder.createGitlabAuthClient(ctx, token, p.baseUrl)
+	glClient, err := p.glClientBuilder.CreateAuthenticatedClient(ctx, serviceprovider.Credentials{
+		Username: data.Username,
+		Token:    data.AccessToken,
+	})
 	if err != nil {
 		return nil, err
 	}

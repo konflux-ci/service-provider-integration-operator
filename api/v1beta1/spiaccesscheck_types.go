@@ -23,6 +23,18 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const (
+	// RSServiceProviderHostLabel is supposed to be present on RemoteSecret that contains credentials which can be used
+	// for SPIAccessCheck. The value represent service provider hostname. E.g. "github.com". SPIAccessCheck looks for
+	// RemoteSecrets with this label where value corresponds to the host from RepoUrl.
+	RSServiceProviderHostLabel = "appstudio.redhat.com/sp.host"
+
+	// RSServiceProviderRepositoryAnnotation provides additional information on top of RSServiceProviderHostLabel.
+	// The value represents comma-separated names of repositories for which the credentials can be used.
+	// E.g. "redhat/service-provider-integration,redhat/remote-secret".
+	RSServiceProviderRepositoryAnnotation = "appstudio.redhat.com/sp.repository"
+)
+
 // SPIAccessCheckSpec defines the desired state of SPIAccessCheck
 type SPIAccessCheckSpec struct {
 	RepoUrl     string      `json:"repoUrl"`

@@ -17,6 +17,7 @@ package bindingtarget
 import (
 	"testing"
 
+	rapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +63,7 @@ func TestBindingNamespaceTarget_GetSpec(t *testing.T) {
 		Binding: getTestBinding(),
 	}
 
-	assert.Equal(t, api.LinkableSecretSpec{
+	assert.Equal(t, rapi.LinkableSecretSpec{
 		GenerateName: "kachny-",
 	}, bt.GetSpec())
 }
@@ -87,7 +88,7 @@ func getTestBinding() *api.SPIAccessTokenBinding {
 		},
 		Spec: api.SPIAccessTokenBindingSpec{
 			Secret: api.SecretSpec{
-				LinkableSecretSpec: api.LinkableSecretSpec{
+				LinkableSecretSpec: rapi.LinkableSecretSpec{
 					GenerateName: "kachny-",
 				},
 			},

@@ -18,14 +18,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/kubernetesclient"
+	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
+	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/config"
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/httptransport"
 	oauthstate2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
@@ -40,13 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-)
-
-const (
-	testClientId     = "test_client_id_123"
-	testClientSecret = "test_client_secret_123"
-	testAuthUrl      = "test_auth_url_123"
-	testTokenUrl     = "test_token_url_123"
 )
 
 func TestObtainOauthConfig(t *testing.T) {
@@ -142,8 +135,8 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
-							v1beta1.ServiceProviderHostLabel: "bleh.eh",
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderHostLabel: "bleh.eh",
 						},
 					},
 					Data: map[string][]byte{
@@ -205,7 +198,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{
@@ -262,7 +255,7 @@ func TestObtainOauthConfig(t *testing.T) {
 						Name:      "oauth-config-secret",
 						Namespace: secretNamespace,
 						Labels: map[string]string{
-							v1beta1.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
+							api.ServiceProviderTypeLabel: string(config.ServiceProviderTypeGitHub.Name),
 						},
 					},
 					Data: map[string][]byte{},
