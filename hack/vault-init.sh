@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "some dummy change to test e2e with pairing prs"
+
 #set -x
 set -e
 
