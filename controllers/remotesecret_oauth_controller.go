@@ -42,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type OAuthConditionReason string
@@ -87,7 +86,7 @@ func (r *RemoteSecretOAuthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("remotesecretoauth").
 		Watches(
-			&source.Kind{Type: &v1beta1.RemoteSecret{}},
+			&v1beta1.RemoteSecret{},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(pred)).Complete(r)
 	if err != nil {
