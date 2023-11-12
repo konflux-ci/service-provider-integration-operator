@@ -6,7 +6,7 @@ require (
 	github.com/alexedwards/scs/v2 v2.6.0
 	github.com/alexflint/go-arg v1.4.3
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
-	github.com/go-jose/go-jose/v3 v3.0.0
+	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/go-logr/logr v1.3.0
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/go-test/deep v1.1.0
