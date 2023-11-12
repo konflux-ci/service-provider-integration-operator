@@ -12,7 +12,7 @@ require (
 	github.com/go-test/deep v1.1.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-github/v45 v45.2.0
-	github.com/gorilla/handlers v1.5.1
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hashicorp/vault v1.13.2
