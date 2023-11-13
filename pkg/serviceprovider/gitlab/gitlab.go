@@ -171,10 +171,13 @@ func (g *Gitlab) GetOAuthCapability() serviceprovider.OAuthCapability {
 }
 
 func (g *gitlabOAuthCapability) OAuthScopesFor(permissions *api.Permissions) []string {
-	// We need ScopeReadUser by default to be able to read user metadata.
+	// We need ScopeReadUser and ScopeReadApi by default to be able to read user and repository metadata.
 	scopes := serviceprovider.GetAllScopes(translateToGitlabScopes, permissions)
 	if !slices.Contains(scopes, string(ScopeReadUser)) {
 		scopes = append(scopes, string(ScopeReadUser))
+	}
+	if !slices.Contains(scopes, string(ScopeReadApi)) {
+		scopes = append(scopes, string(ScopeReadApi))
 	}
 	return scopes
 }

@@ -170,7 +170,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
+			ObjectNamespace:     secretNamespace,
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 			ServiceProviderUrl:  "http://bleh.eh",
 		}
@@ -231,7 +231,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
+			ObjectNamespace:     secretNamespace,
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
@@ -286,7 +286,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
+			ObjectNamespace:     secretNamespace,
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 			ServiceProviderUrl:  config.ServiceProviderTypeGitHub.DefaultBaseUrl,
 		}
@@ -316,7 +316,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
+			ObjectNamespace:     secretNamespace,
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 
@@ -392,7 +392,7 @@ func TestObtainOauthConfig(t *testing.T) {
 		}
 
 		oauthState := &oauthstate2.OAuthInfo{
-			TokenNamespace:      secretNamespace,
+			ObjectNamespace:     secretNamespace,
 			ServiceProviderName: config.ServiceProviderTypeGitHub.Name,
 		}
 

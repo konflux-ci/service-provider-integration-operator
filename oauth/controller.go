@@ -35,6 +35,8 @@ type Controller interface {
 
 	// Callback finishes the OAuth flow. It handles the final redirect from the OAuth flow of the service provider.
 	Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo)
+
+	setSyncStrategy(strategy tokenDataSyncStrategy)
 }
 
 // oauthFinishResult is an enum listing the possible results of authentication during the commonController.finishOAuthExchange
@@ -69,6 +71,11 @@ func InitController(ctx context.Context, spType config.ServiceProviderType, cfg 
 		StateStorage:              cfg.StateStorage,
 		RedirectTemplate:          cfg.RedirectTemplate,
 		ServiceProviderType:       spType,
+		// setup SPI sync strategy as default
+		tokenDataSyncStrategy: SPIAccessTokenSyncStrategy{
+			ClientFactory: cfg.ClientFactory,
+			TokenStorage:  ts,
+		},
 	}
 
 	initializedServiceProviders := map[string]bool{}

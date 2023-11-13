@@ -1,4 +1,3 @@
-//
 // Copyright (c) 2021 Red Hat, Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,21 +15,13 @@ package oauth
 
 import (
 	"context"
-	"net/http"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/oauthstate"
 )
 
-// Test Controller that do nothing.
-type NopController struct {
-}
-
-func (n NopController) setSyncStrategy(strategy tokenDataSyncStrategy) {
-}
-
-var _ Controller = (*NopController)(nil)
-
-func (n NopController) Authenticate(w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
-}
-func (n NopController) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request, state *oauthstate.OAuthInfo) {
+// tokenDataSyncStrategy determines how the OAuth token data will be synced/saved.
+type tokenDataSyncStrategy interface {
+	// checkIdentityHasAccess verifies that the user who is going through OAuth flow has the appropriate k8s permissions
+	// to save the token data.
+	checkIdentityHasAccess(ctx context.Context, namespace string) (bool, error)
+	// syncTokenData syncs the token data from exchange into the tokenDataSyncStrategy's underlying storage.
+	syncTokenData(ctx context.Context, exchange *exchangeResult) error
 }

@@ -20,24 +20,28 @@ import (
 )
 
 // OAuthInfo is the state that is initially put to the OAuth URL by the operator.
-// This state is put by the operator to the status of the SPIAccessToken and points to an endpoint in the OAuth service.
+// This state is put by the operator to the status of the SPIAccessToken or annotation of RemoteSecret
+// and points to an endpoint of the OAuth service.
 // OAuth service requires kubernetes authentication on this endpoint, reads this data and redirects the caller once
 // again to the actual service provider with a random key to its session storage as the OAuth state.
 type OAuthInfo struct {
-	// TokenName is the name of the SPIAccessToken object for which we are initiating the OAuth flow
-	TokenName string `json:"tokenName"`
+	// ObjectName is the name of the object for which we are initiating the OAuth flow
+	ObjectName string `json:"objectName"`
 
-	// TokenNamespace is the namespace of the SPIAccessToken object for which we are initiating the OAuth flow
-	TokenNamespace string `json:"tokenNamespace"`
+	// ObjectNamespace is the namespace of the object for which we are initiating the OAuth flow
+	ObjectNamespace string `json:"objectNs"`
+
+	// ObjectKind is the kind of the object for which we are initiating the OAuth flow
+	ObjectKind string `json:"objectKind"`
 
 	// Scopes is the list of the service-provider-specific scopes that we require in the service provider
 	Scopes []string `json:"scopes"`
 
 	// ServiceProviderName is the type of the service provider
-	ServiceProviderName config.ServiceProviderName `json:"serviceProviderType"`
+	ServiceProviderName config.ServiceProviderName `json:"providerType"`
 
 	// ServiceProviderUrl the URL where the service provider is to be reached
-	ServiceProviderUrl string `json:"serviceProviderUrl"`
+	ServiceProviderUrl string `json:"providerUrl"`
 }
 
 // ParseOAuthInfo parses the state from the URL query parameter and returns the anonymous state struct. It is just

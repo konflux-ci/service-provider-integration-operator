@@ -44,8 +44,8 @@ func LogDebugAndWriteResponse(ctx context.Context, w http.ResponseWriter, status
 	}
 }
 
-// AuditLogWithTokenInfo logs message related to particular SPIAccessToken into audit logger
-func AuditLogWithTokenInfo(ctx context.Context, msg string, namespace string, token string, keysAndValues ...interface{}) {
-	keysAndValues = append(keysAndValues, "namespace", namespace, "token", token)
+// AuditLogWithTokenInfo logs message related to particular Object into audit logger
+func AuditLogWithTokenInfo(ctx context.Context, msg string, kind string, namespace string, name string, keysAndValues ...interface{}) {
+	keysAndValues = append(keysAndValues, "kind", kind, "namespace", namespace, "name", name)
 	logs.AuditLog(ctx).Info(msg, keysAndValues...)
 }

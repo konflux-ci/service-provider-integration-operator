@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/url"
 
+	rsapi "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/httptransport"
@@ -74,6 +76,8 @@ func (r K8sClientFactoryBuilder) CreateUserAuthClientFactory() (clientFactory ku
 	mapper.Add(authz.SchemeGroupVersion.WithKind("SelfSubjectAccessReview"), meta.RESTScopeRoot)
 	mapper.Add(api.GroupVersion.WithKind("SPIAccessToken"), meta.RESTScopeNamespace)
 	mapper.Add(api.GroupVersion.WithKind("SPIAccessTokenDataUpdate"), meta.RESTScopeNamespace)
+	mapper.Add(rsapi.GroupVersion.WithKind("RemoteSecret"), meta.RESTScopeNamespace)
+
 	clientOptions, errClientOptions := clientOptions(mapper)
 	if errClientOptions != nil {
 		return nil, errClientOptions
@@ -141,6 +145,9 @@ func clientOptions(mapper meta.RESTMapper) (*client.Options, error) {
 	}
 	if err := api.AddToScheme(options.Scheme); err != nil {
 		return nil, fmt.Errorf("failed to add api to the scheme: %w", err)
+	}
+	if err := rsapi.AddToScheme(options.Scheme); err != nil {
+		return nil, fmt.Errorf("failed to add RemoteSecret api to the scheme: %w", err)
 	}
 	if err := authz.AddToScheme(options.Scheme); err != nil {
 		return nil, fmt.Errorf("failed to add authz to the scheme: %w", err)
