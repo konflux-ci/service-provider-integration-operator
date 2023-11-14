@@ -39,6 +39,8 @@ var (
 	noTokenInSessionError = errors.New("no token associated with the given session")
 )
 
+const k8sTokenParameterKey = "k8s_token"
+
 func (a Authenticator) tokenReview(token string, req *http.Request) (bool, error) {
 	//TODO not working. temporary disabled.
 	//review := v1.TokenReview{
@@ -62,12 +64,12 @@ func (a Authenticator) GetToken(ctx context.Context, r *http.Request) (string, e
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/GetToken")
 
-	token := r.PostFormValue("k8s_token")
+	token := r.PostFormValue(k8sTokenParameterKey)
 	if token == "" {
-		token = a.SessionManager.GetString(ctx, "k8s_token")
+		token = a.SessionManager.GetString(ctx, k8sTokenParameterKey)
 	} else {
 		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8s_token` POST form body parameter to the session")
-		a.SessionManager.Put(ctx, "k8s_token", token)
+		a.SessionManager.Put(ctx, k8sTokenParameterKey, token)
 	}
 
 	if token == "" {
@@ -80,7 +82,7 @@ func (a Authenticator) GetTokenFromSession(ctx context.Context) (string, error) 
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/GetTokenFromSession")
 
-	token := a.SessionManager.GetString(ctx, "k8s_token")
+	token := a.SessionManager.GetString(ctx, k8sTokenParameterKey)
 	if token == "" {
 		return "", noTokenInSessionError
 	}
@@ -91,7 +93,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	lg := log.FromContext(r.Context())
 	defer logs.TimeTrack(lg, time.Now(), "/Login")
 
-	token := r.PostFormValue("k8s_token")
+	token := r.PostFormValue(k8sTokenParameterKey)
 
 	if token == "" {
 		token = clientfactory.ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
@@ -117,7 +119,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.SessionManager.Put(r.Context(), "k8s_token", token)
+	a.SessionManager.Put(r.Context(), k8sTokenParameterKey, token)
 	logs.AuditLog(r.Context()).Info("successful authentication with Kubernetes token", "action", "ADD")
 	w.WriteHeader(http.StatusOK)
 }

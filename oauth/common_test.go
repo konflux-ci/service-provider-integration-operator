@@ -172,7 +172,7 @@ var _ = Describe("Controller", func() {
 		spiState := prepareAnonymousState()
 		req := httptest.NewRequest("POST", fmt.Sprintf("/?state=%s", spiState), nil)
 		req.PostForm = url.Values{
-			"k8s_token": {grabK8sToken(g)},
+			k8sTokenParameterKey: {grabK8sToken(g)},
 		}
 
 		res := httptest.NewRecorder()
