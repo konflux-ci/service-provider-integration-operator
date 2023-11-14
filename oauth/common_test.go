@@ -169,9 +169,11 @@ var _ = Describe("Controller", func() {
 	}
 
 	authenticateFlowQueryParam := func(g Gomega) (*commonController, string, *httptest.ResponseRecorder) {
-		token := grabK8sToken(g)
 		spiState := prepareAnonymousState()
-		req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s&k8s_token=%s", spiState, token), nil)
+		req := httptest.NewRequest("POST", fmt.Sprintf("/?state=%s", spiState), nil)
+		req.PostForm = url.Values{
+			"k8s_token": {grabK8sToken(g)},
+		}
 
 		res := httptest.NewRecorder()
 

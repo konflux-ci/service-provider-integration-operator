@@ -178,7 +178,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
 	}
 
-	k8sToken, err := c.Authenticator.GetToken(ctx, r)
+	k8sToken, err := c.Authenticator.GetTokenFromSession(ctx)
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}

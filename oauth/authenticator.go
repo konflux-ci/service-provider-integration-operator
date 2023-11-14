@@ -35,7 +35,8 @@ type Authenticator struct {
 }
 
 var (
-	noTokenFoundError = errors.New("no token associated with the given session or provided as a `k8s_token` query parameter")
+	noTokenFoundError     = errors.New("no token associated with the given session or provided as a `k8s_token` POST form body parameter")
+	noTokenInSessionError = errors.New("no token associated with the given session")
 )
 
 func (a Authenticator) tokenReview(token string, req *http.Request) (bool, error) {
@@ -57,23 +58,31 @@ func (a Authenticator) tokenReview(token string, req *http.Request) (bool, error
 	//return review.Status.Authenticated, nil
 	return true, nil
 }
-func (a *Authenticator) GetToken(ctx context.Context, r *http.Request) (string, error) {
+func (a Authenticator) GetToken(ctx context.Context, r *http.Request) (string, error) {
 	lg := log.FromContext(ctx)
 	defer logs.TimeTrack(lg, time.Now(), "/GetToken")
 
-	token := r.URL.Query().Get("k8s_token")
-	if token == "" {
-		token = r.FormValue("k8s_token")
-	}
+	token := r.PostFormValue("k8s_token")
 	if token == "" {
 		token = a.SessionManager.GetString(ctx, "k8s_token")
 	} else {
-		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8s_token` query parameter to the session")
+		lg.V(logs.DebugLevel).Info("persisting token that was provided by `k8s_token` POST form body parameter to the session")
 		a.SessionManager.Put(ctx, "k8s_token", token)
 	}
 
 	if token == "" {
 		return "", noTokenFoundError
+	}
+	return token, nil
+}
+
+func (a Authenticator) GetTokenFromSession(ctx context.Context) (string, error) {
+	lg := log.FromContext(ctx)
+	defer logs.TimeTrack(lg, time.Now(), "/GetTokenFromSession")
+
+	token := a.SessionManager.GetString(ctx, "k8s_token")
+	if token == "" {
+		return "", noTokenInSessionError
 	}
 	return token, nil
 }
