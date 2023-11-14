@@ -85,7 +85,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 
 	token, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
-		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` POST form body parameter.", err)
 		return
 	}
 	ctx = clientfactory.WithAuthIntoContext(token, ctx)

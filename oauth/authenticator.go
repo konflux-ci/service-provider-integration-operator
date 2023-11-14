@@ -91,7 +91,7 @@ func (a Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	lg := log.FromContext(r.Context())
 	defer logs.TimeTrack(lg, time.Now(), "/Login")
 
-	token := r.FormValue("k8s_token")
+	token := r.PostFormValue("k8s_token")
 
 	if token == "" {
 		token = clientfactory.ExtractTokenFromAuthorizationHeader(r.Header.Get("Authorization"))
