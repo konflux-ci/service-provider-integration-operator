@@ -35,6 +35,7 @@ import (
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 	opconfig "github.com/redhat-appstudio/service-provider-integration-operator/pkg/config"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/github"
@@ -45,9 +46,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	"github.com/redhat-appstudio/service-provider-integration-operator/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -182,7 +182,7 @@ func createManager(lg logr.Logger, args cli.OperatorCliArgs) (manager.Manager, e
 	webhookServer := crwebhook.NewServer(webhookServerOptions)
 	options := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     args.MetricsAddr,
+		Metrics:                metricsserver.Options{BindAddress: args.MetricsAddr},
 		HealthProbeBindAddress: args.ProbeAddr,
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "f5c55e16.appstudio.redhat.org",
