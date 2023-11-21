@@ -36,6 +36,23 @@ require (
 )
 
 require (
+	cloud.google.com/go v0.110.7 // indirect
+	cloud.google.com/go/storage v1.31.0 // indirect
+	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
+	github.com/hashicorp/go-getter v1.7.2 // indirect
+	github.com/hashicorp/go-safetemp v1.0.0 // indirect
+	github.com/hashicorp/logutils v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/spf13/afero v1.9.5 // indirect
+	github.com/spf13/cobra v1.7.0 // indirect
+	github.com/ulikunitz/xz v0.5.11 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
+)
+
+// Caused by unexpected, backward incompatible, resource removal. See more https://github.com/Azure/azure-sdk-for-go/issues/18209
+replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
+
+require (
 	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/aws/aws-sdk-go v1.48.16 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.24.0 // indirect
@@ -103,6 +120,8 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0 // indirect
+	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -115,6 +134,14 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/openshift/api v0.0.0-20220912161038-458ad9ca9ca5 // indirect
+	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
+	github.com/oracle/oci-go-sdk/v60 v60.0.0 // indirect
+	github.com/packethost/packngo v0.1.1-0.20180711074735-b9cb5096f54c // indirect
+	github.com/pact-foundation/pact-go/v2 v2.0.2
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
+	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pires/go-proxyproto v0.6.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
