@@ -66,9 +66,9 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, request api.SP
 
 	//ref is required, need to set ir retrieve it
 	if request.Ref != "" {
-		refOption = gitlab.GetFileOptions{Ref: gitlab.String(request.Ref)}
+		refOption = gitlab.GetFileOptions{Ref: gitlab.Ptr(request.Ref)}
 	} else {
-		refOption = gitlab.GetFileOptions{Ref: gitlab.String("HEAD")}
+		refOption = gitlab.GetFileOptions{Ref: gitlab.Ptr("HEAD")}
 	}
 
 	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.FilePath, &refOption)
