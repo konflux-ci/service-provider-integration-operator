@@ -172,7 +172,7 @@ ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code 
 test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
 	make unit-tests
-	make pact-tests
+	make -C pact -f Makefile test-pact
 
 unit-tests:
 	export SKIP_PACT_TESTS=true
@@ -188,11 +188,7 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 
 pact: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
-	make pact-tests
-
-pact-tests:
-	unset SKIP_PACT_TESTS
-	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -v --run TestContracts 
+	make -C pact/pkg -f Makefile pact-tests
 
 ##@ Build
 
