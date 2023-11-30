@@ -63,3 +63,21 @@ func (t *BindingNamespaceTarget) GetTargetNamespace() string {
 func (*BindingNamespaceTarget) GetType() string {
 	return "Binding"
 }
+
+// GetActualManagedAnnotations implements bindings.SecretDeploymentTarget.
+func (*BindingNamespaceTarget) GetActualManagedAnnotations() []string {
+	// by claiming that there are no managed annotations, we essentially tell the deployer
+	// that we want all annotations to stay on the targets. This is the original behavior,
+	// so, in essence, by returning this we claim to not support removing annotations
+	// from secrets managed by SPIAccessTokenBinding.
+	return []string{}
+}
+
+// GetActualManagedLabels implements bindings.SecretDeploymentTarget.
+func (*BindingNamespaceTarget) GetActualManagedLabels() []string {
+	// by claiming that there are no managed labels, we essentially tell the deployer
+	// that we want all labels to stay on the targets. This is the original behavior,
+	// so, in essence, by returning this we claim to not support removing labels
+	// from secrets managed by SPIAccessTokenBinding.
+	return []string{}
+}
