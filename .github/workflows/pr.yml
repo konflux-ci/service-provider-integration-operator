@@ -122,6 +122,17 @@ jobs:
             git --no-pager diff
             exit 1
           fi
+      - name: Check manifests
+        run: |
+          # Note: fmt is necessary after generate since generated sources will
+          #       fail format check by default.
+          make generate fmt manifests
+          if [[ ! -z $(git status -s) ]]
+          then
+            echo "generated sources are not up to date:"
+            git --no-pager diff
+            exit 1
+          fi
       - name: Setup KinD
         uses: chainguard-dev/actions/setup-kind@main
         with:
@@ -138,6 +149,7 @@ jobs:
           oc whoami -c
           make envtest
           cd pact
+          go mod tidy
           make test-verbose
   docker-controller:
     name: Check controller docker image build

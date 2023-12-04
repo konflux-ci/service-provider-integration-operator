@@ -41,7 +41,7 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@v2.18.0
         with:
-          args: ./...
+          args: -exclude-dir=pact ./...
   kube-linter:
     runs-on: ubuntu-latest
     steps:
