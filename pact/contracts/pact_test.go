@@ -18,7 +18,6 @@ package contracts
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -36,11 +35,6 @@ import (
 )
 
 func TestContracts(t *testing.T) {
-	// Skip tests if "SKIP_PACT_TESTS" env var is set to true
-	if os.Getenv("SKIP_PACT_TESTS") == "true" {
-		t.Skip("Skipping Pact tests.")
-	}
-
 	// Register fail handler and setup test environment (same as during unit tests)
 	RegisterFailHandler(Fail)
 	IT, ctx = oauth.StartTestEnv()
@@ -67,18 +61,14 @@ func TestContracts(t *testing.T) {
 }
 
 func createVerifier(t *testing.T) provider.VerifyRequest {
-	brokerUsername, _ := base64.StdEncoding.DecodeString("cGFjdENvbW1vblVzZXI=")
-	brokerPassword, _ := base64.StdEncoding.DecodeString("cGFjdENvbW1vblBhc3N3b3JkMTIz")
 	verifyRequest := provider.VerifyRequest{
 		Provider:        "SPI",
 		RequestTimeout:  60 * time.Second,
 		ProviderBaseURL: IT.TestEnvironment.Config.Host,
 		// Default selector should include environments, but as they are not in place yet, using just main branch
 		ConsumerVersionSelectors:   []provider.Selector{&provider.ConsumerVersionSelector{Branch: "main"}},
-		BrokerURL:                  "https://pact-broker-hac-pact-broker.apps.hac-devsandbox.5unc.p1.openshiftapps.com",
+		BrokerURL:                  os.Getenv("PACT_BROKER_URL"),
 		PublishVerificationResults: false,
-		BrokerUsername:             string(brokerUsername),
-		BrokerPassword:             string(brokerPassword),
 		EnablePending:              true,
 		ProviderVersion:            "local",
 		ProviderBranch:             "main",

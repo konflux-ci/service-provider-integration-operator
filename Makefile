@@ -171,11 +171,6 @@ ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code 
 
 test: manifests generate envtest ## Run unit tests
 	$(K8S_CLI) apply -k ./config/crd
-	make unit-tests
-	make -C pact -f Makefile test-pact
-
-unit-tests:
-	export SKIP_PACT_TESTS=true
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate envtest ## Run only integration tests. Use make itest focus=... to focus Ginkgo only to certain tests
@@ -187,8 +182,7 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests/... -- -test.v -test.run=TestSuite -ginkgo.focus="${focus}" -ginkgo.progress
 
 pact: manifests generate envtest install ## Run unit tests
-	$(K8S_CLI) apply -k ./config/crd
-	make -C pact/pkg -f Makefile pact-tests
+	make -C pact -f Makefile test-pact
 
 ##@ Build
 
