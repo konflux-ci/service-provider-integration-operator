@@ -28,7 +28,7 @@ import (
 
 func TestVeilSPIState(t *testing.T) {
 	//given
-	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s&k8s_token=%s", "statestr", "token-234234"), nil)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s", "statestr"), nil)
 	res := httptest.NewRecorder()
 	sessionManager := scs.New()
 	storage := NewStateStorage(sessionManager)
@@ -51,7 +51,7 @@ func TestVeilSPIState(t *testing.T) {
 }
 func Test_FailToVeilIfStateIsEmpty(t *testing.T) {
 	//given
-	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s&k8s_token=%s", "", "token-234234"), nil)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/?state=%s", ""), nil)
 	res := httptest.NewRecorder()
 	sessionManager := scs.New()
 	storage := &SessionStateStorage{sessionManager: sessionManager}

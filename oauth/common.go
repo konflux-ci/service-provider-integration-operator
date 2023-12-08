@@ -85,7 +85,7 @@ func (c *commonController) Authenticate(w http.ResponseWriter, r *http.Request, 
 
 	token, err := c.Authenticator.GetToken(ctx, r)
 	if err != nil {
-		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` query parameter.", err)
+		LogErrorAndWriteResponse(ctx, w, http.StatusUnauthorized, "No active session was found. Please use `/login` method to authorize your request and try again. Or provide the token as a `k8s_token` POST form body parameter.", err)
 		return
 	}
 	ctx = clientfactory.WithAuthIntoContext(token, ctx)
@@ -178,7 +178,7 @@ func (c *commonController) finishOAuthExchange(ctx context.Context, r *http.Requ
 		return exchangeResult{result: oauthFinishError}, fmt.Errorf("failed to parse JWT state string: %w", err)
 	}
 
-	k8sToken, err := c.Authenticator.GetToken(ctx, r)
+	k8sToken, err := c.Authenticator.GetTokenFromSession(ctx)
 	if err != nil {
 		return exchangeResult{result: oauthFinishK8sAuthRequired}, noActiveSessionError
 	}
