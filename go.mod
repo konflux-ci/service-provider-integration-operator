@@ -36,7 +36,59 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.3
 )
 
+replace (
+	// Caused by unexpected, backward incompatible, resource removal. See more https://github.com/Azure/azure-sdk-for-go/issues/18209
+	github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
+	// This is a test only dependency. We should keep it in sync with the hashicorp/vault/api.
+	github.com/hashicorp/vault => github.com/hashicorp/vault v1.2.1-0.20230905152746-b97ec4912502
+)
+
 require (
+	cloud.google.com/go/cloudsqlconn v1.4.3 // indirect
+	cloud.google.com/go/compute v1.23.0 // indirect
+	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/iam v1.1.2 // indirect
+	cloud.google.com/go/kms v1.15.1 // indirect
+	cloud.google.com/go/monitoring v1.15.1 // indirect
+	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
+	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.11.29 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.23 // indirect
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12 // indirect
+	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
+	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
+	github.com/Azure/go-autorest/logger v0.2.1 // indirect
+	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/BurntSushi/toml v1.3.2 // indirect
+	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
+	github.com/Jeffail/gabs v1.1.1 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
+	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/ProtonMail/go-crypto v0.0.0-20230626094100-7e9e0395ebec // indirect
+	github.com/alexflint/go-scalar v1.1.0 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.521 // indirect
+	github.com/armon/go-metrics v0.4.1 // indirect
+	github.com/armon/go-radix v1.0.0 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/aws/aws-sdk-go v1.48.11 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.25.11 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.9 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.25.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.2 // indirect
 	github.com/aws/smithy-go v1.18.1 // indirect
 	github.com/axiomhq/hyperloglog v0.0.0-20220105174342-98591331716a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -255,60 +307,6 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-)
-
-// Caused by unexpected, backward incompatible, resource removal. See more https://github.com/Azure/azure-sdk-for-go/issues/18209
-replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
-
-// This is a test only dependency. We should keep it in sync with the hashicorp/vault/api.
-replace github.com/hashicorp/vault => github.com/hashicorp/vault v1.2.1-0.20230905152746-b97ec4912502
-
-require (
-	cloud.google.com/go/cloudsqlconn v1.4.3 // indirect
-	cloud.google.com/go/compute v1.23.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v1.1.2 // indirect
-	cloud.google.com/go/kms v1.15.1 // indirect
-	cloud.google.com/go/monitoring v1.15.1 // indirect
-	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.29 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.23 // indirect
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12 // indirect
-	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
-	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
-	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
-	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/Azure/go-autorest/logger v0.2.1 // indirect
-	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
-	github.com/Jeffail/gabs v1.1.1 // indirect
-	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
-	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20230626094100-7e9e0395ebec // indirect
-	github.com/alexflint/go-scalar v1.1.0 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.521 // indirect
-	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go v1.48.11 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.23.5 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.25.11 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.16.9 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.9 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.25.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.18.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.26.2 // indirect
 	gopkg.in/resty.v1 v1.12.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
