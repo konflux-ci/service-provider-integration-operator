@@ -249,7 +249,7 @@ func (l GenericLookup) lookupRemoteSecretSecret(ctx context.Context, cl client.C
 	}
 
 	secret := &v1.Secret{}
-	err = cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].DeployedSecret.Name}, secret)
+	err = cl.Get(ctx, client.ObjectKey{Namespace: matchable.ObjNamespace(), Name: matchingRemoteSecret.Status.Targets[targetIndex].ToTargetKey().SecretName}, secret)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find Secret created by RemoteSecret: %w", err)
 	}
