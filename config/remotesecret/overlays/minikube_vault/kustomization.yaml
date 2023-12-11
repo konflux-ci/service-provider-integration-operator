@@ -4,7 +4,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 namespace: remotesecret
 
 resources:
-  - https://github.com/redhat-appstudio/remote-secret/config/bases/vault?ref=dade43845f9fdb8662d7f4794f4ffccd9db8760d
+  - https://github.com/redhat-appstudio/remote-secret/config/bases/vault?ref=0d731980723b339f13b8cec76d35f88cd5517680
   - ../../webhook/k8s
 
 patches:
