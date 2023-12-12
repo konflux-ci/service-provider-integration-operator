@@ -39,7 +39,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/hashicorp/vault/vault"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -85,8 +84,6 @@ type IntegrationTest struct {
 	Capabilities serviceprovider.TestCapabilities
 	// HostCredsServiceProvider is the fallback provider used when no other service provider is detected for given URL.
 	HostCredsServiceProvider serviceprovider.TestServiceProvider
-	// VaultTestCluster is Vault's in-memory test cluster instance.
-	VaultTestCluster *vault.TestCluster
 	// OperatorConfiguration is the "live" configuration used by the controllers. Changing the values here has direct
 	// effect in the controllers as long as they don't cache the values somehow (by storing them in an instance field
 	// for example).
