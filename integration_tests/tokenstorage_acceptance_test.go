@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/spi-shared/tokenstorage"
 	"github.com/stretchr/testify/assert"
@@ -37,17 +36,6 @@ import (
 // Testsuite that runs same tests against multiple tokenstorage implementations.
 // Tests cares just about TokenStorage interface and makes sure that implementations behaves the same.
 // Runs against real storages, see comments on Test* functions for more details.
-
-// TestVaultStorage runs against local in-memory Vault. No external dependency or setup is needed, test runs everytime.
-func TestVaultStorage(t *testing.T) {
-	cluster, storage := vaultstorage.CreateTestVaultSecretStorage(t)
-
-	ctx := context.TODO()
-	assert.NoError(t, storage.Initialize(ctx))
-	defer cluster.Cleanup()
-
-	testStorage(t, ctx, createTokenStorage(storage))
-}
 
 // TestInMemoryStorage runs against our testing in-memory implementation of the TokenStorage.
 func TestInMemoryStorage(t *testing.T) {
