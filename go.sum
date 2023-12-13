@@ -357,6 +357,8 @@ github.com/prometheus/procfs v0.11.1 h1:xRC8Iq1yyca5ypa9n1EZnWZkt7dwcoRPQwX/5gwa
 github.com/prometheus/procfs v0.11.1/go.mod h1:eesXgaPo1q7lBpVMoMy0ZOFTth9hBn4W/y0/p/ScXhY=
 github.com/redhat-appstudio/application-api v0.0.0-20231026192857-89515ad2504f h1:PoKf7gCV/g5blkzVlODkqeynmfIACcR7NqWF8eqnuec=
 github.com/redhat-appstudio/application-api v0.0.0-20231026192857-89515ad2504f/go.mod h1:YvckuKHe82eWloGk0/BpSw4YYG2owrGZAanztbOj3pQ=
+github.com/redhat-appstudio/remote-secret v0.0.0-20231213064729-3b8039449160 h1:mtgh6R0OCKn3PWxSEgpodFAVYHhE4riR+mHOB9iZggs=
+github.com/redhat-appstudio/remote-secret v0.0.0-20231213064729-3b8039449160/go.mod h1:dTnrzsQCfKV0wVTfiAW47lYIWbgSbatFJ3yNlCHxPiw=
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/ryanuber/columnize v2.1.0+incompatible/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
