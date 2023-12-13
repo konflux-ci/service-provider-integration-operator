@@ -77,4 +77,3 @@ This CR represents a request to check repository accessibility.
 
 ### SPIFileContentRequest
 This CR represents a request for content of the specific file in the given SCM repository.
-
