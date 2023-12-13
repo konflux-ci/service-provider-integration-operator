@@ -28,7 +28,7 @@ COPY oauth/ oauth/
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/ -a ./cmd/oauth/oauth.go
 
 # Compose the final image of spi-oauth service
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1361.1699548032 as spi-oauth
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1475 as spi-oauth
 
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf update -y \
