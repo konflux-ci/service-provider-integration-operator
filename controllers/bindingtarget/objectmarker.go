@@ -16,6 +16,9 @@ package bindingtarget
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
@@ -32,6 +35,8 @@ const LinkAnnotation = "spi.appstudio.redhat.com/linked-access-token-binding" //
 // to the lifecycle of some SPI binding.
 const ManagedByBindingLabel = "spi.appstudio.redhat.com/managed-by-binding"
 
+var malformedManagingAnnotation = errors.New("the ManagedByBinding Label value is malformed, this should not happen")
+
 var _ bindings.ObjectMarker = (*BindingTargetObjectMarker)(nil)
 
 // IsManaged implements dependents.ObjectMarker
@@ -41,9 +46,20 @@ func (m *BindingTargetObjectMarker) IsManagedBy(ctx context.Context, binding cli
 }
 
 // IsManaged implements dependents.ObjectMarker
-func (m *BindingTargetObjectMarker) IsManagedByOther(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
+func (m *BindingTargetObjectMarker) IsManagedByOther(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error) {
 	managingValue, managingPresent := obj.GetLabels()[ManagedByBindingLabel]
-	return managingPresent && managingValue != binding.Name, nil
+	if !managingPresent {
+		return false, client.ObjectKey{}, nil
+	}
+	if managingValue == binding.String() {
+		return false, client.ObjectKey{}, nil
+	}
+
+	namespacedName := strings.Split(managingValue, "/")
+	if len(namespacedName) != 2 {
+		return false, client.ObjectKey{}, fmt.Errorf("%w: %s", malformedManagingAnnotation, managingValue)
+	}
+	return true, client.ObjectKey{Namespace: namespacedName[0], Name: namespacedName[1]}, nil
 }
 
 // IsReferenced implements dependents.ObjectMarker

@@ -53,10 +53,10 @@ func TestBindingTargetObjectMarker_IsManagedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					LinkAnnotation: "k,l",
+					LinkAnnotation: "ns/k,ns/l",
 				},
 				Labels: map[string]string{
-					ManagedByBindingLabel: "l",
+					ManagedByBindingLabel: "ns/l",
 				},
 			},
 		}
@@ -64,9 +64,10 @@ func TestBindingTargetObjectMarker_IsManagedBy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, res)
 
-		res, err = m.IsManagedByOther(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
+		res, other, err := m.IsManagedByOther(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
 		assert.True(t, res)
+		assert.Equal(t, "ns/l", other.String())
 	})
 
 	t.Run("managed", func(t *testing.T) {
