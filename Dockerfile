@@ -25,7 +25,7 @@ COPY controllers/ controllers/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/ -a ./cmd/operator/operator.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1361.1699548032 as spi-operator
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1475 as spi-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf update -y \
     && microdnf -y --setopt=tsflags=nodocs install shadow-utils \
