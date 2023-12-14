@@ -68,10 +68,12 @@ var _ = Describe("Controller", func() {
 		//for Minikube that happens almost instantaneously.
 		g.Eventually(func(gg Gomega) bool {
 			var err error
-			tokenRequest := &authenticationv1.TokenRequest{
-				Spec: authenticationv1.TokenRequestSpec{},
-			}
-			response, err := IT.Clientset.CoreV1().ServiceAccounts(IT.Namespace).CreateToken(context.TODO(), "default", tokenRequest, metav1.CreateOptions{})
+			expirationSeconds := int64(3600)
+			response, err := IT.Clientset.CoreV1().ServiceAccounts(IT.Namespace).CreateToken(ctx, "default", &authenticationv1.TokenRequest{
+				Spec: authenticationv1.TokenRequestSpec{
+					ExpirationSeconds: &expirationSeconds,
+				},
+			}, metav1.CreateOptions{})
 			gg.Expect(err).NotTo(HaveOccurred())
 			gg.Expect(response.Status.Token).NotTo(BeEmpty())
 
