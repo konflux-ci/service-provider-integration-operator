@@ -52,11 +52,12 @@ func TestBindingTargetObjectMarker_IsManagedBy(t *testing.T) {
 	t.Run("managed by other", func(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "ns",
 				Annotations: map[string]string{
-					LinkAnnotation: "ns/k,ns/l",
+					LinkAnnotation: "k,l",
 				},
 				Labels: map[string]string{
-					ManagedByBindingLabel: "ns/l",
+					ManagedByBindingLabel: "l",
 				},
 			},
 		}
