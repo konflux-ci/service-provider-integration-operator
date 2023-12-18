@@ -79,28 +79,19 @@ func StartTestEnv() (struct {
 
 	ctx, IT.Cancel = context.WithCancel(context.TODO())
 
-	// The commented out sections below are from an attempt to use the envtest itself for our integration tests. This
-	// is not working because we need fully functional service accounts in the cluster which seem not to be the case
-	// in envtest even with the configuration modifications made below. It would be ideal if we COULD make this work
-	// somehow but for the time being, let's just require a configured connection to a running cluster instead.
-	// The commented-out sections are enclosed within [SELF_CONTAINED_TEST_ATTEMPT] [/SELF_CONTAINED_TEST_ATTEMPT].
 	By("bootstrapping test environment")
 
 	IT.TestEnvironment = &envtest.Environment{
-		//[SELF_CONTAINED_TEST_ATTEMPT]
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{},
 		},
 		AttachControlPlaneOutput: true,
 		CRDDirectoryPaths:        []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing:    true,
-		//[/SELF_CONTAINED_TEST_ATTEMPT]
 	}
-	//[SELF_CONTAINED_TEST_ATTEMPT]
 	IT.TestEnvironment.ControlPlane.APIServer.Configure().
 		// Test environment switches off the ServiceAccount plugin by default... we actually need that one...
 		Set("disable-admission-plugins", "")
-	//[/SELF_CONTAINED_TEST_ATTEMPT]
 
 	cfg, err := IT.TestEnvironment.Start()
 	Expect(err).NotTo(HaveOccurred())
