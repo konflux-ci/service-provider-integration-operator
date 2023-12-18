@@ -40,6 +40,19 @@ func (m *BindingTargetObjectMarker) IsManagedBy(ctx context.Context, binding cli
 	return refed && obj.GetLabels()[ManagedByBindingLabel] == binding.Name, nil
 }
 
+// IsManagedOther implements dependents.ObjectMarker
+func (m *BindingTargetObjectMarker) IsManagedByOther(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error) {
+	managingValue, managingPresent := obj.GetLabels()[ManagedByBindingLabel]
+	if !managingPresent {
+		return false, client.ObjectKey{}, nil
+	}
+	if managingValue == binding.Name {
+		return false, client.ObjectKey{}, nil
+	}
+
+	return true, client.ObjectKey{Namespace: obj.GetNamespace(), Name: managingValue}, nil
+}
+
 // IsReferenced implements dependents.ObjectMarker
 func (m *BindingTargetObjectMarker) IsReferencedBy(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, error) {
 	annos := obj.GetAnnotations()
