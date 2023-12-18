@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package serviceprovider
 
 import (
@@ -129,7 +130,9 @@ func TestFromRepoUrl(t *testing.T) {
 	mockSP := struct {
 		ServiceProvider
 	}{}
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	assert.NoError(t, err)
+
 	mockInit := Initializer{
 		Probe: struct {
 			ProbeFunc
@@ -452,7 +455,8 @@ func TestInitializeServiceProvider(t *testing.T) {
 }
 
 func TestSpConfigWithBaseUrl(t *testing.T) {
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: true})
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: true})
+	assert.NoError(t, err)
 	spConfig, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.Nil(t, err)
 	assert.Equal(t, config.ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
@@ -462,8 +466,9 @@ func TestSpConfigWithBaseUrl(t *testing.T) {
 }
 
 func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
-	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	assert.NoError(t, err)
+	_, err = spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
 	var validationErr validator.ValidationErrors
 	assert.True(t, errors.As(err, &validationErr))

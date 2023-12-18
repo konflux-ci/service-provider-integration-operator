@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package serviceprovider
 
 import (
@@ -36,7 +37,6 @@ var filterError = TokenFilterFunc(func(ctx context.Context, binding Matchable, t
 
 func TestTokenFilterFunc_Matches(t *testing.T) {
 	type args struct {
-		ctx       context.Context
 		matchable Matchable
 		token     *api.SPIAccessToken
 	}
@@ -47,17 +47,17 @@ func TestTokenFilterFunc_Matches(t *testing.T) {
 		want    bool
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"test true filter", filterTrue, args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, true, assert.NoError},
-		{"test false filter", filterFalse, args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, false, assert.NoError},
-		{"test error filter", filterError, args{context.TODO(), &api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, false, assert.Error},
+		{"test true filter", filterTrue, args{&api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, true, assert.NoError},
+		{"test false filter", filterFalse, args{&api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, false, assert.NoError},
+		{"test error filter", filterError, args{&api.SPIAccessTokenBinding{}, &api.SPIAccessToken{}}, false, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.f.Matches(tt.args.ctx, tt.args.matchable, tt.args.token)
-			if !tt.wantErr(t, err, fmt.Sprintf("Matches(%v, %v, %v)", tt.args.ctx, tt.args.matchable, tt.args.token)) {
+			got, err := tt.f.Matches(context.TODO(), tt.args.matchable, tt.args.token)
+			if !tt.wantErr(t, err, fmt.Sprintf("Matches(%v, %v, %v)", context.TODO(), tt.args.matchable, tt.args.token)) {
 				return
 			}
-			assert.Equalf(t, tt.want, got, "Matches(%v, %v, %v)", tt.args.ctx, tt.args.matchable, tt.args.token)
+			assert.Equalf(t, tt.want, got, "Matches(%v, %v, %v)", context.TODO(), tt.args.matchable, tt.args.token)
 		})
 	}
 }

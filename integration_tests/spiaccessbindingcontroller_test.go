@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck,goerr113
 package integrationtests
 
 import (
@@ -856,6 +857,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			deleted := []client.ObjectKey{}
 
 			for _, sa := range sas.Items {
+				sa := sa
 				err := ITest.Client.Delete(ITest.Context, &sa)
 
 				if err != nil && !errors.IsNotFound(err) {

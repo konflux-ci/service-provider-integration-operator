@@ -17,7 +17,7 @@ package quay
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -38,7 +38,7 @@ func TestDockerLogin(t *testing.T) {
 	cl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if throwError {
-				return nil, errors.New("intentional HTTP error")
+				return nil, errors.New("intentional HTTP error") //nolint:goerr113
 			}
 
 			assert.Contains(t, r.Header, "Authorization")
@@ -46,7 +46,7 @@ func TestDockerLogin(t *testing.T) {
 			if r.Header.Get("Authorization") == "Basic YWxvaXM6cGFzc3dvcmQ=" {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(strings.NewReader(responseBody)),
+					Body:       io.NopCloser(strings.NewReader(responseBody)),
 				}, nil
 			} else {
 				return &http.Response{

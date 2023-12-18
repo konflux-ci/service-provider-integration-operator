@@ -105,7 +105,7 @@ func TestMatches_RobotToken(t *testing.T) {
 		httpClient := &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 				assert.Fail(t, "This test should be using the cached data")
-				return nil, fmt.Errorf("no request to quay should be necessary")
+				return nil, fmt.Errorf("no request to quay should be necessary") //nolint:goerr113
 			}),
 		}
 

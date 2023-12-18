@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck,goerr113
 package oauth
 
 import (
@@ -20,7 +21,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io/ioutil"
+	"io"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
@@ -187,7 +188,7 @@ var _ = Describe("Controller", func() {
 	}
 
 	getRedirectUrlFromAuthenticateResponse := func(g Gomega, res *httptest.ResponseRecorder) *url.URL {
-		body, err := ioutil.ReadAll(res.Result().Body)
+		body, err := io.ReadAll(res.Result().Body)
 		g.Expect(err).NotTo(HaveOccurred())
 		re, err := regexp.Compile("<meta http-equiv = \"refresh\" content = \"2; url=([^\"]+)\"")
 		g.Expect(err).NotTo(HaveOccurred())
@@ -336,7 +337,7 @@ var _ = Describe("Controller", func() {
 							return &http.Response{
 								StatusCode: 200,
 								Header:     http.Header{},
-								Body:       ioutil.NopCloser(bytes.NewBuffer(bakedResponse)),
+								Body:       io.NopCloser(bytes.NewBuffer(bakedResponse)),
 								Request:    r,
 							}, nil
 						}
@@ -389,7 +390,7 @@ var _ = Describe("Controller", func() {
 							return &http.Response{
 								StatusCode: 200,
 								Header:     http.Header{},
-								Body:       ioutil.NopCloser(bytes.NewBuffer(bakedResponse)),
+								Body:       io.NopCloser(bytes.NewBuffer(bakedResponse)),
 								Request:    r,
 							}, nil
 						}

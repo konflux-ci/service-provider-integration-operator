@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package gitlab
 
 import (
@@ -20,7 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -34,11 +35,12 @@ import (
 
 func TestGetFileHead(t *testing.T) {
 	gitlabReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -47,7 +49,7 @@ func TestGetFileHead(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
@@ -90,11 +92,13 @@ func TestGetFileHead(t *testing.T) {
 
 func TestGetFileHeadGitSuffix(t *testing.T) {
 	gitlabReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
+	assert.NoError(t, err)
+
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL.String() == "https://fake.github.com/api/v4/projects/foo-user%2Ffoo-repo/repository/files/myfile?ref=HEAD" {
@@ -102,7 +106,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
@@ -145,11 +149,12 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 
 func TestGetFileOnBranch(t *testing.T) {
 	githubReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": base64.StdEncoding.EncodeToString([]byte("abcdefg")),
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -158,7 +163,7 @@ func TestGetFileOnBranch(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
@@ -206,7 +211,7 @@ func TestGetUnexistingFile(t *testing.T) {
 			return &http.Response{
 				StatusCode: 404,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(strings.NewReader(mockResponse)),
+				Body:       io.NopCloser(strings.NewReader(mockResponse)),
 				Request:    r,
 			}, nil
 		}),

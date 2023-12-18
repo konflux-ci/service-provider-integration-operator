@@ -15,6 +15,7 @@
 package oauth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,7 +30,7 @@ func TestMetricRequestTotal(t *testing.T) {
 	HttpServiceRequestCountMetric.Reset()
 
 	// Create a request to pass to our handler.
-	req, err := http.NewRequest("GET", "github/authenticate?state=eyJ0b2tlbk5hbWUiOiJnZW5lcmF0ZWQtc3BpLWFjY2Vzcy10b2tlbi1rNHByaiIsInRva2VuTmFtZXNwYWNlIjoiZGVmYXVsdCIsInRva2VuS2NwV29ya3NwYWNlIjoiIiwic2NvcGVzIjpbInJlcG8iXSwic2VydmljZVByb3ZpZGVyVHlwZSI6IkdpdEh1YiIsInNlcnZpY2VQcm92aWRlclVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbSJ9", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "github/authenticate?state=eyJ0b2tlbk5hbWUiOiJnZW5lcmF0ZWQtc3BpLWFjY2Vzcy10b2tlbi1rNHByaiIsInRva2VuTmFtZXNwYWNlIjoiZGVmYXVsdCIsInRva2VuS2NwV29ya3NwYWNlIjoiIiwic2NvcGVzIjpbInJlcG8iXSwic2VydmljZVByb3ZpZGVyVHlwZSI6IkdpdEh1YiIsInNlcnZpY2VQcm92aWRlclVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbSJ9", nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36")
 
 	if err != nil {

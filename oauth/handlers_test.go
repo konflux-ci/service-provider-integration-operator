@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package oauth
 
 import (
@@ -18,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 func TestOkHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/health", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/health", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestOkHandler(t *testing.T) {
 func TestCSPHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/health", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/health", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestCSPHandler(t *testing.T) {
 func TestReadyCheckHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/ready", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/ready", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestReadyCheckHandler(t *testing.T) {
 func TestCallbackSuccessHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", "/callback_success", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/callback_success", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestCallbackSuccessHandler(t *testing.T) {
 func TestCallbackErrorHandler(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestUploaderOk(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func TestUploader_FailWithEmptyToken(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"username": "jdoe"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"username": "jdoe"}`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestUploader_FailWithEmptyToken(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 	})
 
 	testResponse := func(uploader UploadFunc, statusCode int, errorMsg string) {
-		req, err := http.NewRequest("POST", "/token/namespace/john", bytes.NewBuffer([]byte(`{"access_token": "2022"}`)))
+		req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/namespace/john", bytes.NewBuffer([]byte(`{"access_token": "2022"}`)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -272,7 +272,7 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 
 		assert.Equal(t, statusCode, res.StatusCode)
 
-		data, err := ioutil.ReadAll(res.Body)
+		data, err := io.ReadAll(res.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -290,7 +290,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestUploader_FailWithoutAuthorization(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusUnauthorized)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`this is not a json`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`this is not a json`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestUploader_FailJsonParse(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func TestUploader_FailNamespaceParamValidation(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe:baudot/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe:baudot/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 		return nil
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella:bad", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella:bad", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -442,7 +442,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 		return fmt.Errorf("failed to store the token data into storage")
 	})
 
-	req, err := http.NewRequest("POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 
 	if err != nil {
 		t.Fatal(err)
@@ -465,7 +465,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusInternalServerError)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,7 +481,7 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 		return fmt.Errorf("failed to store the token data into storage")
 	})
 
-	req, err := http.NewRequest("POST", "/token", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
 
 	if err != nil {
 		t.Fatal(err)
@@ -504,7 +504,7 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusInternalServerError)
 	}
-	data, err := ioutil.ReadAll(res.Body)
+	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +517,7 @@ func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 func TestMiddlewareHandlerCorsPart(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", oauth.CallBackRoutePath+"?error=foo&error_description=bar", nil)
 	req.Header.Set("Origin", "https://prod.foo.redhat.com")
 	if err != nil {
 		t.Fatal(err)
@@ -548,7 +548,7 @@ func TestMiddlewareHandlerCorsPart(t *testing.T) {
 func TestMiddlewareHandlerCors(t *testing.T) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	req, err := http.NewRequest("OPTIONS", oauth.AuthenticateRoutePath+"?state=eyJhbGciO", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "OPTIONS", oauth.AuthenticateRoutePath+"?state=eyJhbGciO", nil)
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "c")
 	req.Header.Set("Access-Control-Request-Headers", "authorization")
@@ -604,7 +604,7 @@ func TestBypassHandlerFollowBypass(t *testing.T) {
 	mainHandler := new(Counter)
 	bypassHandler := new(Counter)
 	testHandler := BypassHandler(mainHandler, []string{"/path1", "/path2"}, bypassHandler)
-	req, err := http.NewRequest("GET", "/path2", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/path2", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -621,7 +621,7 @@ func TestBypassHandlerNotFollowBypass(t *testing.T) {
 	mainHandler := new(Counter)
 	bypassHandler := new(Counter)
 	testHandler := BypassHandler(mainHandler, []string{"/path1", "/path2"}, bypassHandler)
-	req, err := http.NewRequest("POST", "/ping", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/ping", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

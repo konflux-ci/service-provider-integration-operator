@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package quay
 
 import (
@@ -561,6 +562,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 		failingLookup := lookupMock
 		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
 			return false, errors.New("intentional failure")
+
 		}}
 
 		quay := &Quay{

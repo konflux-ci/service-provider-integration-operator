@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package github
 
 import (
@@ -20,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
@@ -395,12 +395,12 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 						// the letter case is important here, http client is sensitive to this
 						"X-Oauth-Scopes": {"a, b, c, d"},
 					},
-					Body: ioutil.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
+					Body: io.NopCloser(bytes.NewBuffer([]byte(`{"id": 42, "login": "test_user"}`))),
 				}, nil
 			} else {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(githubRepoListResponse))),
+					Body:       io.NopCloser(bytes.NewBuffer([]byte(githubRepoListResponse))),
 				}, nil
 			}
 		}),
@@ -454,7 +454,7 @@ func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
 			} else {
 				return &http.Response{
 					StatusCode: 200,
-					Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(githubRepoListResponse))),
+					Body:       io.NopCloser(bytes.NewBuffer([]byte(githubRepoListResponse))),
 				}, nil
 			}
 		}),

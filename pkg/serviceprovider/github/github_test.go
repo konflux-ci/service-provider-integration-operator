@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113
 package github
 
 import (
@@ -30,7 +31,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -400,7 +400,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 			return &http.Response{
 				StatusCode: returnCode,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "error"}`))),
+				Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"message": "error"}`))),
 				Request:    r,
 			}, httpErr
 		}),
@@ -411,7 +411,7 @@ func mockGithub(cl client.Client, returnCode int, httpErr error, lookupError err
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"private": true}`))),
+				Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"private": true}`))),
 				Request:    r,
 			}, nil
 		}),
