@@ -40,7 +40,7 @@ func (m *BindingTargetObjectMarker) IsManagedBy(ctx context.Context, binding cli
 	return refed && obj.GetLabels()[ManagedByBindingLabel] == binding.Name, nil
 }
 
-// IsManaged implements dependents.ObjectMarker
+// IsManagedOther implements dependents.ObjectMarker
 func (m *BindingTargetObjectMarker) IsManagedByOther(ctx context.Context, binding client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error) {
 	managingValue, managingPresent := obj.GetLabels()[ManagedByBindingLabel]
 	if !managingPresent {
