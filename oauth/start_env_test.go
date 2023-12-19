@@ -17,6 +17,7 @@ package oauth
 import (
 	"context"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	kubernetes2 "github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
@@ -40,7 +41,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	k8szap "sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -79,26 +79,19 @@ func StartTestEnv() (struct {
 
 	ctx, IT.Cancel = context.WithCancel(context.TODO())
 
-	// The commented out sections below are from an attempt to use the envtest itself for our integration tests. This
-	// is not working because we need fully functional service accounts in the cluster which seem not to be the case
-	// in envtest even with the configuration modifications made below. It would be ideal if we COULD make this work
-	// somehow but for the time being, let's just require a configured connection to a running cluster instead.
-	// The commented-out sections are enclosed within [SELF_CONTAINED_TEST_ATTEMPT] [/SELF_CONTAINED_TEST_ATTEMPT].
 	By("bootstrapping test environment")
+
 	IT.TestEnvironment = &envtest.Environment{
-		UseExistingCluster: ptr.To(true),
-		//[SELF_CONTAINED_TEST_ATTEMPT]
-		//ControlPlane: envtest.ControlPlane{
-		//	APIServer: &envtest.APIServer{},
-		//},
-		//AttachControlPlaneOutput: true,
-		//[/SELF_CONTAINED_TEST_ATTEMPT]
+		ControlPlane: envtest.ControlPlane{
+			APIServer: &envtest.APIServer{},
+		},
+		AttachControlPlaneOutput: true,
+		CRDDirectoryPaths:        []string{filepath.Join("..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing:    true,
 	}
-	//[SELF_CONTAINED_TEST_ATTEMPT]
-	//IT.TestEnvironment.ControlPlane.APIServer.Configure().
-	//	// Test environment switches off the ServiceAccount plugin by default... we actually need that one...
-	//	Set("disable-admission-plugins", "")
-	//[/SELF_CONTAINED_TEST_ATTEMPT]
+	IT.TestEnvironment.ControlPlane.APIServer.Configure().
+		// Test environment switches off the ServiceAccount plugin by default... we actually need that one...
+		Set("disable-admission-plugins", "")
 
 	cfg, err := IT.TestEnvironment.Start()
 	Expect(err).NotTo(HaveOccurred())
@@ -147,43 +140,44 @@ func StartTestEnv() (struct {
 	Expect(IT.InClusterClient.Create(context.TODO(), ns)).To(Succeed())
 	IT.Namespace = ns.Name
 
-	//[SELF_CONTAINED_TEST_ATTEMPT]
-	//// create the default state - we need to manually create the default service account in the default namespace
-	//// this is done by the kube-controller-manger but we don't have one in our test environment...
-	//cl, err := kubernetes.NewForConfig(IT.TestEnvironment.Config)
-	//Expect(err).NotTo(HaveOccurred())
-	//
-	//sec, err := cl.CoreV1().Secrets("default").Create(context.TODO(), &corev1.Secret{
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name: "default-token",
-	//	},
-	//	Data: map[string][]byte{
-	//		"ca.crt": []byte{},
-	//		"namespace": []byte{},
-	//		"token": []byte{},
-	//	},
-	//}, metav1.CreateOptions{})
-	//sa, err := cl.CoreV1().ServiceAccounts("default").Create(context.TODO(), &corev1.ServiceAccount{
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name: "default",
-	//	},
-	//	Secrets: []corev1.ObjectReference{
-	//		{
-	//			Kind:            "Secret",
-	//			Namespace:       "default",
-	//			Name:            "default-token",
-	//			APIVersion:      "v1",
-	//		},
-	//	},
-	//}, metav1.CreateOptions{})
-	//Expect(err).NotTo(HaveOccurred())
-	//Expect(sa)
-	//
-	//sec.Annotations["kubernetes.io/service-account.name"] = "default"
-	//sec.Annotations["kubernetes.io/service-account.uid"] = string(sa.UID)
-	//
-	//sec, err = cl.CoreV1().Secrets("default").Update(context.TODO(), sec, metav1.UpdateOptions{})
-	//Expect(err).NotTo(HaveOccurred())
-	//[/SELF_CONTAINED_TEST_ATTEMPT]
+	// create the default state - we need to manually create the default service account in the default namespace
+	// this is done by the kube-controller-manger but we don't have one in our test environment...
+	cl, err := kubernetes.NewForConfig(IT.TestEnvironment.Config)
+	Expect(err).NotTo(HaveOccurred())
+
+	sec, err := cl.CoreV1().Secrets(IT.Namespace).Create(context.TODO(), &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-token",
+		},
+		Data: map[string][]byte{
+			"ca.crt":    {},
+			"namespace": {},
+			"token":     {},
+		},
+	}, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	sa, err := cl.CoreV1().ServiceAccounts(IT.Namespace).Create(context.TODO(), &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Kind:       "Secret",
+				Namespace:  "default",
+				Name:       "default-token",
+				APIVersion: "v1",
+			},
+		},
+	}, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(sa)
+	if sec.Annotations == nil {
+		sec.Annotations = make(map[string]string)
+	}
+	sec.Annotations["kubernetes.io/service-account.name"] = "default"
+	sec.Annotations["kubernetes.io/service-account.uid"] = string(sa.UID)
+
+	sec, err = cl.CoreV1().Secrets(IT.Namespace).Update(context.TODO(), sec, metav1.UpdateOptions{})
+	Expect(err).NotTo(HaveOccurred())
 	return IT, ctx
 }

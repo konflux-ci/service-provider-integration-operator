@@ -170,7 +170,6 @@ check: check_fmt lint test ## Check that the code conforms to all requirements f
 ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
 
 test: manifests generate envtest ## Run unit tests
-	$(K8S_CLI) apply -k ./config/crd
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate envtest ## Run only integration tests. Use make itest focus=... to focus Ginkgo only to certain tests
