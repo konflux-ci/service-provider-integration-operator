@@ -94,7 +94,7 @@ func parseWithEnv(cmdline string, env []string, dest interface{}) (*arg.Parser, 
 		}
 		err := os.Setenv(s[:pos], s[pos+1:])
 		if err != nil {
-			return nil, fmt.Errorf("error setting var: %w", err) 
+			return nil, fmt.Errorf("error setting var: %w", err)
 		}
 	}
 

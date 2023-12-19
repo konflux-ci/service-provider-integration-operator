@@ -249,7 +249,7 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 	})
 
 	uploaderUnauthorized := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-		return fmt.Errorf("mocking an invalid token: %w", errors.NewUnauthorized("not a valid token")) 
+		return fmt.Errorf("mocking an invalid token: %w", errors.NewUnauthorized("not a valid token"))
 	})
 
 	uploaderInternal := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
