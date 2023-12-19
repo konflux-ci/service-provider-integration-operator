@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package serviceprovider
 
 import (
@@ -32,7 +31,7 @@ var filterFalse = TokenFilterFunc(func(ctx context.Context, binding Matchable, t
 })
 
 var filterError = TokenFilterFunc(func(ctx context.Context, binding Matchable, token *api.SPIAccessToken) (bool, error) {
-	return false, fmt.Errorf("some error")
+	return false, fmt.Errorf("some error") //nolint:goerr113
 })
 
 func TestTokenFilterFunc_Matches(t *testing.T) {

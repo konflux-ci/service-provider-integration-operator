@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package gitlab
 
 import (
@@ -54,7 +53,7 @@ func TestGetFileHead(t *testing.T) {
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 
@@ -111,7 +110,7 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 
@@ -168,7 +167,7 @@ func TestGetFileOnBranch(t *testing.T) {
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 	ts := tokenstorage.TestTokenStorage{

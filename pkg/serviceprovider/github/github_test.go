@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package github
 
 import (
@@ -100,7 +99,7 @@ func TestCheckPublicRepo(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {
 		gh := Github{httpClient: httpClientMock{
 			doFunc: func(req *http.Request) (*http.Response, error) {
-				return nil, fmt.Errorf("error")
+				return nil, fmt.Errorf("error") //nolint:goerr113
 			},
 		}}
 		spiAccessCheck := &api.SPIAccessCheck{Spec: api.SPIAccessCheckSpec{RepoUrl: "test"}}
@@ -164,7 +163,7 @@ func TestCheckAccess(t *testing.T) {
 
 func TestFailWithGithubHttp(t *testing.T) {
 	cl := mockK8sClient()
-	gh := mockGithub(cl, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil)
+	gh := mockGithub(cl, http.StatusServiceUnavailable, fmt.Errorf("fail to talk to github api"), nil) //nolint:goerr113
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
@@ -231,7 +230,7 @@ func TestCheckAccessFailingLookupPublicRepo(t *testing.T) {
 			},
 		},
 	})
-	gh := mockGithub(cl, http.StatusOK, nil, errors.New("intentional failure"))
+	gh := mockGithub(cl, http.StatusOK, nil, errors.New("intentional failure")) //nolint:goerr113
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},
@@ -269,7 +268,7 @@ func TestCheckAccessFailingLookupNonPublicRepo(t *testing.T) {
 			},
 		},
 	})
-	gh := mockGithub(cl, http.StatusNotFound, nil, errors.New("intentional failure"))
+	gh := mockGithub(cl, http.StatusNotFound, nil, errors.New("intentional failure")) //nolint:goerr113
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: testValidRepoUrl},

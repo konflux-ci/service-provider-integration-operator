@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:wrapcheck,goerr113
+//nolint:wrapcheck
 package oauth
 
 import (
@@ -342,7 +342,7 @@ var _ = Describe("Controller", func() {
 							}, nil
 						}
 
-						return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+						return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 					}),
 				}
 
@@ -395,7 +395,7 @@ var _ = Describe("Controller", func() {
 							}, nil
 						}
 
-						return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+						return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 					}),
 				}
 

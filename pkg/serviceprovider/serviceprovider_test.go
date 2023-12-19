@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package serviceprovider
 
 import (
@@ -44,6 +43,8 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+var FailError = fmt.Errorf("fail")
 
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
@@ -232,7 +233,7 @@ func TestCreateHostCredentialsProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fial")
+					return nil, FailError
 				},
 			},
 		}
@@ -305,7 +306,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fail")
+					return nil, FailError
 				},
 			}}
 
@@ -382,7 +383,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ProbeFunc
 			}{
 				ProbeFunc: func(cl *http.Client, url string) (string, error) {
-					return "", fmt.Errorf("fail")
+					return "", FailError
 				},
 			},
 		}
@@ -431,7 +432,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fail")
+					return nil, FailError
 				},
 			},
 			Probe: struct {

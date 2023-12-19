@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package oauth
 
 import (
@@ -37,6 +36,8 @@ import (
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 )
+
+var StoreError = fmt.Errorf("failed to store the token data into storage")
 
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
@@ -244,15 +245,15 @@ func TestUploader_FailWithProperResponse(t *testing.T) {
 		return fmt.Errorf("mocking a token with forbidden access: %w", errors.NewForbidden(schema.GroupResource{
 			Group:    "testGroup",
 			Resource: "testSPIAccessToken",
-		}, tokenObjectName, fmt.Errorf("unauthorized")))
+		}, tokenObjectName, fmt.Errorf("unauthorized"))) //nolint:goerr113
 	})
 
 	uploaderUnauthorized := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-		return fmt.Errorf("mocking an invalid token: %w", errors.NewUnauthorized("not a valid token"))
+		return fmt.Errorf("mocking an invalid token: %w", errors.NewUnauthorized("not a valid token")) 
 	})
 
 	uploaderInternal := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
-		return fmt.Errorf("mocking internal unrelated error")
+		return fmt.Errorf("mocking internal unrelated error") //nolint:goerr113
 	})
 
 	testResponse := func(uploader UploadFunc, statusCode int, errorMsg string) {
@@ -439,7 +440,7 @@ func TestUploader_FailTokenNameParamValidation(t *testing.T) {
 func TestUploader_FailUploaderError(t *testing.T) {
 	uploader := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 
-		return fmt.Errorf("failed to store the token data into storage")
+		return StoreError
 	})
 
 	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token/jdoe/umbrella", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))
@@ -478,7 +479,7 @@ func TestUploader_FailUploaderError(t *testing.T) {
 func TestUploader_FailIncorrectHandlerConfiguration(t *testing.T) {
 	uploader := UploadFunc(func(ctx context.Context, tokenObjectName string, tokenObjectNamespace string, data *api.Token) error {
 
-		return fmt.Errorf("failed to store the token data into storage")
+		return StoreError
 	})
 
 	req, err := http.NewRequestWithContext(context.TODO(), "POST", "/token", bytes.NewBuffer([]byte(`{"access_token": "42"}`)))

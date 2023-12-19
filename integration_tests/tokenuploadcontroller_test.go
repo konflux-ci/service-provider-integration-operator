@@ -16,8 +16,6 @@
 package integrationtests
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
@@ -71,7 +69,7 @@ var _ = Describe("TokenUploadController", func() {
 				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
 
 				return err
-			}, 1*time.Minute, 1*time.Second).Should(Succeed(), "Token was not added to Storage")
+			}).Should(Succeed(), "Token was not added to Storage")
 
 			Eventually(func() bool {
 				// SPIAccessToken Updated
@@ -81,14 +79,14 @@ var _ = Describe("TokenUploadController", func() {
 				}
 
 				return accessToken.Status.TokenMetadata.UserId == "42" && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
-			}, 1*time.Minute, 1*time.Second).Should(BeTrue(), "SPIAccessToken was not updated")
+			}).Should(BeTrue(), "SPIAccessToken was not updated")
 
 			Eventually(func() error {
 				// And the secret deleted eventually
 				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})
 
 				return err
-			}, 1*time.Minute, 1*time.Second).ShouldNot(Succeed(), "Secret was not deleted eventually")
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 		})
 		It("creates new SPIAccessToken and updates its status", func() {
 			spiTokenName := "new-spitoken"
@@ -101,7 +99,7 @@ var _ = Describe("TokenUploadController", func() {
 				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
 
 				return err
-			}, 1*time.Minute, 1*time.Second).Should(Succeed(), "Token was not added to Storage")
+			}).Should(Succeed(), "Token was not added to Storage")
 
 			Eventually(func() bool {
 				// And new SPIAccessToken created and moved to Ready state...
@@ -111,14 +109,14 @@ var _ = Describe("TokenUploadController", func() {
 				}
 
 				return accessToken.Name == spiTokenName && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
-			}, 1*time.Minute, 1*time.Second).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
+			}).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
 
 			Eventually(func() error {
 				// And the secret deleted eventually
 				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})
 
 				return err
-			}, 1*time.Minute, 1*time.Second).ShouldNot(Succeed(), "Secret was not deleted eventually")
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 		})
 		It("fails creating SPIAccessToken b/c SPIAccessToken name is invalid", func() {
 			accessToken := api.SPIAccessToken{}
@@ -147,7 +145,7 @@ var _ = Describe("TokenUploadController", func() {
 				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
 
 				return err
-			}, 1*time.Minute, 1*time.Second).Should(Succeed(), "Token was not added to Storage")
+			}).Should(Succeed(), "Token was not added to Storage")
 
 			Eventually(func() bool {
 				// SPIAccessToken Updated
@@ -157,14 +155,14 @@ var _ = Describe("TokenUploadController", func() {
 				}
 
 				return accessToken.Status.TokenMetadata.UserId == "42" && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
-			}, 1*time.Minute, 1*time.Second).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
+			}).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
 
 			Eventually(func() error {
 				// And the secret deleted eventually
 				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})
 
 				return err
-			}, 1*time.Minute, 1*time.Second).ShouldNot(Succeed(), "Secret was not deleted eventually")
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 			Consistently(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "no-touching", Namespace: "default"}, &corev1.Secret{})).To(Succeed())
 			}, "1s").Should(Succeed())

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113
 package github
 
 import (
@@ -374,6 +373,7 @@ const githubRepoListResponse = `[
 ]
 `
 
+var NegativeNrError = errors.New("math: square root of negative number")
 var githubUserApiEndpoint *url.URL
 
 func init() {
@@ -446,7 +446,7 @@ func TestMetadataProvider_Fetch(t *testing.T) {
 }
 
 func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
-	expectedError := errors.New("math: square root of negative number")
+	expectedError := NegativeNrError
 	httpCl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL.String() == githubUserApiEndpoint.String() {
@@ -488,7 +488,7 @@ func TestMetadataProvider_Fetch_User_fail(t *testing.T) {
 }
 
 func TestMetadataProvider_FetchAll_fail(t *testing.T) {
-	expectedError := errors.New("math: square root of negative number")
+	expectedError := NegativeNrError
 	httpCl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if r.URL.String() == githubUserApiEndpoint.String() {
