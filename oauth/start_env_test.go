@@ -170,14 +170,13 @@ func StartTestEnv() (struct {
 		},
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(sa)
 	if sec.Annotations == nil {
 		sec.Annotations = make(map[string]string)
 	}
 	sec.Annotations["kubernetes.io/service-account.name"] = "default"
 	sec.Annotations["kubernetes.io/service-account.uid"] = string(sa.UID)
 
-	sec, err = cl.CoreV1().Secrets(IT.Namespace).Update(context.TODO(), sec, metav1.UpdateOptions{})
+	_, err = cl.CoreV1().Secrets(IT.Namespace).Update(context.TODO(), sec, metav1.UpdateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	return IT, ctx
 }
