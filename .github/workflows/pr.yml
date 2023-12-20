@@ -92,6 +92,7 @@ jobs:
   pact:
     name: Pact tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       GO_VERSION: '1.20'
       KIND_VERSION: '0.20.0'
@@ -143,6 +144,7 @@ jobs:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
         run: |
           set -x
+          make envtest
           cd pact
           go mod tidy
           make test-verbose
