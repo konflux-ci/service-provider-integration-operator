@@ -137,6 +137,7 @@ func StartTestEnv() (struct {
 			GenerateName: "spi-oauth-test-",
 		},
 	}
+
 	Expect(IT.InClusterClient.Create(context.TODO(), ns)).To(Succeed())
 	IT.Namespace = ns.Name
 
