@@ -17,6 +17,7 @@ package oauth
 import (
 	"context"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -80,13 +81,22 @@ func StartTestEnv() (struct {
 	ctx, IT.Cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
-
+	CRDDirectoryPath := filepath.Join("..", "config", "crd", "bases")
+	_, err = os.Stat(CRDDirectoryPath)
+	if err != nil && os.IsNotExist(err) {
+		CRDDirectoryPath = filepath.Join("..", CRDDirectoryPath)
+		_, err = os.Stat(CRDDirectoryPath)
+		if err != nil && os.IsNotExist(err) {
+			panic(err)
+		}
+	}
+	println("CRDDirectoryPath set to ", CRDDirectoryPath)
 	IT.TestEnvironment = &envtest.Environment{
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{},
 		},
 		AttachControlPlaneOutput: true,
-		CRDDirectoryPaths:        []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:        []string{CRDDirectoryPath},
 		ErrorIfCRDPathMissing:    true,
 	}
 	IT.TestEnvironment.ControlPlane.APIServer.Configure().
@@ -177,7 +187,7 @@ func StartTestEnv() (struct {
 	sec.Annotations["kubernetes.io/service-account.name"] = "default"
 	sec.Annotations["kubernetes.io/service-account.uid"] = string(sa.UID)
 
-	sec, err = cl.CoreV1().Secrets(IT.Namespace).Update(context.TODO(), sec, metav1.UpdateOptions{})
+	_, err = cl.CoreV1().Secrets(IT.Namespace).Update(context.TODO(), sec, metav1.UpdateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	return IT, ctx
 }
