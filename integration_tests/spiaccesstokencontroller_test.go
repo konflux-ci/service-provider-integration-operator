@@ -305,7 +305,7 @@ var _ = Describe("SPIAccessToken", func() {
 			}()
 
 			Eventually(func(g Gomega) bool {
-				return time.Now().Sub(createdBinding.CreationTimestamp.Time).Seconds() > 1
+				return time.Since(createdBinding.CreationTimestamp.Time).Seconds() > 1
 			}).Should(BeTrue())
 			//flip back to awaiting
 			ITest.TestServiceProvider.PersistMetadataImpl = serviceprovider.PersistConcreteMetadata(nil)
@@ -401,7 +401,7 @@ var _ = Describe("SPIAccessToken", func() {
 				It("flips to Invalid", func() {
 					ITest.TestServiceProvider.ValidateImpl = func(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 						return serviceprovider.ValidationResult{
-							ScopeValidation: []error{stderrors.New("nah")},
+							ScopeValidation: []error{stderrors.New("nah")}, //nolint:goerr113
 						}, nil
 					}
 

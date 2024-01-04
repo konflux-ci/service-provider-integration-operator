@@ -19,7 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -32,11 +32,12 @@ import (
 
 func TestGetFileHead(t *testing.T) {
 	githubReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": "abcdefg",
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -45,12 +46,12 @@ func TestGetFileHead(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 
@@ -87,11 +88,12 @@ func TestGetFileHead(t *testing.T) {
 
 func TestGetFileHeadGitSuffix(t *testing.T) {
 	githubReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": "abcdefg",
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -100,12 +102,12 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 
@@ -141,11 +143,12 @@ func TestGetFileHeadGitSuffix(t *testing.T) {
 
 func TestGetFileOnBranch(t *testing.T) {
 	githubReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": "abcdefg",
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -154,12 +157,12 @@ func TestGetFileOnBranch(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 	ts := tokenstorage.TestTokenStorage{
@@ -193,13 +196,13 @@ func TestGetFileOnBranch(t *testing.T) {
 }
 
 func TestGetFileOnCommitId(t *testing.T) {
-
 	githubReached := false
-	mockResponse, _ := json.Marshal(map[string]interface{}{
+	mockResponse, err := json.Marshal(map[string]interface{}{
 		"name":    "myfile",
 		"size":    582,
 		"content": "abcdefg",
 	})
+	assert.NoError(t, err)
 
 	client := &http.Client{
 		Transport: fakeRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -208,12 +211,12 @@ func TestGetFileOnCommitId(t *testing.T) {
 				return &http.Response{
 					StatusCode: 200,
 					Header:     http.Header{},
-					Body:       ioutil.NopCloser(bytes.NewBuffer(mockResponse)),
+					Body:       io.NopCloser(bytes.NewBuffer(mockResponse)),
 					Request:    r,
 				}, nil
 			}
 
-			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String())
+			return nil, fmt.Errorf("unexpected request to: %s", r.URL.String()) //nolint:goerr113
 		}),
 	}
 
@@ -255,7 +258,7 @@ func TestGetUnexistingFile(t *testing.T) {
 			return &http.Response{
 				StatusCode: 404,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(mockResponse))),
+				Body:       io.NopCloser(bytes.NewBuffer([]byte(mockResponse))),
 				Request:    r,
 			}, nil
 		}),

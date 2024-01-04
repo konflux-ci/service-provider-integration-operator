@@ -125,7 +125,7 @@ var _ = Describe("Environment", func() {
 			Eventually(func(g Gomega) {
 				rs := &rapi.RemoteSecret{}
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
-				g.Expect(len(rs.Spec.Targets)).To(Equal(1))
+				g.Expect(rs.Spec.Targets).To(HaveLen(1))
 				g.Expect(rs.Spec.Targets[0].Namespace).To(Equal("test-ns-1"))
 			}).Should(Succeed())
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Environment", func() {
 			Eventually(func(g Gomega) {
 				rs := &rapi.RemoteSecret{}
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.RemoteSecrets[0].Name, Namespace: testSetup.InCluster.RemoteSecrets[0].Namespace}, rs)).To(Succeed())
-				g.Expect(len(rs.Spec.Targets)).To(Equal(1))
+				g.Expect(rs.Spec.Targets).To(HaveLen(1))
 				g.Expect(rs.Spec.Targets[0].Namespace).To(Equal("test-ns-2"))
 			}).Should(Succeed())
 		})

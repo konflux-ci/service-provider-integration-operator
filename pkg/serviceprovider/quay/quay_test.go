@@ -50,6 +50,7 @@ import (
 )
 
 var testValidRepoUrl = config.ServiceProviderTypeQuay.DefaultBaseUrl + "/repository/redhat-appstudio/service-provider-integration-operator"
+var fatalError = fmt.Errorf("fatal failure")
 
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
@@ -287,7 +288,7 @@ func TestRequestRepoInfo(t *testing.T) {
 	}, http.StatusOK, map[string]interface{}{"blabol": "ano prosim"}, false)
 
 	test("error response", func(req *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusInternalServerError}, fmt.Errorf("fatal failure")
+		return &http.Response{StatusCode: http.StatusInternalServerError}, fatalError
 	}, http.StatusInternalServerError, nil, true)
 
 	test("no response no error", func(req *http.Request) (*http.Response, error) {
@@ -295,7 +296,7 @@ func TestRequestRepoInfo(t *testing.T) {
 	}, 0, nil, true)
 
 	test("no response yes error", func(req *http.Request) (*http.Response, error) {
-		return nil, fmt.Errorf("fatal failure")
+		return nil, fatalError
 	}, 0, nil, true)
 }
 
@@ -498,7 +499,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	t.Run("error on quay api request", func(t *testing.T) {
 		quay := &Quay{
 			httpClient: httpClientMock{doFunc: func(req *http.Request) (*http.Response, error) {
-				return nil, fmt.Errorf("some error")
+				return nil, fmt.Errorf("some error") //nolint:goerr113
 			}},
 			lookup:       lookupMock,
 			tokenStorage: ts,
@@ -534,7 +535,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	t.Run("lookup failed public", func(t *testing.T) {
 		failingLookup := lookupMock
 		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-			return false, errors.New("intentional failure")
+			return false, errors.New("intentional failure") //nolint:goerr113
 		}}
 
 		quay := &Quay{
@@ -560,7 +561,8 @@ func TestCheckRepositoryAccess(t *testing.T) {
 	t.Run("lookup failed nonpublic", func(t *testing.T) {
 		failingLookup := lookupMock
 		failingLookup.TokenFilter = tokenFilterMock{matchesFunc: func(ctx context.Context, matchable serviceprovider.Matchable, token *api.SPIAccessToken) (bool, error) {
-			return false, errors.New("intentional failure")
+			return false, errors.New("intentional failure") //nolint:goerr113
+
 		}}
 
 		quay := &Quay{

@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +27,9 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	err := config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	assert.NoError(t, err)
+
 	t.Run("all supported service providers are set", func(t *testing.T) {
 		configFileContent := `
 serviceProviders:
@@ -107,11 +108,13 @@ serviceProviders:
 type r struct{}
 
 func (r *r) Read(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("some error")
+	return 0, fmt.Errorf("some error") //nolint:goerr113
 }
 
 func TestBaseUrlIsTrimmed(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	err := config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	assert.NoError(t, err)
+
 	configFileContent := `
 serviceProviders:
 - type: GitHub
@@ -128,7 +131,9 @@ serviceProviders:
 }
 
 func TestBaseUrlIsValidated(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
+	err := config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: false})
+	assert.NoError(t, err)
+
 	t.Run("config is validated", func(t *testing.T) {
 
 		configFileContent := `
@@ -151,7 +156,7 @@ func createFile(t *testing.T, path string, content string) string {
 	file, err := os.CreateTemp(os.TempDir(), path)
 	assert.NoError(t, err)
 
-	assert.NoError(t, ioutil.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
+	assert.NoError(t, os.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
 
 	filePath, err := filepath.Abs(file.Name())
 	assert.NoError(t, err)

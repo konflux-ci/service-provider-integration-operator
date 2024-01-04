@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck
 package integrationtests
 
 import (
@@ -316,11 +317,10 @@ var _ = BeforeSuite(func() {
 }, 3600)
 
 func getRemoteCRDs() []*apiexv1.CustomResourceDefinition {
-	var ret []*apiexv1.CustomResourceDefinition
+	ret := make([]*apiexv1.CustomResourceDefinition, 0)
 	for _, remoteCRDUrl := range remoteCrdURLs {
 		log.Log.Info("Downloading CRD from " + remoteCRDUrl)
-		resp, err := http.Get(remoteCRDUrl)
-
+		resp, err := http.Get(remoteCRDUrl) //nolint:gosec,noctx
 		if err != nil {
 			log.Log.Error(err, "Unable to download CRD", "URL", remoteCRDUrl)
 			continue

@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:bodyclose // test purposes
 package oauth
 
 import (
@@ -47,7 +48,6 @@ func TestVeilSPIState(t *testing.T) {
 	assert.Equal(t, 1, len(res.Result().Cookies()))
 	assert.Equal(t, "session", res.Result().Cookies()[0].Name)
 	assert.NotEmpty(t, res.Result().Cookies()[0].Value)
-
 }
 func Test_FailToVeilIfStateIsEmpty(t *testing.T) {
 	//given

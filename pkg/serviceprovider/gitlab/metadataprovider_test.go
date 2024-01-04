@@ -131,7 +131,7 @@ func TestFetch_Success_PatScopes(t *testing.T) {
 }
 
 func TestFetch_Fail_User(t *testing.T) {
-	expectedError := errors.New("success is the progressive realization of a worthy ideal")
+	expectedError := errors.New("success is the progressive realization of a worthy ideal") //nolint:goerr113
 	httpCl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if strings.Contains(r.URL.String(), "/user") {
@@ -160,7 +160,7 @@ func TestFetch_Fail_User(t *testing.T) {
 }
 
 func TestFetch_Fail_Scopes(t *testing.T) {
-	expectedError := errors.New("be the change that you wish to see in the world")
+	expectedError := errors.New("be the change that you wish to see in the world") //nolint:goerr113
 	httpCl := &http.Client{
 		Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 			if strings.Contains(r.URL.String(), "/user") {

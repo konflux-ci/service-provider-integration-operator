@@ -53,7 +53,7 @@ func Test_R2(t *testing.T) {
 	}))
 
 	fn := func() (int, error) {
-		return 42, errors.New("yay")
+		return 42, errors.New("yay") //nolint:goerr113
 	}
 
 	assert.False(t, recorderCalled)
@@ -76,7 +76,7 @@ func Test_R3(t *testing.T) {
 	}))
 
 	fn := func() (int, int, error) {
-		return 42, 43, errors.New("yay")
+		return 42, 43, errors.New("yay") //nolint:goerr113
 	}
 
 	assert.False(t, recorderCalled)
@@ -101,7 +101,7 @@ func Test_R4(t *testing.T) {
 	}))
 
 	fn := func() (int, int, string, error) {
-		return 42, 43, "kachny", errors.New("yay")
+		return 42, 43, "kachny", errors.New("yay") //nolint:goerr113
 	}
 
 	assert.False(t, recorderCalled)
@@ -129,7 +129,7 @@ func Test_R5(t *testing.T) {
 
 	fn := func() (int, int, string, *bool, error) {
 		b := true
-		return 42, 43, "kachny", &b, errors.New("yay")
+		return 42, 43, "kachny", &b, errors.New("yay") //nolint:goerr113
 	}
 
 	assert.False(t, recorderCalled)

@@ -177,7 +177,7 @@ func TestFindController(t *testing.T) {
 		})
 		assert.NoError(t, stateErr)
 
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		testReq, reqErr := http.NewRequestWithContext(context.TODO(), http.MethodGet, "http://test", nil)
 		assert.NoError(t, reqErr)
 		testReq.Form = url.Values{"state": []string{statestring}}
 
@@ -194,7 +194,7 @@ func TestFindController(t *testing.T) {
 		})
 		assert.NoError(t, stateErr)
 
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		testReq, reqErr := http.NewRequestWithContext(context.TODO(), http.MethodGet, "http://test", nil)
 		assert.NoError(t, reqErr)
 		testReq.Form = url.Values{"state": []string{stateString}}
 
@@ -206,7 +206,7 @@ func TestFindController(t *testing.T) {
 	})
 
 	t.Run("fail with empty request", func(t *testing.T) {
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		testReq, reqErr := http.NewRequestWithContext(context.TODO(), http.MethodGet, "http://test", nil)
 		assert.NoError(t, reqErr)
 
 		controller, state, err := router.findController(testReq, false)
@@ -217,7 +217,7 @@ func TestFindController(t *testing.T) {
 	})
 
 	t.Run("fail with empty request veiled", func(t *testing.T) {
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		testReq, reqErr := http.NewRequestWithContext(context.TODO(), http.MethodGet, "http://test", nil)
 		assert.NoError(t, reqErr)
 
 		controller, state, err := router.findController(testReq, true)
@@ -234,7 +234,7 @@ func TestFindController(t *testing.T) {
 		})
 		assert.NoError(t, stateErr)
 
-		testReq, reqErr := http.NewRequest(http.MethodGet, "http://test", nil)
+		testReq, reqErr := http.NewRequestWithContext(context.TODO(), http.MethodGet, "http://test", nil)
 		assert.NoError(t, reqErr)
 		testReq.Form = url.Values{"state": []string{statestring}}
 
@@ -257,7 +257,7 @@ func TestCallbackRoute(t *testing.T) {
 		router, _ := NewTestRouter(SimpleStateStorage{vailState: "abcde", state: encoded, vailAt: time.Now()}, map[config.ServiceProviderName]Controller{
 			config.ServiceProviderTypeGitHub.Name: NopController{},
 		})
-		req, _ := http.NewRequest("GET", "callback?state=abcde", nil)
+		req, _ := http.NewRequestWithContext(context.TODO(), "GET", "callback?state=abcde", nil)
 		rr := httptest.NewRecorder()
 
 		router.Callback().ServeHTTP(rr, req)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck
 package integrationtests
 
 import (
@@ -62,32 +63,60 @@ var _ = Describe("TokenUploadController", func() {
 			accessToken := api.SPIAccessToken{}
 			Expect(testSetup.InCluster.Tokens[0].Status.Phase).ToNot(Equal(api.SPIAccessTokenPhaseReady))
 			createSecret("test-token", testSetup.InCluster.Tokens[0].Name, "")
-			Eventually(func(g Gomega) {
+
+			Eventually(func() error {
 				// Token added to Storage...
-				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
-				// And SPIAccessToken updated...
-				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
-				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId).To(Equal("42"))
-				// The secret should be deleted
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{}).Error())
-			})
+				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
+
+				return err
+			}).Should(Succeed(), "Token was not added to Storage")
+
+			Eventually(func() bool {
+				// SPIAccessToken Updated
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.Tokens[0].Name, Namespace: "default"}, &accessToken)
+				if err != nil {
+					return false
+				}
+
+				return accessToken.Status.TokenMetadata.UserId == "42" && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
+			}).Should(BeTrue(), "SPIAccessToken was not updated")
+
+			Eventually(func() error {
+				// And the secret deleted eventually
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})
+
+				return err
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 		})
 		It("creates new SPIAccessToken and updates its status", func() {
 			spiTokenName := "new-spitoken"
 			accessToken := api.SPIAccessToken{}
-			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).Error()
+			Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).ShouldNot(Succeed())
 			createSecret("test-token2", spiTokenName, testSetup.InCluster.Tokens[0].Spec.ServiceProviderUrl)
 
-			Eventually(func(g Gomega) {
+			Eventually(func() error {
 				// Token added to Storage...
-				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
+				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
+
+				return err
+			}).Should(Succeed(), "Token was not added to Storage")
+
+			Eventually(func() bool {
 				// And new SPIAccessToken created and moved to Ready state...
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)).To(Succeed())
-				g.Expect(accessToken.Name).To(Equal(spiTokenName))
-				g.Expect(accessToken.Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: spiTokenName, Namespace: "default"}, &accessToken)
+				if err != nil {
+					return false
+				}
+
+				return accessToken.Name == spiTokenName && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
+			}).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
+
+			Eventually(func() error {
 				// And the secret deleted eventually
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})).Error()
-			})
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token2", Namespace: "default"}, &corev1.Secret{})
+
+				return err
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 		})
 		It("fails creating SPIAccessToken b/c SPIAccessToken name is invalid", func() {
 			accessToken := api.SPIAccessToken{}
@@ -111,15 +140,29 @@ var _ = Describe("TokenUploadController", func() {
 			}
 			Expect(ITest.Client.Create(ITest.Context, noTouchSecret)).To(Succeed())
 
-			Eventually(func(g Gomega) {
+			Eventually(func() error {
 				// Token added to Storage...
-				g.Expect(ITest.TokenStorage.Get(ITest.Context, &accessToken)).To(Succeed())
-				// And SPIAccessToken updated...
-				g.Expect(testSetup.InCluster.Tokens[0].Status.Phase).To(Equal(api.SPIAccessTokenPhaseReady))
-				g.Expect(testSetup.InCluster.Tokens[0].Status.TokenMetadata.UserId).To(Equal("42"))
-				// The secret should be deleted
-				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})).NotTo(Succeed())
-			})
+				_, err := ITest.TokenStorage.Get(ITest.Context, &accessToken)
+
+				return err
+			}).Should(Succeed(), "Token was not added to Storage")
+
+			Eventually(func() bool {
+				// SPIAccessToken Updated
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: testSetup.InCluster.Tokens[0].Name, Namespace: "default"}, &accessToken)
+				if err != nil {
+					return false
+				}
+
+				return accessToken.Status.TokenMetadata.UserId == "42" && accessToken.Status.Phase == api.SPIAccessTokenPhaseReady
+			}).Should(BeTrue(), "SPIAccessToken was not created and moved to Ready state")
+
+			Eventually(func() error {
+				// And the secret deleted eventually
+				err := ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "test-token", Namespace: "default"}, &corev1.Secret{})
+
+				return err
+			}).ShouldNot(Succeed(), "Secret was not deleted eventually")
 			Consistently(func(g Gomega) {
 				g.Expect(ITest.Client.Get(ITest.Context, types.NamespacedName{Name: "no-touching", Namespace: "default"}, &corev1.Secret{})).To(Succeed())
 			}, "1s").Should(Succeed())

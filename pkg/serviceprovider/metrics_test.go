@@ -61,7 +61,7 @@ func TestRequestMetricsConfig(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://test.url/some/path", strings.NewReader(""))
 		assert.NoError(t, err)
 
-		_, _ = cl.Do(req)
+		_, _ = cl.Do(req) //nolint:bodyclose
 
 		mfs, err := registry.Gather()
 		assert.NoError(t, err)
@@ -97,7 +97,7 @@ func TestRequestMetricsConfig(t *testing.T) {
 
 	t.Run("collects unsuccessful requests", func(t *testing.T) {
 		test(t, func(r *http.Request) (*http.Response, error) {
-			return nil, errors.New("intentional request error")
+			return nil, errors.New("intentional request error") //nolint:goerr113
 		}, map[string]string{"sp": "test", "hostname": "test.url", "method": "GET", "failure": "true", "operation": "testOp"})
 	})
 }

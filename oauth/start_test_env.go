@@ -180,7 +180,6 @@ func StartTestEnv() (struct {
 		},
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(sa)
 	if sec.Annotations == nil {
 		sec.Annotations = make(map[string]string)
 	}

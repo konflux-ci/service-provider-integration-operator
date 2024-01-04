@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck
 package integrationtests
 
 import (
@@ -283,7 +284,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 					} else if strings.HasSuffix(binding.Spec.RepoUrl, "other") {
 						return []api.SPIAccessToken{*otherToken}, nil
 					} else {
-						return nil, fmt.Errorf("request for invalid test token")
+						return nil, fmt.Errorf("request for invalid test token") //nolint:goerr113
 					}
 				}
 
@@ -719,7 +720,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			It("should flip to error state", func() {
 				ITest.TestServiceProvider.ValidateImpl = func(ctx context.Context, validated serviceprovider.Validated) (serviceprovider.ValidationResult, error) {
 					return serviceprovider.ValidationResult{
-						ScopeValidation: []error{stderrors.New("nope")},
+						ScopeValidation: []error{stderrors.New("nope")}, //nolint:goerr113
 					}, nil
 				}
 
@@ -856,6 +857,7 @@ var _ = Describe("SPIAccessTokenBinding", func() {
 			deleted := []client.ObjectKey{}
 
 			for _, sa := range sas.Items {
+				sa := sa
 				err := ITest.Client.Delete(ITest.Context, &sa)
 
 				if err != nil && !errors.IsNotFound(err) {

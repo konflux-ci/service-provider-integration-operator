@@ -17,7 +17,7 @@ package github
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -105,7 +105,7 @@ func TestAllAccessibleRepos_failFetchAll(t *testing.T) {
 			return &http.Response{
 				StatusCode: 401,
 				Header:     http.Header{},
-				Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"message": "This endpoint requires authentication."}`))),
+				Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"message": "This endpoint requires authentication."}`))),
 				Request:    r,
 			}, nil
 		}),

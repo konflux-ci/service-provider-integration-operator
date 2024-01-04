@@ -128,7 +128,7 @@ func TestOAuthScopesFor(t *testing.T) {
 
 func TestIsPublicRepo(t *testing.T) {
 	t.Run("http request fails", func(t *testing.T) {
-		expectedError := errors.New("expected error")
+		expectedError := errors.New("expected error") //nolint:goerr113
 		gitlab := Gitlab{httpClient: &http.Client{
 			Transport: util.FakeRoundTrip(func(r *http.Request) (*http.Response, error) {
 				return nil, expectedError
@@ -184,7 +184,7 @@ func TestCheckRepositoryAccess(t *testing.T) {
 
 func TestCheckRepositoryAccess_FailWithGithubHttp(t *testing.T) {
 	k8sClient := mockK8sClientWithToken()
-	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, http.StatusServiceUnavailable, "", fmt.Errorf("fail to talk to github api"), nil)
+	gitlab := mockGitlab(k8sClient, http.StatusServiceUnavailable, http.StatusServiceUnavailable, "", fmt.Errorf("fail to talk to github api"), nil) //nolint:goerr113
 
 	ac := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -215,7 +215,7 @@ func TestCheckRepositoryAccess_Private(t *testing.T) {
 
 func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 	k8sClient := mockK8sClientWithToken()
-	gitlab := mockGitlab(k8sClient, http.StatusOK, http.StatusOK, "", nil, errors.New("expected error"))
+	gitlab := mockGitlab(k8sClient, http.StatusOK, http.StatusOK, "", nil, errors.New("expected error")) //nolint:goerr113
 
 	accessCheck := api.SPIAccessCheck{
 		Spec: api.SPIAccessCheckSpec{RepoUrl: config.ServiceProviderTypeGitLab.DefaultBaseUrl + "/namespace/repo"},
@@ -234,7 +234,7 @@ func TestCheckRepositoryAccess_LookupFailing_With_PublicRepo(t *testing.T) {
 
 func TestCheckRepositoryAccess_LookupFailing_With_PrivateRepo(t *testing.T) {
 	k8sClient := mockK8sClientWithToken()
-	expectedError := errors.New("expected error")
+	expectedError := errors.New("expected error") //nolint:goerr113
 	gitlab := mockGitlab(k8sClient, http.StatusNotFound, http.StatusNotFound, "", nil, expectedError)
 
 	accessCheck := api.SPIAccessCheck{
