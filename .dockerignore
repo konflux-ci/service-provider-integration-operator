@@ -2,3 +2,4 @@
 # Ignore build and test binaries.
 bin/
 testbin/
+oauth/start_test_env.go
