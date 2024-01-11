@@ -29,7 +29,7 @@ type gitlabRepoUrlMatcher struct {
 }
 
 func newRepoUrlMatcher(baseUrl string) (gitlabRepoUrlMatcher, error) {
-	regex, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(baseUrl) + `/(?P<owner>[^/]+)/(?P<project>[^/]+)(/|(.git)?)$`)
+	regex, err := regexp.Compile(`(?Um)^` + regexp.QuoteMeta(baseUrl) + `/(?P<owner>[^/]+)/(?P<project>[^.]+[^/])(.git){0,1}(/){0,1}$`)
 	if err != nil {
 		return gitlabRepoUrlMatcher{}, fmt.Errorf("compliling repoUrl matching regexp for GitLab baseUrl %s failed with error: %w", baseUrl, err)
 	}
