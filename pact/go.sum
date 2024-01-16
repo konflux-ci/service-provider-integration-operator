@@ -637,8 +637,8 @@ github.com/openshift/api v0.0.0-20220912161038-458ad9ca9ca5 h1:M42Vl3QcuzhX4IgRN
 github.com/openshift/api v0.0.0-20220912161038-458ad9ca9ca5/go.mod h1:LEnw1IVscIxyDnltE3Wi7bQb/QzIM8BfPNKoGA1Qlxw=
 github.com/openshift/build-machinery-go v0.0.0-20211213093930-7e33a7eb4ce3/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/oracle/oci-go-sdk/v56 v56.1.0 h1:HOr9P+MkwgrilEGTJCU7a6GMFrUG/RZAzvh/2JeRXvI=
-github.com/pact-foundation/pact-go/v2 v2.0.2 h1:bv1umDHG7b+dggreD9OXenABi5GNIAPZ3hjFvf6aAuc=
-github.com/pact-foundation/pact-go/v2 v2.0.2/go.mod h1:opVM068i6ChOwke/1x9guppuRbIMM7vl6Z+TEGCfW6k=
+github.com/pact-foundation/pact-go/v2 v2.0.1 h1:y3VdHg0nPIADN6OfymhZ3LRvGAzpgA6nFoF0hL+TdTA=
+github.com/pact-foundation/pact-go/v2 v2.0.1/go.mod h1:y8gF0j+X2sKd2wyyXeZn0AW0JtHeki+1Rmpu8hl0ytw=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

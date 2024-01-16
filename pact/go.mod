@@ -8,8 +8,8 @@ require (
 	github.com/alexedwards/scs/v2 v2.7.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.30.0
-	github.com/pact-foundation/pact-go/v2 v2.0.2
 	github.com/redhat-appstudio/remote-secret v0.0.0-20240103070316-c146261dd544
+	github.com/pact-foundation/pact-go/v2 v2.0.1
 	github.com/redhat-appstudio/service-provider-integration-operator v0.0.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
