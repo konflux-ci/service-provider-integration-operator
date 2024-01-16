@@ -13,8 +13,6 @@ name: Code Coverage Report
 on: [push]
 env:
   GO_VERSION: '1.20'
-  KIND_VERSION: '0.20.0'
-  K8S_VERSION: '1.26.x'
   GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
 jobs:
   build-and-deploy:
@@ -28,20 +26,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "${{ env.GO_VERSION }}"
-      - name: Setup KinD
-        uses: chainguard-dev/actions/setup-kind@main
-        with:
-          k8s-version: ${{ env.K8S_VERSION }}
-          kind-version: ${{ env.KIND_VERSION }}
       - name: Run Go Tests
         run: |
           make test
-      - uses: chainguard-dev/actions/kind-diag@main
-        # Only upload logs on failure.
-        if: ${{ failure() }}
-        with:
-          cluster-resources: nodes,namespaces,
-          namespace-resources: configmaps,pods,svc
-          artifact-name: kind-logs
       - name: Codecov
         uses: codecov/codecov-action@v3

@@ -10,7 +10,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 # Main target that sets up the environment, install SPI and executes Pact contract tests.
 # This target should be used within a package. For running tests from root, use root target `pact`.
 test: 
-	$(MAKE) -C ../ -f Makefile manifests generate envtest install
+	$(MAKE) -C ../ -f Makefile manifests generate envtest
 	$(MAKE) test-pact
 
 # This target executes Pact contract tests. It expects the setup to be done before.
@@ -22,5 +22,5 @@ test-pact:
 # This target sets up the environment, install SPI and runs Pact contract tests in a verbose mode.
 test-verbose:
 	echo "Running tests in verbose mode"
-	$(MAKE)  -C ../ -f Makefile manifests generate envtest install
+	$(MAKE)  -C ../ -f Makefile manifests generate envtest
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" PACT_BROKER_URL=${PACT_BROKER_URL} go test ./... -count=1 -v
