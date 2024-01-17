@@ -31,7 +31,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/alexflint/go-arg"
+	arg "github.com/alexflint/go-arg"
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -116,7 +116,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), &args.CommonCliArgs.CommonCliArgs)
+	secretStorage, err := rcmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), mgr.GetAPIReader(), &args.CommonCliArgs.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
