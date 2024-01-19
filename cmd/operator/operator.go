@@ -31,7 +31,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	arg "github.com/alexflint/go-arg"
+	"github.com/alexflint/go-arg"
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
