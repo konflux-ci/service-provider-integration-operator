@@ -2,7 +2,7 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 
 go 1.20
 
-replace github.com/redhat-appstudio/remote-secret => github.com/mmulholla/remote-secret v0.0.0-20240117161438-7b2f11171dc7
+replace github.com/redhat-appstudio/remote-secret => github.com/mmulholla/remote-secret v0.0.0-20240119095619-204db3f1a852
 
 require (
 	github.com/alexedwards/scs/v2 v2.7.0
@@ -49,7 +49,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.26.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.26.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.18.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.26.7 // indirect
