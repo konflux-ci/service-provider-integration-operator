@@ -29,14 +29,14 @@ import (
 	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	scs "github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/v2"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/alexedwards/scs/v2/memstore"
-	arg "github.com/alexflint/go-arg"
+	"github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
