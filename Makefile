@@ -180,7 +180,7 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 	$(shell touch ./debug.out)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests/... -- -test.v -test.run=TestSuite -ginkgo.focus="${focus}" -ginkgo.progress
 
-pact: manifests generate envtest install ## Run unit tests
+pact: manifests generate envtest  ## Run unit tests
 	make -C pact -f Makefile test-pact
 
 ##@ Build
