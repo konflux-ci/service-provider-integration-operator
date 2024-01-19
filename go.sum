@@ -309,8 +309,8 @@ github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh
 github.com/mitchellh/mapstructure v1.4.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
-github.com/mmulholla/remote-secret v0.0.0-20240119095619-204db3f1a852 h1:xW0FnlgPHnlW28+HgoHxXncvUOVzU06VS44V5eyNESA=
-github.com/mmulholla/remote-secret v0.0.0-20240119095619-204db3f1a852/go.mod h1:EEWBsPsw67zUMTk+vpMf/a0IyQTNWaobgzOXdfRsdjE=
+github.com/mmulholla/remote-secret v0.0.0-20240119124529-f5ab55ec6932 h1:LCjdR/8zzPArGESA7+1pZv2i9WWnWKHGGTAUVvmIqYw=
+github.com/mmulholla/remote-secret v0.0.0-20240119124529-f5ab55ec6932/go.mod h1:EEWBsPsw67zUMTk+vpMf/a0IyQTNWaobgzOXdfRsdjE=
 github.com/moby/spdystream v0.2.0/go.mod h1:f7i0iNDQJ059oMTcWxx8MA/zKFIuD/lY+0GqbN2Wy8c=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=

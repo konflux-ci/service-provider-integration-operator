@@ -2,7 +2,7 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 
 go 1.20
 
-replace github.com/redhat-appstudio/remote-secret => github.com/mmulholla/remote-secret v0.0.0-20240119095619-204db3f1a852
+replace github.com/redhat-appstudio/remote-secret => github.com/mmulholla/remote-secret v0.0.0-20240119124529-f5ab55ec6932
 
 require (
 	github.com/alexedwards/scs/v2 v2.7.0
