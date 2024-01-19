@@ -9,7 +9,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.30.0
 	github.com/pact-foundation/pact-go/v2 v2.0.2
-	github.com/redhat-appstudio/remote-secret v0.0.0-20240103070316-c146261dd544
+	github.com/redhat-appstudio/remote-secret v0.0.0-20240119063751-dbad89ab926c
 	github.com/redhat-appstudio/service-provider-integration-operator v0.0.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
@@ -33,7 +33,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.26.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.26.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.18.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.26.7 // indirect
