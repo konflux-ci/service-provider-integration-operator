@@ -71,6 +71,11 @@ func (s *NotifyingSecretStorage) Store(ctx context.Context, id secretstorage.Sec
 	return s.createDataUpdate(ctx, id)
 }
 
+// Examine implements SecretStorage, it is a noop.
+func (s *NotifyingSecretStorage) Examine(ctc context.Context) error {
+	return nil
+}
+
 func (s *NotifyingSecretStorage) createDataUpdate(ctx context.Context, id secretstorage.SecretID) error {
 	update := &api.SPIAccessTokenDataUpdate{
 		ObjectMeta: metav1.ObjectMeta{
