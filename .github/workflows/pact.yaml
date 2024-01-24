@@ -30,7 +30,9 @@ jobs:
     timeout-minutes: 30
     env:
       GO_VERSION: '1.20'
-      PR_CHECK: 'true'
+      PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+      PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+      PROVIDER_BRANCH: "main"
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -75,4 +77,5 @@ jobs:
           make envtest
           cd pact
           go mod tidy
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
           make test-verbose
