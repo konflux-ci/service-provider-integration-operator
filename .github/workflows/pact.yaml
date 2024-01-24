@@ -19,6 +19,10 @@ on:
   push:
     branches:
       - main
+  # will be removed, just for testing in a PR
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   publish:
