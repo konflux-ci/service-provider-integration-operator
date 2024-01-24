@@ -5,6 +5,4 @@ resources:
   - ../../default
 
 patches:
-  - path: operator-vault-patch.yaml
-  - path: oauth-vault-patch.yaml
   - path: shared-config-patch.yaml
