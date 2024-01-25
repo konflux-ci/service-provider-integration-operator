@@ -45,6 +45,11 @@ jobs:
             git --no-pager diff
             exit 1
           fi
+      - name: Install Pact
+        run: |
+          go get github.com/pact-foundation/pact-go/v2@2.x.x
+          go install github.com/pact-foundation/pact-go/v2@2.x.x
+          sudo /home/runner/go/bin/pact-go -l DEBUG install 
       - name: Check format
         run: |
           go install github.com/google/addlicense@latest
@@ -71,6 +76,7 @@ jobs:
       - name: Run Go Tests
         env:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
+          SKIP_PACT_TESTS: "true"
         run: |
           make test
       - name: Codecov
@@ -122,11 +128,7 @@ jobs:
         env:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
         run: |
-          set -x
-          make envtest
-          cd pact
-          go mod tidy
-          make test-verbose
+          make pact
   docker-controller:
     name: Check controller docker image build
     runs-on: ubuntu-latest

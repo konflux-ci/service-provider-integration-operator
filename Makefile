@@ -170,7 +170,7 @@ check: check_fmt lint test ## Check that the code conforms to all requirements f
 ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
 
 test: manifests generate envtest ## Run unit tests
-	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
+	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" SKIP_PACT_TESTS="true" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate envtest ## Run only integration tests. Use make itest focus=... to focus Ginkgo only to certain tests
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v ./integration_tests/... -ginkgo.focus="${focus}" -ginkgo.progress 
@@ -180,8 +180,11 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 	$(shell touch ./debug.out)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests/... -- -test.v -test.run=TestSuite -ginkgo.focus="${focus}" -ginkgo.progress
 
-pact: manifests generate envtest  ## Run unit tests
-	make -C pact -f Makefile test-pact
+ifeq (,$(shell go env PACT_BROKER_URL))
+PACT_BROKER_URL="https://pact-broker-hac-pact-broker.apps.hac-devsandbox.5unc.p1.openshiftapps.com"
+endif
+pact: manifests generate envtest  ## Run pact tests
+	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" PACT_BROKER_URL=${PACT_BROKER_URL} go test ./pact -count=1 -v --run TestContracts 
 
 ##@ Build
 

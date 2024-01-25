@@ -11,6 +11,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.20"
+      - name: Install Pact
+        run: |
+          go get github.com/pact-foundation/pact-go/v2@2.x.x
+          go install github.com/pact-foundation/pact-go/v2@2.x.x
+          sudo /home/runner/go/bin/pact-go -l DEBUG install 
+          go mod tidy
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:

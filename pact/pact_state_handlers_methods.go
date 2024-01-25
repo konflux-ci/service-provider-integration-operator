@@ -49,8 +49,6 @@ var IT = struct {
 	SessionManager  *scs.SessionManager
 }{}
 
-var ctx context.Context
-
 const timeout = 10 * time.Second
 const interval = 250 * time.Millisecond
 

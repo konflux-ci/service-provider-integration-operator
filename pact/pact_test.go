@@ -20,13 +20,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/pact-foundation/pact-go/v2/provider"
+	"github.com/pkg/errors"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,12 +35,19 @@ import (
 )
 
 func TestContracts(t *testing.T) {
+	// Skip tests if "SKIP_PACT_TESTS" env var is set
+	// or if the unit tests are running during PR check job
+	if os.Getenv("SKIP_PACT_TESTS") == "true" {
+		t.Skip("Skipping Pact tests.")
+	}
 	// Register fail handler and setup test environment (same as during unit tests)
 	RegisterFailHandler(Fail)
-	IT, ctx = oauth.StartTestEnv()
+	IT, _ = oauth.StartTestEnv()
 
 	// Create and setup Pact Verifier
 	verifyRequest := createVerifier(t)
+	println("PACT_BROKER_URL: ", verifyRequest.BrokerURL)
+	println("PACT_BROKER_URL from env: ", os.Getenv("PACT_BROKER_URL"))
 
 	// Run pact tests
 	err := provider.NewVerifier().VerifyProvider(t, verifyRequest)
@@ -133,12 +140,12 @@ func createTlsConfig() *tls.Config {
 		if err != nil {
 			panic(err)
 		}
-		certPEM, err := ioutil.ReadFile(IT.TestEnvironment.Config.CertFile)
+		certPEM, err := os.ReadFile(IT.TestEnvironment.Config.CertFile)
 		if err != nil {
 			fmt.Println("Error reading certificate file:", err)
 			panic(err)
 		}
-		keyPEM, err := ioutil.ReadFile(IT.TestEnvironment.Config.KeyFile)
+		keyPEM, err := os.ReadFile(IT.TestEnvironment.Config.KeyFile)
 		if err != nil {
 			fmt.Println("Error reading private key file:", err)
 			panic(err)
@@ -153,28 +160,26 @@ func createTlsConfig() *tls.Config {
 	return &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{certs},
+		MinVersion:   tls.VersionTLS13,
 	}
 }
 
 func loadCertFromFile(certFile string) (*x509.Certificate, error) {
-	certPEM, err := ioutil.ReadFile(certFile)
+	certPEM, err := os.ReadFile(certFile)
 	if err != nil {
-		fmt.Println("Error reading certificate file:", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Error reading certificate file:")
 	}
 
 	// Parse the PEM-encoded certificate
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
-		fmt.Println("Failed to decode PEM block")
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to decode PEM block")
 	}
 
 	// Parse the certificate
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		fmt.Println("Error parsing certificate:", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Error parsing certificate")
 	}
 
 	return cert, nil

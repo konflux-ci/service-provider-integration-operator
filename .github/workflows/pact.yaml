@@ -70,8 +70,5 @@ jobs:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
         run: |
           set -x
-          make envtest
-          cd pact
-          go mod tidy
           export COMMIT_SHA=$(git rev-parse --short HEAD)
-          make test-verbose
+          make pact
