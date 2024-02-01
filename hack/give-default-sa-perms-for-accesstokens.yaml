@@ -17,6 +17,7 @@ rules:
       - spiaccesstokens
       - spiaccesstokendataupdates
   - verbs:
+      - read
       - create
       - update
     apiGroups:
@@ -33,5 +34,5 @@ roleRef:
   kind: Role
   name: accesstokens-for-default-sa
 subjects:
-  - kind: ServiceAccount
-    name: default
+  - kind: User
+    name: user1

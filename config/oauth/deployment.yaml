@@ -37,13 +37,15 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8000
+              port: https
+              scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /ready
-              port: 8000
+              port: https
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
@@ -58,6 +60,14 @@ spec:
             name: config-file
             readOnly: true
             subPath: config.yaml
+          - mountPath: /etc/spi/tls.key
+            name: tls-certificates
+            readOnly: true
+            subPath: tls.key
+          - mountPath: /etc/spi/tls.crt
+            name: tls-certificates
+            readOnly: true
+            subPath: tls.crt
         - name: kube-rbac-proxy
           image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.0
           args:
@@ -94,3 +104,11 @@ spec:
           items:
             - key: config.yaml
               path: config.yaml
+      - name: tls-certificates
+        secret:
+          secretName: spi-oauth-service
+          items:
+            - key: tls.key
+              path: tls.key
+            - key: tls.crt
+              path: tls.crt

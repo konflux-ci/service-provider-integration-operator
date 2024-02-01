@@ -26,17 +26,16 @@ import (
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/alexedwards/scs/v2"
+	scs "github.com/alexedwards/scs/v2"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/alexflint/go-arg"
+	arg "github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
@@ -179,18 +178,19 @@ func main() {
 		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, strings.Split(args.AllowedOrigins, ","), router)),
 	}
 
-	if args.DisableHTTP2 {
-		setupLog.Info("Disabling HTTP/2")
-		server.TLSConfig = cmd.TLSConfigWithDisabledHTTP2
-	}
+	// if args.DisableHTTP2 {
+	//	setupLog.Info("Disabling HTTP/2")
+	//	server.TLSConfig = cmd.TLSConfigWithDisabledHTTP2
+	// }
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		setupLog.Info("ListenAnServeTLS")
+		if err := server.ListenAndServeTLS("/etc/spi/tls.crt", "/etc/spi/tls.key"); err != nil {
 			setupLog.Error(err, "failed to start the HTTP server")
 		}
 	}()
-	setupLog.Info("Server is up and running")
+	setupLog.Info("Server is up and running serving TLS")
 	// Setting up signal capturing
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
