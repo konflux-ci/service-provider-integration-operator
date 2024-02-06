@@ -37,14 +37,14 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: https
+              port: 8000
               scheme: HTTPS
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /ready
-              port: https
+              port: 8000
               scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10

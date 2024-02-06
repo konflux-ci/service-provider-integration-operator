@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
+
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
@@ -168,6 +170,7 @@ func main() {
 	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate())).Methods("GET", "POST")
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
+
 	server := &http.Server{
 		Addr: args.ServiceAddr,
 		// Good practice to set timeouts to avoid Slowloris attacks.
@@ -178,10 +181,10 @@ func main() {
 		Handler:           sessionManager.LoadAndSave(oauth.MiddlewareHandler(metrics.Registry, strings.Split(args.AllowedOrigins, ","), router)),
 	}
 
-	// if args.DisableHTTP2 {
-	//	setupLog.Info("Disabling HTTP/2")
-	//	server.TLSConfig = cmd.TLSConfigWithDisabledHTTP2
-	// }
+	if args.DisableHTTP2 {
+		setupLog.Info("Disabling HTTP/2")
+		server.TLSConfig = cmd.TLSConfigWithDisabledHTTP2
+	}
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
