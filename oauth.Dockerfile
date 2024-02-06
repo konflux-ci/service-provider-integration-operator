@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.20.10 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR /workspace
+WORKDIR /opt/app-root/src
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -25,7 +25,7 @@ COPY oauth/ oauth/
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/ -a ./cmd/oauth/oauth.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/oauth -a ./cmd/oauth/oauth.go
 
 # Compose the final image of spi-oauth service
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as spi-oauth
@@ -45,10 +45,10 @@ RUN microdnf update -y \
     && rm -rf /var/cache/yum
 WORKDIR /
 
-COPY --from=builder /workspace/bin/oauth /spi-oauth
-COPY --from=builder /workspace/static/callback_success.html /static/callback_success.html
-COPY --from=builder /workspace/static/callback_error.html /static/callback_error.html
-COPY --from=builder /workspace/static/redirect_notice.html /static/redirect_notice.html
+COPY --from=builder /opt/app-root/src/bin/oauth /spi-oauth
+COPY --from=builder /opt/app-root/src/static/callback_success.html /static/callback_success.html
+COPY --from=builder /opt/app-root/src/static/callback_error.html /static/callback_error.html
+COPY --from=builder /opt/app-root/src/static/redirect_notice.html /static/redirect_notice.html
 
 # It is mandatory to set these labels
 LABEL description="RHTAP SPI OAuth service"

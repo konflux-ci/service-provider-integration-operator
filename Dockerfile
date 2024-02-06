@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.20.10 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR /workspace
+WORKDIR /opt/app-root/src
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -23,7 +23,7 @@ COPY controllers/ controllers/
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/ -a ./cmd/operator/operator.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/operator -a ./cmd/operator/operator.go
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as spi-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
@@ -40,7 +40,7 @@ RUN microdnf update -y \
     && microdnf -y clean all \
     && rm -rf /var/cache/yum
 WORKDIR /
-COPY --from=builder /workspace/bin/operator .
+COPY --from=builder /opt/app-root/src/bin/operator .
 
 # It is mandatory to set these labels
 LABEL description="RHTAP SPI Operator"
