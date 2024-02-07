@@ -1,3 +1,7 @@
 resources:
+  - ../deployment
   - route.yaml
   - cabundle.yaml
+
+patches:
+  - path: deployment-patch.yaml

@@ -8,7 +8,6 @@ commonLabels:
   app.kubernetes.io/name: service-provider-integration-oauth
 
 resources:
-- deployment.yaml
 - service-account.yaml
 - service.yaml
 - cluster-role.yaml

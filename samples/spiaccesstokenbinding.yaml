@@ -2,7 +2,7 @@ apiVersion: appstudio.redhat.com/v1beta1
 kind: SPIAccessTokenBinding
 metadata:
   name: test-access-token-binding
-  namespace: user1ns
+  namespace: default
 spec:
   permissions:
     required:
