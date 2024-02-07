@@ -1,14 +1,14 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: oauth-service
-  namespace: system
+  name: spi-oauth-service
+  namespace: spi-system
 spec:
   template:
     spec:
       containers:
-        - command:
-          name: oauth
+        - name: oauth
           volumeMounts:
           - mountPath: /etc/spi/tls.key
             name: tls-certificates
@@ -18,12 +18,6 @@ spec:
             name: tls-certificates
             readOnly: true
             subPath: tls.crt
-          livenessProbe:
-            httpGet:
-              scheme: HTTPS
-          readinessProbe:
-            httpGet:
-              scheme: HTTPS
       volumes:
       - name: tls-certificates
         secret:
