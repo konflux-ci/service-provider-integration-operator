@@ -25,7 +25,7 @@ spec:
           - configMapRef:
               name: oauth-service-environment-config
           image: quay.io/redhat-appstudio/service-provider-integration-oauth:latest
-          name: ./
+          name: oauth
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
