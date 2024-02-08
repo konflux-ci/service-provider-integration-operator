@@ -190,18 +190,18 @@ func main() {
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if _, err := os.Stat("/etc/spi/tls.crt"); errors.Is(err, os.ErrNotExist) {
-			setupLog.Info("ListenAnServe")
+			setupLog.Info("Use ListenAnServe")
 			if err := server.ListenAndServe(); err != nil {
 				setupLog.Error(err, "failed to start the HTTP server")
 			}
 		} else {
-			setupLog.Info("ListenAnServeTLS")
+			setupLog.Info("Use ListenAnServeTLS")
 			if err := server.ListenAndServeTLS("/etc/spi/tls.crt", "/etc/spi/tls.key"); err != nil {
 				setupLog.Error(err, "failed to start the HTTP server")
 			}
 		}
 	}()
-	setupLog.Info("Server is up and running serving TLS")
+	setupLog.Info("Server is up and running")
 	// Setting up signal capturing
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
