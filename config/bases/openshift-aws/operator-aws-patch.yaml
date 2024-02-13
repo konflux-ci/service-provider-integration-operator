@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spi-controller-manager
+  namespace: spi-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        volumeMounts:
+          - mountPath: /etc/spi/aws/config
+            name: aws-secretsmanager-credentials
+            readOnly: true
+            subPath: config
+          - mountPath: /etc/spi/aws/credentials
+            name: aws-secretsmanager-credentials
+            readOnly: true
+            subPath: credentials
+      volumes:
+        - name: aws-secretsmanager-credentials
+          secret:
+            secretName: aws-secretsmanager-credentials
+            items:
+              - key: config
+                path: config
+              - key: credentials
+                path: credentials

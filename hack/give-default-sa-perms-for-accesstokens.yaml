@@ -17,6 +17,7 @@ rules:
       - spiaccesstokens
       - spiaccesstokendataupdates
   - verbs:
+      - read
       - create
       - update
     apiGroups:

@@ -13,4 +13,5 @@ spec:
     # used in the kustomization, because kustomize would not replace it...
     name: spi-oauth-service
   tls:
-    termination: edge
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect

@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -23,20 +24,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
+
 	rcmd "github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	rconfig "github.com/redhat-appstudio/remote-secret/pkg/config"
 
-	"github.com/redhat-appstudio/service-provider-integration-operator/cmd"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/clientfactory"
 
-	"github.com/alexedwards/scs/v2"
+	scs "github.com/alexedwards/scs/v2"
 	cli "github.com/redhat-appstudio/service-provider-integration-operator/cmd/oauth/oauthcli"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/alexflint/go-arg"
+	arg "github.com/alexflint/go-arg"
 	"github.com/gorilla/mux"
 	"github.com/redhat-appstudio/service-provider-integration-operator/oauth"
 	oauth2 "github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider/oauth"
@@ -169,6 +171,7 @@ func main() {
 	router.NewRoute().Path(oauth2.AuthenticateRoutePath).Handler(oauth.CSPHandler(oauthRouter.Authenticate())).Methods("GET", "POST")
 
 	setupLog.Info("Starting the server", "Addr", args.ServiceAddr)
+
 	server := &http.Server{
 		Addr: args.ServiceAddr,
 		// Good practice to set timeouts to avoid Slowloris attacks.
@@ -186,8 +189,16 @@ func main() {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			setupLog.Error(err, "failed to start the HTTP server")
+		if _, err := os.Stat("/etc/spi/tls.crt"); errors.Is(err, os.ErrNotExist) {
+			setupLog.Info("Use ListenAnServe")
+			if err := server.ListenAndServe(); err != nil {
+				setupLog.Error(err, "failed to start the HTTP server")
+			}
+		} else {
+			setupLog.Info("Use ListenAnServeTLS")
+			if err := server.ListenAndServeTLS("/etc/spi/tls.crt", "/etc/spi/tls.key"); err != nil {
+				setupLog.Error(err, "failed to start the HTTP server")
+			}
 		}
 	}()
 	setupLog.Info("Server is up and running")
