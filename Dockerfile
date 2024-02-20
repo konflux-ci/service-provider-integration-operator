@@ -11,7 +11,6 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-
 # Copy the go source
 COPY cmd/ cmd/
 COPY api/ api/
@@ -25,29 +24,18 @@ COPY controllers/ controllers/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/operator -a ./cmd/operator/operator.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as spi-operator
-# Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
-RUN microdnf update -y \
-    && microdnf -y --setopt=tsflags=nodocs install shadow-utils \
-    && microdnf -y reinstall tzdata \
-	&& groupadd --gid 65532 nonroot \
-	&& adduser \
-		--no-create-home \
-		--no-user-group \
-		--uid 65532 \
-		--gid 65532 \
-		nonroot \
-    && microdnf -y clean all \
-    && rm -rf /var/cache/yum
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3 as spi-operator
+
 WORKDIR /
 COPY --from=builder /opt/app-root/src/bin/operator .
-
 # It is mandatory to set these labels
 LABEL description="RHTAP SPI Operator"
 LABEL io.k8s.description="RHTAP SPI Operator"
 LABEL io.k8s.display-name="spi-operator"
 LABEL summary="RHTAP SPI Operator"
 LABEL io.openshift.tags="rhtap"
+LABEL com.redhat.component="spi-operator-container"
+LABEL name="spi-operator"
 USER 65532:65532
 
 ENTRYPOINT ["/operator"]
