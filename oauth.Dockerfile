@@ -11,14 +11,12 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-
 # Copy the go source
 COPY cmd/ cmd/
 COPY api/ api/
 COPY pkg/ pkg/
 COPY static/ static/
 COPY oauth/ oauth/
-
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -27,22 +25,8 @@ COPY oauth/ oauth/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/oauth -a ./cmd/oauth/oauth.go
 
-# Compose the final image of spi-oauth service
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as spi-oauth
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3 as spi-oauth
 
-# Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
-RUN microdnf update -y \
-    && microdnf -y --setopt=tsflags=nodocs install shadow-utils \
-    && microdnf -y reinstall tzdata \
-	&& groupadd --gid 65532 nonroot \
-	&& adduser \
-		--no-create-home \
-		--no-user-group \
-		--uid 65532 \
-		--gid 65532 \
-		nonroot \
-    && microdnf -y clean all \
-    && rm -rf /var/cache/yum
 WORKDIR /
 
 COPY --from=builder /opt/app-root/src/bin/oauth /spi-oauth
@@ -56,6 +40,8 @@ LABEL io.k8s.description="RHTAP OAuth service"
 LABEL io.k8s.display-name="spi-oauth-service"
 LABEL summary="RHTAP SPI OAuth service"
 LABEL io.openshift.tags="rhtap"
+LABEL com.redhat.component="spi-oauth-container"
+LABEL name="spi-oauth"
 USER 65532:65532
 
 ENTRYPOINT ["/spi-oauth"]

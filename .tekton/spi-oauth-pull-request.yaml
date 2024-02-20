@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
-    build.appstudio.openshift.io/repo: https://github.com/redhat-appstudio/service-provider-integration-operator?rev={{revision}}
+    build.appstudio.openshift.io/repo: https://github.com/konflux-ci/service-provider-integration-operator?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
@@ -21,7 +21,7 @@ spec:
   - name: dockerfile
     value: oauth.Dockerfile
   - name: git-url
-    value: '{{repo_url}}'
+    value: '{{source_url}}'
   - name: image-expires-after
     value: 5d
   - name: output-image
@@ -30,6 +30,12 @@ spec:
     value: .
   - name: revision
     value: '{{revision}}'
+  - name: hermetic
+    value: 'true'
+  - name: prefetch-input
+    value: gomod
+  - name: build-source-image
+    value: 'true'
   pipelineSpec:
     finally:
     - name: show-sbom
@@ -93,10 +99,6 @@ spec:
       description: Skip checks against built image
       name: skip-checks
       type: string
-    - default: "true"
-      description: Skip optional checks, set false if you want to run optional checks
-      name: skip-optional
-      type: string
     - default: "false"
       description: Execute the build with network isolation
       name: hermetic
@@ -113,7 +115,7 @@ spec:
       description: Image tag expiration time, time values could be something like
         1h, 2d, 3w for hours, days, and weeks, respectively.
       name: image-expires-after
-    - default: "true"
+    - default: "false"
       description: Build a source image.
       name: build-source-image
       type: string
@@ -142,12 +144,6 @@ spec:
         value: $(params.rebuild)
       - name: skip-checks
         value: $(params.skip-checks)
-      - name: skip-optional
-        value: $(params.skip-optional)
-      - name: pipelinerun-name
-        value: $(context.pipelineRun.name)
-      - name: pipelinerun-uid
-        value: $(context.pipelineRun.uid)
       taskRef:
         params:
         - name: name
