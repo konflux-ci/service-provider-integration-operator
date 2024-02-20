@@ -180,6 +180,9 @@ itest_debug: manifests generate envtest ## Start the integration tests in the de
 	$(shell touch ./debug.out)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" dlv test --listen=:2345 --headless=true --api-version=2 --accept-multiclient --redirect=stdout:./debug.out --redirect=stderr:./debug.out ./integration_tests/... -- -test.v -test.run=TestSuite -ginkgo.focus="${focus}" -ginkgo.progress
 
+pact: manifests generate envtest  ## Run unit tests
+	make -C pact -f Makefile test-pact
+
 ##@ Build
 
 build: generate ## Build the operator and oauth service Binaries.
@@ -248,31 +251,32 @@ prepare: install ## In addition to CRDs also install the RBAC rules
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_minikube_rhtap deploy_remotesecret_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube deploy_application_api deploy_remotesecret_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
 	kubectl apply -f .tmp/approle_remote_secret.yaml -n remotesecret
 
-deploy_minikube_rhtap: kustomize ## Deploy RHTAP CRD-s to the Minikube cluster
+deploy_application_api: kustomize ## Deploy application api CRD-s
 	 $(KUSTOMIZE) build config/rhtap/overlays/minikube_vault | kubectl apply -f -
 
 deploy_minikube_aws: ensure-tmp manifests kustomize ## Deploy controller to the Minikube cluster specified in ~/.kube/config with AWS tokenstorage.
 	OAUTH_HOST=spi.`minikube ip`.nip.io SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_aws"
 	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
 
-deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
+deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift deploy_application_api deploy_remotesecret_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
 	OAUTH_HOST=`hack/spi-host-openshift.sh` VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	kubectl apply -f .tmp/approle_remote_secret.yaml -n remotesecret
 
 deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with AWS tokenstorage
 	OAUTH_HOST=`hack/spi-host-openshift.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
 	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
 
-undeploy_minikube: undeploy_vault_k8s undeploy_minikube_rhtap ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
+undeploy_minikube: undeploy_vault_k8s undeploy_application_api ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
 	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/default | kubectl delete -f -
 
-undeploy_minikube_rhtap: kustomize ## Undeploy RHTAP CRD-s
+undeploy_application_api: kustomize ## Undeploy application api CRD-s
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/rhtap/overlays/minikube_vault | kubectl delete -f - || true
 
 undeploy_openshift: undeploy_vault_openshift ## Undeploy controller from the Openshift cluster specified in ~/.kube/config.
@@ -292,6 +296,9 @@ deploy_vault_minikube: kustomize
 
 deploy_remotesecret_minikube: kustomize
 	CA_BUNDLE=`hack/generate_webhook_ca.sh` VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_k8s" "remotesecret/overlays/minikube_vault"
+
+deploy_remotesecret_openshift: kustomize
+	VAULT_HOST=`hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "remotesecret_openshift" "remotesecret/overlays/openshift_vault"
 
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true

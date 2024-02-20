@@ -1,0 +1,77 @@
+#
+# Copyright (c) 2021 Red Hat, Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Publish Pact Contract Tests
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GO_VERSION: '1.20'
+      PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+      PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+      PROVIDER_BRANCH: "main"
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+      - name: Download dependencies
+        run: go mod download
+      - name: Check go mod status
+        run: |
+          go mod tidy
+          if [[ ! -z $(git status -s) ]]
+          then
+            echo "Go mod state is not clean:"
+            git --no-pager diff
+            exit 1
+          fi
+      - name: Check manifests
+        run: |
+          # Note: fmt is necessary after generate since generated sources will
+          #       fail format check by default.
+          make generate fmt manifests
+          if [[ ! -z $(git status -s) ]]
+          then
+            echo "generated sources are not up to date:"
+            git --no-pager diff
+            exit 1
+          fi
+      - name: Install Pact
+        run: |
+          go get github.com/pact-foundation/pact-go/v2@2.x.x
+          go install github.com/pact-foundation/pact-go/v2@2.x.x
+          sudo /home/runner/go/bin/pact-go -l DEBUG install 
+      - name: Run Pact Tests
+        env:
+          GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
+        run: |
+          set -x
+          make envtest
+          cd pact
+          go mod tidy
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
+          make test-verbose

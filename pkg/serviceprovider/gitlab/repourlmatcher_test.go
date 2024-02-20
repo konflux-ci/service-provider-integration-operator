@@ -40,10 +40,12 @@ func TestParseOwnerAndProjectFromUrl(t *testing.T) {
 	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project", "foo-user", "foo-project")
 	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project/", "foo-user", "foo-project")
 	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project.git", "foo-user", "foo-project")
+	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project/foo-subproject1.git", "foo-user", "foo-project/foo-subproject1")
+	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project/foo-subproject1/foo-subproject2", "foo-user", "foo-project/foo-subproject1/foo-subproject2")
+	testSuccess(t, "https://personal.gitlab.com/foo-user/foo-project/foo-subproject1/foo-subproject2.git", "foo-user", "foo-project/foo-subproject1/foo-subproject2")
 
 	testFail(t, "https://personal.gitlab.com/foo-user/foo-repo/.git/")
 	testFail(t, "https://personal.gitlab.com/foo-user/foo-repo/.git")
-	testFail(t, "https://personal.gitlab.com/with/more/path/splits")
 	testFail(t, "https://personal.gitlab.com/owner/")
 	testFail(t, "https://personal.gitlab.com")
 	testFail(t, "https://gitlab.com/owner/repo")

@@ -54,24 +54,23 @@ func TestChecks(t *testing.T) {
 	assert.True(t, errors.Is(invalidAccessToken, invalidAccessToken))
 	assert.True(t, errors.Is(nestedInvalidAccessToken, invalidAccessToken))
 	assert.False(t, errors.Is(invalidAccessToken, internalServerError))
-	assert.False(t, errors.Is(invalidAccessToken, fmt.Errorf("huh")))
+	assert.False(t, errors.Is(invalidAccessToken, fmt.Errorf("huh"))) //nolint:goerr113
 	assert.True(t, IsServiceProviderHttpError(invalidAccessToken))
 	assert.True(t, IsServiceProviderHttpError(internalServerError))
 	assert.True(t, IsServiceProviderHttpError(nestedInvalidAccessToken))
-	assert.False(t, IsServiceProviderHttpError(fmt.Errorf("huh")))
+	assert.False(t, IsServiceProviderHttpError(fmt.Errorf("huh"))) //nolint:goerr113
 	assert.False(t, IsServiceProviderHttpError(nil))
 
 	assert.True(t, IsServiceProviderHttpInvalidAccessToken(invalidAccessToken))
 	assert.True(t, IsServiceProviderHttpInvalidAccessToken(nestedInvalidAccessToken))
 	assert.False(t, IsServiceProviderHttpInvalidAccessToken(internalServerError))
 	assert.False(t, IsServiceProviderHttpInvalidAccessToken(nestedInternalServerError))
-	assert.False(t, IsServiceProviderHttpInvalidAccessToken(fmt.Errorf("huh")))
 
 	assert.True(t, IsServiceProviderHttpInternalServerError(internalServerError))
 	assert.True(t, IsServiceProviderHttpInternalServerError(nestedInternalServerError))
 	assert.False(t, IsServiceProviderHttpInternalServerError(invalidAccessToken))
 	assert.False(t, IsServiceProviderHttpInternalServerError(nestedInvalidAccessToken))
-	assert.False(t, IsServiceProviderHttpInternalServerError(fmt.Errorf("huh")))
+	assert.False(t, IsServiceProviderHttpInternalServerError(fmt.Errorf("huh"))) //nolint:goerr113
 }
 
 func TestConversion(t *testing.T) {

@@ -25,8 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO_VERSION: '1.20'
-      KIND_VERSION: '0.20.0'
-      K8S_VERSION: '1.26.x'
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -70,25 +68,65 @@ jobs:
             git --no-pager diff
             exit 1
           fi
-      - name: Setup KinD
-        uses: chainguard-dev/actions/setup-kind@main
-        with:
-          k8s-version: ${{ env.K8S_VERSION }}
-          kind-version: ${{ env.KIND_VERSION }}
       - name: Run Go Tests
         env:
           GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
         run: |
           make test
-      - uses: chainguard-dev/actions/kind-diag@main
-        # Only upload logs on failure.
-        if: ${{ failure() }}
-        with:
-          cluster-resources: nodes,namespaces,
-          namespace-resources: configmaps,pods,svc
-          artifact-name: kind-logs
       - name: Codecov
         uses: codecov/codecov-action@v3
+  pact:
+    name: Pact tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GO_VERSION: '1.20'
+      PR_CHECK: 'true'
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+      - name: Download dependencies
+        run: go mod download
+      - name: Check go mod status
+        run: |
+          go mod tidy
+          if [[ ! -z $(git status -s) ]]
+          then
+            echo "Go mod state is not clean:"
+            git --no-pager diff
+            exit 1
+          fi
+      - name: Check manifests
+        run: |
+          # Note: fmt is necessary after generate since generated sources will
+          #       fail format check by default.
+          make generate fmt manifests
+          if [[ ! -z $(git status -s) ]]
+          then
+            echo "generated sources are not up to date:"
+            git --no-pager diff
+            exit 1
+          fi
+      - name: Install Pact
+        run: |
+          go get github.com/pact-foundation/pact-go/v2@2.x.x
+          go install github.com/pact-foundation/pact-go/v2@2.x.x
+          sudo /home/runner/go/bin/pact-go -l DEBUG install 
+      - name: Run Pact Tests
+        env:
+          GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT: 10s
+        run: |
+          set -x
+          make envtest
+          cd pact
+          go mod tidy
+          make test-verbose
   docker-controller:
     name: Check controller docker image build
     runs-on: ubuntu-latest

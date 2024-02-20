@@ -63,7 +63,7 @@ type IntegrationTest struct {
 	TestEnvironment *envtest.Environment
 	// Context is the context to use with various API requests. It is set up with timeout cancelling to correctly handle
 	// the testsuite timeouts. Use Cancel to force the cancellation of the context yourself, if ever needed.
-	Context context.Context
+	Context context.Context //nolint:containedctx // test purposes
 	// TokenStorage is the token storage instance that the controllers are using to store the token data. By default,
 	// this is backed the VaultTestCluster.
 	TokenStorage tokenstorage.TokenStorage
@@ -848,12 +848,10 @@ func waitForStatus[T client.Object, L client.ObjectList](list L, itemsFromList f
 }
 
 func addAllExisting[T client.Object, L client.ObjectList](list L, itemsFromList func(L) []T) []T {
-	var existing []T
+	existing := make([]T, 0)
 	Expect(ITest.Client.List(ITest.Context, list)).To(Succeed())
 
-	for _, o := range itemsFromList(list) {
-		existing = append(existing, o)
-	}
+	existing = append(existing, itemsFromList(list)...)
 
 	return existing
 }

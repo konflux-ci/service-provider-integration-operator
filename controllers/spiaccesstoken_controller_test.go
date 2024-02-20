@@ -75,13 +75,13 @@ func TestReconcileData(t *testing.T) {
 	t.Run("data found, don't touch the SPIAccessToken", func(t *testing.T) {
 		at := &api.SPIAccessToken{Status: api.SPIAccessTokenStatus{Phase: api.SPIAccessTokenPhaseReady, TokenMetadata: &api.TokenMetadata{}}}
 		ts := &memorystorage.MemoryTokenStorage{}
-		ts.Store(context.TODO(), at, &api.Token{Username: "blabol", AccessToken: "kockopes"})
+		err := ts.Store(context.TODO(), at, &api.Token{Username: "blabol", AccessToken: "kockopes"})
+		assert.NoError(t, err)
 		reconciler := SPIAccessTokenReconciler{
 			TokenStorage: ts,
 		}
 
-		err := reconciler.reconcileTokenData(context.TODO(), at)
-
+		err = reconciler.reconcileTokenData(context.TODO(), at)
 		assert.NoError(t, err)
 		assert.NotNil(t, at.Status.TokenMetadata)
 	})

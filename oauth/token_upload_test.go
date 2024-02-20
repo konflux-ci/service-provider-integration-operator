@@ -133,7 +133,7 @@ func TestTokenUploader_ShouldFailOnStorage(t *testing.T) {
 		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: cl},
 		TokenStorage: tokenstorage.TestTokenStorage{
 			StoreImpl: func(ctx context.Context, token *api.SPIAccessToken, data *api.Token) error {
-				return fmt.Errorf("storage disconnected")
+				return fmt.Errorf("storage disconnected") //nolint:goerr113
 			},
 		},
 	}

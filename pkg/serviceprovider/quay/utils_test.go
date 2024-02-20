@@ -47,6 +47,8 @@ func TestDoQuayRequest(t *testing.T) {
 		resp, err := doQuayRequest(context.TODO(), &httpClient, url, token, method, strings.NewReader(body), header)
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
+
+		defer resp.Body.Close()
 	}
 
 	t.Run("empty header", func(t *testing.T) {

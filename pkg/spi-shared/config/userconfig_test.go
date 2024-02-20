@@ -214,7 +214,7 @@ func TestFindOauthConfigSecret(t *testing.T) {
 				return nil, errors.NewForbidden(schema.GroupResource{
 					Group:    "test-group",
 					Resource: "test-resource",
-				}, "nenene", fmt.Errorf("test err"))
+				}, "nenene", fmt.Errorf("test err")) //nolint:goerr113
 			}}).Build()
 
 		secret, err := findUserServiceProviderConfigSecret(ctx, cl, secretNamespace, ServiceProviderTypeGitHub, ServiceProviderTypeGitHub.DefaultHost)

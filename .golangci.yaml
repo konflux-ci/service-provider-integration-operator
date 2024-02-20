@@ -1,9 +1,6 @@
 # Configuration file for golangci-lint
 
 run:
-  tests: false # don't include test files in the analysis
-  skip-dirs:
-  - integration_tests # don't include the integration tests in the analysis
   skip-files:
   - ".*_mock\\.go$"
 
@@ -24,6 +21,7 @@ linters:
     - wrapcheck
     - nolintlint
     - loggercheck
+    - ginkgolinter
 
 linters-settings:
   wrapcheck:

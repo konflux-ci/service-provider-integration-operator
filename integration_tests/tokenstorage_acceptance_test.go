@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck
 package integrationtests
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"math/rand"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
@@ -88,7 +90,8 @@ func createTokenStorage(secretStorage secretstorage.SecretStorage) tokenstorage.
 }
 
 func testStorage(t *testing.T, ctx context.Context, storage tokenstorage.TokenStorage) {
-	refreshTestData()
+	err := refreshTestData()
+	assert.NoError(t, err)
 
 	// get non-existing
 	gettedToken, err := storage.Get(ctx, testSpiAccessToken)
@@ -149,14 +152,19 @@ var (
 	testSpiAccessToken *api.SPIAccessToken
 )
 
-func refreshTestData() {
+func refreshTestData() error {
 	random, _, _ := strings.Cut(string(uuid.NewUUID()), "-")
+	expiry, err := rand.Int(rand.Reader, big.NewInt(1000))
+	if err != nil {
+		return err
+	}
+
 	testToken = &api.Token{
 		Username:     "testUsername-" + random,
 		AccessToken:  "testAccessToken-" + random,
 		TokenType:    "testTokenType-" + random,
 		RefreshToken: "testRefreshToken-" + random,
-		Expiry:       rand.Uint64() % 1000,
+		Expiry:       expiry.Uint64(),
 	}
 
 	testSpiAccessToken = &api.SPIAccessToken{
@@ -166,4 +174,6 @@ func refreshTestData() {
 			Namespace: "testNamespace-" + random,
 		},
 	}
+
+	return nil
 }

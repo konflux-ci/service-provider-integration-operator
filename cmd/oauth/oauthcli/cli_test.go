@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wrapcheck
 package oauthcli
 
 import (
@@ -89,11 +90,11 @@ func parseWithEnv(cmdline string, env []string, dest interface{}) (*arg.Parser, 
 	for _, s := range env {
 		pos := strings.Index(s, "=")
 		if pos == -1 {
-			return nil, fmt.Errorf("missing equals sign in %q", s)
+			return nil, fmt.Errorf("missing equals sign in %q", s) //nolint:goerr113
 		}
 		err := os.Setenv(s[:pos], s[pos+1:])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error setting var: %w", err)
 		}
 	}
 

@@ -69,7 +69,7 @@ var _ = Describe("SPIFileContentRequest", func() {
 					}
 					ITest.TestServiceProvider.DownloadFileCapability = func() serviceprovider.DownloadFileCapability {
 						return serviceprovider.DownloadFileFunc(func(ctx context.Context, request api.SPIFileContentRequestSpec, credentials serviceprovider.Credentials, maxFileSizeLimit int) (string, error) {
-							return "", fmt.Errorf("expected error")
+							return "", fmt.Errorf("expected error") //nolint:goerr113
 						})
 					}
 				},

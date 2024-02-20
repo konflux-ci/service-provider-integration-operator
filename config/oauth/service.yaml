@@ -2,6 +2,8 @@ kind: Service
 apiVersion: v1
 metadata:
   name: oauth-service
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: spi-oauth-service
 spec:
   ports:
   - port: 8000

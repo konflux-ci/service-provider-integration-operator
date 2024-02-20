@@ -44,6 +44,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var FailError = fmt.Errorf("fail")
+
 func TestMain(m *testing.M) {
 	logs.InitDevelLoggers()
 	os.Exit(m.Run())
@@ -129,7 +131,9 @@ func TestFromRepoUrl(t *testing.T) {
 	mockSP := struct {
 		ServiceProvider
 	}{}
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	assert.NoError(t, err)
+
 	mockInit := Initializer{
 		Probe: struct {
 			ProbeFunc
@@ -229,7 +233,7 @@ func TestCreateHostCredentialsProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, _ *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fial")
+					return nil, FailError
 				},
 			},
 		}
@@ -302,7 +306,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fail")
+					return nil, FailError
 				},
 			}}
 
@@ -379,7 +383,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ProbeFunc
 			}{
 				ProbeFunc: func(cl *http.Client, url string) (string, error) {
-					return "", fmt.Errorf("fail")
+					return "", FailError
 				},
 			},
 		}
@@ -428,7 +432,7 @@ func TestInitializeServiceProvider(t *testing.T) {
 				ConstructorFunc
 			}{
 				ConstructorFunc: func(factory *Factory, spConfig *config.ServiceProviderConfiguration) (ServiceProvider, error) {
-					return nil, fmt.Errorf("fail")
+					return nil, FailError
 				},
 			},
 			Probe: struct {
@@ -452,7 +456,8 @@ func TestInitializeServiceProvider(t *testing.T) {
 }
 
 func TestSpConfigWithBaseUrl(t *testing.T) {
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: true})
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: true})
+	assert.NoError(t, err)
 	spConfig, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.Nil(t, err)
 	assert.Equal(t, config.ServiceProviderTypeGitHub.Name, spConfig.ServiceProviderType.Name)
@@ -462,8 +467,9 @@ func TestSpConfigWithBaseUrl(t *testing.T) {
 }
 
 func TestSpConfigWithFilteredBaseUrl(t *testing.T) {
-	rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
-	_, err := spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
+	err := rconfig.SetupCustomValidations(rconfig.CustomValidationOptions{AllowInsecureURLs: false})
+	assert.NoError(t, err)
+	_, err = spConfigWithBaseUrl(config.ServiceProviderTypeGitHub, "blabol")
 	assert.NotNil(t, err)
 	var validationErr validator.ValidationErrors
 	assert.True(t, errors.As(err, &validationErr))

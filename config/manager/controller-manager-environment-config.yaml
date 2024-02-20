@@ -4,3 +4,5 @@ metadata:
   name: controller-manager-environment-config
 data:
   VAULTKUBERNETESROLE: spi-controller-manager
+  VAULTAPPROLESECRETNAME: vault-approle-spi-operator
+  VAULTAPPROLESECRETNAMESPACE: spi-system

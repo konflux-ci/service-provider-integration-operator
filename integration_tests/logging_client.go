@@ -276,11 +276,17 @@ func (c *LoggingKubernetesClient) getKind(obj runtime.Object) string {
 	return getKind(c.Client.Scheme(), obj)
 }
 func (c *LoggingKubernetesClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
-	return c.Client.GroupVersionKindFor(obj)
+	schema, err := c.Client.GroupVersionKindFor(obj)
+	err = fmt.Errorf("error getting group version: %w", err)
+
+	return schema, err
 }
 
 func (c *LoggingKubernetesClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
-	return c.Client.IsObjectNamespaced(obj)
+	isObjectNamespaced, err := c.Client.IsObjectNamespaced(obj)
+	err = fmt.Errorf("error checking if is object namespaced: %w", err)
+
+	return isObjectNamespaced, err
 }
 
 func getKind(scheme *runtime.Scheme, obj runtime.Object) string {

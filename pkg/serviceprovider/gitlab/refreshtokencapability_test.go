@@ -68,5 +68,5 @@ func TestRefreshTokenError(t *testing.T) {
 
 	test(*mockRefreshTokenCapability(http.StatusOK, `{"access_token": 42}`, nil), "failed to unmarshal")
 	test(*mockRefreshTokenCapability(http.StatusUnauthorized, "", nil), "non-ok status")
-	test(*mockRefreshTokenCapability(http.StatusOK, "", errors.New("request error")), "failed to request")
+	test(*mockRefreshTokenCapability(http.StatusOK, "", errors.New("request error")), "failed to request") //nolint:goerr113
 }
