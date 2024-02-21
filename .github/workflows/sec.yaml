@@ -7,6 +7,7 @@ on:
 
 jobs:
   gosec:
+    permissions: write-all
     runs-on: ubuntu-latest
     # Skip any created PR or push by dependabot to avoid permission issues
     if: github.actor != 'dependabot[bot]'
