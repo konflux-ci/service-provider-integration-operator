@@ -26,7 +26,7 @@ import (
 var _ = Describe("Environment", func() {
 	Describe("Removes the targets from RemoteSecrets with environment removal ", func() {
 
-		env := StandardRemoteEnvironment("test-remote-env")
+		env := StandardLocalEnvironment("test-remote-env")
 
 		testSetup := TestSetup{
 			ToCreate: TestObjects{
@@ -41,21 +41,12 @@ var _ = Describe("Environment", func() {
 							Name: "test-remote-secret",
 							Type: "Opaque",
 						},
+						Targets: []rapi.RemoteSecretTarget{{
+							Namespace: env.Namespace,
+						}},
 					},
 				}},
 				Environments: []*v1alpha1.Environment{env},
-				SnapshotEnvBindings: []*v1alpha1.SnapshotEnvironmentBinding{{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "create-target-snapshotbinding-",
-						Namespace:    env.Namespace,
-						Labels:       map[string]string{"appstudio.redhat.com/application": "test-app", "appstudio.redhat.com/environment": env.Name},
-					},
-					Spec: v1alpha1.SnapshotEnvironmentBindingSpec{
-						Application: "test-app",
-						Environment: env.Name,
-						Components:  []v1alpha1.BindingComponent{},
-					},
-				}},
 			},
 			Behavior: ITestBehavior{},
 		}
