@@ -118,7 +118,6 @@ func (f *linkedEnvRemoteSecretsFinalizer) Finalize(ctx context.Context, obj clie
 	if err := f.client.List(ctx, &remoteSecretsList, client.InNamespace(environment.Namespace), &client.ListOptions{LabelSelector: selector}); err != nil {
 		return finalizer.Result{}, unableToFetchRemoteSecretsError
 	}
-
 	if len(remoteSecretsList.Items) == 0 {
 		return finalizer.Result{}, nil
 	}
@@ -164,4 +163,21 @@ func applicableForEnvironment(remoteSecret rapi.RemoteSecret, environmentName st
 		return labelValue == environmentName
 	}
 	return false
+}
+
+func targetsMatch(target1, target2 rapi.RemoteSecretTarget) bool {
+	return target1.Namespace == target2.Namespace && target1.ApiUrl == target2.ApiUrl && target1.ClusterCredentialsSecret == target2.ClusterCredentialsSecret
+}
+
+func detectTargetFromEnvironment(_ context.Context, environment appstudiov1alpha1.Environment) (rapi.RemoteSecretTarget, error) {
+	if slices.Contains(environment.Spec.Tags, "managed") && environment.Spec.UnstableConfigurationFields != nil {
+		return rapi.RemoteSecretTarget{
+			Namespace:                environment.Spec.UnstableConfigurationFields.TargetNamespace,
+			ApiUrl:                   environment.Spec.UnstableConfigurationFields.APIURL,
+			ClusterCredentialsSecret: environment.Spec.UnstableConfigurationFields.ClusterCredentialsSecret,
+		}, nil
+	} else {
+		// local environment, just return the namespace
+		return rapi.RemoteSecretTarget{Namespace: environment.Namespace}, nil
+	}
 }

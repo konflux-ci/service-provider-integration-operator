@@ -44,7 +44,16 @@ type ApplicationReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=list;update;watch;delete
 
-var unableToDeleteRemoteSecret = stderrors.New("unable to delete the remote secret with application removal")
+const (
+	ApplicationLabelName              = "appstudio.redhat.com/application"
+	EnvironmentLabelAndAnnotationName = "appstudio.redhat.com/environment"
+)
+
+var (
+	unableToFetchRemoteSecretsError = stderrors.New("unable to fetch the Remote Secrets list")
+	unableToUpdateRemoteSecret      = stderrors.New("unable to update the remote secret")
+	unableToDeleteRemoteSecret      = stderrors.New("unable to delete the remote secret with application removal")
+)
 
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()

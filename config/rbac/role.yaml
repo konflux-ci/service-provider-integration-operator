@@ -90,28 +90,6 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - snapshotenvironmentbindings
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - snapshotenvironmentbindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - snapshotenvironmentbindings/status
-  verbs:
-  - get
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
   - spiaccesschecks
   verbs:
   - create
