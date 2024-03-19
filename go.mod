@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/alexedwards/scs/v2 v2.7.0
 	github.com/alexflint/go-arg v1.4.3
-	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
+	github.com/codeready-toolchain/api v0.0.0-20240313222423-1a125b60b378
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/go-logr/logr v1.4.1
 	github.com/go-playground/validator/v10 v10.17.0
@@ -20,7 +20,7 @@ require (
 	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0
-	github.com/redhat-appstudio/application-api v0.0.0-20231026192857-89515ad2504f
+	github.com/redhat-appstudio/application-api v0.0.0-20240106104232-18f545e48a03
 	github.com/redhat-appstudio/remote-secret v0.0.0-20240124061836-4ab990acc7cd
 	github.com/stretchr/testify v1.9.0
 	github.com/xanzy/go-gitlab v0.99.0
@@ -114,7 +114,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/openshift/api v0.0.0-20220912161038-458ad9ca9ca5 // indirect
+	github.com/openshift/api v0.0.0-20230213134911-7ba313770556 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
@@ -134,7 +134,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
