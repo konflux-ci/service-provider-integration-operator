@@ -3,7 +3,7 @@ module github.com/redhat-appstudio/service-provider-integration-operator
 go 1.20
 
 require (
-	github.com/alexedwards/scs/v2 v2.7.0
+	github.com/alexedwards/scs/v2 v2.8.0
 	github.com/alexflint/go-arg v1.4.3
 	github.com/codeready-toolchain/api v0.0.0-20230228003642-4e8ac01b3642
 	github.com/go-jose/go-jose/v3 v3.0.3
