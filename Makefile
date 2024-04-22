@@ -59,7 +59,7 @@ SPIS_IMAGE_TAG_BASE ?= $(SPI_IMG_BASE)/$(SPIS_IMAGE_NAME)
 SPIS_IMG ?= $(SPIS_IMAGE_TAG_BASE):$(TAG_NAME)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = latest
+ENVTEST_K8S_VERSION = 1.27
 
 # this variable is used to enable the `make itest focus=...` syntax for running subset of integration test suite.
 focus ?= ""
@@ -333,7 +333,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240215143116-d0396a3d6f9f
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
