@@ -22,8 +22,6 @@ make itest focus="..."
 ```
 where the value of `focus` is the description of the Ginkgo integration test you want to run.
 
-To run the Pact contract tests, use the `make pact` command. More information about how the contract tests works and how to contribute can be found [here](PACT.md).
-
 To build the docker images of the operator and oauth service one can run:
 
 ```
