@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"net/http"
 	"strings"
 
@@ -72,7 +73,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, request api.SP
 		refOption = gitlab.GetFileOptions{Ref: gitlab.Ptr("HEAD")}
 	}
 
-	lg.Info("Downloading file", "owner", owner, "project", project, "filePath", request.FilePath, "ref", refOption.Ref)
+	lg.V(logs.DebugLevel).Info("Downloading file", "owner", owner, "project", project, "filePath", request.FilePath, "ref", refOption.Ref)
 	strings.TrimPrefix(request.FilePath, "/")
 	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.FilePath, &refOption)
 	if err != nil {
