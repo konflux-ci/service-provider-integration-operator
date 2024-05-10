@@ -19,9 +19,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"net/http"
 	"strings"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	api "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	"github.com/redhat-appstudio/service-provider-integration-operator/pkg/serviceprovider"
