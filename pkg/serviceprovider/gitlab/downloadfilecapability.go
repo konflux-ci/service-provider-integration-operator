@@ -75,7 +75,7 @@ func (f downloadFileCapability) DownloadFile(ctx context.Context, request api.SP
 	}
 
 	lg.V(logs.DebugLevel).Info("Downloading file", "owner", owner, "project", project, "filePath", request.FilePath, "ref", refOption.Ref)
-	strings.TrimPrefix(request.FilePath, "/")
+	request.FilePath = strings.TrimPrefix(request.FilePath, "/")
 	file, resp, err := glClient.RepositoryFiles.GetFile(owner+"/"+project, request.FilePath, &refOption)
 	if err != nil {
 		// unfortunately, GitLab library closes the response body, so it is cannot be read
