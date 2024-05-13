@@ -42,6 +42,11 @@ import (
 var missingTargetError = errors.New("found RemoteSecret does not have a target in the SPIAccessCheck's namespace, this should not happen")
 var accessTokenNotFoundError = errors.New("token data is not found in token storage")
 
+const (
+	ScmCredentialsSecretLabel = "appstudio.redhat.com/credentials"
+	ScmSecretHostnameLabel    = "appstudio.redhat.com/scm.host"
+)
+
 // GenericLookup implements a token lookup in a generic way such that the users only need to provide a function
 // to provide a service-provider-specific "state" of the token and a "filter" function that uses the token and its
 // state to match it against a binding
@@ -183,6 +188,14 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 	if err != nil {
 		return nil, err
 	}
+
+	if secret == nil {
+		secret, err = l.lookupSCMSecret(ctx, cl, matchable)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if secret == nil {
 		return nil, nil
 	}
@@ -191,6 +204,28 @@ func (l GenericLookup) LookupCredentials(ctx context.Context, cl client.Client, 
 		Username: string(secret.Data[v1.BasicAuthUsernameKey]),
 		Token:    string(secret.Data[v1.BasicAuthPasswordKey]),
 	}, nil
+}
+
+func (l GenericLookup) lookupSCMSecret(ctx context.Context, cl client.Client, matchable Matchable) (*v1.Secret, error) {
+	lg := log.FromContext(ctx)
+	repoUrl, err := l.RepoUrlParser(matchable.RepoUrl())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the repo URL %s: %w", matchable.RepoUrl(), err)
+	}
+	secretList := &v1.SecretList{}
+	opts := client.ListOption(&client.MatchingLabels{
+		ScmCredentialsSecretLabel: "scm",
+		ScmSecretHostnameLabel:    repoUrl.Host,
+	})
+
+	if err := cl.List(ctx, secretList, client.InNamespace(matchable.ObjNamespace()), opts); err != nil {
+		return nil, fmt.Errorf("failed to list SCM secrets in %s namespace: %w", matchable.ObjNamespace(), err)
+	}
+	if len(secretList.Items) > 0 {
+		lg.V(logs.DebugLevel).Info("found SCM secret", "name", secretList.Items[0].Name)
+		return &secretList.Items[0], nil
+	}
+	return nil, nil
 }
 
 // lookupRemoteSecrets searches for RemoteSecrets with RSServiceProviderHostLabel in the same namespaces matchable and

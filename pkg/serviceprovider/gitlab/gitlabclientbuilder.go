@@ -34,7 +34,13 @@ type gitlabClientBuilder struct {
 var _ serviceprovider.AuthenticatedClientBuilder[gitlab.Client] = (*gitlabClientBuilder)(nil)
 
 func (builder gitlabClientBuilder) CreateAuthenticatedClient(ctx context.Context, credentials serviceprovider.Credentials) (*gitlab.Client, error) {
-	client, err := gitlab.NewOAuthClient(credentials.Token, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.gitlabBaseUrl))
+	var client *gitlab.Client
+	var err error
+	if credentials.Username == "" {
+		client, err = gitlab.NewClient(credentials.Token, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.gitlabBaseUrl))
+	} else {
+		client, err = gitlab.NewBasicAuthClient(credentials.Username, credentials.Token, gitlab.WithHTTPClient(builder.httpClient), gitlab.WithBaseURL(builder.gitlabBaseUrl))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to created new authenticated GitLab client: %w", err)
 	}
