@@ -25,7 +25,7 @@ COPY oauth/ oauth/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o bin/oauth -a ./cmd/oauth/oauth.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3 as spi-oauth
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.4 as spi-oauth
 
 WORKDIR /
 
