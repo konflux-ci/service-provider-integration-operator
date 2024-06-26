@@ -8,16 +8,16 @@ spec:
   template:
     spec:
       containers:
-        - name: manager
-          volumeMounts:
-            - mountPath: /etc/spi/aws/config
-              name: aws-secretsmanager-credentials
-              readOnly: true
-              subPath: config
-            - mountPath: /etc/spi/aws/credentials
-              name: aws-secretsmanager-credentials
-              readOnly: true
-              subPath: credentials
+      - name: manager
+        volumeMounts:
+          - mountPath: /etc/spi/aws/config
+            name: aws-secretsmanager-credentials
+            readOnly: true
+            subPath: config
+          - mountPath: /etc/spi/aws/credentials
+            name: aws-secretsmanager-credentials
+            readOnly: true
+            subPath: credentials
       volumes:
         - name: aws-secretsmanager-credentials
           secret:
