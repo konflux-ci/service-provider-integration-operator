@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: oauth-service-environment-config
-data:
-  VAULTKUBERNETESROLE: spi-oauth
-  VAULTAPPROLESECRETNAME: vault-approle-spi-oauth
-  VAULTAPPROLESECRETNAMESPACE: spi-system
