@@ -88,10 +88,3 @@ spec:
             memory: 10Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
-      volumes:
-        - name: config-file
-          secret:
-            secretName: shared-configuration-file
-            items:
-              - key: config.yaml
-                path: config.yaml
